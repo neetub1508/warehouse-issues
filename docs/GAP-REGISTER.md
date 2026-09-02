@@ -1116,6 +1116,13 @@ task file alone, the reviewer never reads why.
 **Remedy, one line each:** add the id to the owning task's `## Closes`. It costs 36 lines and it is
 the difference between *traceable* and *traced*.
 
+> **Applied 2026-09-02.** All 36 are now in a `## Closes` block, each under a line saying why it was
+> added, across sixteen task files — `P0-02` took eleven of them, `P1-03` four, `P1-02` three,
+> `P0-08` three, and the rest one or two each. `S-064` is now named in `p0-02.md`, which was the
+> point: a reviewer doing `P0-02`'s ledger review against the task file alone now reads *why* the
+> owner column is in the position key. **The finding was that the ids were invisible, not that the
+> work was unowned** — no scope moved, and the FRD rows that owned them still own them.
+
 ---
 
 ## §6 · The industry and segment verdicts, consolidated
