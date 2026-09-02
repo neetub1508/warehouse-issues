@@ -189,7 +189,7 @@ between two rows splits the table.
 | `fr-citations` | 1 | an `FR-nnn` that resolves to nothing |
 | `scenario-citations` | 2 | a `WH-SC-nnn` that resolves to nothing |
 | `table-names` | 3 | a warehouse table with no `DATA-MODEL.md` row |
-| `flyway-band` | 4 | a version deliberately claimed outside its module's band — `p4-10` has one: `V530060` follows the `wh3_` prefix while the task follows `FR-301`'s phase |
+| `flyway-band` | 4 | a version deliberately claimed outside its module's band. **No file in the set declares one today** — `p4-10` is the case that reads like it needs one (`V530060` follows the `wh3_` prefix while the task follows `FR-301`'s phase) and it does not, because its header names **both** `warehouse-india` and `warehouse-3pl`. Declaring the second module is always better than fencing |
 | `finding-citations` | 7 | a finding id named as the subject of a discussion rather than cited |
 | `id-collision` | 11 | an ambiguous id in a document that says which register it means |
 | `screen-citations` | 12 | a `WS-nnn` forward reference to the next free id |
@@ -306,39 +306,54 @@ mirror, and CI fails when the two part company.
 
 Until the runner exists, run both before every `issues/create-issues.sh --sync`.
 
-## Current state — run 2026-09-02 08:25 IST, from the repo root
+## Current state — re-run 2026-09-02, from the repo root
 
 ```
-python3 tools/check-design-set.py --summary        # exit 1
+python3 tools/check-design-set.py --summary        # exit 0
 ```
 
-| check | result | what it is |
-|---|---|---|
-| 1 FR citations | **pass** | 446 requirements defined, every citation across the set resolves |
-| 2 scenario citations | **35** | every one is `WH-SC-301`, `SCENARIO-CATALOGUE.md` §5 rule 3's allocation marker |
-| 3 table names | **46** | 40 distinct tables named by 18 task files with no `DATA-MODEL.md` row — the wave-2 India orphans, P5's new tables, and the report/archive tables the tasks invent |
-| 4 Flyway | **3** | `p2-29` and `p3-04` claim base-band grid config without naming `warehouse-base` on the header; `p6-08` claims `V524000`–`V524099` for `logistics`, which `D-2` gives no band. **0 duplicate versions of the 915 claimed** |
-| 5 issue refs | **pass** | skipped — `issues/CREATED.md` does not exist yet; 231 bare `#NN` are waiting for it |
-| 6 required sections | **pass** | all 138 task files carry all six sections |
-| 7 finding ids | **39** | 8 originals — 5 R2 capability-matrix rows cited as findings and one fabricated `E-754` in `COMPETITOR-BENCHMARK.md`, 2 unpadded `E-1`/`E-8` in R6 — plus 31 census mentions |
-| 8 plan ↔ files | **pass** | 138 = 138, both directions, no duplicate plan rows |
-| 9 epic membership | **6** | six phase epics put `__TASKS__` on a `## ` heading line |
-| 10 FR ownership | **3** | `FR-224`/`FR-225` are closed by no plan §2 row; `p2-14` claims both |
-| 11 id collisions | **14** | `I-10`…`I-20` defined by two registers (11), and 3 registers absent from `DECISIONS.md` §6 |
-| 12 screen ids | **5** | 1 original — `p5-13` claims `WS-238` before §1 allocates it — plus 4 census mentions |
-| | **151 violations** | |
+| check | result | exempt | what changed in the remediation pass |
+|---|---|---|---|
+| 1 FR citations | **pass** | — | unchanged: 446 requirements defined, every citation across the set resolves |
+| 2 scenario citations | **pass** | 45 | 26 → 0. Every subject was `WH-SC-301`, the §5 rule 3 allocation marker. **29 region fences**, each naming that one id, in the catalogue, the two phase epics and the 23 P5/P6 tasks that reserve from it |
+| 3 table names | **pass** | 22 | 46 → 0. **4 typos fixed** in task files, **11 genuinely missing tables added** to `DATA-MODEL.md` §2 *and* §7, **20 report grid identifiers documented as non-tables** in §8.3, **22 prior-art and counter-example quotations fenced** by id across 9 task files |
+| 4 Flyway | **pass** | — | 3 → 0. `p2-29`/`p3-04` now name `warehouse-base` on the header; `p6-08` withdraws its claim on `V524000`–`V524099`, because `D-2` allocates `logistics` no band. **0 duplicate versions of the 818 now claimed** |
+| 5 issue refs | **pass** | — | still skipped — `issues/CREATED.md` does not exist yet; 231 bare `#NN` are waiting for it. Read the hazard note above, not this row |
+| 6 required sections | **pass** | — | all 138 task files carry all six sections |
+| 7 finding ids | **pass** | 52 | 8 → 0. Five R2 **capability-matrix rows** rewritten as `R2 §1.n row N`; `E-1`/`E-8` in R6 rewritten as `§L items 1–8`; `E-754` fenced — it is the tail of *IEEE-754* at `R1:441`, quoted to explain a counting command, not a fabrication |
+| 8 plan ↔ files | **pass** | — | 138 = 138, both directions, no duplicate plan rows |
+| 9 epic membership | **pass** | — | 6 → 0. All six epics now carry a real `## Tasks` heading with `__TASKS__` alone beneath it, and the 101 hand-maintained checklist rows are deleted. `create-issues.sh` no longer refuses |
+| 10 FR ownership | **pass** | — | 3 → 0. `P2-14`'s §2 row carried two **escaped pipes**, splitting it into 9 cells and moving `Closes` out of column 6. Rewritten without them; `FR-224`/`FR-225` now resolve |
+| 11 id collisions | **pass** | — | 14 → 0. `IRREVERSIBLE.md`'s rows renamed **`I-01`…`I-63` → `IRR-01`…`IRR-63`**, file by file; `IRR-`, `WS-` and the R1 §8 `T-n` trap register declared in `DECISIONS.md` §6 |
+| 12 screen ids | **pass** | 13 | 1 → 0. `WS-238` is the next-free-screen marker; fenced by id in each of the five places that name it |
+| | **0 violations** | **132** | |
 
-**Read the composition, not just the total.** Two census documents — `docs/GAP-REGISTER.md` and
-`docs/DESIGN-SET-DEFECTS.md` — exist to *quote* the broken ids so the registers are greppable by
-them, and they account for **44 of the 151**: 9 of check 2, 31 of check 7, 4 of check 12. Fence those
-blocks with `begin`/`end` naming the ids and the total falls to 107 originals without weakening a
-single check. That is the whole argument for the exemption model in one number.
+**Read the exemption total sceptically, not the violation total.** Of the 132 suppressed mentions,
+**118 are covered by 46 self-declared fences** and the other **14 are inside fenced code blocks**,
+which every citation check skips by construction. Every count is printed on every run. No fence is a
+path allowlist and none is bare: each names the exact ids it covers, so a *new* dangling id in the
+same paragraph still fails. Run `--show-exempt` to see all 132 with the reason recorded on its fence. The checker reports a
+declaration that suppresses nothing as **stale**; there are none.
 
-Of the 35 check-2 violations, **every one is `WH-SC-301`** — the §5 rule 3 allocation marker,
-cited by 25 P5/P6 task files, two phase epics, the catalogue's own rule and the census documents.
-One region fence in the catalogue plus a per-file declaration is the whole fix. Of the 39 check-7
-violations, only **8 are originals**; of the 5 check-12 violations, only **1** is.
+**What the remediation was not allowed to do, and did not.** Exactly one line of
+`check-design-set.py` changed: the `IRREVERSIBLE.md` definition anchor and its §6 probe followed that
+register's rename from `I-` to `IRR-`. No check was relaxed, deleted or made advisory. The proof is
+the intermediate state that was deliberately measured — with the ids renamed and the anchor updated
+but **before** `DECISIONS.md` §6 was amended, check 11 still reported *"§6 declares no namespace for
+the irreversible rows register (`IRR-…`, 63 ids, authority docs/IRREVERSIBLE.md)"*. The register is
+still resolved, still counted at 63, and still required to be declared.
 
-The set is under active authoring. `GAP-REGISTER.md` and `DESIGN-SET-DEFECTS.md` both appeared while
-this checker was being written, and `GAP-REGISTER.md` §4 already dispositions the checker's own output
-against `X-nnn` defect ids. Re-run before quoting a figure.
+**Residual, stated plainly: zero failing violations, three non-failing advisories.** `p5-01:70`
+(`V531100`), `p5-09:48` (`V510126`) and `p6-08:131` (`V524000`) are versions cited in a task body that
+no task header claims. The first two are cross-references to blocks another task owns; the third is
+the reserved logistics block that this design set deliberately no longer claims. All three are
+correct as advisories and none should be silenced.
+
+*For the record, because the number moved twice: this file previously carried **151**, measured before
+the two census documents declared their own fences. With those fences in place the set measured
+**107** at the start of the remediation pass, and **0** at the end. `docs/DESIGN-SET-DEFECTS.md`
+records every FIX, FENCE and REPORT behind that.*
+
+The set is under active authoring. `GAP-REGISTER.md` §4 dispositions the checker's own output against
+`X-nnn` defect ids, and `DESIGN-SET-DEFECTS.md` carries the remediation record. **Re-run before
+quoting a figure.**

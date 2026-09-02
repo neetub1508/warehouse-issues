@@ -1520,3 +1520,196 @@ written; 5–9 before the phase they name; 10–13 are hygiene that keeps this l
 - **Never resolve a cross-document conflict by editing the losing document silently.** Both entries
   in §3 name the two documents; the loser gets an annotation, exactly as `DECISIONS.md` §5.1
   annotates the four ladder amendments.
+
+---
+
+## §6 · Checker remediation — the 2026-09-02 pass, 107 → 0
+
+`tools/check-design-set.py` reported **107 violations** at the start of this pass and **0** at the end,
+`exit 0`. The figure this repository previously quoted, **151**, was measured before the two census
+documents (`GAP-REGISTER.md`, this file) declared their own id-naming fences; those were already in
+place when the pass began, which is why the starting measurement was 107.
+
+**The ground rule was that no check may be weakened, deleted or made advisory.** Every violation was
+closed in exactly one of three ways, and each is named below.
+
+| | Meaning |
+|---|---|
+| **FIX** | the design set was wrong and the document was corrected |
+| **FENCE** | the mention is a legitimate quotation; a narrow, id-naming `begin`/`end` directive covers exactly those ids |
+| **REPORT** | a real gap that could not be closed here — left failing where it fails, or recorded below |
+
+### 6.1 Per check, measured
+
+| check | before | after | exempt after |
+|---|---:|---:|---:|
+| 1 FR citations | 0 | **0** | 0 |
+| 2 scenario citations | 26 | **0** | 45 |
+| 3 table names | 46 | **0** | 22 |
+| 4 Flyway band / ownership | 3 | **0** | 0 |
+| 5 issue refs | skipped | **skipped** | — |
+| 6 required sections | 0 | **0** | — |
+| 7 finding ids | 8 | **0** | 52 |
+| 8 plan ↔ files | 0 | **0** | — |
+| 9 epic membership | 6 | **0** | — |
+| 10 FR ownership | 3 | **0** | — |
+| 11 id collisions | 14 | **0** | 0 |
+| 12 screen ids | 1 | **0** | 13 |
+| **total** | **107** | **0** | **132** |
+
+### 6.2 FIX — what was corrected, and in which file
+
+**Epics — `X-046`, script-breaking, done first.** `issues/03-EPIC-p2.md`, `04-EPIC-p2in.md`,
+`05-EPIC-p3.md`, `06-EPIC-p4.md`, `07-EPIC-p5.md`, `08-EPIC-p6.md` each wrote `## __TASKS__` as the
+heading itself with a hand-maintained checklist beneath. Each now carries `## Tasks`, a blank line and
+`__TASKS__` alone — the shape `01-EPIC-p0.md` and `02-EPIC-p1.md` already had, and the shape
+`issues/README.md` documents. **101 hand-maintained checklist rows deleted** (29 + 4 + 23 + 12 + 21 +
+12); `create-issues.sh` generates that list from the real issue numbers. All nine epics were checked;
+`00-EPIC-master.md` carries no placeholder and needed nothing.
+
+**Flyway bands — `X-044`.**
+- `issues/p2-29.md`, `issues/p3-04.md` — headers now name **`warehouse-base`** alongside `warehouse`,
+  because both claim base-band grid-config numbers (`V501070`–`V501099`, `V501101`–`V501109`).
+- `issues/p6-08.md` — the claim on **`V524000`–`V524099` is withdrawn**. `D-2` allocates a band to
+  warehouse's five modules and to no other, and `FR-366` gives `logistics` no adapter, so this design
+  set does not number that module's migrations. `docs/DECISIONS.md` `D-2`, `docs/DATA-MODEL.md` §2.5.6,
+  §7.4 and §8.3 note 3 now say so: the adapter-band reservation `V524000`–`V524999` covers **warehouse-
+  side enablement of the seam only**, and `P6-08` claims nothing in it.
+
+**FR ownership — `X-039`.** `docs/IMPLEMENTATION-PLAN.md` §2's `P2-14` row carried a `grep` alternation
+with two **escaped pipes**. A literal `|` splits a table row into **9 cells instead of 7**, moving the
+`Closes` column from column 6 to column 8: a human transcribing the rendered table read `FR-224` and
+`FR-225` correctly, every mechanical reader found `` `V510060` `` and reported both requirements as
+owned by nobody while `p2-14.md` claimed them. The command is now described rather than quoted. §8.1's
+traceability result was re-run with `assign.txt` generated from §2 rather than transcribed by hand:
+**446 of 446 owned, none twice, none dangling** — unchanged numbers, now reproducible. **Never write a
+literal or escaped `|` inside a §2 cell.**
+
+**Table names — `X-053`, `X-002`, `X-003`, `X-012`.**
+- *Typos (4 mentions, 3 in one file):* `wh_transport_details` → **`whb_transport_details`** in
+  `issues/p2in-02.md` and twice in `issues/p2in-04.md`; and `issues/p6-09.md` cited a
+  location-occupancy table that does not exist — `C-033`'s *recommendation column* names one, but the
+  shape landed on **`whb_reservations`** (`FR-093`), which the row now says.
+- *Genuinely missing (11 tables), added to `DATA-MODEL.md` §2 **and** §7, each with an owning number
+  taken from that module's **declared** reserve, never by renumbering an existing claim:*
+
+  | Tables | §2 | §7 | Number | Reserve it came from | Task |
+  |---|---|---|---|---|---|
+  | `whb_ratio_pack_templates`, `whb_ratio_pack_template_lines` | 2.1.5 | `WHB-64` | `V500064` | §7.2 post-v1 base DDL gap `V500064`–`V500199` | `P5-20` |
+  | `whb_packaging_balances` | 2.1.4 | `WHB-65` | `V500065` | same gap | `P5-21` |
+  | `whb_stock_movements_archive`, `whb_stock_movement_lines_archive`, `whb_movement_line_attributes_archive` | 2.1.14 | `WHB-66` | `V500100` | same gap | `P6-01` |
+  | `wh_marketplace_claims` | 2.2.4 | `WH-115` | `V510215` | §7.3 correction reserve | `P5-13` |
+  | `whin_eway_bill_lines`, `whin_eway_bill_events` | 2.4.1 | `WIN-05` | `V540030` | already that task's number | `P2-IN-04` |
+  | `whin_form3cd_runs`, `whin_form3cd_lines` | 2.4.2 | `WIN-22` | `V540181` | §7.6 correction reserve | `P4-09` |
+
+  The inventory block, §8.2 and §8.4 were recomputed rather than adjusted by hand: **290 → 301 tables**
+  (base 92, app 119, india 50), `0` tables without an allocated migration. The plan's §8.3 migration
+  count was likewise re-run: **914 → 818 numbers** (−100 for `P6-08`'s withdrawn block, +4 for the new
+  claims), still exactly one owner each, still all in band. `issues/p5-20.md`, `p5-21.md`, `p5-13.md`,
+  `p4-09.md`, `p6-01.md` had their headers and `⚠ has no migration` traps rewritten to record the
+  closure, and the plan's §2 rows were updated to match.
+- *Not tables at all (20 names):* `wh_rpt_*`, `whin_rpt_stock_by_mrp` and `wh3_rpt_custody_value` are
+  **report grid identifiers** from `BUILD-SPEC-SCREENS.md` §7. `DATA-MODEL.md` §8.3 now carries them as
+  note 4, enumerated with their screen and their source query, precisely so that the next author does
+  not write a `CREATE TABLE` for one and create a second truth about a number the ledger already
+  answers.
+
+**Finding citations — `X-045`.** Five of the eight were **R2 capability-matrix row numbers cited as
+findings**, the exact `DECISIONS.md` §7 rule 4a hazard. R2 was opened and each row identified, and each
+citation in `docs/COMPETITOR-BENCHMARK.md` is now a section reference:
+
+| Was | Is | R2 row actually says |
+|---|---|---|
+| `T-244` | `R2 §1.12 row 244` | Configurable RF flows without code — **V3** |
+| `T-264` | `R2 §1.13 row 264` | FIFO costing over receipt layers — **V1**, the only v1 method |
+| `T-325` | `R2 §1.16 row 325` | Fitment / installation consumption — **V1.1** |
+| `T-326`…`T-337` | `R2 §1.17 rows 326–337` | the returns and reverse-logistics rows |
+
+A standing rule was added to `COMPETITOR-BENCHMARK.md` §10: **cite a matrix row as `R2 §1.n row N`,
+never as `T-N`** — R2 scores 392 rows and its findings stop at `T-097`. In
+`docs/reviews/R6-prior-art-triage.md`, `§L E-1…E-8` is a *prior-art document's* own item numbering, not
+R3 findings; it now reads `§L items 1–8`, which preserves the count and removes a false cross-reference
+into R3's namespace.
+
+**Id collision — `X-047`, the largest edit.** `DATA-MODEL.md` §6 numbers enforceable SQL constraints
+`I-1`…`I-20`; `IRREVERSIBLE.md` numbered its rows `I-01`…`I-63`. From `I-10` up they were
+**byte-identical** across roughly 250 mentions. **The irreversible register moved** — it is the newer of
+the two and `DECISIONS.md` §6 had never granted it `I-` — to **`IRR-01`…`IRR-63`**.
+
+It was done **file by file, in four passes, never as a blanket search-and-replace** (`DECISIONS.md` §7
+rule 4, which exists because that operation corrupted the accounting decisions table twice):
+
+1. `IRREVERSIBLE.md` itself — verified first to contain **no** single-digit `I-n` and **no** three-digit
+   ids, so every token in it was its own: **384 replacements**.
+2. The **237** mentions already carrying the local `IRR I-nn` qualifier — unambiguous by construction.
+3. The **140** mentions unambiguous by shape: zero-padded `I-0n`, and `I-21`…`I-63` (outside the
+   constraint register's 1–20 range). Every zero-padded mention was read in context first.
+4. The **151** genuinely ambiguous `I-10`…`I-20` mentions, read one at a time. **Most were left
+   alone**: `SCENARIO-CATALOGUE.md`'s 23 are all `` `L-n` · `I-nn` `` constraint pairings, `01-EPIC-p0.md`'s
+   8 sit beside `I-18` in a constraint table, and every mention naming a migration file (`V500030`,
+   `V500032`, `V500033`, `V500020`) is a constraint. **20 were converted** in
+   `PORT-AND-ADAPTER-CONTRACT.md` and `INDIA-LOCALISATION-PACK.md` (both contain no single-digit `I-n`
+   at all, and every hit was an irreversible column), and **11 more** individually in
+   `p0-02.md`, `p1-01.md`, `p1-05.md`, `p1-07.md`, `p3-15.md`, `p4-07.md` and `GAP-REGISTER.md`.
+
+**Result: 792 mentions renamed across the four passes** (384 + 237 + 140 + 20 + 11), leaving **808
+`IRR-nn` mentions in the set** — the extra 16 are the new prose that records the rename. **63 distinct
+ids, none outside 01–63, no three-digit token, no `IRR-IRR-`, and no residual `IRR I-` form.** The preambles that asserted the old, false position were corrected in
+`IRREVERSIBLE.md` ("neither used anywhere else in the set" — it was) and in `DATA-MODEL.md`'s
+id-namespace warning. `DECISIONS.md` §6 now declares the three registers it never had: **`IRR-nn`
+irreversible rows**, **`WS-nnn` screens** (237 ids, the §1 index *is* the allocation), and **the R1 §8
+`T-1`…`T-18` traps**, with the citation rule for the `T-n` / `T-nnn` split stated explicitly and the
+reason a **review is never renumbered** recorded with it.
+
+**One line of the checker changed, and only to follow the rename:** the `IRREVERSIBLE.md` definition
+anchor and its §6 probe moved from `I-` to `IRR-`. Nothing was relaxed. The proof is the intermediate
+state that was deliberately measured — with the ids renamed and the anchor updated but **before** §6
+was amended, check 11 still reported *"§6 declares no namespace for the irreversible rows register
+(`IRR-…`, 63 ids, authority docs/IRREVERSIBLE.md)"*. Same rule, same 63 ids, new prefix.
+
+### 6.3 FENCE — every directive added, and why it is legitimate
+
+**46 declarations suppress 118 mentions; a further 14 sit inside fenced code blocks, which every
+citation check skips by construction — 132 in total.** No declaration is a path allowlist, none is
+bare, and every one names the exact ids it covers, so a *new* dangling id in the same paragraph still
+fails. The checker prints every count on every run and reports a declaration that suppresses nothing as
+**stale**; there are none.
+
+| Rule | Where | Ids named | Why it is a quotation, not a citation |
+|---|---|---|---|
+| `scenario-citations` | 29 region fences: `SCENARIO-CATALOGUE.md` §5, `07-EPIC-p5.md`, `08-EPIC-p6.md`, and the 23 P5/P6 tasks | `WH-SC-301` | The §5 rule 3 **allocation marker** — the next free scenario id, which by definition has no row. Each task names it to reserve from it and to warn that two parallel tasks will both take 301 |
+| `screen-citations` | `p5-13.md` `## Traps`, `DECISIONS.md` §6, plus the pre-existing fences in `issues/README.md` and the two census documents | `WS-238` | The `BUILD-SPEC-SCREENS.md` §1 **next-free marker**, named so a new screen takes it rather than reusing `WS-137`'s grid |
+| `table-names` | 9 task-file sections: `p2in-01`, `p2in-04`, `p3-20`, `p4-02`, `p4-03`, `p4-05`, `p4-07`, `p4-12`, `p5-21` | 22 tables, each named on its fence | Two kinds. **Prior-art names** — `INDIA-LOCALISATION-PACK.md` §11.2's names for objects `DATA-MODEL.md` names differently; the trap exists to carry the divergence and to say the data model wins. **Counter-examples** — `whaf_van_stock` ("the moment the van becomes a quantity table there are two stock truths") and `wh_tyre_fitments` ("building it here is precisely how the boundary rots"). Both are named so they are *not* built |
+| `finding-citations` | `COMPETITOR-BENCHMARK.md` §10's counting table, plus the two pre-existing census fences | `E-754` | **Not a fabrication.** `E-754` is the tail of *IEEE-754* at `docs/reviews/R1-codebase-reality.md:441` — verified — and §10 names the token to explain why the counting command's word boundary excludes it |
+
+The pre-existing whole-file declarations in `GAP-REGISTER.md` and this file were left as they are: both
+documents exist *to* quote every broken id, the census entries are spread across their whole length,
+and both declarations already name their ids, which is the narrowing that matters.
+
+### 6.4 REPORT — what is still open
+
+Nothing is left failing the checker. These are real gaps the checker cannot see, recorded so they are
+not lost:
+
+| # | Open item | What would close it |
+|---|---|---|
+| **R-1** | **`WS-238` has no row.** `X-001` stays open. `P5-13`'s claim queue now has its table (`wh_marketplace_claims`, `WH-115`, `V510215`) but still no screen id | Add the `WS-238` row to `BUILD-SPEC-SCREENS.md` §1 and drop the two task-side fences |
+| **R-2** | **`P5-21`'s movement-linked entry table is unnamed.** Its acceptance says *"the balance reconciles to the sum of its entries"*; `whb_packaging_balances` was allocated, the entry table was **not invented** | `P5-21` names it, adds the §2.1.4 row and puts the number in `WHB-65`, in one PR |
+| **R-3** | **`P6-01`'s archive-run record is unallocated.** The choice between extending `whb_job_runs` and a new `whb_archive_runs` is the task's, not this document's | `P6-01` picks one; the row goes in §2.1.14 and the number into `WHB-66` |
+| **R-4** | **`DEFECTS-FOUND.md` does not exist.** Fourteen task files and both epics cite it; the file in this repository is `docs/DESIGN-SET-DEFECTS.md`. No check covers a dangling *document* reference | Decide whether it is this file renamed or a separate log, then fix the citations — and consider a check-14 for document references |
+| **R-5** | **`INDIA-LOCALISATION-PACK.md` §11.2 group F is owned by nobody.** `whin_packaged_commodity_declarations`, `whin_mrp_revisions`, `whin_instrument_verifications`: `P4-05` names them precisely to say no §2 task owns them. They are fenced as an unowned gap, **not** allocated — allocating a row would have hidden the gap | `FR-223` is v2 · P5; either a task claims them or the pack records them as out of scope |
+| **R-6** | **Three non-failing Flyway advisories**, all correct: `p5-01:70` `V531100`, `p5-09:48` `V510126` cite blocks another task owns; `p6-08:131` `V524000` is the reserved logistics block this set no longer claims | Nothing — they are advisories by design and should not be silenced |
+| **R-7** | **Check 5 is still skipped.** `issues/CREATED.md` does not exist, and **231 bare `#NN`** will become check-5 subjects the moment it does — most are document row numbers that will *resolve, to the wrong thing* | Before filing, rewrite row numbers as `row 116` or in a code span, and cross-repo issues as `owner/repo#791` |
+
+### 6.5 What this pass did not do
+
+- **No check was weakened, deleted or made advisory.** One checker line changed, to follow a rename,
+  and the register it resolves is still enforced — §6.2 records the measurement that proves it.
+- **No id was blanket search-and-replaced.** Every one of the 792 renamed mentions was reached by a
+  pass whose ambiguity had first been eliminated, and the 151 genuinely ambiguous ones were read in
+  context one at a time. 131 of them were **correctly left alone**.
+- **No number was invented.** Every migration number came from a reserve the module had already
+  declared, and no existing claim was renumbered.
+- **No count was asserted.** `DATA-MODEL.md` §8.2, §8.4 and `IMPLEMENTATION-PLAN.md` §8.1, §8.3 were
+  re-run with the documents' own commands and their stated outputs replaced with what those commands
+  actually produced.

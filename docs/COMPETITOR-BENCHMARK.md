@@ -1019,6 +1019,7 @@ Run from `/Users/bbhushan/work/git/workspace/warehouse-issues/docs/reviews`.
 | Named competitor products in the six segment columns | **68** | Enumerated in §0.2: 8 tier-1 + 8 ERP + 10 SMB + 12 India + 7 DMS + 18 3PL/eComm + 4 Indian carriers + 1 cautionary (QuickBooks Commerce/TradeGecko) |
 | Rows in this document's consolidated matrix (§2, 18 areas) | **236** | `sed -n '148,492p' ../COMPETITOR-BENCHMARK.md \| grep -E '^\|' \| grep -vE '^\|-' \| grep -vcE '^\| Capability \|'` — lines 148–492 are §2.1 to the start of §3; 272 table lines less 18 header rows and 18 separator rows |
 | Disagreements between audits or with the ladder | **16** | §9 table, hand-compiled; each is marked `‡` at its point of use |
+
 <!-- check-design-set: finding-citations end -->
 
 

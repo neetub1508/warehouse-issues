@@ -196,7 +196,7 @@ python3 tools/check-design-set.py --check 8                              # pass
 
 # every requirement is owned by exactly one task
 grep -ohE '\bFR-[0-9]{3}\b' issues/p*.md | sort -u | wc -l               # 446 of 446
-python3 tools/check-design-set.py --check 10                             # 3 — FR-224/FR-225
+python3 tools/check-design-set.py --check 10                             # pass
 
 # every review finding is cited by the task that closes it
 grep -ohE '\b[CTEFSPG]-[0-9]{3}\b' issues/p*.md | sort -u | wc -l        # 385 of 575
@@ -204,10 +204,10 @@ grep -ohE '\b[CTEFSPG]-[0-9]{3}\b' issues/p*.md | sort -u | wc -l        # 385 o
 # scenarios, screens and tables the tasks reach for
 grep -ohE '\bWH-SC-[0-9]{3}\b' issues/p*.md | sort -u | wc -l            # 299 (298 real + WH-SC-301)
 grep -ohE '\bWS-[0-9]{3}\b'    issues/p*.md | sort -u | wc -l            # 238 (237 real + WS-238)
-grep -ohE '\b(whb|wh3|whin|wha[a-z]|wh)_[a-z0-9_]+\b' issues/p*.md | sort -u | wc -l   # 332
+grep -ohE '\b(whb|wh3|whin|wha[a-z]|wh)_[a-z0-9_]+\b' issues/p*.md | sort -u | wc -l   # 330
 
 # the whole gate
-python3 tools/check-design-set.py --summary                              # 151 violations, exit 1
+python3 tools/check-design-set.py --summary                              # 0 violations, exit 0
 ```
 
 <!-- check-design-set: scenario-citations begin WH-SC-301 - the allocation marker named as the subject of this paragraph, not cited as a scenario -->
@@ -216,7 +216,9 @@ python3 tools/check-design-set.py --summary                              # 151 v
 Read those last three the way the checker does. **299 scenario ids** is 298 of the catalogue's 300
 plus the `WH-SC-301` allocation marker — `WH-SC-170` and `WH-SC-204` are cited by no task. **238
 screen ids** is 237 real ones plus `WS-238`, which `p5-13` claims for the marketplace-claim queue
-before `BUILD-SPEC-SCREENS.md` §1 allocates it. **385 of 575 findings** are cited by a task; the
+before `BUILD-SPEC-SCREENS.md` §1 allocates it — **the table it also needed now exists**
+(`wh_marketplace_claims`, `WH-115`, `V510215`); the screen id is still to be allocated.
+**330 table names** is down from 332 because two were typos for tables that already existed. **385 of 575 findings** are cited by a task; the
 remaining 190 are dispositioned in `docs/GAP-REGISTER.md`, whose own §4 says fourteen are owned by
 nothing — read that document, not this line, for the honest number.
 
@@ -230,5 +232,8 @@ python3 tools/check-design-set.py       # must pass, or you know why each violat
 ./issues/create-issues.sh --dry-run     # must reach "==> 6/6", not "REFUSING:"
 ```
 
-The dry run currently stops at `REFUSING:` because of the six `## __TASKS__` heading lines described
-above. That is the script doing its job: it will not file a mangled epic.
+**The dry run no longer stops at `REFUSING:`.** All six epics that wrote `## __TASKS__` as the heading
+now carry a real `## Tasks` heading with the placeholder alone on the line beneath it, and the 101
+hand-maintained checklist rows below them are deleted — the script generates that list from the real
+issue numbers. `tools/check-design-set.py --check 9` passes, which is the same assertion made earlier
+in CI.
