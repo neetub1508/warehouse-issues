@@ -933,8 +933,11 @@ sense that *the historical values do not exist and cannot be invented*.
 
 ## 9. Open decisions
 
-All seven remain open and each gates named requirements. `DECISIONS.md` §3 carries the deadline and
-the recommendation for each; this table carries only the requirement exposure.
+**All fifteen remain open** and each gates named requirements. `DECISIONS.md` §3 carries the deadline
+and the recommendation for each; this table carries only the requirement exposure. *(This section
+listed seven until 2026-09-02 while `DECISIONS.md` §3 carried eleven — `X-049`. `OD-12`…`OD-15` were
+allocated the same day for the four gates that had been tracked without an id, `X-024`/`X-029`/
+`X-030`/`X-036`.)*
 
 | # | Decision | Requirements blocked |
 |---|---|---|
@@ -945,6 +948,14 @@ the recommendation for each; this table carries only the requirement exposure.
 | **OD-5** | Whether the frontend re-closes the vocabularies the backend opens | `FR-380` |
 | **OD-6** | Valuation-method scope in v1 — weighted average and FIFO, with the method configurable per item category × site. **Layer ownership is no longer part of this decision**: `D-6` settles it, and the layers are warehouse's | `FR-235` |
 | **OD-7** | Precision — quantity, money, per-unit cost and percentage scales | `FR-030` |
+| **OD-8** | How an out-of-process consumer authenticates to the port. Recommended: a **platform service principal**, the one item in this set platform must build for warehouse | `FR-284` — and every `logistics` requirement at v3, because a separately deployed consumer has nothing to authenticate with |
+| **OD-9** | Whether `warehouse` carries a tax engine, or never computes tax. **Its deadline moves to *before `P2-25`***, not before `P2-IN` — `P2-25` builds the v1 table that implements the rejected option (`U-003`) | `FR-325` against `FR-294` — the India pack is **50 or 56 tables** depending on the answer |
+| **OD-10** | Is MRP a dimension of the stock position? **The tightest deadline in the programme**, `PNR-1` = `V500030` | `FR-321`, and through the position key every requirement that reads a balance |
+| **OD-11** | Do value-only movements conserve value? | `FR-084` — whose seeded virtual-location list has no value-offset row |
+| **OD-12** | The ledger partition key — `occurred_at` or `posting_date`? Recommended: `occurred_at` | `FR-022` against `PLATFORM-DEPENDENCIES.md` `PD-D5`; `L-13` makes them different columns |
+| **OD-13** | The value-offset virtual location's **code** — `VALUE_OFFSET`, `LANDED_COST_OFFSET`, or a reused `ADJUSTMENT_OFFSET`. Recommended: `VALUE_OFFSET`, seeded here | `FR-084`, which seeds none of the three |
+| **OD-14** | Is value conservation a fifteenth invariant `L-15`, or a movement-type behaviour column? Recommended: the invariant, with a matching `I-21` | `FR-084`, and the landed-cost and assembly-completion requirements that post `quantity = 0` with a value |
+| **OD-15** | Is the union valuation report (`M3`) built, given `D-9`'s permanent separation? Recommended: not in v1 | `FR-370` and `D-9`'s cost note — a finance user asking for total stock value gets two numbers |
 
 ## 10. What this product deliberately does not do
 

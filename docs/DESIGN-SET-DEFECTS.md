@@ -729,7 +729,7 @@ fallback, and whether `WH-SC-170`/`WH-SC-213`'s `V·Ph` cells should read `P2` /
 
 ### `X-024` · **The partition-key conflict still has no `OD-` id, and `OD-1`…`OD-11` are all taken**
 
-> **Severity** BLOCKER · **Status** **OPEN** — the partition key has **no `OD-` id**, and its deadline is `V500030`, which is `PNR-1` **and** `PNR-2`. `GAP-REGISTER.md` §7.1 lists it first among the four unnumbered gates · **Originally** `D-P01-8`, from `issues/DEFECTS-FOUND.md`
+> **Severity** BLOCKER · **Status** **FIXED, 2026-09-02** — numbered **`OD-12`** in `DECISIONS.md` §3, recommendation `occurred_at`, and cited by id in `issues/p0-02.md`. **The decision itself remains open**: its deadline is `V500030`, which is `PNR-1` **and** `PNR-2`. This entry closed the *unnumbered* defect, not the gate · **Originally** `D-P01-8`, from `issues/DEFECTS-FOUND.md`
 
 `IMPLEMENTATION-PLAN.md` §2.10, §7 and §11 item 1 all say the same thing: `FR-022` and
 `DATA-MODEL.md` `WHB-30` specify `PARTITION BY RANGE (occurred_at)`; `PLATFORM-DEPENDENCIES.md`
@@ -832,7 +832,7 @@ Update vehicle · Cancel — and the screen states that extension and consolidat
 
 ### `X-029` · The value-offset virtual location has two names, and `FR-084` seeds neither
 
-> **Severity** BLOCKER · **Status** **OPEN**, with a deadline: one code must be agreed **before `P1-05` writes `V500013`**. `GAP-REGISTER.md` §7.1 carries it as an unnumbered gate · **Originally** `D-P2-03`, from `issues/DEFECTS-FOUND.md`
+> **Severity** BLOCKER · **Status** **FIXED, 2026-09-02** — numbered **`OD-13`** in `DECISIONS.md` §3, recommendation `VALUE_OFFSET` plus a row in `FR-084`'s seeded list, and cited in `issues/p1-05.md`, `issues/p2-17.md` and `issues/p2-28.md`. **The decision itself remains open** and one code must be agreed **before `P1-05` writes `V500013`** · **Originally** `D-P2-03`, from `issues/DEFECTS-FOUND.md`
 
 - `DECISIONS.md` `OD-11` and `IMPLEMENTATION-PLAN.md` `P2-28` call it **`VALUE_OFFSET`**.
 - `PORT-AND-ADAPTER-CONTRACT.md` `PC-12` calls it **`LANDED_COST_OFFSET`** and offers *"the reuse of
@@ -848,7 +848,7 @@ A migration author following one document seeds a row the other document's code 
 
 ### `X-030` · There is no `L-15` and no `I-n` row for value conservation
 
-> **Severity** MAJOR · **Status** **OPEN** — `DECISIONS.md` §4 stops at `L-14`, `DATA-MODEL.md` §6.3 stops at `I-20`, and `P2-17`, `P2-28` and `P3-11` all depend on the answer · **Originally** `D-P2-04`, from `issues/DEFECTS-FOUND.md`
+> **Severity** MAJOR · **Status** **FIXED, 2026-09-02** — numbered **`OD-14`** in `DECISIONS.md` §3, recommendation *a fifteenth invariant `L-15` with a matching `I-21`*, and cited in `issues/p2-17.md`, `issues/p2-28.md` and `issues/p3-11.md`. **The rows are still not allocated** — §4 stops at `L-14` and §6.3 at `I-20` — because allocating them is the decision, and it is due before `P0-02` · **Originally** `D-P2-04`, from `issues/DEFECTS-FOUND.md`
 
 `DECISIONS.md` §4's invariant table stops at **`L-14`** and `DATA-MODEL.md` §6.3's constraint table
 stops at **`I-20`**; neither carries a value-conservation row. `PC-12` states plainly that whether
@@ -945,7 +945,7 @@ computed figure, never the headline.
 
 ### `X-036` · `M3`, the union valuation report, still has no `OD-` row and its deadline has arrived
 
-> **Severity** MAJOR · **Status** **OPEN, deadline arrived** — `M3` needs a numbered row in `DECISIONS.md` §3 before `P2-20` and `P2-27` merge. Carried as `## Blocked on` in `p2-27.md` · **Originally** `D-P2-10`, from `issues/DEFECTS-FOUND.md`
+> **Severity** MAJOR · **Status** **FIXED, 2026-09-02** — numbered **`OD-15`** in `DECISIONS.md` §3, recommendation *do not build the union in v1*, and cited by id in `issues/p2-27.md`. **The decision itself remains open** and its deadline has arrived: it is due before `P2-20` and `P2-27` merge · **Originally** `D-P2-10`, from `issues/DEFECTS-FOUND.md`
 
 `COEXISTENCE.md` §8.2: R3 `M3`/`E-084` says build it; R7 §4.6 item 4 says do not and document the
 separation in the UI instead; **`DECISIONS.md` settles neither**, and §8.2 flags that it needs an
@@ -1060,7 +1060,7 @@ comm -13 <(grep -oE '^\| \*\*WH-SC-[0-9]{3}\*\*' docs/SCENARIO-CATALOGUE.md | gr
 
 ### `X-041` · `WH-SC-204` is a real scenario that no task claims — **MINOR**
 
-> **Status** **OPEN** — one line in one `## Scenarios closed` block.
+> **Status** **FIXED, 2026-09-02** — `WH-SC-204` claimed by `issues/p2-14.md` (v1 printing; the print server that would choose the template by zone is `P3-08`, v1.1). The same pass claimed `X-023`'s `WH-SC-170` into `issues/p2-01.md`, so `comm -13` over the catalogue is now **empty**: all 300 scenarios are walked by a task.
 
 **Evidence.**
 
@@ -1254,7 +1254,7 @@ The recommended check-13 is in `GAP-REGISTER.md` §8 item 3.
 
 ### `X-049` · The FRD says "All seven remain open" and lists `OD-1`…`OD-7`; `DECISIONS.md` §3 carries eleven — **MAJOR**
 
-> **Status** **OPEN** — add `OD-8`…`OD-11` to the FRD §9 table.
+> **Status** **FIXED, 2026-09-02** in `WAREHOUSE-FUNCTIONAL-REQUIREMENTS.md` §9 — the heading sentence now reads *All fifteen remain open*, the table carries `OD-8`…`OD-15` with each one's requirement exposure, and it states inline why it drifted. `OD-12`…`OD-15` are the four formerly unnumbered gates, allocated the same day (`X-024`, `X-029`, `X-030`, `X-036`).
 
 **Evidence.**
 
@@ -1352,7 +1352,7 @@ between `0` and `a`. `tools/check-design-set.py` gets it right (its R2 register 
 
 ### `X-052` · `COEXISTENCE.md` mitigation `M4` is named in no task file — **MINOR**
 
-> **Status** **OPEN** — fold into `P2-27`, which already ships `M1`, `M2` and `M8`.
+> **Status** **FIXED, 2026-09-02** — declared in `issues/p2-27.md` alongside `M1`/`M2`/`M8`, and the seed it actually requires is named in `issues/p0-04.md`. `M4` is now owned in one place and cross-referenced from the other, which is the shape `M5`/`M9` already had.
 
 **Evidence.**
 

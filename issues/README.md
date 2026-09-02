@@ -213,8 +213,10 @@ python3 tools/check-design-set.py --summary                              # 0 vio
 <!-- check-design-set: scenario-citations begin WH-SC-301 - the allocation marker named as the subject of this paragraph, not cited as a scenario -->
 <!-- check-design-set: screen-citations begin WS-238 - the next free screen id named as the subject of this paragraph, not cited as a screen -->
 
-Read those last three the way the checker does. **299 scenario ids** is 298 of the catalogue's 300
-plus the `WH-SC-301` allocation marker — `WH-SC-170` and `WH-SC-204` are cited by no task. **238
+Read those last three the way the checker does. **301 scenario ids** is all 300 of the catalogue
+plus the `WH-SC-301` allocation marker. `WH-SC-170` and `WH-SC-204` were the last two cited by no
+task; `X-041` closed them on 2026-09-02 into `P2-01` and `P2-14`, so **every scenario in the
+catalogue is now walked by a task**. **238
 screen ids** is 237 real ones plus `WS-238`, which `p5-13` claims for the marketplace-claim queue
 before `BUILD-SPEC-SCREENS.md` §1 allocates it — **the table it also needed now exists**
 (`wh_marketplace_claims`, `WH-115`, `V510215`); the screen id is still to be allocated.

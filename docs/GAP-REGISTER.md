@@ -1222,27 +1222,29 @@ Not findings — **decisions with a deadline**, from `DECISIONS.md` §3 and `IMP
 
 | Gate | Deadline | Status |
 |---|---|---|
-| **The partition key** — `occurred_at` (FRD + `DATA-MODEL.md` `WHB-30`) vs `posting_date` (`PD-D5`) | **before `P0-02`** — `V500030` is `PNR-1` **and** `PNR-2` | **⛔ has no `OD-` id at all.** `OD-1`…`OD-11` are allocated; the next is free and unassigned (`X-024`) |
+| **`OD-12`** — the partition key: `occurred_at` (FRD + `DATA-MODEL.md` `WHB-30`) vs `posting_date` (`PD-D5`) | **before `P0-02`** — `V500030` is `PNR-1` **and** `PNR-2` | open; recommendation is `occurred_at`. **Numbered 2026-09-02** (`X-024`); was unnumbered when this row was written; the next is free and unassigned (`X-024`) |
 | **`OD-10`** — is MRP a dimension of the position key? | **before `PNR-1`** — the tightest deadline in the set | open; recommendation is *no* |
 | **`OD-11`** — do value-only movements conserve value? Is there an `L-15`? | before P2 valuation | open. **`DECISIONS.md` §4 stops at `L-14` and `DATA-MODEL.md` §6.3 stops at `I-20`** (`X-030`) |
 | **`OD-7`** — precision scales | before `P0-02` | open; adopt accounting's resolved set |
 | **`OD-8`** — how an out-of-process consumer authenticates to the port | before `P0` builds the port | open. **Platform work, and the only thing platform must build for warehouse** |
 | **`OD-1`** — the reciprocal accounting edits | before accounting's P3 **and** before `P0-02` | open; a *different* repository's design set |
-| **The value-offset location's code** — `VALUE_OFFSET` (`OD-11`, `P2-28`) vs `LANDED_COST_OFFSET` (`PC-12`) | **before `P1-05` writes `V500013`** | open (`X-029`) |
-| **`M3`** — the union valuation report: build it (R3 `M3`/`E-084`) or refuse it (R7 §4.6) | *"before the P2 reports task is written"* — **which is now** | **open and unnumbered** (`X-036`) |
+| **`OD-13`** — the value-offset location's code: `VALUE_OFFSET` (`OD-11`, `P2-28`) vs `LANDED_COST_OFFSET` (`PC-12`), and `FR-084` seeds neither | **before `P1-05` writes `V500013`** | open; recommendation is `VALUE_OFFSET`. **Numbered 2026-09-02** (`X-029`) |
+| **`OD-14`** — is value conservation a fifteenth invariant `L-15`, or a movement-type behaviour column? | **before `P0-02`** — the guard is a constraint on the table | open; recommendation is `L-15` plus a matching `I-21`. **Numbered 2026-09-02** (`X-030`) |
+| **`OD-15`** — `M3`, the union valuation report: build it (R3 `M3`/`E-084`) or refuse it (R7 §4.6) | *"before the P2 reports task is written"* — **which is now** | open; recommendation is *not in v1*. **Numbered 2026-09-02** (`X-036`) |
 
-**Four of the eight gates have no id.** `DECISIONS.md` §3 owns the `OD-` namespace and four live gates
-sit outside it — the partition key, the value-offset code, the value-conservation invariant, and `M3`.
-An unnumbered gate cannot be tracked, and `IMPLEMENTATION-PLAN.md` §7 already carries the partition
-key as *"an unnumbered gate"*.
+**All nine gates now have an id.** When this section was written, four of them did not: the partition
+key, the value-offset code, the value-conservation invariant and `M3` sat outside the `OD-` namespace
+that `DECISIONS.md` §3 owns, and an unnumbered gate cannot be tracked. They were allocated
+**`OD-12`…`OD-15`** on 2026-09-02 and each is cited by id in its blocking task file. **Numbering a gate
+does not answer it** — all nine are still open, and every deadline above still stands.
 
 ### 7.2 The shortest honest statement of readiness
 
 > **`platform` + `warehouse-base` + `warehouse` cannot be sold to a first customer until: the eleven
 > R5 §7.1 ship-blockers are built (all eleven have an owning task, and two of the eleven are gated by
-> a defect in this set — `X-027` and `X-029`); the four unnumbered gates in §7.1 are numbered and
-> answered before `V500030` merges; and `S-035` is either written as a task or written off as a
-> declined segment.**
+> a defect in this set — `X-027` and `X-029`); the nine gates in §7.1 are answered before `V500030`
+> merges — the four that were unnumbered are now `OD-12`…`OD-15`, which makes them trackable, not
+> settled; and `S-035` is either written as a task or written off as a declined segment.**
 >
 > Everything else on the 575-finding list is a version placement, and the version placements are
 > carried in 138 task files.
