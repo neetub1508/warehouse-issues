@@ -21,9 +21,21 @@ padding: `D-12` says *"every capability found by any lens is placed in a version
 file now; nothing is deferred to 'we'll look at it later'."* A refusal with a written re-entry path is a
 decision. A silence is a gap someone rediscovers as a defect.
 
+## The invariants this phase establishes
+
+This phase **establishes no new `L-n`** — `P0` and `P1` did that. What it does is put existing
+invariants under **new writers**, and a new writer is exactly how an invariant is lost. Each row names
+the invariant, the new writer, and the specific way this phase could break it (`H-008`).
+
+| # | Invariant | The new writer P6 introduces | How this phase breaks it if unwatched |
+|---|---|---|---|
+| **L-4** | **Positions are a cache.** A full rebuild reproduces every row **exactly** | `V510300`'s **computed stocking level** and `V510302`'s **dashboard**, plus `P6-03`'s labour rollup | this is the phase that adds derived numbers to `warehouse-base` and `warehouse`, and the question `L-4` forces on each of them is *"is this a cache or a fact?"* A cache must have a rebuild that reproduces it exactly and a drift check that proves it; a fact must be written by the ledger. A derived column with neither is the defect |
+| **L-13** | **Three timestamps, never one** | `V500101`'s **automation event contract** and `P6-01`'s **archiving** | an event contract that emits one timestamp makes offline replay and degraded-mode catch-up unreconstructible for subscribers, permanently and for the past. The archive job partitions on **`occurred_at`**, and a row archived on `recorded_at` silently changes which period a rebuild can reach |
+| **L-2** | **Append-only** | **archiving**, the first process allowed to remove ledger rows from the live table | archiving is not deletion. Rows move to an archive partition or store that a rebuild and a traceability query can still read for the full retention period; `P6-01` refuses to run where no retention policy resolves (`NO_RETENTION_POLICY`), and disposal is explicitly out of v3 scope |
+
 ## Exit criterion — as scenario ids
 
-<!-- check-design-set: scenario-citations begin WH-SC-301 — the SCENARIO-CATALOGUE.md §5 rule 3 allocation marker — the next free scenario id, which by definition has no row yet. Named here so a parallel task does not silently take it twice; it is never a citation of a scenario that exists -->
+<!-- check-design-set: scenario-citations begin WH-SC-306 — the SCENARIO-CATALOGUE.md §5 rule 3 allocation marker — the next free scenario id, which by definition has no row yet. Named here so a parallel task does not silently take it twice; it is never a citation of a scenario that exists -->
 
 `DECISIONS.md` §5's v3 sentence, made mechanical by `IMPLEMENTATION-PLAN.md` §1.8:
 
@@ -48,7 +60,7 @@ Four tasks author none, by design, and say why (`P6-06`, `P6-09`, `P6-11`, `P6-1
 §5 rule 1: *"a task with no scenarios is either infrastructure with an architecture test instead, or it
 is under-specified — and the reviewer says which."*
 
-> **⚠ ID COLLISION.** New ids continue from **`WH-SC-301`** (§5 rule 3), and P5 is claiming from the same
+> **⚠ ID COLLISION.** New ids continue from **`WH-SC-306`** (§5 rule 3), and P5 is claiming from the same
 > counter concurrently. **Claim ids by merging them into `SCENARIO-CATALOGUE.md` in one commit BEFORE
 > writing code.** The catalogue file is the allocation register; nothing else is.
 
@@ -64,18 +76,44 @@ same number"*).
 # from issues/ — the header line of every P6 task file
 grep -h '^Part of' p6-*.md | sed 's/.*Migrations //; s/ · Screens.*//'
 grep -h '^Part of' p6-*.md | grep -oE 'V5[0-9]{5}' | sort -u
-# → V500100 V500101 V510300 V510301 V510302 V524000 V524099 V530100 V530110 V530111
+# → V500100 V500101 V510300 V510301 V510302 V524000 V524999 V530100 V530110 V530111
 ```
+
+**Round-2 correction (`H-006`).** The output above was **re-run on 2026-09-02**, and it did not match
+what this block previously showed: the transcribed line read `V524099`, a number no task header has
+ever contained. `V524000` and `V524999` appear in the second grep only because they sit inside
+`p6-08.md:4`'s **refusal sentence** — *"Migrations **none in this design set's bands**"* — which the
+`grep -oE` cannot tell apart from a claim. Read the first command's output, which prints the field
+verbatim and shows `none in this design set's bands` for `P6-08`, before reading the second's.
 
 | Band | Module | Numbers | Owner | Where the range comes from |
 |---|---|---|---|---|
 | `V500100`–`V500101` | `warehouse-base` | archiving · the automation event contract | `P6-01` · `P6-04` | inside `DATA-MODEL.md` §7.2's declared **`V500064`–`V500199` post-v1 base DDL** gap. **Neither table has a §7.2 row yet — each task adds its own in the same PR** |
 | `V510300`–`V510302` | `warehouse` | computed stocking level · labour measurement rollup · the dashboard | `P6-02` · `P6-03` · `P6-10` | §7.3 allocates **no v3 block** for `warehouse`; `IMPLEMENTATION-PLAN.md` §2.9 **divergence 4** carves the top of the `V510215`–`V510999` correction reserve, leaving `V510215`–`V510299` for corrections as intended |
-| `V524000`–`V524099` | **`logistics`** | the module | `P6-08` | `V524000`–`V524999` **reserved since v1** (`FR-346`) along with the `log_` prefix and the `logistics:*` permission namespace. **No migration is written there in v1** — the only v1 work is the permission seed, and it lives in `WHB-71` (`V501000`) |
+| **none** | **`logistics`** | the module | `P6-08` | **`P6-08` writes no migration in any band of this design set**, which is what its header states. `V524000`–`V524999` is a **reservation** (`FR-346`) held open for the `logistics` design set alongside the `log_` prefix and the `logistics:*` permission namespace; `D-2` gives this set a band for warehouse's five modules and for no other, so numbering inside it here would be this set writing another module's migrations. The only v1 work is the permission seed, and it lives in `WHB-71` (`V501000`). The withdrawn `V524000`–`V524099` claim is recorded in `IMPLEMENTATION-PLAN.md` §11 |
 | `V530100` · `V530110`–`V530111` | `warehouse-3pl` | client profitability · escalation · SLA penalty | `P6-07` | `V530100` is `W3-14` as allocated; `V530110`–`V530111` are §2.9 **divergence 5**, carved from §7.5's *"reserved for corrections"* because §7.5 allocates one v3 table and v3 needs three |
 
 **Exactly one task owns each number**, and a task needing a second file takes the next number **inside its
 own block** — never the next globally free one, and never a number that "looks plausible".
+
+## Build order
+
+`IMPLEMENTATION-PLAN.md` §3.8 graphs this phase; this is the same information as a schedule. **`A → B`
+means A precedes B.**
+
+- **First task: `P6-01` (archiving).** It is the only P6 task that touches `warehouse-base` DDL
+  (`V500100`), and it is where `L-2`, `L-4` and `L-13` are re-tested against a table whose rows have
+  moved. **It refuses to run where no retention policy resolves** (`NO_RETENTION_POLICY`), which makes
+  `P4-09 → P6-01` the only hard edge from v2 into v3.
+- **Long pole: `P6-08` (the `logistics` module).** It is a whole module, not a feature, and it writes
+  **no migration in any band of this design set** — the seam is `P6-04`'s published task-event
+  contract, so `P6-04 → P6-08` binds.
+- **Parallel streams**, once `P6-01` lands: `{P6-02, P6-03, P6-05}` the derived numbers, all three
+  feeding `{P6-10}` the dashboard · `{P6-07}` 3PL v3, after `P5-07` · `{P6-04 → P6-08}` automation and
+  logistics.
+- **`P6-06`, `P6-09`, `P6-11` and `P6-12` write records and decisions, not code.** They have no
+  successors by design, they can run at any point in the phase, and **shipping them is still shipping
+  them** — an unwritten decision is the failure they exist to prevent.
 
 ## Tasks
 
@@ -88,6 +126,13 @@ carried as one task because `D-12` requires every capability to be placed now; i
 task.** §9.6: it is **not sized**. Re-plan it when v3 is planned.
 
 ## Traps this phase must not get wrong
+
+- **Every verb in a §4 Actions cell is a `@PreAuthorize`, not an `:edit`** (`H-001`). The strings are
+  rows in `BUILD-SPEC-SCREENS.md` §10.2 — twenty-five were added in round 2 and are seeded by `P5-01`
+  (`V531000`–`V531099`) — and **a screen whose verbs §3/§7 describes only in prose must enumerate them
+  in the task before the controller is written.** The failure this prevents is already visible in the
+  document: `wh3_billing_runs:approve` existed while `:cancel` did not, so anyone who could edit a
+  draft run could cancel an invoiced one.
 
 - **⚠ THE FAILURE P6 EXISTS NOT TO REPEAT.** The previous attempt at the warehouse↔supply-chain seam made
   warehouse **structurally FK-dependent** on a supply-chain module: **84 FK references into `scc_*`**,

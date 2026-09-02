@@ -472,3 +472,13 @@ collision.
 6. **Do not run `mvn` / `npm` / `tsc`.** This project builds only in Docker; there is no usable local
    toolchain. Verification is by reading, grep and diff against the canonical reference pages named in
    CLAUDE.md.
+7. **A block headed *"re-derived, not transcribed"* must have its output regenerated in the same
+   commit as any task-header change it reads.** A stale generated block is worse than a hand-written
+   one, because the heading invites the trust that stops the next reader checking. Round 2 found
+   `08-EPIC-p6.md`'s block showing `V524099` — a number no task header has ever contained (`H-006`).
+   The same rule covers `DATA-MODEL.md` §8.4's two generated blocks, which must be regenerated
+   **together** or the table count and the version table disagree (`X-054`).
+8. **A grep over header text cannot tell a claim from a refusal.** `Migrations **none in this design
+   set's bands** — ... the reservation `V524000`–`V524999` ...` yields two version numbers to
+   `grep -oE 'V5[0-9]{5}'` and zero claims. Always read the field verbatim before reading the
+   extracted numbers.

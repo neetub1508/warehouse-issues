@@ -1,7 +1,7 @@
 # R10 — The end-to-end operational walkthrough: does a whole day's work actually complete?
 
-<!-- check-design-set: fr-citations file FR-447 — the next free requirement id. U-005's disposition proposes the row and gives its exact text; WAREHOUSE-FUNCTIONAL-REQUIREMENTS.md §6.11 does not carry it yet. Proposed, not cited -->
-<!-- check-design-set: scenario-citations file WH-SC-301 — the SCENARIO-CATALOGUE.md §5 rule 3 allocation marker, the next free scenario id. Same allocation DESIGN-SET-DEFECTS.md and GAP-REGISTER.md already declare -->
+<!-- FR-447 was a proposal when this file was written; it is now a real row in WAREHOUSE-FUNCTIONAL-REQUIREMENTS.md §6.27, so the fr-citations exemption that stood here has been removed rather than left stale -->
+<!-- check-design-set: scenario-citations file WH-SC-306 — the SCENARIO-CATALOGUE.md §5 rule 3 allocation marker, the next free scenario id. Same allocation DESIGN-SET-DEFECTS.md and GAP-REGISTER.md already declare. Round 2 took WH-SC-301-WH-SC-305 for SCENARIO-CATALOGUE.md 3.21, so the marker — and this declaration with it — moved to WH-SC-306 -->
 <!-- check-design-set: screen-citations file WS-238 — the BUILD-SPEC-SCREENS.md §1 next-free marker (X-001). §4 names it only to refuse re-filing it as a dangling citation -->
 
 **Date** 2026-09-02 · **Prefix** `U-` · **Branch** `docs/round-2-functional-review`
@@ -528,7 +528,7 @@ in v1 it has neither.
   signature and geo-stamp is `logistics` at v3 (`P6-08`) and replaces the manual path without
   re-keying. A v1 column with no v1 writer is the defect `WH-SC-268` names."* Then fold the action
   into **`P2-10`** (which already owns `wh_shipments` and its `Object[]` timestamp mapping) and add a
-  scenario at the next free id, `WH-SC-301`.
+  scenario at the next free id (`WH-SC-306` as of 2026-09-02).
 - **Irreversibility:** **reversible.** The columns exist; only the action and one FR row are missing.
   The lost history is real but low-value compared with `U-004`'s.
 - **Relationship to round 1:** **new.** `F-030`/`P-038` designed the shipment chain and `F-043`

@@ -231,6 +231,203 @@ This document registers **`WS-nnn`**. `DECISIONS.md` §6 owns the id namespaces;
 none of them (`P0-01`… tasks, `FR-`, `D-`, `OD-`, `L-`, `I-`, `WH-SC-`, `C-`/`T-`/`E-`/`F-`/`S-`/`P-`/`G-`
 findings). Verified: `grep -rn "WS-[0-9]" docs/` outside this file → **0 hits**, 2026-09-01.
 
+### 0.11 State ladders — added in round 2 (`H-004`)
+
+**Before round 2 this design set contained not one from→to transition table.** 96 `DATA-MODEL.md`
+rows name a `status` or `state` column, 20 enumerate a vocabulary inline, and **none** stated which
+transition was legal from which state, who could perform it, what guard it had to pass, or which
+states were terminal. `WS-045`'s parenthesised *"a status ladder OPEN → SOFT_CLOSED → CLOSED"* was the
+single ladder drawn in sixteen documents.
+
+```bash
+grep -E '^\| `(whb|wh|wh3|whad|whas|whaf|whaa|whae|whin)_[a-z0-9_]+`' docs/DATA-MODEL.md \
+  | grep -cE '`[a-z_]*status[a-z_]*`|`[a-z_]*state`'        # status-bearing tables → 96
+grep -E '^\| `(whb|wh|wh3|whad|whas|whaf|whaa|whae|whin)_[a-z0-9_]+`' docs/DATA-MODEL.md \
+  | grep -cE '`[a-z_]*status[a-z_]*` \(`[A-Z]'             # ... with a vocabulary → 20
+```
+
+**Why a document and not a `CHECK`.** `D-10` declines `CHECK (… IN (…))` on the open catalogues, so
+the database will not constrain the ladder either. The service is the only enforcement point, and a
+service can only enforce a ladder somebody wrote down. **A status value written by a build that
+guessed the ladder is in the customer's table forever**, and the `IRR-41`-shaped append-only tables
+cannot be corrected by `UPDATE`.
+
+**The columns.** `Table | From | To | Verb | Actor (permission) | Guard | Terminal?` — the `Verb` is a
+§10.2 row and the `Actor` is its permission string. **§10.2 and this section are the same list read
+from two sides**, which is why round 2 authored them together: a verb with no ladder row has no
+guard, and a ladder row with no verb is a transition anybody with `:edit` can perform.
+
+**The completion rule** (also in `00-EPIC-master.md`'s Definition of done): *a task creating a
+`status` column ships its ladder rows in the same PR. A state with no inbound transition and a
+non-terminal state with no outbound transition are both defects.* The blocks below seed the ladders
+whose absence was already producing divergent answers; the remaining status-bearing tables owe theirs
+to their own task, and the list is at the end of this section.
+
+#### `whb_stock_periods` — the model, and the only ladder that existed before round 2
+
+| Table | From | To | Verb | Actor (permission) | Guard | Terminal? |
+|---|---|---|---|---|---|---|
+| `whb_stock_periods` | — | `OPEN` | period generation | `whb_stock_periods:create` | the previous period exists | no |
+| `whb_stock_periods` | `OPEN` | `SOFT_CLOSED` | Soft close | `whb_stock_periods:close` | none — soft close is reversible by design | no |
+| `whb_stock_periods` | `SOFT_CLOSED` | `OPEN` | Reopen | `whb_stock_periods:reopen` | reason code recorded | no |
+| `whb_stock_periods` | `SOFT_CLOSED` | `CLOSED` | Close | `whb_stock_periods:close` | no unposted movement, no open handover, `L-4` drift check clean | **yes** |
+| `whb_stock_periods` | `SOFT_CLOSED` | `SOFT_CLOSED` | Override (post into a soft-closed period) | `whb_stock_periods:override` | approved and recorded per `L-8`; the session GUC is set by the service, never by a support script | no |
+
+**`CLOSED` is terminal, including for a reversal** (`L-8`). A correction to a closed period is a
+movement in the *current* period carrying the original's link — not a reopen.
+
+#### `wh_purchase_orders` — the one v1 app table that already carried a full vocabulary
+
+| Table | From | To | Verb | Actor (permission) | Guard | Terminal? |
+|---|---|---|---|---|---|---|
+| `wh_purchase_orders` | — | `DRAFT` | Create | `wh_purchase_orders:create` | — | no |
+| `wh_purchase_orders` | `DRAFT` | `SUBMITTED` | Submit | `wh_purchase_orders:edit` | at least one line, counterparty active | no |
+| `wh_purchase_orders` | `SUBMITTED` | `APPROVED` | Approve | `wh_purchase_orders:approve` | **approver ≠ submitter** above the value threshold (`FR-408`) | no |
+| `wh_purchase_orders` | `SUBMITTED` | `DRAFT` | Return for correction | `wh_purchase_orders:approve` | reason recorded | no |
+| `wh_purchase_orders` | `APPROVED` | `PARTIALLY_RECEIVED` | *(effect of a GRN post)* | `wh_goods_receipts:post` | **never set directly** — this row is a derived transition, and the guard is that no screen offers it | no |
+| `wh_purchase_orders` | `PARTIALLY_RECEIVED` | `RECEIVED` | *(effect of a GRN post)* | `wh_goods_receipts:post` | ordered − received ≤ the over-receipt tolerance | no |
+| `wh_purchase_orders` | `APPROVED` · `PARTIALLY_RECEIVED` · `RECEIVED` | `CLOSED` | Close | `wh_purchase_orders:edit` | short-close reason required where received < ordered | **yes** |
+| `wh_purchase_orders` | `DRAFT` · `SUBMITTED` · `APPROVED` | `CANCELLED` | Cancel | `wh_purchase_orders:cancel` | **no receipt exists against any line** — this is the cancel cascade §10.2 names | **yes** |
+
+**`PARTIALLY_RECEIVED` and `RECEIVED` have no verb of their own.** They are consequences of
+`wh_goods_receipts:post`, and a screen that lets a user set them directly is the defect — the PO
+status would then disagree with the ledger, which is the only thing that actually knows what arrived.
+
+#### `whb_accounting_handovers` and `wh3_ar_handovers` — the same ladder, twice
+
+| Table | From | To | Verb | Actor (permission) | Guard | Terminal? |
+|---|---|---|---|---|---|---|
+| `whb_accounting_handovers` | — | `PENDING` | *(emitted by the posting service)* | — | idempotency key present and never server-generated (`L-9`) | no |
+| `whb_accounting_handovers` | `PENDING` | `SENT` | *(transmit)* | — | — | no |
+| `whb_accounting_handovers` | `SENT` | `POSTED` | *(acknowledgement)* | — | external document ref recorded | **yes** |
+| `whb_accounting_handovers` | `SENT` | `REJECTED` | *(negative acknowledgement)* | — | rejection code and message recorded | no |
+| `whb_accounting_handovers` | `REJECTED` | `PENDING` | Retry | `whb_accounting_handovers:retry` | the **same** idempotency key is reused — a retry that mints a new key double-posts | no |
+| `wh3_ar_handovers` | *(identical ladder)* | | Retry | `wh3_ar_handovers:retry` | **added in round 2** — §10.2 carried the base string and not this one, which is how the asymmetry was found (`H-001`) | |
+
+#### `wh3_billing_runs` — and the `INVOICED → CANCELLED` question, now answered
+
+| Table | From | To | Verb | Actor (permission) | Guard | Terminal? |
+|---|---|---|---|---|---|---|
+| `wh3_billing_runs` | — | `DRAFT` | Create | `wh3_billing_runs:create` | client active, period not already run for this `run_type` | no |
+| `wh3_billing_runs` | `DRAFT` | `RATED` | Rate | `wh3_billing_runs:rate` | exactly one `ACTIVE` rate card resolves for the whole period | no |
+| `wh3_billing_runs` | `RATED` | `DRAFT` | Re-rate *(withdraw)* | `wh3_billing_runs:rate` | reason recorded; billable events are **re-read**, never edited | no |
+| `wh3_billing_runs` | `RATED` | `APPROVED` | Approve | `wh3_billing_runs:approve` | **approver ≠ the user who rated** above the threshold (`FR-408`); the state freezes here | no |
+| `wh3_billing_runs` | `APPROVED` | `INVOICED` | Emit AR handover | `wh3_billing_runs:emit_ar_handover` | a `wh3_ar_handovers` row reaches `POSTED` | **yes** |
+| `wh3_billing_runs` | `DRAFT` · `RATED` | `CANCELLED` | Cancel | `wh3_billing_runs:cancel` | — | **yes** |
+| `wh3_billing_runs` | `APPROVED` | `CANCELLED` | Cancel | `wh3_billing_runs:cancel` | **only while no AR handover has left `PENDING`** | **yes** |
+| `wh3_billing_runs` | `INVOICED` | *(nothing)* | — | — | — | **terminal** |
+
+> **`INVOICED → CANCELLED` is illegal.** This is the question `H-004` found two P5 tasks about to
+> answer differently, and the answer follows from the document's own words: `WS-162` says Approve
+> *"freezes the state"* and `WS-164` says an upheld dispute *"becomes a credit charge code — **never a
+> silent edit of the run**"*. Once accounting holds the invoice, the recovery path is a **credit**
+> through `wh3_disputes` or a credit charge code on the next run. A cancelled invoice the customer has
+> already received, which accounting has already posted, is the failure this row prevents.
+
+#### `wh3_disputes` — the credit-self-grant
+
+| Table | From | To | Verb | Actor (permission) | Guard | Terminal? |
+|---|---|---|---|---|---|---|
+| `wh3_disputes` | — | `RAISED` | Raise | `wh3_disputes:raise` | billing run is `INVOICED` or `APPROVED`; within the contract's dispute window | no |
+| `wh3_disputes` | `RAISED` | `INVESTIGATING` | Investigate | `wh3_disputes:investigate` | assigned to a named user | no |
+| `wh3_disputes` | `INVESTIGATING` | `UPHELD` | Uphold | `wh3_disputes:uphold` | **the upholder is not the raiser**, and a `credit_charge_code` is set | **yes** |
+| `wh3_disputes` | `INVESTIGATING` | `REJECTED` | Reject | `wh3_disputes:reject` | resolution text recorded and visible on the portal | **yes** |
+| `wh3_disputes` | `RAISED` | `WITHDRAWN` | *(client withdraws from the portal)* | `wh3_disputes:raise` (portal-bound) | raiser only | **yes** |
+
+> **`:raise` and `:uphold` must not sit in one role bundle.** `P5-01` seeds them into different
+> bundles, and the reason is in the table: an upheld dispute writes a credit. Before round 2
+> `wh3_disputes:uphold` had no string at all, so the person who raised a credit could grant it.
+
+#### `wh3_rate_cards`, `wh3_clients`, `wh3_accessorials`, `wh3_client_onboarding_tasks`
+
+| Table | From | To | Verb | Actor (permission) | Guard | Terminal? |
+|---|---|---|---|---|---|---|
+| `wh3_rate_cards` | — | `DRAFT` | Create · Clone as new version | `wh3_rate_cards:create` · `:clone_version` | version = max + 1 for the `card_code` | no |
+| `wh3_rate_cards` | `DRAFT` | `ACTIVE` | Activate | `wh3_rate_cards:activate` | **no overlapping `ACTIVE` card for the client** — service overlap guard plus the partial unique index | no |
+| `wh3_rate_cards` | `ACTIVE` | `SUPERSEDED` | *(effect of activating a later version)* | `wh3_rate_cards:activate` | the successor's `effective_from` sets this card's `effective_to` | **yes** |
+| `wh3_rate_cards` | `ACTIVE` | `SUPERSEDED` | Expire | `wh3_rate_cards:expire` | **no `DRAFT`/`RATED` billing run reads it** | **yes** |
+| `wh3_clients` | — | `ONBOARDING` | Create | `wh3_clients:create` | one client per `owner_id` | no |
+| `wh3_clients` | `ONBOARDING` | `ACTIVE` | Onboard | `wh3_clients:onboard` | every **mandatory** onboarding task is `COMPLETED` | no |
+| `wh3_clients` | `ACTIVE` | `SUSPENDED` | Suspend | `wh3_clients:suspend` | reason recorded. **Billable-event capture stops; stock does not move** | no |
+| `wh3_clients` | `SUSPENDED` | `ACTIVE` | Reinstate | `wh3_clients:onboard` | — | no |
+| `wh3_clients` | `ACTIVE` · `SUSPENDED` | `TERMINATED` | Terminate | `wh3_clients:terminate` | **zero on-hand for the owner, and no billing run below `INVOICED`** — otherwise the stock has no owner and the money has no client | **yes** |
+| `wh3_accessorials` | — | `RAISED` | Raise | `wh3_accessorials:raise` | charge code active for the client | no |
+| `wh3_accessorials` | `RAISED` | `APPROVED` | Approve | `wh3_accessorials:approve` | approver ≠ raiser above the threshold | no |
+| `wh3_accessorials` | `RAISED` | `REJECTED` | Reject | `wh3_accessorials:reject` | reason recorded | **yes** |
+| `wh3_accessorials` | `APPROVED` | `BILLED` | *(effect of a run reaching `RATED`)* | `wh3_billing_runs:rate` | never set directly | **yes** |
+| `wh3_client_onboarding_tasks` | — | `PENDING` | *(instantiated from the template)* | — | — | no |
+| `wh3_client_onboarding_tasks` | `PENDING` | `ASSIGNED` | Assign | `wh3_client_onboarding_tasks:assign` | assignee active | no |
+| `wh3_client_onboarding_tasks` | `ASSIGNED` | `COMPLETED` | Complete | `wh3_client_onboarding_tasks:complete` | evidence note required where the template says so | no |
+| `wh3_client_onboarding_tasks` | `COMPLETED` | `ASSIGNED` | Reopen | `wh3_client_onboarding_tasks:reopen` | **refused once the client is `ACTIVE`** — reopening a mandatory task behind an onboarded client makes the onboarding guard a lie | no |
+
+#### Still owed, and by whom
+
+The blocks above cover the tables whose ladders were already being answered two ways. The remaining
+status-bearing tables owe a ladder to the task that creates the column, under the completion rule
+above. The ones with a **named open question** are listed here so they are not rediscovered:
+
+| Table | The question nobody has answered | Owed by |
+|---|---|---|
+| `wh_recalls` | is `CLOSED` terminal, or may a recall reopen when a second lot is implicated? | `P5`'s recall task |
+| `wh_shipment_ndrs` | `WS-120` is *"a workflow with a response clock"* and the actions live in `wh_ndr_actions` — how many attempts, and what closes it? | `P5`'s NDR task |
+| `wh_counts` | freeze → count → recount → approve → post: is a second recount legal after approval? | `P2`'s count task |
+| `wh_quality_inspections` | is a disposition reversible before the putaway posts? | `P1`'s QC task |
+| `wh_demand_orders` | `:short_pick` is a verb with no stated destination state | `P2`'s outbound task |
+| `wh3_sla_breaches` | `:confirm`, `:post_penalty` and `:waive` are three verbs over a table with no vocabulary at all | `P5`'s SLA task |
+
+---
+
+### 0.12 `Frozen when` — the per-field freeze list, added in round 2 (`Z-004`)
+
+**Before round 2 this document said which fields were immutable exactly twice**, out of 51
+Department-shape master screens:
+
+```bash
+grep -cn 'immutable' docs/BUILD-SPEC-SCREENS.md                       # → 2 (the registry `code`, and `whb_items.base_uom_code`)
+awk -F'|' '/^\| WS-[0-9]+ /{if ($0 ~ /\| D \|/) c++} END{print c}' docs/BUILD-SPEC-SCREENS.md   # → 51 master screens
+```
+
+For the other 49, and for every other field of the item, nothing stated which fields stop being
+editable once movements exist — so it would have been answered by whichever developer wrote each
+service, differently each time.
+
+**The rule.** Every master field table carries a **`Frozen when`** value per field, one of:
+
+| Value | Meaning |
+|---|---|
+| `never` | ordinary master data; edit at any time. **This is the default and does not have to be written.** |
+| `once a ledger row exists` | the field defines the grain of rows already in `whb_stock_movement_lines`; changing it makes history mean something it did not mean |
+| `once stock is on hand` | the field can be changed for an item that has never been stocked, but not while a position exists |
+| `once a movement in the current period exists` | the field may be changed between periods, under `L-8`'s period guard, never inside one |
+
+The Add/Edit modal renders a frozen field **read-only with a tooltip naming the reason** — not
+hidden, not silently ignored on submit. **Where the freeze is load-bearing it is a database trigger
+following `I-9`'s shape** (`DATA-MODEL.md:2629`, `V500036`), not a service check: a service check is
+bypassed by the importer, the port and the next module that writes the table directly.
+
+**The minimum set — nine fields, and the two that need a trigger.**
+
+| Field | Screen | `Frozen when` | Trigger? | Why |
+|---|---|---|---|---|
+| `whb_items.base_uom_code` | WS-023 | `once a ledger row exists` | **yes — `I-9`, exists** | the one instance that was already specified |
+| `whb_item_uom_conversions.conversion_factor` | WS-026 | `once a ledger row exists` **for the pair used on any line** | **yes — new** | `L-7`/`IRR-34` freeze `conversion_factor_used` on the line and left the master open. A case corrected from 12 to 6 makes last year's report *internally consistent and wrong* — `IRR-34`'s own words for the undetectable failure |
+| `whb_items.lot_control_mode` | WS-023 | `once stock is on hand` | **yes — new** | `NONE → REQUIRED` with units on hand strands every pre-existing position, whose `lot_id IS NULL`, as unpickable under the `L-5` grain |
+| `whb_items.serial_control_mode` | WS-023 | `once stock is on hand` | **yes — new** | same, and `IRR-14` records that the rows the wrong rule rejected were never written — so retro-serialising has nothing to derive from |
+| `whb_items.code` | WS-023 | `once a ledger row exists` | no — service | `uk(code)` is the stable string key every FK and every printed bin label uses (`DATA-MODEL.md:2795`) |
+| `whb_items.category_id` | WS-023 | `once a movement in the current period exists` | no — service | `whb_valuation_policies` is keyed on `category_id`; re-categorising mid-period silently changes the item's valuation method |
+| `whb_locations.code` | WS-017 | `once a movement in the current period exists` | no — service | `FR-034`'s trap is *"a scan gun syncing 400 movements after a shift must not lose 399 because one bin was renamed"* — the design assumes renames happen and must say what one does |
+| `whb_locations.location_type_code`, capacity block | WS-017 | `once stock is on hand` | no — service | lowering capacity below current contents, or changing `is_stock_holding` under stock, has no defined outcome otherwise |
+| `whb_valuation_policies.method` | WS-050 | `once a movement in the current period exists` | no — service | the row is effective-dated, which is the right shape, but nothing guards an `effective_from` inside a closed period — `L-8` guards movements, not policy rows — or says what happens to existing `whb_cost_layers` on `AVCO → FIFO` |
+
+**Where the freeze is refused, the error names the field and the blocking fact** — `ITEM_HAS_LEDGER_ROWS`,
+`ITEM_HAS_STOCK`, `PERIOD_HAS_MOVEMENTS` — with the count, in the shape `WH-SC-259` already uses for
+`ITEM_HAS_STOCK`.
+
+**The remaining master screens owe a `Frozen when` value to the task that creates them**, under the
+same completion rule §0.11 applies to state ladders. `never` is the default and the common answer;
+writing it is not required, but a field whose freeze is anything else and is not written is an
+incomplete screen block.
+
 ---
 
 ## 1. Screen index
@@ -654,11 +851,11 @@ table `V500013` (★ must precede `V500030`) · caches `dropdown.whbLocation`.
 
 | key | label | type | sort | vis | source |
 |---|---|---|---|---|---|
-| `code` | Code | string | Y | Y | `code` |
+| `code` | Code | string | Y | Y | `code` — **frozen once a movement in the current period exists** (§0.12); it is printed on the bin label and carried by every queued scan |
 | `name` | Name | string | Y | Y | `name` |
 | `warehouseName` | Site | string | Y | Y | `whb_warehouses.name` |
 | `locationLevel` | Level | string | Y | Y | `location_level` — SITE/BUILDING/ZONE/AISLE/RACK/LEVEL/POSITION |
-| `locationTypeCode` | Type | string | Y | Y | `location_type_code` → `whb_location_types` |
+| `locationTypeCode` | Type | string | Y | Y | `location_type_code` → `whb_location_types` — **frozen once stock is on hand**, with the capacity block (§0.12) |
 | `parentPath` | Path | string | N | Y | the materialised `path` — this is what makes "count zone A" answerable |
 | `status` | Status | string | Y | Y | `status` — AVAILABLE/BLOCKED/COUNTING/DAMAGED/FROZEN |
 | `blockReason` | Block reason | string | N | N | `whb_reason_codes.name` via `block_reason_code_id` |
@@ -806,15 +1003,15 @@ caches `dropdown.whbItem`.
 
 | key | label | type | sort | vis | source |
 |---|---|---|---|---|---|
-| `itemCode` | Item code | string | Y | Y | `code` — globally unique, on every bin label, what every FK points at |
+| `itemCode` | Item code | string | Y | Y | `code` — globally unique, on every bin label, what every FK points at; **frozen once a ledger row exists** (§0.12) |
 | `sku` | SKU | string | Y | Y | `sku` — unique only with `owner_id` (`FR-060`) |
 | `ownerName` | Owner | string | Y | Y | `whb_owners.name` via `owner_id` |
 | `name` | Description | string | Y | Y | `name` |
 | `itemTypeCode` | Type | string | Y | Y | `item_type_code` → `whb_item_types` |
-| `categoryName` | Category | string | Y | Y | `whb_item_categories.name` |
+| `categoryName` | Category | string | Y | Y | `whb_item_categories.name` — `category_id` is **frozen once a movement in the current period exists** (§0.12); it keys `whb_valuation_policies` |
 | `baseUomCode` | Base UoM | string | Y | Y | `base_uom_code` — **immutable once a ledger row exists** (trigger `I-9`, `V500036`) |
-| `lotControlMode` | Lot control | string | Y | Y | `lot_control_mode` NONE/OPTIONAL/REQUIRED |
-| `serialControlMode` | Serial control | string | Y | Y | `serial_control_mode` NONE/RECEIPT/SHIP/FULL |
+| `lotControlMode` | Lot control | string | Y | Y | `lot_control_mode` NONE/OPTIONAL/REQUIRED — **frozen once stock is on hand**, by trigger (§0.12) |
+| `serialControlMode` | Serial control | string | Y | Y | `serial_control_mode` NONE/RECEIPT/SHIP/FULL — **frozen once stock is on hand**, by trigger (§0.12) |
 | `expiryPolicy` | Expiry | string | Y | N | `expiry_policy` |
 | `isReceivable` | Receivable | boolean | Y | Y | the four independent status facts of `FR-050` — |
 | `isIssuable` | Issuable | boolean | Y | Y | — never collapsed into one enum |
@@ -894,6 +1091,15 @@ toolbar Add/Import/Export/Grid config.
 | WS-029 | Item Supplier Sources | `whb_item_supplier_sources` | `WAREHOUSE_ITEM_SUPPLIER_SOURCE` | `itemCode`, `counterpartyName`, `supplierPartNumber`, `leadTimeDays`, `minOrderQuantity`, `orderMultiple`, `isPreferred`, `priorityRank`, `isAsnCapable`, `inspectionStrategy` | `counterpartyId` → `itemId` · `isPreferred` boolean · `supplierPartNumber` text | `FR-058` |
 | WS-030 | Item Supersessions | `whb_item_supersessions` | `WAREHOUSE_ITEM_SUPERSESSION` | `predecessorItemCode`, `successorItemCode`, `supersessionType`, `chainSequence`, `quantityRatio`, `effectiveDate` (`dateOnly`), `endDate` (`dateOnly`), **`stockTreatment`**, `isBidirectional` | `predecessorItemId` async typeahead · `successorItemId` async typeahead · `supersessionType` select · `stockTreatment` select · `effectiveDateFrom`/`effectiveDateTo` **`dateOnly` pair** | `FR-071` `FR-072` `FR-073` |
 | WS-031 | Item External References | `whb_item_external_refs` | `WAREHOUSE_ITEM_EXTERNAL_REF` | `itemCode` (**nullable — an `UNMAPPED` row is the point**), `sourceModule`, `externalEntity`, `externalId`, `externalCode`, **`mapStatus`**, `mappedByName`, `mappedAt`, `mapNote` | `sourceModule` select → `mapStatus` select · `externalId` text · `itemId` async typeahead · `mappedAtFrom`/`mappedAtTo` (`date` pair) | `FR-061` `FR-368` `D-9` |
+
+**WS-026 is `Z-004`'s worst case and carries the freeze in §0.12.** `conversion_factor` is
+**frozen once a ledger row exists for that from/to pair** — enforced by a trigger in `I-9`'s shape,
+not by the service, because the importer and the port write this table too. A supplier that changes
+its pack quantity is a **new conversion row with a new effective date**, never an edit of the old
+one: `L-7`/`IRR-34` already freeze `conversion_factor_used` on the movement line, and an edited
+master with a frozen line is exactly the failure `IRR-34` calls *undetectable, because both numbers
+are internally consistent*. The refusal is `CONVERSION_IN_USE` with the count of lines that used it
+and a link to them.
 
 WS-030 carries two extra row actions with their own modals: **Resolve chain** (walks to the terminal
 item, shows the full chain with cycle detection) and **Set stock treatment**
@@ -2032,6 +2238,38 @@ a transition anybody with `:edit` can perform**, which is the failure `FR-408` n
 | `wh3_billing_runs:approve` · `wh3_accessorials:approve` · `wh3_sla_breaches:waive` | 3PL money | WS-162, WS-163, WS-168 |
 | `whin_eway_bills:generate` · `:part_b` · `:extend` · `:cancel` · `whin_delivery_challans:generate` | the India documents | WS-178, WS-179 |
 | `whad_counter_sales:create` · `whas_material_requests:issue` | adapter transitions | WS-194, WS-199 |
+
+**Round-2 addition (`H-001`) — the P5 verb permissions.** The 37 rows above gate P0–P2-IN plus exactly
+three P5 transitions. §4 enumerates at least 28 further 3PL transitions in its own **Actions** cells
+and gave none of them a string, so today `wh3_billing_runs:approve` exists while `:rate`,
+`:emit_ar_handover` and `:cancel` do not — the operator allowed to edit a draft run is also allowed to
+cancel an invoiced one, and `wh3_disputes:uphold` is ungated, so the person who raises a credit can
+grant it. `FR-408` (second-user approval above a threshold) is unenforceable without them. The
+twenty-five strings below are derived from §4's Actions cells in `<table>:<verb>` form per §10.1 and
+are **seeded by `P5-01`** (`V531000`–`V531099`, the 3PL permission migration), which also inserts their
+`permission_dependencies` rows per §10.3.
+
+| Permission | Gates | Screen |
+|---|---|---|
+| `wh3_clients:onboard` · `:suspend` · `:terminate` | client lifecycle — suspend stops billable-event capture, terminate is terminal | WS-155 |
+| `wh3_client_onboarding_tasks:assign` · `:complete` · `:reopen` | onboarding checklist transitions | WS-157 |
+| `wh3_rate_cards:clone_version` · `:activate` · `:expire` | rate-card versioning — **`:activate` is the money-affecting one** | WS-159 |
+| `wh3_billable_events:reverse` | reverse a captured event (never delete it) | WS-160 |
+| `wh3_storage_billing_periods:compute` · `:approve` · `:recompute` | storage accrual; `:recompute` after approval is the escalated verb | WS-161 |
+| `wh3_billing_runs:rate` · `:emit_ar_handover` · `:cancel` | the three transitions `:approve` does not cover | WS-162 |
+| `wh3_accessorials:raise` · `:reject` | ad-hoc charge lifecycle beside the existing `:approve` | WS-163 |
+| `wh3_disputes:raise` · `:investigate` · `:uphold` · `:reject` | **`:raise` and `:uphold` must not be held by one role** — that is the credit-self-grant | WS-164 |
+| `wh3_sla_breaches:confirm` · `:post_penalty` | beside the existing `:waive`; `:post_penalty` writes money | WS-168 |
+| `wh3_ar_handovers:retry` | retry a rejected AR envelope — the same button as `whb_accounting_handovers:retry` above, which is how the asymmetry was found | WS-170 |
+| `wh3_freight_billing_rules:end_date` | close a rule without deleting it | WS-165 |
+| `wh3_clients:portal_access` | the **`PORTAL` grant** WS-172 describes as *"a permission surface over the existing screens"* and which had no name; owner-bound, read-only by construction | WS-172 |
+
+**The 27 P5/P6 screens outside §4 are not covered by this table, and that is a known hole.** They sit
+under headers whose sixth column is *"Notes"*, not *"Actions"* — carriers, channels, NDR, COD, RTO,
+returns grading, obsolescence, recalls, NRV, replenishment, three-way match, cross-dock, weighing,
+labour — so for those the **verb itself** is not yet enumerated, only described in prose. Each owning
+task enumerates its verbs before its controller is written; that is the same work, one step earlier.
+`X-014` records the P3/P4 half of this.
 
 ### 10.3 `permission_dependencies` — **inserted, never created**
 

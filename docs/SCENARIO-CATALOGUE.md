@@ -576,13 +576,32 @@ period lock that closes ahead of accounting's (`FR-251`).
 | **WH-SC-299** | The **first** warehouse audit migration, and a support engineer who later needs to act inside a customer's install | Inspect the migration; then run a consented, time-boxed impersonated session | The **on-behalf-of actor column lands in the first audit migration**, not a later one — support sessions recorded before the column exists are indistinguishable from the customer's own actions, which **voids the audit claim retrospectively for that whole period**. The session itself requires the customer administrator's consent, is time-boxed, is audited with **both** identities, and its grant, consent and expiry are themselves audited. There is **no impersonation capability anywhere in this platform today**, and a standing vendor administrator account is not the mechanism | `FR-409` `FR-427` `FR-024` | `L-2` | platform | v1·P0 | edge |
 | **WH-SC-300** | An install where the `dealer` module is **not** present, and a prospect asking whether one install can serve two unrelated companies as tenants | Open the warehouse activity history; then answer the tenancy question | Warehouse owns **its own activity-history view** and does not join or redefine the dealer-owned cross-module view — doing so would make warehouse depend on dealer, and another vertical already declined it for the same reason. On tenancy: **multi-tenant SaaS is not built**; the platform is single-tenant per install by existing decision, and the **owner dimension gives multi-*client* separation inside one install**, which is what a third-party operator needs and is **not the same thing**. Both answers are written down rather than improvised in a sales call | `FR-428` `FR-440` `FR-114` | `L-5` | base·app | v1·P1 | happy |
 
+### 3.21 Round-2 additions — the non-happy paths seven v1 tasks lacked
+
+> Review round 2 (`Q-006`) measured the acceptance of every v1 task and found **seven whose
+> scenario list is entirely happy-path**. A task whose acceptance is entirely happy-path ships a
+> feature that works in the demo and has **no defined behaviour when the government portal returns a
+> 502** — and the person who finds out is the driver stopped at a checkpoint with no e-way bill and
+> no error message explaining why. Five of the seven are closed here with a scenario of their own;
+> `P1-15` is closed by citing `WH-SC-075` and `WH-SC-076`, which are already `error`-class and are
+> refused **at putaway**, so no new id was minted for it; `P1-19` (i18n) is the one case where a
+> happy-only list is defensible, and its task now says so rather than leaving it silent.
+
+| # | Given | When | Then | FR | L | Mod | V·Ph | Type |
+|---|---|---|---|---|---|---|---|---|
+| **WH-SC-301** | `GRN-2026-00412` with fourteen lines under **one** inspection number; the plan's *visual damage* criterion is marked mandatory and three lines carry no result | `inv1` submits the inspection for completion, and then submits the completed inspection a second time | The first submit is refused `422` `INSPECTION_INCOMPLETE`, `details.errors["lines[3].results"]` naming **each unrecorded mandatory criterion by line number and criterion code**. The rollup is never computed from a partial set — otherwise the mixed-result verdict can silently mean *"we did not look"*, which is the one reading a receiving supervisor must never get. The second submit returns `409` `INSPECTION_ALREADY_COMPLETED` and is **not** a silent re-open: a corrected result is a **re-inspection with its own number** against the same GRN, so the first verdict stays on the record | `FR-133` | — | app | v1·P1 | error |
+| **WH-SC-302** | Interchange rows are bidirectional, so `BRK-8840` ↔ `BRK-8841` already exists; a parts manager adds `BRK-8841` → `BRK-8840` as a supersession with treatment `MERGE_STOCK`. Separately, a chain `A → B → C → A` seeded by import before the guard existed | Save the new row; then allocate a demand line for `A` with the supersession-aware rule flag on | The save is refused `422` `SUPERSESSION_CYCLE`, `details.errors["successor_item_id"]` printing **the path it would close**. `MERGE_STOCK` on a cycle is refused for a second, independent reason: the movement it would emit has **no defined direction**, so it would consume and create the same layers. Meeting the pre-existing imported cycle, the allocator **stops at the declared maximum chain depth of 10**, allocates from the parts it did reach, and raises the cycle as a **data-quality row on the item** — it never loops, never times out, and never silently returns *"not in stock"* | `FR-072` `FR-073` | — | app | v1·P2 | error |
+| **WH-SC-303** | Two installs: one where the `accessories` module is **not deployed at all**, and one where it is, but three item categories have no `whb_category_stocking_ownership` row and one `ACCESSORIES` external ref points at an accessory item that has since been deleted | `mgr1` opens **WS-225** on each | The first renders and **says so** — *"the accessories module is not installed; there is nothing to reconcile"* — rather than an empty grid a reader mistakes for *clean*. On the second the three categories appear as **category undeclared**, which `COEXISTENCE.md` §6.3 step 1 makes a **go-live blocker, not a warning**, and the dangling ref appears as **unmapped** with its external id preserved rather than being dropped from the result set. A report that cannot distinguish *"nothing is wrong"* from *"the control is not armed"* reproduces exactly the undetectable hole `D-9` accepted | `FR-369` `FR-370` | — | app·base | v1·P2 | edge |
+| **WH-SC-304** | A `whin_gstin_profiles` row being created for GSTIN `27AABCU9603R1ZM`; the provider's taxpayer-verification endpoint returns a gateway `502`, and on retry does not respond within the environment's `timeout_ms` | `fin1` saves the profile, then retries verification twice | **The profile saves.** Master-data entry is never blocked by a portal being down. It saves with verification `UNVERIFIED`, and each attempt writes a `whin_compliance_api_logs` row carrying `http_status`, `duration_ms` and `correlation_id`. The screen reads *"GSTIN not verified — the portal did not respond; saved and queued"* — never *"verified"*, and never a bare `500` with the profile lost. Retries are idempotent on the correlation id, and **the row never flips to verified without a portal response**: an expired `token_expires_at` on the registration produces the same shape, not a false pass | `FR-304` | — | india | v1·P2-IN | error |
+| **WH-SC-305** | Two e-way bill filings: one the provider **accepts and then rejects on business grounds** — NIC error `325`, *"GSTIN of the recipient is cancelled"* — and one that fails in **transport**, the connection reset after the request was sent, so the outcome is unknown | Both return | They are **two different states, never one `FAILED`**. The business rejection lands `REJECTED` on `whin_compliance_documents` with the provider's raw code and message stored **verbatim** (encrypted with the rest of the payload, per this task's first constraint) and is **not auto-retried** — a re-filed rejection returns the same rejection and burns the rate limit. The transport failure lands `UNKNOWN` and is resolved by a **status query keyed on the correlation id, never by re-filing**: re-filing after a successful-but-unheard call creates **a second real e-way bill for one consignment**, which is a statutory defect that cannot be withdrawn quietly. Both write an api-log row with request and response **encrypted at rest**, and neither log stores the credential that obtained the session | `FR-326` `FR-310` | — | india | v1·P2-IN | error |
+
 ---
 
 ## 4 · Coverage
 
 ### 4.1 Area × version × scenario count
 
-**300 scenarios.** Computed with the commands in §1.2; the version column is the scenario row's
+**305 scenarios.** Computed with the commands in §1.2; the version column is the scenario row's
 `V·Ph` value, so a scenario appears in exactly one version column.
 
 ```bash
@@ -620,33 +639,39 @@ awk -F'|' '/^\| \*\*WH-SC-/ {if (NF!=11) print "NF="NF" "$2}' SCENARIO-CATALOGUE
 | **3.18** Facility, owner and counterparty masters | 9 | 2 | 7 | — | — | — | — | — | 5 | — | 4 | — |
 | **3.19** Replenishment, demand history, kitting and value-added services | 10 | — | 1 | 6 | — | 3 | — | — | 7 | — | 3 | — |
 | **3.20** Registries, platform seams, events and reports | 11 | 5 | 4 | 2 | — | — | — | — | 5 | 1 | 5 | — |
-| **Total** | **300** | **96** | **71** | **101** | **5** | **17** | **3** | **7** | **165** | **52** | **70** | **13** |
-**What to read from this table.** 273 of 300 scenarios are v1 — 96 in `P0` (the ledger foundation),
-71 in `P1` (masters and inbound), 101 in `P2` (outbound, counting, valuation, returns, printing,
-reports) and 5 in `P2-IN` (the India movement documents). That mirrors the FRD's own shape, where
-330 of 446 requirements are v1 and the majority of those are `P0`/`P1` columns, keys and registries
+| **3.21** Round-2 additions — the non-happy paths seven v1 tasks lacked | 5 | — | 1 | 2 | 2 | — | — | — | — | 4 | 1 | — |
+| **Total** | **305** | **96** | **72** | **103** | **7** | **17** | **3** | **7** | **165** | **56** | **71** | **13** |
+**What to read from this table.** 278 of 305 scenarios are v1 — 96 in `P0` (the ledger foundation),
+72 in `P1` (masters and inbound), 103 in `P2` (outbound, counting, valuation, returns, printing,
+reports) and 7 in `P2-IN` (the India movement documents). That mirrors the FRD's own shape, where
+335 of 459 requirements are v1 and the majority of those are `P0`/`P1` columns, keys and registries
 with no v1 screen. **The 43 scenarios in §3.1 are 14% of the catalogue against 7% of the
 requirements**, deliberately: an invariant that is only *stated* is an invariant that is not
 enforced, and the ledger is the one part of this product that cannot be repaired after it has rows.
 
-135 of 300 are **not** happy paths — 52 error, 70 edge, 13 concurrency. A catalogue that is mostly
-happy paths tests that the feature exists; it does not test that the guard fires.
+140 of 305 are **not** happy paths — 56 error, 71 edge, 13 concurrency. A catalogue that is mostly
+happy paths tests that the feature exists; it does not test that the guard fires. **The five added in
+round 2 are §3.21**, and the finding that produced them (`Q-006`) is the reason the mix is measured
+per *task* and not only per catalogue: a set that is 45% non-happy overall said nothing about the
+seven v1 tasks whose own acceptance was 100% happy.
 
 ### 4.2 Requirement coverage, and the requirements no scenario proves
 
 ```bash
 awk -F'|' '/^\| \*\*WH-SC-/ {print $6}' SCENARIO-CATALOGUE.md | grep -oE 'FR-[0-9]{3}' | sort -u   # -> 375
-grep -oE '^\| \*\*FR-[0-9]{3}\*\*' WAREHOUSE-FUNCTIONAL-REQUIREMENTS.md | grep -oE 'FR-[0-9]{3}' | sort -u  # -> 446
+grep -oE '^\| \*\*FR-[0-9]{3}\*\*' WAREHOUSE-FUNCTIONAL-REQUIREMENTS.md | grep -oE 'FR-[0-9]{3}' | sort -u  # -> 459
 ```
 
-**375 of 446 requirements (84.1%) are proved by at least one scenario. 71 are not**, and the list
+**375 of 459 requirements (81.7%) are proved by at least one scenario. 84 are not**, and the list
 below is complete rather than convenient. `DECISIONS.md` §7 rule 3 exists because the accounting
 set's first two rounds carried 25 dangling `FR` citations of which 19 resolved to a *different* real
 requirement, so live gaps read as closed. **The honest list is the deliverable here**; padding it
 with scenarios nobody could run would be the same failure in a new costume.
 
-By version, the 71 break down as **1 v1 · 14 v1.1 · 43 v2 · 15 v3** (a row spanning two versions is
-counted in each).
+By version, the 84 break down as **6 v1 · 18 v1.1 · 47 v2 · 15 v3** (a row spanning two versions is
+counted in each). **The count moved 71 → 84 in review round 2**, which added `FR-447`–`FR-459` and no
+scenarios: every one of the thirteen is unproven on the day it was written, and §6.27 below says so
+rather than leaving the total to drift.
 
 | Area | Unproven `FR` | Why |
 |---|---|---|
@@ -667,16 +692,21 @@ counted in each).
 | 6.24 Import and migration | `FR-414` `FR-415` `FR-419` `FR-420`(v1.1) `FR-421`(v3) | Incumbent-product mapping profiles, demand-history import, the OEM price file, the OEM order interface, and the accessories absorption path — which is a **stated path, not a v1 or v2 behaviour** |
 | 6.25 Non-functional | `FR-424`(v1.1) `FR-441`(v2) | Scan-to-response under 300 ms (measurable only once RF screens exist) and retention-beats-erasure |
 | 6.26 Amendments | `FR-445`(v2) | Ratio and assortment packs. The v1 half of the variant model — the schema — **is** proved, by `WH-SC-270` |
+| 6.27 Round-2 amendments | `FR-447`–`FR-451`(v1) `FR-452`–`FR-455`(v1.1) `FR-456`–`FR-459`(v2) — **all thirteen** | Added by review round 2 on 2026-09-02, after the catalogue was written. **The five v1 ones are a real gap, not a deferral**: delivery confirmation (`FR-447`), the reserved-stock status guard (`FR-448`), the de-stage path on cancel (`FR-449`), cost visibility by actor (`FR-450`) and the master merge (`FR-451`) are all v1 behaviours a builder can walk. Each is carried as an acceptance bullet in its owning task (`P2-10`, `P0-05`, `P2-09`, `P1-18`, `P1-21`) and **the scenario is authored by that task**, per §5 rule 3 — the ids continue from the next free one rather than being pre-allocated here |
 
-**One action falls out of this table.** `FR-207`'s v1 half needs a scenario before phase `P1`
-closes; every other unproven requirement is v1.1, v2 or v3, or is a recorded decision with no
-walkable behaviour. Nothing in the v1 exit criterion of `DECISIONS.md` §5 is unproven.
+**Two actions fall out of this table.** `FR-207`'s v1 half needs a scenario before phase `P1`
+closes. And the five v1 requirements in §6.27 need one each, written by their owning task before that
+task merges — `P0-05`, `P1-18`, `P1-21`, `P2-09` and `P2-10` each carry the obligation in their
+acceptance block. Every other unproven requirement is v1.1, v2 or v3, or is a recorded decision with
+no walkable behaviour. **Nothing in the v1 exit criterion of `DECISIONS.md` §5 is unproven** — that
+criterion is `WH-SC-044`…`WH-SC-062`, all of which exist; the six open v1 items are additions to the
+v1 scope, not holes in its stated exit.
 
 ---
 
 ## 5 · How these are used
 
-<!-- check-design-set: scenario-citations begin WH-SC-301 — the SCENARIO-CATALOGUE.md §5 rule 3 allocation marker — the next free scenario id, which by definition has no row yet. Named here so a parallel task does not silently take it twice; it is never a citation of a scenario that exists -->
+<!-- check-design-set: scenario-citations begin WH-SC-306 — the SCENARIO-CATALOGUE.md §5 rule 3 allocation marker — the next free scenario id, which by definition has no row yet. Named here so a parallel task does not silently take it twice; it is never a citation of a scenario that exists -->
 
 1. **A task issue names its scenarios.** `issues/pN-nn.md` carries a *Scenarios closed* list of
    `WH-SC-nnn` ids. A task with no scenarios is either infrastructure with an architecture test
@@ -684,7 +714,9 @@ walkable behaviour. Nothing in the v1 exit criterion of `DECISIONS.md` §5 is un
 2. **"Done" means walked, not compiled.** `FR-435`'s seven-layer definition of done and
    `WH-SC-248` govern the tick. A backend that exists with no reachable UI has closed no scenario.
 3. **A defect found in the field becomes a scenario before it becomes a fix.** New ids continue
-   from **`WH-SC-301`**; ids are never reused and never renumbered.
+   from **`WH-SC-306`**; ids are never reused and never renumbered. `WH-SC-301`–`WH-SC-305` were
+   taken by review round 2 (§3.21); the marker moves with every allocation and is the only place to
+   read the next free id.
 4. **`tools/check-design-set.py` enforces §1.2.** Contiguity, zero dangling `FR` citations, and the
    §4.2 unproven list matching what the commands actually produce. A coverage table that has drifted
    from the file it describes is worse than no coverage table.

@@ -153,8 +153,15 @@ that phase present, once, and no task from another phase.
 Some citations are **deliberately** unresolvable. The canonical case here is a forward reference to
 the next free id:
 
-- `SCENARIO-CATALOGUE.md` §5 rule 3: *"New ids continue from `WH-SC-301`; ids are never reused."*
-  That id does not exist yet, by definition. It is cited **35 times** across the set.
+- `SCENARIO-CATALOGUE.md` §5 rule 3: *"New ids continue from `WH-SC-306`; ids are never reused."*
+  That id does not exist yet, by definition. **31 declarations** name it — 27 region fences plus 4
+  file-level — which is the structural number worth quoting; the count of *mentions* moves with every
+  paragraph that discusses the marker, so read it with
+  `grep -rh 'check-design-set: scenario-citations' --include=*.md . | grep -c WH-SC-306` rather than
+  trusting a number on this page. The marker read `WH-SC-301` until
+  2026-09-02, when review round 2 took `WH-SC-301`–`WH-SC-305` for §3.21 and every one of those
+  mentions had to move with it — that is the price the marker idiom charges per allocation, and it is
+  why §5 rule 3, not this page, is the one place to read the next free id.
 - `p5-13.md` and `DEFECTS-FOUND.md`: *"the next free is `WS-238`"*, with the task explicitly
   forbidding reuse of another screen's grid.
 - `GAP-REGISTER.md` §4 and `DESIGN-SET-DEFECTS.md` carry a **census** of every dangling id the

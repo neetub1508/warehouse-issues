@@ -185,7 +185,7 @@ ladder — all sixteen are consolidated in [§9](#9--where-the-audits-disagree).
 | Backward traceability — "what did this part replace" | ○ | ◐ | ○ | ◐ | ● | ○ | **v1** (`E-055`) |
 | Supersession that **merges stock and demand history** | ○ | ○ | ○ | ○ | ● | ○ | **v1.1** (`E-056`) |
 | Interchange / alternate / non-OEM equivalent, bidirectional | ◐ | ◐ | ○ | ◐ | ● | ○ | **v1.1** (`E-057`) |
-| **Vehicle fitment** — make × model × variant × year × engine × position | ○ *(all six)* | ○ | ○ | ◐ | ● | ○ | **v1** in `warehouse-adapter-dealer` (`E-058`, `T-023`) |
+| **Vehicle fitment** — make × model × variant × year × engine × position | ○ *(all six)* | ○ (Epicor ●) | ○ | ◐ | ● | ○ | **v1** in `warehouse-adapter-dealer` (`E-058`, `T-023`) |
 | Core / exchange part linked to its serviceable parent | ○ | ○ | ○ | ○ | ● | ○ | **v1.1** (`E-063`) |
 | Kit / BOM / service-package definition | ◐ (Körber ●) | ● | ● | ● | ● | ● | **v1.1** (`E-044`, `F-057`) |
 | Industry catalogue-standard ingest (ACES/PIES; `?` for India) | – | ◐ (Epicor ●) | ○ | ○ | ● | – | **v3** (`E-059`) |
@@ -435,9 +435,9 @@ ladder — all sixteen are consolidated in [§9](#9--where-the-audits-disagree).
 |---|---|---|---|---|---|---|---|
 | HSN on the item **and snapshotted on the line**; UQC on the line | ○ | ◐ (add-on) | ○ | ● | ● | ○ | **v1 schema** (`E-047`, `S-031`) |
 | Branch = GSTIN; a cross-GSTIN transfer is a **taxable supply**, with the Rule 28 valuation method recorded | ○ | ◐ | ○ | ● | ● | ○ (UNI ●) | **v1 schema** (`E-050`, `S-022`) / **v2** documents |
-| Delivery challan as a numbered document with its own series | ○/print-only | ◐ | ○ | ● | ● | ○ | **v1** doc-type mechanism / **v2** India pack (`S-023`) ‡ |
+| Delivery challan as a numbered document with its own series | ○/print-only | ◐ | ○ | ● | ● | ○ | **v1 / P2-IN in full** (`S-023`) — `A-1`…`A-4` amendment `A-4` names the challan as a v1 wave item |
 | Transport details block — dispatch-from / deliver-to, mode, transporter, vehicle, LR, distance | ○ | ○ | ○ | ● | ● | ○ | **v1 columns** (`E-051` S7). A branch transfer has no invoice to hang them on |
-| E-way bill Part A + Part B lifecycle, validity, consolidated, cancellation | ○ (EWM ◐) | ○ | ○ | ● | ● | ○ (UNI ●) | **v1 data** / **v2** gateway (`S-024`) |
+| E-way bill Part A + Part B lifecycle, validity, extension, consolidated, cancellation, **closure** | ○ (EWM ◐) | ○ | ○ | ● | ● | ○ (UNI ●) | **v1 / P2-IN generation** (`S-024`, `A-4` names *"payload and generation"*); only the IRP round-trip stays **v2** |
 | E-invoice IRN on the inter-state transfer invoice | ○ | ◐ | ○ | ● | ◐ | ○ | **v2** (`S-025`) — a design that calls transfers "internal" ships an invalid document |
 | Job work — challan out, statutory clock, job worker as a location we do not own, ITC-04 | ○ | ◐ (localised) | ○ | ● | ◐ | ○ (INC ◐, UNI ◐) | **v1 schema** / **v2** feature (`S-026`, `E-054`, `F-061`) |
 | The Rule 56 **statutory stock account** in the mandated categories | ○ | ◐ | ○ | ● | ◐ | ○ | **v2** (`S-027`) — depends entirely on the v1 reason-code catalogue |
@@ -505,6 +505,9 @@ a parts manager is judged on (fill rate, turns, obsolescence %, days supply).
 
 **The evidence.** In §2.3 and §2.15 every one of these is `○` across T1, ERP, SMB and generic-IN, and
 `●` only in DMS (R2 `T-021`/`T-023`/`T-082` and R2 §1.16 row 325; R3 §1.22 rows 183–196; R5 §6 rows 1–3).
+Epicor is the named exception across that table (`J-006`, 2026): our claim is not that we have more
+fitment data than Epicor — we do not — but that fitment, supersession and core are modelled **in the
+item master the counter transacts on**, rather than in a subscription catalogue beside it.
 Conversely, no DMS-parts product in R3's column carries a double-entry, append-only ledger with owner,
 duty status, stock status and LPN dimensions.
 
@@ -624,8 +627,8 @@ what.
 
 | We lose to | On the specific capability | Version that closes it | Honest assessment |
 |---|---|---|---|
-| **Everyone with a returns screen** — Tally, Marg, Busy, Zoho, Cin7, NetSuite, Odoo, every DMS, every 3PL product | **RMA / sales return / purchase return.** The ladder puts reverse logistics in v2/P5; R2, R3 and R4 all placed it at v1.1 ‡ | v2 as written | **This is the most damaging line in the table and it is self-inflicted.** A stock product with no return path at v1 is not credible in any segment. Resolve the placement before P2 planning closes |
-| **Every product with a label printer** | Nothing in this codebase renders a label — `grep -rli "zpl\|escpos\|dymo"` → 0 (R5 Fact 3). R5 ranks it **ship-blocker #2**: *"a warehouse that cannot print a pallet label, a shelf label and a pick list cannot receive its first pallet"* | v1.1 | If v1 ships without it we lose to a spreadsheet with a Dymo. Reconsider the v1.1 placement |
+| **Products with a full reverse-logistics suite** — Unicommerce, EasyEcom, Cin7, ShipHero, the tier-1 WMSs | **Full reverse logistics** — RMA portal, grading and refurbishment, credit interface, NDR/RTO/COD. *(Resolved by `A-1`: sales-return receipt, purchase return / RTV and disposition to a stock status — restock · quarantine · scrap — are **v1/P2**.)* ‡ | v2 / P5 | **No longer the most damaging line in this table.** `A-1` moved the return *path* into v1; what stays out is the return *programme*, which is a correct v2 loss |
+| **Every product with a managed print fleet** | **Print server, printer routing and device management.** *(Resolved by `A-2`: templated document and label printing, **including a ZPL path**, is **v1/P2** — the codebase rendered no label when R5 ran `grep -rli "zpl\|escpos\|dymo"` → 0, and the amendment is what closes that.)* | v1.1 / P3 | A real but much narrower loss than R5's **ship-blocker #2** framing, and not to a spreadsheet with a Dymo |
 | **CDK · Reynolds · Tekion · Karmak · Autologue** | Computed best stocking level (`E-066`, v2) · lost-sale capture (`E-067`, v1.1) · OEM order/ack/invoice/claim interfaces (`E-062`, v1.1) · price-file load and escalation (`E-068`, v1.1/v2) | v1.1 → v2 | **The dangerous one.** We keep supersession, fitment, counter sale and workshop issue-and-return — enough to be recognised as a parts system. But `E-066` and `E-067` are what a parts manager tests us on. Every quarter they slip costs us the segment we are best positioned to win |
 | **Marg · GoFrugal · Busy** | Schemes and free quantity (10+1, `E-080`) · van sales · expiry/breakage claim automation (`E-081`) · decades of Indian distribution muscle memory · a price point we cannot match | v2 (schemes, claims); van sales unplaced | **Partly acceptable.** We must not lose them on batch, expiry, MRP, godown statement, challan or as-at-date — all of which are in the v1 cut for exactly this reason |
 | **Tally Prime** | Ten valuation methods · instant back-dated everything · universal accountant familiarity · the accountant already owns it | never | **Unavoidable, and not the fight.** We win by being the *operational* system the workshop and parts counter live in, feeding one GL. As-at-date reporting (`E-053`) is the minimum needed to stop losing on Tally's home ground |
@@ -639,8 +642,11 @@ what.
 | **Zoho Inventory · Unleashed · Katana · inFlow · Fishbowl · Finale · Sortly** | Polish · onboarding speed · price | never | **Right loss, and it does not matter** — none of them can issue a part to a job card, model a core or a supersession, or produce a godown-wise stock statement |
 
 **Segments that cannot be served at all at v1** (R5 §6): pharmaceutical distribution (until `S-004`,
-`S-007`, `S-008` land — then v2), cold chain (v2), apparel/footwear (a **v1 schema decision** that has
-not been taken), 3PL contract logistics (v2), and eCommerce fulfilment (v2).
+`S-007`, `S-008` land — then v2), cold chain (v2), 3PL contract logistics (v2), and eCommerce
+fulfilment (v2). **Apparel/footwear is no longer on this list:** `A-3` took the decision the earlier
+text said had not been taken — the variant model (style/parent item, variant axes and values) **is v1
+schema**, and the matrix screens, grids and reports are v2. The segment is reachable; the screens are
+the schedule.
 
 ### 4.2 · v1.1
 
@@ -650,13 +656,12 @@ field-service and assets adapters land. What still loses the deal:
 | We lose to | On what | Closes at |
 |---|---|---|
 | **CDK · Reynolds · Tekion · Karmak** | **Computed best stocking level with phase-in/out** (`E-066`) — still the single row a parts manager tests | v2 |
-| **The whole Indian statutory set** (Marg, Busy, Tally, and any GST bolt-on) | Cannot file: no e-way gateway, no IRP, no Rule 56 stock account, no ITC-04 | v2 |
+| **The whole Indian statutory set** (Marg, Busy, Tally, and any GST bolt-on) | **IRP / e-invoice, the Rule 56 stock account and ITC-04.** *(Half-resolved by `A-4`: the delivery challan, the e-way bill payload **and generation**, the GST-aware transfer document, HSN on the item and cross-GSTIN transfer as a supply are **v1/P2-IN**.)* | v2 / P4 |
 | **The whole 3PL and D2C set** | No billing, no client portal, no channel intake, no carrier integration, no NDR/COD/RTO | v2 |
 | **Oracle WMS Cloud · Körber** | RF flows the customer configures | v3 (and the scripting layer never) |
 | **SkuVault · Cin7 · ShipHero · Logiwa** | Cartonisation algorithm, rate shopping, putaway optimisation, ATP rules, cluster/zone picking | v2 |
 | **Everyone in food, pharma and cold chain** | Minimum-remaining-shelf-life enforcement lands at v1.1 (`S-039`) but excursion handling, licence gating and quarantine-by-default do not | v2 |
 | **Increff · Unicommerce** | Piece-level unique barcoding as a policy over the serial column | v2 |
-| **Anyone needing an apparel matrix** | Still undecided, and unrecoverable if the v1 schema shipped flat | — |
 
 ### 4.3 · v2
 
@@ -727,6 +732,14 @@ obsolescence returns and warranty scrap-and-hold.
 **Displaced at v2** — the GST bolt-on (e-way portal spreadsheets, manual challan books, the ITC-04
 that somebody reconstructs each quarter), and the 3PL's Excel billing workbook.
 
+**Newly reachable as of 2026, and worth naming to a sales team** — **SAP Stock Room Management** sites.
+Classic LE-WM left compatibility scope on 31 December 2025; Stock Room Management is its maintained
+successor to 2040 but is frozen at basic warehouse processes with no further investment, EWM being
+SAP's strategic answer (`J-008`, sources in §9.2). A plant store or dealership store that took Stock
+Room Management rather than an EWM project is a site with a permanently basic stock system and a
+budget that has already been refused once — the precise profile v1 serves, and one that would
+otherwise never have been considered reachable.
+
 **Not displaced, at any version**
 
 | Product | Why not |
@@ -734,7 +747,7 @@ that somebody reconstructs each quarter), and the 3PL's Excel billing workbook.
 | **Tally Prime as the accounting system** | Ten valuation methods, instant back-dating, and the accountant already owns it. We are the operational layer that feeds it, by design (D-6) |
 | **Marg / GoFrugal on a pure distribution counter** | Schemes, van sales, expiry-claim automation and a price point we cannot match. R3 §6.2 accepts this loss in v1 |
 | **Unicommerce / EasyEcom / Vinculum on marketplace breadth** | One adapter per channel is not a connector catalogue, at any version |
-| **Increff on apparel** | Piece-level barcoding is v2 for us; the style×size×colour matrix is undecided |
+| **Increff on apparel** | Piece-level barcoding is v2 for us; `A-3` puts the variant model in the v1 schema but the matrix screens, grids and reports at v2 |
 | **The OEM's own DMS where the OEM mandates it** | A commercial constraint, not a capability gap |
 
 ### 5.3 The one asymmetry a product owner must internalise
@@ -903,16 +916,17 @@ reader can re-derive it.
 | 9 | Outbound (demand · allocation · picking) | ◐ | ● | discrete flow and open-item allocation v1; waves and advanced picking v1.1 |
 | 10 | Packing, shipping & carriers | ○ | ● | **the weakest v1 area.** Ship confirm and challan only; labels v1.1; the whole India carrier surface v2 |
 | 11 | Replenishment & stocking policy | ◐ | ◐ | min/max v1; the DMS-standard computed stocking is v2 |
-| 12 | Execution layer (RF · tasks · printing) | ○ | ● | task model in v1, **no RF and no label until v1.1** |
+| 12 | Execution layer (RF · tasks · printing) | ◐ | ● | task model **and templated label/document printing incl. ZPL** in v1 (`A-2`); no RF until v1.1 |
 | 13 | Valuation & the finance seam | ◐ | ● | the split is v1 and correct; layers, as-at valuation and the handover markers land, reconciliation v1.1 |
 | 14 | Multi-owner, 3PL & billing | ◐ | ◐ | every column is in v1; **no billing at all until v2**. Median is `◐` because ERP/SMB/DMS score `○` |
-| 15 | Returns & reverse logistics | ○ | ● | **`return_type` in v1 and nothing else.** The ladder's most damaging placement ‡ |
+| 15 | Returns & reverse logistics | ◐ | ● | sales return, purchase return and disposition in v1 (`A-1`); RMA portal, grading and the credit interface at v2 |
 | 16 | India statutory & regulated goods | ◐ | ○ | schema complete in v1; the pack is v2. Median `○` because only IN and DMS score it |
 | 17 | Analytics, KPI & audit | ◐ | ● | the ledger reports are v1; the parts KPIs and the auditor's artefacts are v1.1 |
 | 18 | Integration & non-functional | ● | ● | the port, idempotency, partitioning, opening-stock import and the migration-in tooling are all v1 |
 
 **Where we are above the median at v1:** areas 3, 5, 7 (and 2 at parity-plus). **Where we are below:**
-areas 10, 12, 15 — and all three are the same story: v1 is a *ledger* release, not a *floor* release.
+area 10 alone, after `A-1` and `A-2` moved areas 12 and 15 from `○` to `◐` — v1 is still a *ledger*
+release rather than a *floor* release, but it is no longer a release with no printing and no return.
 
 ### 8.2 The honest one-paragraph answer
 
@@ -925,10 +939,11 @@ areas 10, 12, 15 — and all three are the same story: v1 is a *ledger* release,
 > in-transit, adjustments and counts with approval, valuation that hands over to `accounting`, the
 > reports a storekeeper and an auditor need, supersession and fitment and counter sale and workshop
 > issue-and-return, and the dealer and services adapters that prove the port. It is **not** a
-> warehouse-execution system (no RF, no labels, no waves until v1.1), **not** an Indian compliance
-> product (the schema is right, the pack is v2), **not** a 3PL platform (the columns are there, the
-> billing is v2), and — as the ladder currently reads — **not yet able to take a return**, which is
-> the one gap that would embarrass it in front of any buyer in any segment. It is bought by a
+> warehouse-execution system (no RF, no labels, no waves until v1.1), **not** a complete Indian compliance
+> product (the challan, the e-way bill and the GST-aware transfer document ship at v1; e-invoice,
+> Rule 56 and ITC-04 are v2), **not** a 3PL platform (the columns are there, the billing is v2), and
+> **able to receive a sales return and raise a return to vendor, but not to run an RMA portal or a
+> grading and refurbishment flow (v2)**. It is bought by a
 > dealership group or a workshop chain that today runs parts on spreadsheets and posts to Tally; it is
 > not bought by anyone currently evaluating Manhattan, Increff or Unicommerce, and it should not be
 > bid into those deals.
@@ -937,14 +952,19 @@ areas 10, 12, 15 — and all three are the same story: v1 is a *ledger* release,
 
 ## §9 · Where the audits disagree
 
-Sixteen disagreements, each marked `‡` in place above. Rank 1–3 need a decision before P0/P1 close.
+Sixteen disagreements, each marked `‡` in place above. Rank 1–3 needed a decision before P0/P1 close;
+rank 3 still does.
+
+Rows 1, 2 and 4 were resolved by ladder amendments `A-1`, `A-3` and `A-2` (see `DECISIONS.md` §5.1);
+row 3 is now the only unresolved item in the top four, and it is the one that must be settled before
+`whb_stock_movements` is written.
 
 | # | Subject | Position A | Position B | Status |
 |---|---|---|---|---|
-| **1** | **Returns & reverse logistics placement** | R2 §1.17 rows 326–337, R3 §6.1, R4 `F-050`…`F-056` all say **v1.1** | `DECISIONS.md` §5 puts *"RMA & reverse logistics"* in **v2 / P5** | **UNRESOLVED — highest priority.** §4.1 ranks it the most damaging v1 loss |
-| **2** | **Apparel style × size × colour model** | R2 #12 and R3 #15 say **v2** | R5 `S-056` says **v1 schema**, BLOCKER-segment: retrofitting a year of flat SKUs is a data-migration project with human judgement in it | **UNRESOLVED.** Decide before the item master's first migration |
+| **1** | **Returns & reverse logistics placement** | R2 §1.17 rows 326–337, R3 §6.1, R4 `F-050`…`F-056` all say **v1.1** | `DECISIONS.md` §5 puts *"RMA & reverse logistics"* in **v2 / P5** | **RESOLVED by `A-1`.** Sales return, purchase return / RTV and disposition to a stock status are **v1/P2**; the RMA programme stays v2/P5 |
+| **2** | **Apparel style × size × colour model** | R2 #12 and R3 #15 say **v2** | R5 `S-056` says **v1 schema**, BLOCKER-segment: retrofitting a year of flat SKUs is a data-migration project with human judgement in it | **RESOLVED by `A-3`**, R5's way: the variant model is **v1 schema**, the matrix screens and reports are v2 |
 | **3** | **Who owns cost layers** | R3 `E-001` recommends warehouse owns quantity **and** cost-layer mechanics | D-6 gives value — *"cost layers, valuation method, revaluation, NRV, COGS and the GL"* — to `accounting`; OD-6 says *"with the layer table present"* | **AMBIGUOUS.** Resolve inside OD-1/OD-6 before `whb_stock_movements` is written |
-| 4 | **Label printing placement** | R5 `S-087` ranks it **ship-blocker #2**, v1 | The ladder puts printing in **v1.1 / P3** | Unresolved; §4.1 flags the commercial cost |
+| 4 | **Label printing placement** | R5 `S-087` ranks it **ship-blocker #2**, v1 | The ladder puts printing in **v1.1 / P3** | **RESOLVED by `A-2`.** Templated document and label printing including ZPL is **v1/P2**; the print server, printer routing and device management stay v1.1/P3 |
 | 5 | Valuation methods in v1 | R2 §1.13 row 264: FIFO only. R3 #116/#117: AVCO **and** FIFO | OD-6 recommends **weighted average + FIFO**, layer table present, standard cost v1.1 | OD-6 open; recommendation stands |
 | 6 | FEFO | R2 #19 says **v1.1** | R3 `E-017` and R4 `F-067` say **v1** | Majority v1; carried as v1 |
 | 7 | Blind receipt | R2 #99 says **v1** (the 3PL and returns default) | R3 #60 says **v2** | Carried as v1 |
@@ -976,8 +996,18 @@ shown in the row.
   maturity in four products, whether Oracle WMS Cloud ships a 3PL *billing engine*, Körber's labour
   depth, Infor's slotting, Blue Yonder's native voice, whether appointment scheduling sits in the WMS
   or an adjacent module, Manhattan's yard packaging, Blue Yonder's simulation, Softeon's and Tecsys's
-  module names, Körber's Voiteq/Aberle lineage, and SAP LE-WM's maintenance status). R4's appendix
+  module names, and Körber's Voiteq/Aberle lineage — ten, after `J-008` closed the eleventh, below).
+  R4's appendix
   concentrates its `?` in Indian tax and regulatory detail (`F-025`, `F-061`, `F-073`).
+- **SAP LE-WM's maintenance status is settled and may be cited** (`J-008`, verified 2026-09-02).
+  Compatibility scope for classic LE-WM on S/4HANA ended **31 December 2025**; from 1 January 2026 it
+  receives no further technical or maintenance support. **Stock Room Management** — classic WM at a
+  reduced scope, on the same data model — is the successor, is maintained to **2040**, and carries
+  *"no further investment … no further developments, as EWM is the strategic warehouse management
+  solution"* ([SAP Community, EWM FAQ — release
+  strategy](https://community.sap.com/t5/supply-chain-management-blog-posts-by-sap/the-sap-extended-warehouse-management-faq-series-release-strategy-for/ba-p/14078542) ·
+  [SAP Community, end of mainstream
+  maintenance](https://community.sap.com/t5/enterprise-resource-planning-blog-posts-by-sap/the-sap-extended-warehouse-management-faq-series-end-of-mainstream/ba-p/13607684)).
 - **No competitor version numbers and no pricing tiers appear anywhere in this document**, for any
   product, because no source audit could verify any.
 - **Indian statutory thresholds move almost yearly.** R5 marks every one — e-way bill validity and

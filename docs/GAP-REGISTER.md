@@ -1,6 +1,6 @@
 # GAP-REGISTER — the disposition of every review finding
 
-<!-- check-design-set: scenario-citations file WH-SC-301 — the allocation marker from SCENARIO-CATALOGUE.md §5 rule 3, not a scenario. This register cites it in §3.4 to explain the checker's own false positives (X-040) -->
+<!-- check-design-set: scenario-citations file WH-SC-306 — the allocation marker from SCENARIO-CATALOGUE.md §5 rule 3, not a scenario. This register cites it in §3.4 to explain the checker's own false positives (X-040). Round 2 took WH-SC-301-WH-SC-305 for SCENARIO-CATALOGUE.md 3.21, so the marker — and this declaration with it — moved to WH-SC-306 -->
 <!-- check-design-set: finding-citations file T-244 T-264 T-325 T-326 T-337 E-754 E-1 E-8 — the eight dangling citations this register reports in §3.7 and DESIGN-SET-DEFECTS.md X-045. Naming them is the finding; they are quoted, not used -->
 <!-- check-design-set: screen-citations file WS-238 — the screen id X-001's fix allocates for the marketplace-claim queue; BUILD-SPEC-SCREENS.md §1 has not yet carried the row (X-001, check-12) -->
 
@@ -854,7 +854,10 @@ defined-not-cited : WH-SC-204
 
 **Neither is a dangling reference.**
 
-- **`WH-SC-301` is the allocation marker, not a scenario.** `SCENARIO-CATALOGUE.md:685` §5 rule 3
+- **`WH-SC-301` was the allocation marker, not a scenario** — at the time of this run. Review round 2
+  took `WH-SC-301`–`WH-SC-305` for `SCENARIO-CATALOGUE.md` §3.21 on 2026-09-02 and moved the marker to
+  **`WH-SC-306`**; the paragraph below is the record of the run, not the current marker.
+  `SCENARIO-CATALOGUE.md:685` §5 rule 3
   reserves it as *"new scenarios start from"*, and the 29 citations of it in `issues/` are all
   instructions to claim the next free id. `tools/check-design-set.py` check-2 reports all 29 as
   failures; **the checker is wrong here, not the design set** — filed as `X-040`.
@@ -1033,6 +1036,16 @@ the lens itself or from `WAREHOUSE-FUNCTIONAL-REQUIREMENTS.md` §10 — that dec
 
 ### 4.1 The four proposed tasks, with their next free ids
 
+> **Status, 2026-09-02 — all four are authored.** `GAP-REGISTER-R2.md` §5.2 carried them into review
+> round 2 as *"still unwritten"*, and that round wrote them: `issues/p3-24.md`, `issues/p4-13.md`,
+> `issues/p5-22.md` and `issues/p5-23.md` now exist at exactly the ids this section proposed, own
+> `FR-452`–`FR-459` in `WAREHOUSE-FUNCTIONAL-REQUIREMENTS.md` §6.27, and carry their
+> `IMPLEMENTATION-PLAN.md` §2 rows. **The proposal below is kept as written**, per §7 rule 1 — the
+> table's "Closes" column is what each file actually closes, and `P5-22` closes `K-005` and `OD-8`
+> as well, which round 2 added. **`P4-13` being authored does not discharge `S-035`**: the file
+> opens by saying it is gated on a product decision that has now survived two review rounds
+> unanswered. See §5.1 below, which stands unchanged.
+
 Ids taken from the file glob, which `DECISIONS.md` §6 makes the authority
 (`ls issues/pN-*.md | tail -1`): highest today is `p0-17` · `p1-20` · `p2-29` · `p2in-04` · `p3-23` ·
 `p4-12` · `p5-21` · `p6-12`.
@@ -1177,6 +1190,14 @@ undetectable."* Those two **are** owned, so the load-bearing half holds.
 
 ### 6.3 The product verdict, and where it is stale
 
+> **Superseded on 2026-09-02.** `X-050`'s remediation pass applied every correction this section
+> called for, directly to `COMPETITOR-BENCHMARK.md` — §2.16's challan and e-way rows, §4.1's returns,
+> label and apparel-segment claims, §4.2's Indian-statutory row (and the apparel row, deleted), §8.1
+> rows 12 and 15 (`○` → `◐`), §8.2's headline verdict, §9 rows 1, 2 and 4 (now RESOLVED), and §5.2.
+> The benchmark now cites the amendments **20** times, not 0. This section is kept as the record of
+> what was wrong and how it was found; **read the benchmark itself for the current verdict**, and
+> read the paragraph below as the draft that was adopted rather than as a correction still owed.
+
 `COMPETITOR-BENCHMARK.md` §8.2 states the v1 product in one paragraph and closes:
 *"…and — as the ladder currently reads — **not yet able to take a return**, which is the one gap that
 would embarrass it in front of any buyer in any segment."*
@@ -1185,12 +1206,12 @@ would embarrass it in front of any buyer in any segment."*
 `A-2` moved templated printing into **v1/P2**, and:
 
 ```bash
-grep -coE '`A-[1-4]`' docs/COMPETITOR-BENCHMARK.md   # → 0
+grep -coE '`A-[1-4]`' docs/COMPETITOR-BENCHMARK.md   # → 0   (as run 2026-09-01; → 20 after the fix)
 ```
 
-The benchmark carries **no** reference to any of the four amendments, so its §8.1 rows 12 and 15, its
+The benchmark carried **no** reference to any of the four amendments, so its §8.1 rows 12 and 15, its
 §8.2 headline verdict, and four of its sixteen §9 disagreement rows (1 returns · 2 apparel · 3 cost
-layers · 4 printing, all marked UNRESOLVED) are stale against the spine that outranks it. Same check
+layers · 4 printing, all marked UNRESOLVED) were stale against the spine that outranks it. Same check
 on the rest of the set: `COEXISTENCE.md` 0 · `MODULE-INTEGRATION.md` 0 · `PLATFORM-DEPENDENCIES.md` 0
 · `IRREVERSIBLE.md` 0 (defensible — it is schema-level, not ladder-level) · FRD 17 · plan 21 ·
 `DATA-MODEL.md` 12 · `INDIA-LOCALISATION-PACK.md` 5 · `BUILD-SPEC-SCREENS.md` 3 ·

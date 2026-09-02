@@ -1,7 +1,7 @@
 # GAP-REGISTER-R2 — the disposition of every round-2 finding
 
-<!-- check-design-set: fr-citations file FR-447 — the next free requirement id, proposed by U-005 and not yet carried by WAREHOUSE-FUNCTIONAL-REQUIREMENTS.md §6.11. Proposed here, not cited -->
-<!-- check-design-set: scenario-citations file WH-SC-301 — the SCENARIO-CATALOGUE.md §5 rule 3 next-free allocation marker, the same allocation DESIGN-SET-DEFECTS.md and GAP-REGISTER.md already declare -->
+<!-- FR-447 was a proposal when this file was written; it is now a real row in WAREHOUSE-FUNCTIONAL-REQUIREMENTS.md §6.27, so the fr-citations exemption that stood here has been removed rather than left stale -->
+<!-- check-design-set: scenario-citations file WH-SC-306 — the SCENARIO-CATALOGUE.md §5 rule 3 next-free allocation marker, the same allocation DESIGN-SET-DEFECTS.md and GAP-REGISTER.md already declare. Round 2 took WH-SC-301-WH-SC-305 for SCENARIO-CATALOGUE.md 3.21, so the marker — and this declaration with it — moved to WH-SC-306 -->
 <!-- check-design-set: screen-citations file WS-238 — the BUILD-SPEC-SCREENS.md §1 next-free marker (X-001), named in §7 only as the third of the three allocation markers R9 and R10 declare. An allocation marker, not a citation of a screen -->
 
 > **What this document is for.** `GAP-REGISTER.md` dispositions the **575** findings of review round 1.
@@ -254,15 +254,22 @@ the work can be done in one pass per file rather than one pass per finding:
 | `p1-10.md` (import framework) | `Z-003` `Z-008` | `CREATE_ONLY`/`UPDATE_ONLY`/`UPSERT` modes with a stated match key — today no master can be bulk-**amended**; and stop refusing the opening-stock reversal `P2-19` delegates to it |
 | `p2-19.md` (cutover) | `Z-008` `Z-009` | opening-stock reversal as an `L-3` ledger reversal; a per-master load order instead of one "masters loaded" tick |
 | `p2-29.md` (grids / i18n) | `Q-001` `Q-004` `Q-005` | the P2 permission migration; 115 of 136 v1 screens' per-column `sortable`/`default-visible`; P2's non-grid i18n |
-| `BUILD-SPEC-SCREENS.md` | `H-001` `H-004` `Z-004` | §10.2 gains the P5/P6 verb permissions; a new **§0.11 State ladders**; a per-master **freeze list** — 51 master screens, **2** immutability statements in the whole build spec |
-| `DATA-MODEL.md` | `H-002` `O-007` `Z-001` | column-level DDL; the policy-ladder tables that cannot express their own ladders |
+| `BUILD-SPEC-SCREENS.md` | `H-001` `H-004` `Z-004` | §10.2 gains the P5/P6 verb permissions; a new **§0.11 State ladders**; a per-master **freeze list** — 51 master screens, **2** immutability statements in the whole build spec. `H-004` landed as **§0.11** and `Z-004` as **§0.12** with its nine-field minimum set, plus acceptance criteria in `P1-01`, `P1-02` and `P1-05` |
+| `DATA-MODEL.md` | `H-002` `O-007` `Z-001` | column-level DDL; the policy-ladder tables that cannot express their own ladders. **`O-007` folds into `H-002`'s disposition and files no task of its own:** the bar has already been met inside `classic-issues` — the six assets phase documents carry **101** `CREATE TABLE` blocks (`grep -ci 'CREATE TABLE' assets/docs/PHASE*.md`), and the warehouse prior art at `classic-issues/warehouse-base/docs/spi/WMS_DATABASE_DESIGN.md` already contains **72** — so the remedy is to **lift and correct**, not to author from nothing |
 | `IMPLEMENTATION-PLAN.md` | `H-003` `J-002` | a build order for 68 tasks; the India statutory watch-list, fifteen months stale |
-| `COMPETITOR-BENCHMARK.md` | `J-004` `J-006` `J-008` | the nine stale "where we lose" rows — this discharges the part of `X-050` that `X-050` does not name |
+| `COMPETITOR-BENCHMARK.md` | `J-004` `J-006` `J-008` | the nine stale "where we lose" rows — this discharges the part of `X-050` that `X-050` does not name. **Applied 2026-09-02:** all nine rows plus the two consequential edits (§8.2's returns clause; §9 rows 1, 2 and 4 → RESOLVED), §2.3's Epicor cell and W1 (`J-006`), §9.2's LE-WM entry and a §5.2 Stock Room Management paragraph (`J-008`), and two same-class corrections `J-004` did not name (§5.2's apparel clause, §9's preamble). `X-050`'s Status records the full list and what stays open — the four other documents still at zero `A-n` citations |
 | the phase epics | `H-006` `H-007` `H-008` `H-009` | band corrections, miscounts, and invariant/amendment carriage, which collapses after P0 |
 
 ---
 
 ## §5 · New tasks
+
+> **Status, 2026-09-02 — all five are now authored.** This section was written as a proposal and is
+> kept as written; what follows each proposal is the file that discharges it. `issues/p1-21.md`,
+> `issues/p3-24.md`, `issues/p4-13.md`, `issues/p5-22.md` and `issues/p5-23.md` exist, carry their
+> `IMPLEMENTATION-PLAN.md` §2 rows, own `FR-447`–`FR-459`, and pass all twelve checks. The task count
+> moved **138 → 143** and the table count **301 → 314**. `P4-13` is authored **and still gated** — its
+> file opens by saying so; see §6 decision 4.
 
 ### 5.1 The one new task round 2 requires
 
@@ -277,6 +284,10 @@ differ in `base_uom_code`, `lot_control_mode` or `serial_control_mode`.
 `WONTFIX` for v1 is a legitimate answer here. **Silence is not**, because the implementation team will
 otherwise do it in `psql` against an append-only ledger.
 
+**Authored as [`issues/p1-21.md`](../issues/p1-21.md)** — `warehouse-base`, `V500055` (`WHB-55`,
+`whb_master_merges`), owning `FR-451`, closing `Z-007`. The refusal list and the *"never
+`UPDATE whb_stock_movement_lines SET item_id = …`"* trap are in the file verbatim.
+
 ### 5.2 The four tasks round 1 already proposed, still unwritten
 
 `GAP-REGISTER.md` §4.1 proposed these and they have not been authored. Round 2 does not change their
@@ -289,6 +300,22 @@ scope; `J-005` and `K-002` add weight to two of them:
 | `P5-22` | integration surface (API keys, webhooks, rate limits) | `K-005`'s lag signals and `S-097` both land here |
 | `P5-23` | supplier claim register | `Y-005`'s wrong-item-on-the-dock path feeds it |
 
+**All four are now authored.** What each one landed as:
+
+| Task | File | Module · migration | Owns | Closes |
+|---|---|---|---|---|
+| `P3-24` | [`issues/p3-24.md`](../issues/p3-24.md) | `warehouse-base` · `V500056` (`WHB-56`) | `FR-452`–`FR-455` | `S-005` `S-010` `S-017` `S-049` |
+| `P4-13` | [`issues/p4-13.md`](../issues/p4-13.md) | `warehouse-india` · `V540182` (`WIN-23`) | `FR-456` `FR-457` | `S-035` `F-073` `X-013` |
+| `P5-22` | [`issues/p5-22.md`](../issues/p5-22.md) | `warehouse-base` · `V500066` (`WHB-67`) | `FR-458` | `S-097` `K-005` `OD-8` |
+| `P5-23` | [`issues/p5-23.md`](../issues/p5-23.md) | `warehouse` · `V510216` (`WH-116`) | `FR-459` | `E-081` `Y-005` |
+
+**Two authoring decisions are recorded rather than left to be rediscovered.** `P4-13` is
+`warehouse-india`, **not** an adapter — a stated divergence from `S-035`'s `adapter-pharma` and
+`F-073`'s `warehouse-adapter-pharma`, because the objects are licences under Indian law and `D-2`
+gives licence tables the india band. And `P5-22`'s migration is `V500066` owned by **`WHB-67`**:
+`WHB-66` is already allocated at `V500100`, and `DECISIONS.md` §7.4 forbids renumbering an allocated
+id, so the id and the version deliberately do not run in step there.
+
 ### 5.3 New requirement rows (`NEW-FR`)
 
 Four findings have no requirement to hang on. Each needs one `FR-` row written **before** the task
@@ -296,10 +323,28 @@ line, because a task line citing no requirement is exactly the shape `check-10` 
 
 | Finding | Requirement to write | Then folds into |
 |---|---|---|
-| `U-005` | `FR-447` — *delivery is confirmed, not inferred*: `WS-105` gains a **Confirm delivery** action in v1 (the driver-side ePOD stays `logistics` at v3) | `P2-10`, and a scenario at `WH-SC-301` |
+| `U-005` | `FR-447` — *delivery is confirmed, not inferred*: `WS-105` gains a **Confirm delivery** action in v1 (the driver-side ePOD stays `logistics` at v3) | `P2-10`, and a scenario **authored by that task** at the next free id |
 | `Y-002` | a status change against stock carrying an open reservation has a stated outcome and an error code — and `FR-160`'s nightly expiry job **is** a status change | `P0-05`, `P2-03` |
 | `Y-003` | cancelling after stock is picked to staging has a de-stage path — today the units become an unallocatable, unreported balance | `P2-09` |
 | `K-002` | cost and value are suppressed by **actor**, not only by owner type — the guard is response-DTO omission, because platform's `role_field_configs` is client-side only | `P1-18` |
+
+**All four are written**, as `FR-447`–`FR-450` in `WAREHOUSE-FUNCTIONAL-REQUIREMENTS.md` §6.27, and
+each is folded into its task on **both** sides — the task file's `## Requirements closed` and the
+plan's §2 `Closes` cell — because `check-10` compares the two and a one-sided fold is exactly the
+drift it exists to catch. Each task also gained a `> **Round-2 addition**` blockquote and at least one
+acceptance bullet, so the obligation is visible to whoever picks the task up rather than only to
+whoever reads this register.
+
+**No scenario id was pre-allocated for any of them.** *(Superseded on 2026-09-02: `Q-006`'s remediation
+did mint five — `WH-SC-301`–`WH-SC-305`, §3.21 — and moved the marker to `WH-SC-306`. The reasoning
+below still governs the thirteen new requirements this paragraph is about; it is not a rule against
+minting, it is a rule against minting a placeholder no task walks.)* `WH-SC-301` stayed what
+`SCENARIO-CATALOGUE.md` §5 rule 3 says it is — the **next-free allocation marker**, fenced in some
+thirty places — and the five task files say *"the scenario ids this task authors"* instead, the same
+idiom `p5-13.md` uses for `WS-238`. Writing a literal `WH-SC-301` row would have required bumping
+every one of those markers forward by one in the same commit, for no gain: the obligation is carried
+by the task, and `SCENARIO-CATALOGUE.md` §4.2 §6.27 now lists all thirteen new requirements as
+unproven so the coverage number stays honest (**375 of 459, 81.7%**) rather than silently improving.
 
 ---
 
@@ -340,7 +385,7 @@ python3 tools/check-design-set.py | tail -1
   immediately after the register letter.
 - **check 11** asserts the eight registers collide with nothing, and it **demanded** the `DECISIONS.md`
   §6 rows before it would pass — which is the ratchet working as designed.
-- Three next-free allocation markers (`FR-447`, `WH-SC-301`, `WS-238`) are named by R9 and R10 as
+- Three next-free allocation markers (`FR-447`, `WH-SC-301` — now `WH-SC-306`, `WS-238`) are named by R9 and R10 as
   proposals and refusals, never as citations. Each carries a self-declared exemption in the house
   idiom — in the open, in the file, with a stated reason — rather than a silent path exclusion.
 

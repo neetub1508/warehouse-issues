@@ -5,6 +5,12 @@ amendments `A-1`…`A-4` in §5.1, the revised `OD-6` and the new rule §7.4a. *
 was renumbered** (§7.4); the four requirements the amendments required are appended as §6.26 at
 `FR-443`–`FR-446`. §8 carries a before-and-after table of exactly what each amendment moved.
 
+> **Round-2 amendment · 2026-09-02.** `GAP-REGISTER-R2.md` §5 added thirteen requirements as **§6.27,
+> `FR-447`–`FR-459`**, on the same no-renumbering rule. Nine give a round-2 finding somewhere to live;
+> four give the four tasks `GAP-REGISTER.md` §4.1 proposed in round 1 and nobody authored (`P3-24`,
+> `P4-13`, `P5-22`, `P5-23`) the requirement each needs before its plan row can cite one. §7's two
+> traceability commands were widened in the same commit to read the round-2 prefixes and review files.
+
 > **Precedence.** [`DECISIONS.md`](DECISIONS.md) wins over this document on module names, packages,
 > Flyway bands, table prefixes, id namespaces, the version ladder and the phase map.
 > [`reviews/R1-codebase-reality.md`](reviews/R1-codebase-reality.md) wins over everything on any
@@ -98,7 +104,7 @@ field-level error. A trigger firing in production is an incident, not a validati
 
 ## 6. Requirement catalogue
 
-**446 requirements in 26 areas.** Every one closes at least one review finding or derives from a
+**459 requirements in 27 areas.** Every one closes at least one review finding or derives from a
 numbered decision in `DECISIONS.md`. Requirements with no source are not requirements.
 
 > **§6.26 was appended after `DECISIONS.md` §5.1 landed** and renumbers nothing. `FR-443`–`FR-446`
@@ -772,6 +778,34 @@ rewrite landed after the catalogue was written.
 | **FR-445** | **Ratio and assortment packs**: a pack template naming a quantity per variant, received and shipped as one line and exploded into variant-level movements, so a carton of "2 small, 4 medium, 4 large" is one scan and eight units of ledger truth | app | v2 | P5 | `S-056` |
 | **FR-446** | The costing-authority rule has **two falsifiers, and both are acceptance tests**. First: on a **standalone** install with no accounting module, the product produces an inventory valuation report that reconciles to the ledger and to a full rebuild — which is why the costing engine cannot live in a module that may not be installed (`D-7`). Second: on an install with accounting present, a handed-over movement's value is **the value warehouse computed**, and a re-costing step on the receiving side is a defect, not a safeguard. Together they are what makes `D-6`'s one-sentence rule testable rather than a preference | base | v1 | P2 | `D-6` `D-7` `S-066` `E-001` |
 
+### 6.27 Amendments — the requirements round 2 required
+
+**These thirteen continue the range at `FR-447` for the same reason §6.26 does: `DECISIONS.md` §7.4
+forbids renumbering a published id.** **Five** exist because `GAP-REGISTER-R2.md` §5.1 and §5.3 found
+a task line with no requirement to cite — the shape `check-10` exists to catch (`FR-447`–`FR-451`) —
+and **eight** because `GAP-REGISTER.md` §4.1 proposed four tasks in round 1 that were never authored,
+and each of those four needs its own requirements before its task line can exist (`FR-452`–`FR-455`
+for `P3-24`, `FR-456`–`FR-457` for `P4-13`, `FR-458` for `P5-22`, `FR-459` for `P5-23`). Each row names the task
+that owns it; **the round-2 finding prefixes (`Q- H- U- Y- Z- K- O- J-`) are registered in
+`DECISIONS.md` §6 exactly as the round-1 prefixes are**, and §7's backward check below reads all
+fifteen review files.
+
+| # | Requirement | Module | Ver | Ph | Closes |
+|---|---|---|---|---|---|
+| **FR-447** | **Delivery is confirmed, not inferred.** `wh_shipments.delivered_at` and `pod_document_id` are v1 columns and the `deliveredAt` grid column is a v1 column, and **nothing in v1 writes any of them** — the driver-side ePOD is `logistics` at v3. `WS-105` therefore carries a **Confirm delivery** action in v1: an authorised user records the delivery date-time, an optional proof document and an optional receiver name, gated on `wh_shipments:confirm_delivery`. Without it the outbound journey has no closing event, every delivery-lead-time KPI reads null, and an NDR has nothing to be an exception *to* | app | v1 | P2 | `U-005` |
+| **FR-448** | **A status change against stock carrying an open reservation has one stated outcome and one error code**, and it is the same rule wherever the change originates: a manual status change, a disposition, a quality result — **and `FR-160`'s nightly expiry job, which is a status change and is the one nobody classifies as one**. The rule: a change that would move reserved units out of an available status is **refused** with `409 RESERVED_STOCK` naming the reservations, unless the caller passes an explicit release intent and holds `whb_reservations:release`, in which case the reservations are released, the release is audited against the reason code, and the demand documents behind them are flagged for re-allocation. **The nightly job never releases silently**: it refuses, records the refusal on the job run, and raises the exception for a human | base | v1 | P0 | `Y-002` |
+| **FR-449** | **Cancelling an order after its stock has been picked to staging has a de-stage path.** Pick moves stock to a real, countable staging location (`FR-189`); cancellation after that point must post the units back — `MOVE` from staging to the source or to a nominated putaway location, through the port, with a cancellation reason code — before the order may reach `CANCELLED`. An order cancelled with units still in staging is **refused** with `409 STAGED_STOCK`, because the alternative is a balance that is on hand, unreserved, unallocatable by any strategy and invisible to every report that reads demand | app | v1 | P2 | `Y-003` |
+| **FR-450** | **Cost and value are suppressed by actor, not only by owner type.** `L-14` suppresses another owner's *value* from a 3PL client; it says nothing about the storekeeper who can open the valuation report. The gate is a **response-DTO omission** driven by `warehouse:cost:view`, applied in the mapper and asserted per endpoint — **never a frontend column hide**, because platform's `role_field_configs` is client-side only and the payload still carries the number. Every endpoint that returns `unit_cost`, `total_value`, `standard_cost` or a cost layer is in scope, exports included | base·app | v1 | P1 | `K-002` |
+| **FR-451** | **Two duplicate item rows, or two duplicate counterparty rows, have a merge path — or the product says in writing that they do not.** A 40,000-SKU import against `uk(owner_id, sku)` produces duplicates on day one, from two source systems, from the accessories cross-map, or from a supplier catalogue loaded beside the customer's own. The merge is **a stock transfer to the survivor posted as a real movement through the port** plus a deactivation of the loser with a scan redirect — **never a re-pointing of history**, which `L-2` forbids — recorded once in `whb_master_merges`. It is **refused** where the two rows differ in `base_uom_code`, `lot_control_mode` or `serial_control_mode`, because those are not reconcilable by a transfer. This is not `whb_item_supersessions`, which models a part replaced by its successor and leaves both rows live | base | v1 | P1 | `Z-007` |
+| **FR-452** | **An SSCC is allocated, not typed in.** `FR-100` gives the LPN an `sscc` column and nothing fills it. Allocation needs the install's GS1 **company prefix**, an extension digit, a serial reference drawn from a per-key counter and a mod-10 check digit — and it is **not derivable later for labels already printed**, which is why the settings and the counters are v1.1 and not v2 | base | v1.1 | P3 | `S-005` |
+| **FR-453** | **EPC is an identity column, and a reader event is an inbound message.** `epc` on the serial and on the LPN; RFID/EPC Gen2 reads arrive at the existing movement port as **inbound messages idempotent by `(epc, read_point, event_at)`** through `whb_inbound_messages`' `uk(source_system, idempotency_key)` (`L-9`) — **no second ingestion table, no second idempotency mechanism**. A read that resolves to no serial or LPN is a recorded rejection, not a dropped packet. The columns are v1.1; the reader endpoint is v2 | base | v1.1·v2 | P3 | `S-010` |
+| **FR-454** | **The scan resolver accepts a URI.** GS1 Digital Link puts a URL, not a digit string, behind a 2D code; `whb_item_identifiers.barcode_format` gains `GS1_DIGITAL_LINK` as a **seed row in an open registry, never a `CHECK` value**, and the one scan-resolution service (`FR-062`) parses the AI path segments out of the URI and resolves exactly as it does for a GTIN. A resolver that only accepts digits fails silently on the first customer whose supplier has moved | base | v1.1 | P3 | `S-017` |
+| **FR-455** | **Counterfeit control is two rows and a flag**: `is_authorised_source` on item × supplier, and a `SUSPECT` **row in `whb_dispositions`** — a catalogue row, not an enum value — so a part received from an unauthorised source, or one an inspection doubts, is quarantined into a non-available status by the disposition path that already exists rather than by a bespoke workflow | base | v1.1 | P3 | `S-049` |
+| **FR-456** | **A regulated-goods licence is an object with an expiry clock and a despatch guard.** A licence type registry; licences held by **our own entity** and by **each counterparty**, each with number, type, issuing authority, validity dates and a document; per-licence quantity ceilings where the schedule imposes one; and a **hard despatch block** — a shipment to a party whose required licence is absent or expired is refused, not warned. `regulatory_class` on the item is what makes batch and expiry tracking mandatory rather than optional for those items. **This requirement is the pharma segment**: if it is not built, four phase descriptions promise a regulated-goods pack the product does not have | india | v2 | P4 | `S-035` `F-073` |
+| **FR-457** | **The Schedule H1 register and recall notification are outputs of the ledger, not a parallel book.** The register is a query over movements of `regulatory_class`-flagged items with the prescriber and patient fields the rule requires, rendered and retained for the statutory period; a recall notification is raised against a lot or a batch and lists every counterparty that received it, answered by `whb_transformations` genealogy and the movement history — never by a second table that has to be kept in step | india | v2 | P4 | `S-035` |
+| **FR-458** | **The integration surface is named**: API clients, per-client keys with rotation and revocation, a per-client rate limit, and replay. Warehouse's outbox already delivers (`whb_outbox_subscriptions`, `whb_outbox_deliveries`); what is missing is **who** is calling, **how fast** they may, and **how a consumer that fell behind catches up** — and a **lag-shaped signal** beside the failure-shaped ones, because a subscription somebody disabled and forgot is invisible today. It is argued as **platform** work first — `OD-8`'s service-principal recommendation is the same conversation — and built in `warehouse-base` only if platform declines | base | v2 | P5 | `S-097` `K-005` `OD-8` |
+| **FR-459** | **One supplier claim register**, not three. A receipt discrepancy, an expiry or breakage claim and a price claim are the same object with different reason codes: a header against a counterparty, lines that reference the movement or the receipt line that evidences them, a status ladder, a settlement amount, and **an ageing report** — because the money is lost by not being asked for, not by being refused. For a distributor this is Marg/GoFrugal parity; for a dealership it is the OEM claim book | app | v2 | P5 | `E-081` |
+
 ## 7. Traceability
 
 Every requirement is traceable in both directions, and the check is mechanical.
@@ -780,7 +814,7 @@ Every requirement is traceable in both directions, and the check is mechanical.
 
 ```
 awk -F'|' '/^\| \*\*FR-[0-9]{3}\*\*/{c=$7;
-  if (c !~ /[CTEFSPG]-[0-9]/ && c !~ /D-[0-9]/ && c !~ /OD-[0-9]/) print $2}' \
+  if (c !~ /[CTEFSPGQHUYZKOJ]-[0-9]/ && c !~ /D-[0-9]/ && c !~ /OD-[0-9]/) print $2}' \
   WAREHOUSE-FUNCTIONAL-REQUIREMENTS.md | wc -l
 → 0
 ```
@@ -790,10 +824,14 @@ awk -F'|' '/^\| \*\*FR-[0-9]{3}\*\*/{c=$7;
 ```
 for p in C:R1-codebase-reality T:R2-tier1-wms-audit E:R3-erp-midmarket-audit \
          F:R4-fulfilment-3pl-audit S:R5-standards-industry-ops \
-         P:R6-prior-art-triage G:R7-logistics-supply-chain-seam; do
+         P:R6-prior-art-triage G:R7-logistics-supply-chain-seam \
+         Q:R8-task-buildability-v1 H:R9-task-buildability-v2-and-epics \
+         U:R10-operational-walkthrough Y:R11-exception-and-unhappy-paths \
+         Z:R12-lifecycle-and-data-migration K:R13-non-functional-and-operability \
+         O:R14-codebase-and-sibling-set-reverification J:R15-competitor-benchmark-r2; do
   grep -oE "\b${p%%:*}-[0-9]{3}[a-z]?\b" reviews/${p#*:}.md
 done | sort -u > /tmp/valid_all.txt
-grep -oE '`[CTEFSPG]-[0-9]{3}[a-z]?`' WAREHOUSE-FUNCTIONAL-REQUIREMENTS.md \
+grep -oE '`[CTEFSPGQHUYZKOJ]-[0-9]{3}[a-z]?`' WAREHOUSE-FUNCTIONAL-REQUIREMENTS.md \
   | tr -d '`' | sort -u | comm -23 - /tmp/valid_all.txt
 → (empty)
 ```
@@ -844,7 +882,7 @@ moved, so a reader can find them with one grep.
 
 ## 8. Coverage
 
-**446 requirements across 26 areas.** Counted with the command below, which counts each row's
+**459 requirements across 27 areas.** Counted with the command below, which counts each row's
 **distinct** versions — a row carrying `v1·v1` (a base column and an India document, both in v1, at
 different phases) contributes **one** to the v1 column, not two:
 
@@ -887,14 +925,18 @@ END { for (s in n) print s, n[s] }' WAREHOUSE-FUNCTIONAL-REQUIREMENTS.md
 | 6.24 Import, go-live and data migration | 11 | 6 | 4 | 1 | 1 |
 | 6.25 Non-functional | 21 | 16 | 4 | 1 | — |
 | 6.26 Amendments — requirements added after the first authoring wave | 4 | 3 | — | 3 | — |
-| **Total** | **446** | **330** | **52** | **93** | **17** |
+| 6.27 Amendments — the requirements round 2 required | 13 | 5 | 4 | 5 | — |
+| **Total** | **459** | **335** | **56** | **98** | **17** |
 
-**The version columns sum to 492, not 446, and that is not an error.** 401 rows resolve to a single
-version; **45 span two**, because the column lands in one version and the screen or behaviour in a
-later one — `v1·v2` for the duty-status column and the bonded feature, `v1·v1.1` for the print
-renderer and the print server, `v1·v2` for the landed-cost column and the landed-cost document, and
-now `v1·v2` for the variant schema and the matrix screens. **Those 45 rows are the whole argument of
-this document in one number.**
+**The version columns sum to 506, not 459, and that is not an error.** 413 rows resolve to a single
+version; **45 span two and one spans three**, because the column lands in one version and the screen
+or behaviour in a later one — `v1·v2` for the duty-status column and the bonded feature, `v1·v1.1`
+for the print renderer and the print server, `v1·v2` for the landed-cost column and the landed-cost
+document, `v1·v2` for the variant schema and the matrix screens, and now `v1.1·v2` for the EPC
+column and the reader endpoint (`FR-453`). **Those 46 rows are the whole argument of this document in
+one number.** *(The pre-round-2 edition of this paragraph said "401 rows / 45 span two", which summed
+to 491 rather than the stated 492: it counted the one three-version row as a two. The distribution is
+now computed rather than carried forward — `distinct=1 413 · distinct=2 45 · distinct=3 1`.)*
 
 A further **six rows carry two v1 phases** (`v1·v1` at `P1·P2-IN` or `P2·P2-IN`) — `FR-244`,
 `FR-304`, `FR-305`, `FR-306`, `FR-307`, `FR-308`. They are not split deliveries across releases; they
@@ -906,16 +948,16 @@ phase it names):
 
 | Phase | What it is | FR touches |
 |---|---|---|
-| **P0** | ledger foundation | 116 |
-| **P1** | masters, identity, inbound | 100 |
-| **P2** | outbound, counting, valuation, returns, printing, reports | 109 |
+| **P0** | ledger foundation | 117 |
+| **P1** | masters, identity, inbound | 102 |
+| **P2** | outbound, counting, valuation, returns, printing, reports | 111 |
 | **P2-IN** | the India movement documents | 11 |
-| **P3** | execution & mobile | 52 |
-| **P4** | India statutory & compliance | 16 |
-| **P5** | 3PL, channels & reverse logistics | 77 |
+| **P3** | execution & mobile | 56 |
+| **P4** | India statutory & compliance | 18 |
+| **P5** | 3PL, channels & reverse logistics | 79 |
 | **P6** | optimisation, planning & the logistics seam | 17 |
 
-**The shape to read from this table:** 330 of 446 requirements are v1, and the great majority of the
+**The shape to read from this table:** 335 of 459 requirements are v1, and the great majority of the
 v1 count is in P0 and P1 — columns, keys, registries and seeded tables with **no v1 screen**. That is
 deliberate. The 40 v1 schema items R4 lists and the 28 R5 lists are the ones that are free before the
 first migration runs and either very expensive or genuinely impossible afterwards, in the specific

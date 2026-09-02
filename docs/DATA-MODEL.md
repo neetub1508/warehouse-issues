@@ -541,6 +541,8 @@ rather than hidden — in the worst case the monorepo carries **seven** party-sh
 | `whb_kit_components` | BOM line | `kit_definition_id`, `component_item_id`, `quantity`, `uom_code`, `sort_order`, `is_optional`, `scrap_factor_percent` | uk(`kit_definition_id`,`component_item_id`) | `kit_definition_id → whb_kit_definitions`; `component_item_id → whb_items` | `FR-075` | v1.1 |
 | `whb_ratio_pack_templates` | A **ratio / assortment pack** — one purchasable pack spanning N variants of a style. It is not an item attribute (a template spans several variants) and it is not `whb_item_packaging_levels` (that is the pack hierarchy of **one** item) | `code`, `name`, `style_item_id`, `owning_module`, `is_active` | uk(`code`) | `style_item_id → whb_items` | `FR-445` | v2 |
 | `whb_ratio_pack_template_lines` | One variant and its count inside the pack — the `2S/4M/4L` breakdown that one scan explodes into movement lines | `template_id`, `variant_item_id`, `quantity`, `sort_order` | uk(`template_id`,`variant_item_id`) | `template_id → whb_ratio_pack_templates`; `variant_item_id → whb_items` | `FR-445` | v2 |
+| `whb_gs1_settings` | **The GS1 company prefix as configured data, per company.** An SSCC is allocated from it, never typed in (`FR-452`) | `company_id`, `gs1_company_prefix`, `sscc_extension_digit`, `gtin_prefix_default`, `is_active` | uk(`company_id`) | `company_id → companies` (platform) | `FR-452` | v1.1 |
+| `whb_gs1_serial_counters` | The **per-key gapless counter** an SSCC, a GIAI or a serialised GTIN draws from. Same locked-row idiom as `whb_number_series`, and deliberately **not** that table — a GS1 key is not a document number and its check digit is computed, not formatted | `company_id`, `key_type` (`SSCC`/`SGTIN`/`GIAI`/`GRAI`), `key_scope` (nullable — the GTIN for an `SGTIN`), `next_value` BIGINT, `max_value` | uk(`company_id`,`key_type`,`key_scope`) — `key_scope` `COALESCE`d for the null case | `company_id → companies` (platform) | `FR-452` `FR-453` | v1.1 |
 
 **Two things `whb_items` deliberately does not have**, because their absence is a decision:
 
@@ -823,6 +825,8 @@ trivial; **the start date is the irreversible part**, which is why it is v1 and 
 |---|---|---|---|---|---|---|
 | `whb_reservations` | **An open-item ledger, never a counter.** Every reservation is a row | `company_id`, **`owner_id`**, `item_id`, `location_id`, `lot_id`, `serial_id`, `lpn_id`, `stock_status_code`, `quantity`, `base_quantity`, `uom_code`, **`holder_system`**, **`holder_document_type`**, **`holder_document_id`**, **`holder_line_no`**, `reservation_type` (`SOFT`/`HARD`), `priority`, **`expires_at`**, `allocation_strategy_id`, `allocation_rule_id`, `chosen_reason` (why *this* stock — `FR-173`), `released_at`, `release_reason_code_id`, `consumed_by_movement_line_id` | idx(`holder_system`,`holder_document_type`,`holder_document_id`) — the index that makes *"release everything trip X held"* answerable; idx(`item_id`,`location_id`) `WHERE released_at IS NULL`; idx(`expires_at`) `WHERE released_at IS NULL`; idx(`owner_id`,`item_id`) | masters as named; `holder_document_id` is a **generic reference with no FK** (§3.3); `allocation_strategy_id → whb_allocation_strategies`; `consumed_by_movement_line_id` **bare UUID** | `FR-166` `FR-167` `FR-169`–`FR-173` `IRR-45` `L-10` | v1 |
 | `whb_allocation_strategies` | Allocation strategy as **data**, not an `if`-ladder and not an expression language | `code`, `name`, `owning_module`, `scope_type` (`GLOBAL`/`WAREHOUSE`/`ITEM_CATEGORY`/`OWNER`/`CHANNEL`), `scope_ref`, `priority`, `is_active` | uk(`code`); idx(`scope_type`,`scope_ref`,`priority`) | — | `FR-172` `IRR-47` | v1 |
+| `whb_negative_stock_policies` | **Negative-stock mode resolved most-specific-first**, not read from one settings row — the shape `whb_gl_posting_rules` already establishes. `I-6`'s trigger calls the resolver function, never a single `SELECT` (`Z-001`) | `warehouse_id`, `owner_id`, `item_category_id`, `item_id` (all nullable = any), `mode`, `specificity` (computed), `is_active`. The all-null row is seeded from `admin_settings.warehouse.negative_stock.default_mode` | idx(`specificity` DESC, `warehouse_id`, `item_id`) | — | `FR-013` `I-6` | v1 |
+| `whb_allocation_rules` | **Which strategy applies**, resolved most-specific-first over the full wildcard tuple — mirrors `whb_gl_posting_rules` rather than inventing a second resolution shape. Withdraws `whb_allocation_strategies.scope_type`/`scope_ref` (`Z-001`) | `warehouse_id`, `item_id`, `item_category_id`, `owner_id`, `counterparty_id`, `demand_type_code` (all nullable = any), `strategy_id`, `specificity` (computed), `is_active` | idx(`specificity` DESC, `warehouse_id`, `item_id`) | — | `FR-172` `IRR-47` | v1 |
 | `whb_allocation_strategy_rules` | The bounded rows a strategy is made of | `strategy_id`, `sequence`, **`ordering_key`** (whitelisted: `FIFO`/`FEFO`/`LIFO`/`LOT_SPECIFIED`/`NEAREST_LOCATION`/`FEWEST_PICKS`/`ZONE_PRIORITY`/`HIGHEST_QUANTITY`), `direction` (`ASC`/`DESC`), `filter_column` (whitelisted), `filter_operator` (whitelisted), `filter_value` | uk(`strategy_id`,`sequence`) | `strategy_id → whb_allocation_strategies` | `FR-172` `IRR-47` | v1 |
 
 > **`ordering_key`, `filter_column` and `filter_operator` are whitelisted values checked against a
@@ -847,6 +851,7 @@ this document records it as closed.**
 | Table | Purpose | Key columns | Keys / indexes | FKs | FR | Ver |
 |---|---|---|---|---|---|---|
 | `whb_valuation_policies` | Method per **item category × site**, effective-dated. `OD-6`: weighted average + FIFO in v1, standard cost v1.1, **LIFO never** (prohibited under Ind AS 2 / IAS 2) | `company_id`, `category_id` (nullable = all), `warehouse_id` (nullable = all), `method` (`AVCO`/`FIFO`/`STANDARD`), `valuation_grain` (`COMPANY_OWNER_ITEM_SITE`), `effective_from`, `effective_to` | uk(`company_id`,`category_id`,`warehouse_id`,`effective_from`) `NULLS NOT DISTINCT` | masters as named | `FR-235` `FR-236` `OD-6` `IRR-40` | v1 |
+| `whb_retention_policies` | **Retention as a country-neutral mechanism**; `warehouse-india` seeds the Indian clocks into it rather than owning the table (`Z-006`). Default is the longest applicable statutory period | `scope_type`, `scope_ref`, `clock_kind`, `duration_months`, `is_legal_hold`, `is_active` | uk(`scope_type`,`scope_ref`,`clock_kind`) | — | `FR-370` | v1 |
 | `whb_cost_layers` | A receipt layer with a **remaining quantity**. The thing FIFO consumes and specific identification identifies | `company_id`, **`owner_id`**, `item_id`, `warehouse_id`, `lot_id`, `serial_id`, `duty_status`, `receipt_movement_line_id` (**bare**), `receipt_occurred_at`, `layer_date`, `quantity_in`, `quantity_remaining`, `unit_cost`, `layer_value`, **`currency_code`**, **`exchange_rate`**, `cost_basis`, `is_open` | idx(`company_id`,`owner_id`,`item_id`,`warehouse_id`,`layer_date`) `WHERE is_open`; idx(`receipt_movement_line_id`) | masters as named; the movement-line reference is a **bare pair** (§1.9) | `FR-234` `FR-245` `IRR-38` `OD-6` | v1 |
 | `whb_cost_layer_consumptions` | **Which layer fed which issue** — what a credit note needs in order to restore the original layer | `cost_layer_id`, `issue_movement_line_id` (**bare**), `issue_occurred_at`, `quantity_consumed`, `unit_cost`, `value_consumed`, `reversal_of_consumption_id` | idx(`cost_layer_id`); idx(`issue_movement_line_id`) | `cost_layer_id → whb_cost_layers`; self | `FR-234` `IRR-38` | v1 |
 | `whb_gl_posting_rules` | GL posting rules as **data**, resolved most-specific-first | `company_id`, `movement_type_code`, `reason_code_id`, `item_category_id`, `warehouse_id`, `owner_type_code`, `specificity` (computed, for ordering), `debit_account_ref`, `credit_account_ref`, `effective_from`, `effective_to` | uk on the full wildcard tuple + `effective_from`, `NULLS NOT DISTINCT`; idx(`company_id`,`specificity` DESC) | catalogues as named; `*_account_ref` are **VARCHAR account codes, not FKs** — the account lives in `acc_accounts`, which base must never reference (§3.4 defect **X-1**) | `FR-246` | v1 (table) · v2 (full rule set) |
@@ -872,6 +877,8 @@ catastrophe in both directions (`S-078`).
 | `whb_outbox` | Emits at **billable granularity** — receipt line, putaway, pick line, carton, task — with a gapless monotonic cursor. **Base does not know its consumers** | **`cursor` BIGINT** (gapless, from a sequence), `event_type`, `occurred_at`, `warehouse_id`, `owner_id`, `movement_id` (bare), `movement_line_id` (bare), `subject_type`, `subject_id`, `payload` **TEXT**, `payload_hash` | uk(`cursor`); idx(`event_type`,`occurred_at`); idx(`owner_id`,`occurred_at`) | `warehouse_id → whb_warehouses`; `owner_id → whb_owners` | `FR-330` `FR-331` `IRR-50` | v1 |
 | `whb_outbox_subscriptions` | Out-of-process consumers. **One table today; a redesign of three subscribers later** | `subscriber_code` (opaque), `transport` (`IN_PROCESS`/`HTTP`), `endpoint_url`, `secret_ref`, `event_type_filter`, `owner_filter_id`, `last_delivered_cursor`, `is_active`, `max_attempts`, `backoff_seconds` | uk(`subscriber_code`) | `owner_filter_id → whb_owners` | `FR-333` `IRR-50` | v1 |
 | `whb_outbox_deliveries` | Delivery attempts, the **dead-letter grid** and replay-from-cursor | `subscription_id`, `cursor`, `attempt_no`, `status` (`OK`/`RETRY`/`DEAD`), `http_status`, `error_detail`, `attempted_at` | idx(`subscription_id`,`cursor`); idx(`status`) `WHERE status = 'DEAD'` | `subscription_id → whb_outbox_subscriptions` | `FR-332` | v1 |
+| `whb_api_clients` | **A named external caller**, so a rate limit, a revocation and a lag signal have a subject. `OD-8` argues this belongs to `platform`; until platform ships it, warehouse's port is unusable by a third party without it (`FR-458`) | `client_code`, `name`, `company_id`, `contact_email`, `allowed_endpoints`, `rate_limit_per_minute`, `max_clock_skew_seconds`, `is_active`, `revoked_at`/`_by`, `revoke_reason` | uk(`client_code`) | `company_id → companies` (platform) | `FR-458` | v2 |
+| `whb_api_client_keys` | The key as a **rotatable object with an overlap window**, so rotation is not an outage. The secret is stored hashed; the plaintext is shown once at issue and never again | `client_id`, `key_prefix`, `key_hash`, `issued_at`/`_by`, `expires_at`, `last_used_at`, `revoked_at`/`_by`, `status` (`ACTIVE`/`SUPERSEDED`/`REVOKED`/`EXPIRED`) | uk(`key_prefix`); idx(`client_id`,`status`) | `client_id → whb_api_clients` | `FR-458` | v2 |
 
 **`grep -ril outbox` across `platform`, `accounting-base`, `accounting`, `dealer`, `automotive`,
 `services` and `assets` returns 0 files** (`IRR-50`). This is net-new infrastructure either way; the
@@ -913,6 +920,7 @@ so this is net-new and must not be built on it. A missing GRN number is an audit
 | `whb_job_runs` | **Every dated obligation ships with its job**, and a job with no run record cannot be proved to have run | `job_code`, `started_at`, `finished_at`, `status`, `records_read`, `records_written`, `error_detail`, `parameters_text` | idx(`job_code`,`started_at` DESC) | — | `FR-165` | v1 |
 | `whb_import_batches` | The **handler-registry** import framework, with a reversal path | `import_kind`, `file_name`, `document_id`, `status`, `total_rows`, `valid_rows`, `error_rows`, `is_dry_run`, `applied_at`, `reversed_at`, `reversal_of_batch_id` | idx(`import_kind`,`created_at` DESC) | `document_id ↓platform documents(id)`; self | `FR-416` `FR-417` | v1 |
 | `whb_import_batch_rows` | One row per input row, with its outcome | `batch_id`, `row_no`, `raw_text`, `status`, `error_code`, `error_detail`, `created_entity_type`, `created_entity_id` | uk(`batch_id`,`row_no`) | `batch_id → whb_import_batches` | `FR-416` | v1 |
+| `whb_master_merges` | **The merge path a 40,000-SKU import needs on day two.** Two duplicate items, or two duplicate counterparties, are reconciled by *transferring* the loser's stock to the survivor **through the movement port** and deactivating the loser with a scan redirect — never by an `UPDATE` against an append-only ledger. Refused where `base_uom_code`, `lot_control_mode` or `serial_control_mode` differ. **Not `whb_item_supersessions`**: a supersession is a real commercial fact about two real parts, a merge says one of them never existed (`FR-451`, `Z-007`) | `entity_type` (`ITEM`/`COUNTERPARTY`), `losing_id`, `surviving_id`, `merged_by`, `merged_at`, `reason`, `moved_stock_movement_id` (nullable — null where the loser held no stock) | uk(`entity_type`,`losing_id`) — a row can only lose once; idx(`entity_type`,`surviving_id`) | `merged_by → users` (platform); `moved_stock_movement_id → whb_stock_movements` | `FR-451` | v1 |
 | `whb_category_stocking_ownership` | **`D-9` obligation 2, mandatory in v1.** Exactly one stocking system per category per company per effective period, **recorded as data** | `company_id`, `category_scope` (`WAREHOUSE_CATEGORY`/`EXTERNAL_CATEGORY`), `category_ref`, **`stocking_system`** (`WAREHOUSE`/`ACCESSORIES` — **no `CHECK`**), `effective_from`, `effective_to`, `decided_by`, **`decision_note` `NOT NULL`** | uk(`company_id`,`category_scope`,`category_ref`,`effective_from`) | `company_id → whb_companies`; `decided_by ↓platform users(id)` | `D-9` `M2` `FR-369` | v1 |
 | `whb_external_stock_snapshots` | The accessories quantity, loaded by **snapshot** — because `warehouse` may not read `accessory_stock_levels` (`M8`, `D-11` B9) | `source_module`, `external_id`, `as_at_date`, `quantity_on_hand`, `loaded_at`, `loaded_by`, `import_batch_id` | uk(`source_module`,`external_id`,`as_at_date`); idx(`as_at_date`) | `import_batch_id → whb_import_batches` | `M2` `FR-369` | v1 |
 | `whb_channels` | The channel master. **In base**, because the ledger's source lineage and the item alias both reference it | `code`, `name`, `channel_kind` (`MARKETPLACE`/`OWN_STORE`/`POS`/`B2B`), `owning_module` | uk(`code`) | — | `FR-207` | v1 |
@@ -1069,6 +1077,8 @@ writing `whb_stock_movements` directly (`FR-436`, `D-11` B5). A `wh_` table ther
 | `wh_recalls` | **Quarantine matching on-hand stock in place**, then list every shipment that carried the lot | `recall_number`, `item_id`, `lot_id`, `recall_class`, `initiated_at`, `initiated_by`, `regulator_reference`, `status`, `quarantine_movement_id` (bare) | ↓base | `FR-280` | v2 |
 | `wh_recall_lines` | Affected shipment/consignee and the notification state | `recall_id`, `shipment_id`, `consignee_counterparty_id`, `quantity`, `notified_at`, `response_status` | as named | `FR-280` | v2 |
 | `wh_marketplace_claims` | The **return-claim window** as a queue with an owner and a due date. `BUILD-SPEC-SCREENS.md` §1 allocates no screen to it and `IMPLEMENTATION-PLAN.md` §2 allocated no table — `P5-13` closes both. **The due date is computed at receipt from the per-channel window and is never edited afterwards** | `return_receipt_id`, `channel_id`, `channel_account_id`, `claim_reference`, `claim_window_days`, `due_date`, `claimed_amount`, `restocking_fee_amount`, `eligibility_code`, `status`, `submitted_at`, `settled_at` | ↓base `channel_id → whb_channels`; `return_receipt_id → wh_return_receipts` | `FR-272` `FR-276` `FR-279` | v2 |
+| `wh_supplier_claims` | **One** supplier claim register, not three. Short-shipment, damage-in-transit and obsolescence all raise the same object against the same supplier with the same status ladder and the same settlement — `wh_obsolescence_returns` above stays as the *authorisation* for the obsolescence case and points at a claim here (`FR-459`, `E-081`) | `claim_number`, `supplier_counterparty_id`, `claim_type` (`SHORT_SHIPMENT`/`DAMAGE_IN_TRANSIT`/`QUALITY_REJECT`/`OBSOLESCENCE`/`PRICE`), `source_document_type`, `source_document_id`, `claim_date`, `claimed_value`, `currency_code`, `status` (`DRAFT`/`SUBMITTED`/`ACKNOWLEDGED`/`APPROVED`/`PART_APPROVED`/`REJECTED`/`SETTLED`/`WITHDRAWN`), `settled_value`, `settlement_mode` (`CREDIT_NOTE`/`REPLACEMENT`/`CASH`/`WRITE_OFF`), `settlement_ref`, `settled_at`, `ageing_bucket_at_close` | uk(`claim_number`); idx(`supplier_counterparty_id`,`status`); idx(`claim_date`) | `supplier_counterparty_id → whb_counterparties`; ↓base | `FR-459` | v2 |
+| `wh_supplier_claim_lines` | The item, the quantity and the value claimed, traced to the receipt line that evidences it | `claim_id`, `line_no`, `item_id`, `quantity`, `uom_code`, `unit_value`, `line_value`, `receipt_line_id`, `lot_id`, `serial_id`, `approved_quantity`, `approved_value`, `rejection_reason` | uk(`claim_id`,`line_no`) | `claim_id → wh_supplier_claims`; ↓base | `FR-459` | v2 |
 
 **There is no refund screen, no refund amount and no payment path in any warehouse module, in any
 version** (`FR-274`, R4 §5.5 #2). The warehouse **emits the disposition**; the channel or accounting
@@ -1215,6 +1225,12 @@ snapshot, warehouse legal identity, `duty_status`).
 | `whin_retention_policies` | **Two retention clocks on the same rows** — the Companies Act's financial years and the GST period — with per-item shelf-life-based overrides | `FR-329` | v2 |
 | `whin_form3cd_runs` · `whin_form3cd_lines` | The **s.44AB / Form 3CD** statement as a *built report* with a run and its lines, which is what `FR-329` asks for. `P4-09` names them and had no number; `WIN-22` allocates one from §7.6's declared correction reserve. **The clause number is `UNVERIFIED` and is re-verified before build** | `FR-329` | v2 |
 | `whin_compliance_tasks` · `whin_compliance_rules` · `whin_compliance_rule_conditions` | Scheduled compliance obligations and the bounded rules that raise them | `FR-326` | v2 |
+| `whin_licence_types` | An **open registry** of regulated-goods regimes — drug, narcotic, explosive, pesticide, fertiliser, liquor, arms — each with the fields its licence carries and whether it gates despatch. A registry row, never a `CHECK` value (`L-4`) | `FR-456` | v2 |
+| `whin_entity_licences` | **Our own** licence as an object with an expiry clock: the number, the issuing authority, the validity window, the scoped site, and the renewal alert (`FR-456`) | `FR-456` | v2 |
+| `whin_counterparty_licences` | **The counterparty's** licence, which is the half that actually blocks a despatch: no valid drug licence on the consignee, no despatch of a scheduled drug to them (`FR-456`) | `FR-456` | v2 |
+| `whin_licence_quantity_ceilings` | Where a regime caps quantity per period rather than merely permitting the trade, the ceiling and the running consumption against it | `FR-456` | v2 |
+| `whin_schedule_h1_register` | The **Schedule H1 register as an output of the ledger**, not a parallel book: it is *built* from despatch movements of H1 items with the prescriber and patient fields the rule names, and a run that can be rebuilt (`FR-457`) | `FR-457` | v2 |
+| `whin_recall_notifications` | The regulator-facing half of a recall — who was notified, when, under what reference. The affected-stock and affected-shipment halves are already `wh_recalls` / `wh_recall_lines` and are **not** duplicated here (`FR-457`) | `FR-457` | v2 |
 
 **MRP is not a `whin_` table.** `FR-320` puts MRP, net content, country of origin and pack month/year
 **on the lot** (`whb_lots`, v1 columns), with item-level defaults, because *"MRP is a property of the
@@ -2885,9 +2901,9 @@ Every one of these is covered by a test, and the tests are named in the task fil
 | WHB-21 | `V500021` | `whb_valuation_policies`, `whb_cost_layers`, `whb_cost_layer_consumptions`. **Must precede `V500030`** — `whb_stock_movement_lines.cost_layer_id` is a real FK | v1 |
 | — | `V500022`–`V500029` | *deliberate gap* — the eight numbers between the last prerequisite and the ledger, so a forgotten prerequisite has somewhere to land **before** the point of no return | — |
 | **WHB-30** | **`V500030`** | ★★ **PNR-1 AND PNR-2, COLLAPSED INTO ONE FILE** ★★ `whb_stock_movements` + `whb_stock_movement_lines` + `whb_movement_line_attributes`, `PARTITION BY RANGE (occurred_at)` with monthly partitions and the partition-creation job, **and every one of `I-1`, `I-2`, `I-3`, `I-4`, `I-8`, `I-11`, `I-13`, `I-14`, `I-15`, `I-16`, `I-17` in the same file.** After this migration, `UPDATE` is refused to every actor: **a column added later is `NULL` on every pre-existing row forever, with no backfill path, because the backfill is an `UPDATE`.** `IRREVERSIBLE.md` §3.5 — *"the gap between them is the only window in which a column can be added and backfilled, and a window that exists will be used, quietly, by someone who does not know what it costs"* | v1 |
-| WHB-31 | `V500031` | `whb_stock_positions` + **`I-5`** (`NULLS NOT DISTINCT`) + **`I-6`** | v1 |
+| WHB-31 | `V500031` | `whb_stock_positions` + **`I-5`** (`NULLS NOT DISTINCT`) + **`I-6`**, and `whb_negative_stock_policies` — created **before** the trigger in the same file, because `I-6` calls its resolver (`Z-001`) | v1 |
 | WHB-32 | `V500032` | **`I-10`** — the period trigger. A separate file because it needs both `V500019` and `V500030` | v1 |
-| WHB-33 | `V500033` | `whb_reservations` + **`I-12`**, `whb_allocation_strategies`, `whb_allocation_strategy_rules` | v1 |
+| WHB-33 | `V500033` | `whb_reservations` + **`I-12`**, `whb_allocation_strategies`, `whb_allocation_strategy_rules`, `whb_allocation_rules` (`Z-001`) | v1 |
 | WHB-34 | `V500034` | `whb_tasks` | v1 |
 | WHB-35 | `V500035` | `whb_transformations`, `whb_transformation_inputs`, `whb_transformation_outputs` | v1 |
 | WHB-36 | `V500036` | **`I-9`** — the base-UoM immutability trigger. Needs both `whb_items` and the ledger | v1 |
@@ -2905,16 +2921,20 @@ Every one of these is covered by a test, and the tests are named in the task fil
 | WHB-52 | `V500052` | `whb_transport_details` | v1 |
 | WHB-53 | `V500053` | **`D-9`'s two mandatory mitigations:** `whb_category_stocking_ownership`, `whb_external_stock_snapshots` | v1 |
 | WHB-54 | `V500054` | `whb_activity_history` **view** (`FR-428`). Creates no table | v1 |
-| — | `V500055`–`V500059` | *gap* | — |
+| WHB-55 | `V500055` | `whb_master_merges` (`P1-21`) | v1 |
+| WHB-56 | `V500056` | `whb_gs1_settings`, `whb_gs1_serial_counters`, plus the `epc` columns on `whb_serials` and `whb_lpns`, `is_authorised_source` on `whb_item_supplier_sources`, the `GS1_DIGITAL_LINK` row in `whb_barcode_formats` and the `SUSPECT` row in `whb_dispositions` (`P3-24`) | v1.1 |
+| — | `V500057`–`V500059` | *gap* | — |
 | WHB-60 | `V500060` | `whb_kit_definitions`, `whb_kit_components` | v1.1 |
 | WHB-61 | `V500061` | `whb_item_location_settings` | v1.1 |
 | WHB-62 | `V500062` | `whb_devices` | v1.1 |
 | WHB-63 | `V500063` | `whb_alert_rules`, `whb_alert_rule_conditions`, `whb_alert_rule_recipients`, `whb_alert_events` | v1.1 |
 | WHB-64 | `V500064` | `whb_ratio_pack_templates`, `whb_ratio_pack_template_lines` (`P5-20`) | v2 |
 | WHB-65 | `V500065` | `whb_packaging_balances` (`P5-21`) | v2 |
-| — | `V500066`–`V500099` | *gap* — post-v1 base DDL | — |
+| WHB-67 | `V500066` | `whb_api_clients`, `whb_api_client_keys` (`P5-22`). **Numbered WHB-67, not WHB-66** — `WHB-66` is already `V500100` below and `DECISIONS.md` §7.4 forbids renumbering an allocated id | v2 |
+| — | `V500067`–`V500099` | *gap* — post-v1 base DDL | — |
 | WHB-66 | `V500100` | `whb_stock_movements_archive`, `whb_stock_movement_lines_archive`, `whb_movement_line_attributes_archive` (`P6-01`). **The archive-run record is not allocated here** — §2.1.14 states why | v3 |
 | — | `V500101`–`V500199` | *gap* — post-v1 base DDL, 99 numbers remaining | — |
+| WHB-69 | `V500067` | `whb_retention_policies` (`P4-09`, `Z-006`). **`WHB-68` is deliberately skipped** — it is reserved for `P6-01`'s archive-run record, per `DESIGN-SET-DEFECTS.md` §6.4 `R-3` | v1 |
 | WHB-70 | `V500200` | **Platform `CHECK` widening**, module-owned as every other module does it: `widget_definitions.chk_module` += `warehouse` (it has been dropped and rebuilt three times and still admits neither `warehouse` nor `logistics` — `V234:36` → `V276:10` → `V557:18`); `global_settings.chk_global_setting_module` defensively merged. **`FR-377`: the migration reads the existing constraint definition and unions the new value, never hardcoding a list**, because the last writer may sort after this file | v1 |
 | — | `V500201`–`V500999` | **Reserved: 799 numbers** for DDL corrections found during the base build | — |
 | WHB-71 | `V501000` | `permissions` rows for every base resource (view/create/edit/delete/export + verb permissions: `warehouse:movements:post`, `:reverse`, `:simulate`, `warehouse:periods:close`, `:reopen`, `:override`, `warehouse:reservations:release`) + ADMIN and `ADMIN_GROUP` grants; **AUDITOR gets `:view` and never `:export`**; and **`FR-407` / `IRR-63`'s reserved `logistics:*` namespace with its `permission_dependencies` rows** — reserving the string costs one seed row, and a permission invented in v2 must otherwise be re-granted **by hand to every existing role across every install** | v1 |
@@ -2988,14 +3008,16 @@ Every one of these is covered by a test, and the tests are named in the task fil
 | WH-113 | `V510213` | `wh_weighing_instruments`, `wh_weighing_records` | v2 |
 | WH-114 | `V510214` | `wh_labour_tasks` | v2 |
 | WH-115 | `V510215` | `wh_marketplace_claims` (`P5-13`) — the first number of the correction reserve, taken for a table `IMPLEMENTATION-PLAN.md` §2 omitted | v2 |
-| — | `V510216`–`V510999` | **Reserved: 784 numbers** for DDL corrections during the app build | — |
+| WH-116 | `V510216` | `wh_supplier_claims`, `wh_supplier_claim_lines` (`P5-23`) | v2 |
+| — | `V510217`–`V510999` | **Reserved: 783 numbers** for DDL corrections during the app build | — |
 | WH-200 | `V511000` | `permissions` + verb permissions for the app resources; ADMIN and AUDITOR grants | v1 |
 | WH-201 | `V511001` | `permission_dependencies` — `INSERT` only | v1 |
 | WH-202 | `V511010` | Menu tree, `menu_translations` en/fr/hi, `menu_permissions`, `WHERE NOT EXISTS`-guarded | v1 |
 | WH-203 | `V511020`–`V511199` | Grid configuration — one migration per grid | v1 |
 | WH-204 | `V511200` | `admin_settings` seed, category `WAREHOUSE` (app-owned keys) | v1 |
 | WH-205 | — | **No migration.** Cache names in `CacheConfiguration.java`; filter scopes in `filterUtils.ts` | v1 |
-| — | `V511201`–`V519999` | **Reserved: ~8,800 numbers** for post-v1 app work | — |
+| WH-206 | `V511201`–`V511260` | **Verb permissions and their dependency rows, P2 onward** — `V511201`–`V511230` one permission migration per task that ships a transition, `V511231`–`V511260` its matching `permission_dependencies` row. Carved out of the reserved block so that no P2+ task has to edit `WH-200`'s released `V511000` (`Q-001`) | v1 |
+| — | `V511261`–`V519999` | **Reserved: ~8,700 numbers** for post-v1 app work | — |
 
 ### 7.4 The adapters — V520000 to V529999, sub-allocated
 
@@ -3061,7 +3083,8 @@ table and **never** widens a base `CHECK`; it inserts a row.
 | WIN-20 | `V540170` | `whin_retention_policies` | v2 |
 | WIN-21 | `V540180` | `whin_compliance_tasks`, `whin_compliance_rules`, `whin_compliance_rule_conditions` | v2 |
 | WIN-22 | `V540181` | `whin_form3cd_runs`, `whin_form3cd_lines` (`P4-09`) — the first number of the correction reserve | v2 |
-| — | `V540182`–`V540999` | Reserved for corrections | — |
+| WIN-23 | `V540182` | `whin_licence_types`, `whin_entity_licences`, `whin_counterparty_licences`, `whin_licence_quantity_ceilings`, `whin_schedule_h1_register`, `whin_recall_notifications` (`P4-13`) | v2 |
+| — | `V540183`–`V540999` | Reserved for corrections | — |
 | WIN-30 | `V541000`–`V541199` | Permissions, `permission_dependencies`, menus, grid configuration, `admin_settings` | v1/v2 |
 | — | `V541200`–`V549999` | Reserved | — |
 
@@ -3241,6 +3264,8 @@ wh_shipments
 wh_shipping_labels
 wh_stock_adjustment_lines
 wh_stock_adjustments
+wh_supplier_claim_lines
+wh_supplier_claims
 wh_supplier_return_lines
 wh_supplier_returns
 wh_three_way_match_allocations
@@ -3282,8 +3307,11 @@ whb_alert_events
 whb_alert_rule_conditions
 whb_alert_rule_recipients
 whb_alert_rules
+whb_allocation_rules
 whb_allocation_strategies
 whb_allocation_strategy_rules
+whb_api_client_keys
+whb_api_clients
 whb_attribute_keys
 whb_audit_event_changes
 whb_audit_events
@@ -3303,6 +3331,8 @@ whb_dispositions
 whb_document_types
 whb_external_stock_snapshots
 whb_gl_posting_rules
+whb_gs1_serial_counters
+whb_gs1_settings
 whb_import_batch_rows
 whb_import_batches
 whb_inbound_messages
@@ -3329,11 +3359,13 @@ whb_location_types
 whb_locations
 whb_lots
 whb_lpns
+whb_master_merges
 whb_movement_batch_results
 whb_movement_batches
 whb_movement_line_attributes
 whb_movement_line_attributes_archive
 whb_movement_types
+whb_negative_stock_policies
 whb_number_series
 whb_number_series_issued
 whb_outbox
@@ -3348,6 +3380,7 @@ whb_ratio_pack_template_lines
 whb_ratio_pack_templates
 whb_reason_codes
 whb_reservations
+whb_retention_policies
 whb_serials
 whb_source_systems
 whb_stock_movement_lines
@@ -3384,8 +3417,10 @@ whin_compliance_registrations
 whin_compliance_rule_conditions
 whin_compliance_rules
 whin_compliance_tasks
+whin_counterparty_licences
 whin_delivery_challan_lines
 whin_delivery_challans
+whin_entity_licences
 whin_epr_categories
 whin_epr_return_lines
 whin_epr_returns
@@ -3408,8 +3443,12 @@ whin_itc04_returns
 whin_itc_reversals
 whin_job_work_dispatch_lines
 whin_job_work_registrations
+whin_licence_quantity_ceilings
+whin_licence_types
+whin_recall_notifications
 whin_retention_policies
 whin_sac_master
+whin_schedule_h1_register
 whin_stock_account_lines
 whin_stock_account_periods
 whin_tax_components
@@ -3457,27 +3496,28 @@ PY
 ### 8.2 The result
 
 Re-run 2026-09-02 against this file, after the eleven tables §7 allocated on that date (`WHB-64`,
-`WHB-65`, `WHB-66`, `WH-115`, `WIN-05`'s two children and `WIN-22`) were added to the inventory:
+`WHB-65`, `WHB-66`, `WH-115`, `WIN-05`'s two children and `WIN-22`) were added to the inventory, and
+again after the round-2 review added thirteen more (`WHB-55`, `WHB-56`, `WHB-67`, `WH-116`, `WIN-23`):
 
 | Module | Prefix | Tables | Band | Ships |
 |---|---|---:|---|---|
-| `warehouse-base` | `whb_` | **92** | V500000–V509999 | v1 · v1.1 · v2 · v3 |
-| `warehouse` | `wh_` | **119** | V510000–V519999 | v1 · v1.1 · v2 |
-| `warehouse-india` | `whin_` | **50** | V540000–V549999 | v1 wave · v2 wave |
+| `warehouse-base` | `whb_` | **100** | V500000–V509999 | v1 · v1.1 · v2 · v3 |
+| `warehouse` | `wh_` | **121** | V510000–V519999 | v1 · v1.1 · v2 |
+| `warehouse-india` | `whin_` | **56** | V540000–V549999 | v1 wave · v2 wave |
 | `warehouse-3pl` | `wh3_` | **21** | V530000–V539999 | v2 · v3 |
 | `warehouse-adapter-dealer` | `whad_` | **8** | V520000–V520999 | v1 · v1.1 · v2 |
 | `warehouse-adapter-services` | `whas_` | **5** | V521000–V521999 | v1 · v2 |
 | `warehouse-adapter-field-service` | `whaf_` | **3** | V522000–V522999 | v1.1 |
 | `warehouse-adapter-assets` | `whaa_` | **2** | V523000–V523999 | v1.1 |
 | `warehouse-adapter-example` | `whae_` | **1** | V525000–V525999 | v1 |
-| **Total** | | **301** | | |
+| **Total** | | **317** | | |
 
 **Cross-check: `0` tables without an allocated migration** (the third command above, re-run
-2026-09-02).
+2026-09-02 after the round-2 additions).
 
 ### 8.3 What the total is not
 
-Four things are deliberately **not** in the 301, so the number is not quietly wrong:
+Four things are deliberately **not** in the 317, so the number is not quietly wrong:
 
 1. **`whb_activity_history` is a view, not a table** (`FR-428`). It is created by `WHB-54`
    (`V500054`) and it is not counted.
@@ -3603,6 +3643,7 @@ wh_landed_cost_allocations v1
 wh_landed_cost_documents v1
 wh_manifest_shipments v1.1
 wh_manifests v1.1
+wh_marketplace_claims v2
 wh_migration_mappings v1.1
 wh_ndr_actions v2
 wh_nrv_assessments v2
@@ -3654,6 +3695,8 @@ wh_shipments v1
 wh_shipping_labels v1.1
 wh_stock_adjustment_lines v1
 wh_stock_adjustments v1
+wh_supplier_claim_lines v2
+wh_supplier_claims v2
 wh_supplier_return_lines v1
 wh_supplier_returns v1
 wh_three_way_match_allocations v2
@@ -3695,8 +3738,11 @@ whb_alert_events v1.1
 whb_alert_rule_conditions v1.1
 whb_alert_rule_recipients v1.1
 whb_alert_rules v1.1
+whb_allocation_rules v1
 whb_allocation_strategies v1
 whb_allocation_strategy_rules v1
+whb_api_client_keys v2
+whb_api_clients v2
 whb_attribute_keys v1
 whb_audit_event_changes v1
 whb_audit_events v1
@@ -3716,6 +3762,8 @@ whb_dispositions v1
 whb_document_types v1
 whb_external_stock_snapshots v1
 whb_gl_posting_rules v1
+whb_gs1_serial_counters v1.1
+whb_gs1_settings v1.1
 whb_import_batch_rows v1
 whb_import_batches v1
 whb_inbound_messages v1
@@ -3742,10 +3790,13 @@ whb_location_types v1
 whb_locations v1
 whb_lots v1
 whb_lpns v1
+whb_master_merges v1
 whb_movement_batch_results v1
 whb_movement_batches v1
 whb_movement_line_attributes v1
+whb_movement_line_attributes_archive v3
 whb_movement_types v1
+whb_negative_stock_policies v1
 whb_number_series v1
 whb_number_series_issued v1
 whb_outbox v1
@@ -3754,13 +3805,19 @@ whb_outbox_subscriptions v1
 whb_owner_grants v1
 whb_owner_types v1
 whb_owners v1
+whb_packaging_balances v2
 whb_position_drift_findings v1
+whb_ratio_pack_template_lines v2
+whb_ratio_pack_templates v2
 whb_reason_codes v1
 whb_reservations v1
+whb_retention_policies v1
 whb_serials v1
 whb_source_systems v1
 whb_stock_movement_lines v1
+whb_stock_movement_lines_archive v3
 whb_stock_movements v1
+whb_stock_movements_archive v3
 whb_stock_period_overrides v1
 whb_stock_periods v1
 whb_stock_position_snapshots v1
@@ -3791,18 +3848,24 @@ whin_compliance_registrations v1
 whin_compliance_rule_conditions v2
 whin_compliance_rules v2
 whin_compliance_tasks v2
+whin_counterparty_licences v2
 whin_delivery_challan_lines v1
 whin_delivery_challans v1
+whin_entity_licences v2
 whin_epr_categories v2
 whin_epr_return_lines v2
 whin_epr_returns v2
 whin_eway_bill_cancellations v2
 whin_eway_bill_consolidated_items v2
+whin_eway_bill_events v1
 whin_eway_bill_extensions v2
+whin_eway_bill_lines v1
 whin_eway_bill_vehicle_updates v2
 whin_eway_bills v1
 whin_eway_bills_consolidated v2
 whin_ex_bond_clearances v2
+whin_form3cd_lines v2
+whin_form3cd_runs v2
 whin_gst_state_codes v2
 whin_gstin_profiles v1
 whin_hsn_tax_master v2
@@ -3811,8 +3874,12 @@ whin_itc04_returns v2
 whin_itc_reversals v2
 whin_job_work_dispatch_lines v2
 whin_job_work_registrations v2
+whin_licence_quantity_ceilings v2
+whin_licence_types v2
+whin_recall_notifications v2
 whin_retention_policies v2
 whin_sac_master v2
+whin_schedule_h1_register v2
 whin_stock_account_lines v2
 whin_stock_account_periods v2
 whin_tax_components v2
@@ -3853,17 +3920,28 @@ for v in ['v1', 'v1.1', 'v2', 'v3', 'TOTAL']:
 EOF
 ```
 
+**Round-2 correction, 2026-09-02.** The block above was **eleven rows short of §8.1** before this
+review: `WHB-64`/`WHB-65`/`WHB-66`/`WH-115`/`WIN-05`'s two children/`WIN-22` were added to the §8.1
+inventory when they were allocated, and the version block was not regenerated with them — so the
+recorded result table below asserted totals (301, and `v1` 169) that the block it claims to be
+computed from could not produce. The eleven are now present at the version §2 gives each
+(`wh_marketplace_claims` v2; `whb_packaging_balances` v2; `whb_ratio_pack_templates` and
+`whb_ratio_pack_template_lines` v2; the three archive tables v3; `whin_eway_bill_events` and
+`whin_eway_bill_lines` v1; `whin_form3cd_runs` and `whin_form3cd_lines` v2), the round-2 thirteen are
+present too, and the table below is the command's actual output. Recorded rather than silently
+corrected, per `DECISIONS.md` §7 rule 1.
+
 Re-run 2026-09-02 against this file:
 
 | Version | Base | App | India | 3PL | Adapters | Total |
 |---|---:|---:|---:|---:|---:|---:|
-| **v1** — the stock ledger and inventory control | 78 | 68 | 14 | 0 | 9 | **169** |
-| **v1.1** — execution and mobile | 8 | 22 | 0 | 0 | 8 | **38** |
-| **v2** — India statutory, 3PL, channels, reverse logistics | 3 | 29 | 36 | 20 | 2 | **90** |
+| **v1** — the stock ledger and inventory control | 82 | 68 | 14 | 0 | 9 | **173** |
+| **v1.1** — execution and mobile | 10 | 22 | 0 | 0 | 8 | **40** |
+| **v2** — India statutory, 3PL, channels, reverse logistics | 5 | 31 | 42 | 20 | 2 | **100** |
 | **v3** — optimisation, planning, the logistics seam | 3 | 0 | 0 | 1 | 0 | **4** |
-| **Total** | **92** | **119** | **50** | **21** | **19** | **301** |
+| **Total** | **100** | **121** | **56** | **21** | **19** | **317** |
 
-**169 tables in v1 is the number to argue with, and it is deliberately large.** Roughly a third of
+**173 tables in v1 is the number to argue with, and it is deliberately large.** Roughly a third of
 them carry no v1 screen: the ledger's twelve prerequisites, the fourteen registries, the four
 external-ref tables, the outbox, the owner grants, the transformation genealogy, the cost layers, the
 snapshot table, and `D-9`'s two mandatory coexistence tables. Every one of them is on
