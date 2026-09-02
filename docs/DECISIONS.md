@@ -380,10 +380,37 @@ That cannot happen here.
 | Findings — R5 standards / statute | **`S-001` … `S-098`** | `reviews/R5` |
 | Findings — R6 prior art | **`P-001` … `P-060`** | `reviews/R6` |
 | Findings — R7 logistics seam | **`G-001` … `G-086`** | `reviews/R7` |
+| Findings — R8 task buildability v1 | **`Q-001` … `Q-006`** | `reviews/R8` |
+| Findings — R9 task buildability v2 / epics | **`H-001` … `H-010`** | `reviews/R9` |
+| Findings — R10 operational walkthrough | **`U-001` … `U-006`** | `reviews/R10` |
+| Findings — R11 exception & unhappy paths | **`Y-001` … `Y-009`** | `reviews/R11` |
+| Findings — R12 lifecycle & data migration | **`Z-001` … `Z-010`** | `reviews/R12` |
+| Findings — R13 non-functional & operability | **`K-001` … `K-006`** | `reviews/R13` |
+| Findings — R14 codebase & sibling re-verify | **`O-001` … `O-007`** | `reviews/R14` |
+| Findings — R15 competitor round 2 | **`J-001` … `J-008`** | `reviews/R15` |
 | Traps — R1 §8 | **`T-1` … `T-18`**, unpadded | `reviews/R1` §8 |
 
 `P-` (prior art) and `Pn-nn` (tasks) are distinguishable because a task id always carries a phase digit
 and a hyphen-separated pair. The check script asserts no id is used for two things.
+
+**`O-` is not `OD-`.** The R14 register and the open-decision register differ by one letter that is
+itself a register prefix, which is the exact shape of the `I-`/`IRR-` collision this table was
+extended to record. They do not collide, and the reason is mechanical rather than editorial:
+`check-design-set.py`'s `FINDING_CITE_RE` requires a hyphen immediately after the register letter, so
+`OD-1` can never be read as an `O-` finding, and `O-001` can never be read as an open decision because
+the open-decision register is unpadded and single-digit. Nothing else in the set may take `OD` as a
+finding prefix.
+
+**The eight round-2 rows were added on 2026-09-02, before their findings were cited anywhere.** Round 2
+ran eight lenses against the set that round 1's seven had not: per-task buildability over v1 (R8) and
+over v1.1–v3 plus the epics (R9), a journey-first operational walkthrough (R10), the exception and
+unhappy paths (R11), the master-data lifecycle from go-live to disposal (R12), the non-functional
+surface (R13), a re-verification against the live `classic` checkout and the sibling `accounting` and
+`classic-issues` sets (R14), and a live competitor diff (R15). Every prefix was grep-verified free
+against the whole repository before allocation — the eight letters `Q H U Y Z K O J` are precisely the
+letters that were free — and `check-design-set.py` check 7 resolves each of the 62 round-2 citations
+against its own authority exactly as it does the round-1 registers. `GAP-REGISTER-R2.md` holds the
+disposition of all 62.
 
 **Three of the rows above were added on 2026-09-02, and two of them are the record of a collision that
 had already happened.** They are stated here rather than only in the documents that own them, because

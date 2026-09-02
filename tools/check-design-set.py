@@ -23,7 +23,8 @@ Checks
    4  every Flyway version is claimed by exactly one task, inside its module's declared band
    5  every #NN issue cross-reference resolves to a row in issues/CREATED.md
    6  every task file carries the six required sections
-   7  every finding id cited (C/T/E/F/S/P/G) resolves to a real finding in its owning review
+   7  every finding id cited (round 1 C/T/E/F/S/P/G, round 2 Q/H/U/Y/Z/K/O/J) resolves to a
+      real finding in its owning review
    8  every task in IMPLEMENTATION-PLAN.md §2 has a file, and every file is in the plan
    9  every task appears in exactly one phase epic's __TASKS__ / checklist region
   10  every FR-nnn is owned by exactly one task
@@ -92,6 +93,17 @@ REVIEWS = {
     "S": "docs/reviews/R5-standards-industry-ops.md",
     "P": "docs/reviews/R6-prior-art-triage.md",
     "G": "docs/reviews/R7-logistics-supply-chain-seam.md",
+    # round 2 — the eight orthogonal lenses. Prefixes were grep-verified free of the round-1
+    # registers before allocation; `O-` is deliberately distinct from the `OD-n` open-decision
+    # register, which FINDING_CITE_RE's letter-then-hyphen shape cannot match.
+    "Q": "docs/reviews/R8-task-buildability-v1.md",
+    "H": "docs/reviews/R9-task-buildability-v2-and-epics.md",
+    "U": "docs/reviews/R10-operational-walkthrough.md",
+    "Y": "docs/reviews/R11-exception-and-unhappy-paths.md",
+    "Z": "docs/reviews/R12-lifecycle-and-data-migration.md",
+    "K": "docs/reviews/R13-non-functional-and-operability.md",
+    "O": "docs/reviews/R14-codebase-and-sibling-set-reverification.md",
+    "J": "docs/reviews/R15-competitor-benchmark-r2.md",
 }
 
 # Each review anchors its findings differently. These are the *definition* anchors, not citations:
@@ -104,11 +116,24 @@ FINDING_DEF_RE = {
     "S": re.compile(r"^\|\s*\*\*S-(\d{3})\*\*\s*\|"),
     "P": re.compile(r"^###\s+`P-(\d{3})`"),
     "G": re.compile(r"^\*\*`G-(\d{3})`\s*·"),
+    # The eight round-2 lenses were authored against one shared brief and share one anchor.
+    "Q": re.compile(r"^###\s+`Q-(\d{3})`"),
+    "H": re.compile(r"^###\s+`H-(\d{3})`"),
+    "U": re.compile(r"^###\s+`U-(\d{3})`"),
+    "Y": re.compile(r"^###\s+`Y-(\d{3})`"),
+    "Z": re.compile(r"^###\s+`Z-(\d{3})`"),
+    "K": re.compile(r"^###\s+`K-(\d{3})`"),
+    "O": re.compile(r"^###\s+`O-(\d{3})`"),
+    "J": re.compile(r"^###\s+`J-(\d{3})`"),
 }
 REVIEW_LABEL = {
     "C": "R1 codebase reality", "T": "R2 tier-1 WMS", "E": "R3 ERP / mid-market",
     "F": "R4 fulfilment / 3PL", "S": "R5 standards / statute", "P": "R6 prior art",
     "G": "R7 logistics seam",
+    "Q": "R8 task buildability v1", "H": "R9 task buildability v2 / epics",
+    "U": "R10 operational walkthrough", "Y": "R11 exception paths",
+    "Z": "R12 lifecycle / data migration", "K": "R13 non-functional",
+    "O": "R14 codebase / sibling re-verify", "J": "R15 competitor round 2",
 }
 
 # R1 §8's traps are a *second* register under the same `T-` prefix, separated from R2's findings
@@ -150,7 +175,7 @@ SC_DEF_RE = re.compile(r"^\|\s*\*\*WH-SC-(\d{3})\*\*")
 WS_CITE_RE = re.compile(r"\bWS-(\d+)\b")
 WS_DEF_RE = re.compile(r"^\|\s*WS-(\d{3})\s*\|")
 TABLE_RE = re.compile(r"\b(?:whb|wh3|whin|wha[a-z]|wh)_[a-z0-9_]+\b")
-FINDING_CITE_RE = re.compile(r"\b([CTEFSPG])-(\d{1,3}[a-z]?)\b(?!-\d)")
+FINDING_CITE_RE = re.compile(r"\b([CTEFSPGQHUYZKOJ])-(\d{1,3}[a-z]?)\b(?!-\d)")
 ISSUE_CITE_RE = re.compile(r"(?<![\w/#])#(\d{1,4})\b")
 PR_REF_RE = re.compile(r"(?:\bPR|\bpull request)\s*#\d{1,4}\b", re.IGNORECASE)
 ISSUE_MAP_ROW_RE = re.compile(r"^\|\s*#(\d+)\s*\|\s*`([^`]+)`")
@@ -197,7 +222,7 @@ RULE_TOKEN_RE = {
     "scenario-citations": re.compile(r"\bWH-SC-\d+\b"),
     "table-names": TABLE_RE,
     "flyway-band": re.compile(r"\bV\d{6}\b"),
-    "finding-citations": re.compile(r"\b[CTEFSPG]-\d{1,3}[a-z]?\b"),
+    "finding-citations": re.compile(r"\b[CTEFSPGQHUYZKOJ]-\d{1,3}[a-z]?\b"),
     "id-collision": re.compile(r"\b[A-Z][A-Z-]*-\d+[a-z]?\b"),
     "screen-citations": re.compile(r"\bWS-\d+\b"),
 }
@@ -1198,6 +1223,14 @@ AUTHORITY_STEM = {
     "docs/reviews/R5-standards-industry-ops.md": "R5",
     "docs/reviews/R6-prior-art-triage.md": "R6",
     "docs/reviews/R7-logistics-supply-chain-seam.md": "R7",
+    "docs/reviews/R8-task-buildability-v1.md": "R8",
+    "docs/reviews/R9-task-buildability-v2-and-epics.md": "R9",
+    "docs/reviews/R10-operational-walkthrough.md": "R10",
+    "docs/reviews/R11-exception-and-unhappy-paths.md": "R11",
+    "docs/reviews/R12-lifecycle-and-data-migration.md": "R12",
+    "docs/reviews/R13-non-functional-and-operability.md": "R13",
+    "docs/reviews/R14-codebase-and-sibling-set-reverification.md": "R14",
+    "docs/reviews/R15-competitor-benchmark-r2.md": "R15",
 }
 
 
