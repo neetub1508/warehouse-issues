@@ -31,8 +31,9 @@ with no precedent at all. §9.4 puts it at 4–5 backend, 3–4 frontend, 2 QA, 
 - **`A-1` — returns move to v1.** R2, R3 and R4 all placed RMA at v1/v1.1. *"A stock product with no
   return path at v1 is not credible in any segment"* — and **a customer return that cannot be
   received is a stock movement the ledger simply loses.** Basic returns are `P2-12`; full reverse
-  logistics stays v2/P5. `COMPETITOR-BENCHMARK.md` §4.1 calls the returns row *"the most damaging
-  line in the table and self-inflicted"*; this phase closes it.
+  logistics stays v2/P5. `COMPETITOR-BENCHMARK.md` §4.1 called the returns row *"the most damaging
+  line in the table and self-inflicted"* until `X-050`'s 2026-09-02 fix rewrote it to name only the
+  v2 RMA programme; this phase is what closed it.
 - **`A-2` — printing moves to v1.** R5 ranks it **ship-blocker #2**, and
   `grep -rli "zpl\|escpos\|dymo"` across all Java and TypeScript returns **0**. *A warehouse that
   cannot print a pick list, a GRN, a delivery document or a bin label cannot be operated, and loses

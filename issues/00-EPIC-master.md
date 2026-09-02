@@ -143,19 +143,20 @@ adapter proves nothing*) · field-service and assets **v1.1** · logistics **v3*
 | Phase | Epic | Name | Tasks | Ships |
 |---|---|---|---|---|
 | P0 | __P0__ | Ledger foundation | **17** | v1 |
-| P1 | __P1__ | Masters, identity, inbound | **20** | v1 |
+| P1 | __P1__ | Masters, identity, inbound | **21** | v1 |
 | P2 | __P2__ | Outbound, counting, valuation, returns, printing, reports | **29** | v1 |
 | P2-IN | __P2IN__ | The India movement documents | **4** | v1 |
-| P3 | __P3__ | Execution and mobile | **23** | v1.1 |
-| P4 | __P4__ | India statutory and compliance | **12** | v2 |
-| P5 | __P5__ | 3PL, channels and reverse logistics | **21** | v2 |
+| P3 | __P3__ | Execution and mobile | **24** | v1.1 |
+| P4 | __P4__ | India statutory and compliance | **13** | v2 |
+| P5 | __P5__ | 3PL, channels and reverse logistics | **23** | v2 |
 | P6 | __P6__ | Optimisation, planning and the logistics seam | **12** | v3 |
 
-**138 tasks** — `ls issues/p*.md | wc -l`, and 17 + 20 + 29 + 4 + 23 + 12 + 21 + 12.
-**446 requirements**, each owned by **exactly one** task. **300 scenarios** (computed:
-`grep -cE '^\| \*\*WH-SC-[0-9]{3}\*\*' docs/SCENARIO-CATALOGUE.md`; note `IMPLEMENTATION-PLAN.md` §8.5
-states 119 for that same command — see `DEFECTS-FOUND.md`). **301 tables. 237 screens**, 215 of them
-carrying a `gridIdentifier`. **818 migration numbers allocated** — `D-2`'s five bands only; `P6-08`'s
+**143 tasks** — `ls issues/p*.md | wc -l`, and 17 + 21 + 29 + 4 + 24 + 13 + 23 + 12.
+**459 requirements**, each owned by **exactly one** task. **305 scenarios** (computed:
+`grep -cE '^\| \*\*WH-SC-[0-9]{3}\*\*' docs/SCENARIO-CATALOGUE.md`; 300 before review round 2 added
+§3.21's five. `IMPLEMENTATION-PLAN.md` §8.5 stated **119** for that same command until 2026-09-02,
+when `X-007`/`X-034` were closed by recomputing it). **314 tables. 237 screens**, 215 of them
+carrying a `gridIdentifier`. **823 migration numbers allocated** — `D-2`'s five bands only; `P6-08`'s
 `logistics` schema is numbered outside them.
 
 > **The file glob is the count.** `DECISIONS.md` §6 makes `issues/pN-nn.md` the authority on the task
@@ -208,7 +209,7 @@ sort** · i18n **en / fr / hi** in the module's SafeTranslation · **mobile coun
 absence declared with a reason — silence is a defect** · **Docker build requested; there is no local
 toolchain, so never run `mvn`, `npm` or `tsc` to "verify"**.
 
-**Four additions specific to this programme:**
+**Five additions specific to this programme:**
 
 1. **A migration that only `RAISE NOTICE`s its checks is not verified.** Assert with `RAISE EXCEPTION`, so
    a future apply against a different database fails loudly.
@@ -220,6 +221,12 @@ toolchain, so never run `mvn`, `npm` or `tsc` to "verify"**.
    `warehouse-ratchets` on the required status checks.
 4. **Every threshold column ships with the scheduled job that reads it.** *A dated obligation with no actor
    is a defect at the moment it is merged, not when it is noticed.*
+5. **A task creating a `status` column ships its ladder rows** in `BUILD-SPEC-SCREENS.md` §0.11, in the same
+   PR — `Table | From | To | Verb | Actor (permission) | Guard | Terminal?`. **A state with no inbound
+   transition, and a non-terminal state with no outbound transition, are both defects.** Every verb in the
+   ladder is a §10.2 permission string, not an `:edit` (`H-004`, `H-001`). *A status value written by a
+   build that guessed the ladder is in the customer's table forever, and the `IRR-41`-shaped append-only
+   tables cannot be corrected by `UPDATE`.*
 
 ## Accepted limitations — what a v1 buyer does not get
 
@@ -287,7 +294,7 @@ a compliance filing product until v1.1, v2 and v2 respectively.
    criteria.** "Done" means walked in a running application.
 7. **[`BUILD-SPEC-SCREENS.md`](../blob/main/docs/BUILD-SPEC-SCREENS.md)** — the 237 screens, their tables,
    columns, filters, actions and mobile verdicts.
-8. **[`IMPLEMENTATION-PLAN.md`](../blob/main/docs/IMPLEMENTATION-PLAN.md)** — the 138-task decomposition,
+8. **[`IMPLEMENTATION-PLAN.md`](../blob/main/docs/IMPLEMENTATION-PLAN.md)** — the 143-task decomposition,
    the critical path, the four points of no return, the open decisions as gates, and the traceability.
 9. **[`MODULE-INTEGRATION.md`](../blob/main/docs/MODULE-INTEGRATION.md)** — the **22** integration
    touchpoints, three of which fail **silently**.

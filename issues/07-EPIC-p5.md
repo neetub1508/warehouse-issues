@@ -5,7 +5,7 @@ Part of __MASTER__ · Modules `warehouse-3pl` (new) · `warehouse` · `warehouse
 
 ## Overview
 
-**21 tasks. Three products sharing one base, and two of them can be built in parallel by two teams.**
+**23 tasks. Three products sharing one base, and two of them can be built in parallel by two teams.**
 
 - **3PL** — clients as objects with contracts and onboarding templates, charge codes, versioned
   effective-dated rate cards, **the append-only reversible billable-event meter**, storage billing in four
@@ -26,6 +26,18 @@ granularity** (`PC-42`), `cost_basis` including `ZERO_BAILMENT`, owner-scoped ac
 persisted daily storage snapshot whose start date is `PNR-3`. R4 §5.3 puts it plainly: `warehouse-3pl` is
 *"a thin module standing on a wide base concession, and the concession is not optional, not deferrable
 and not flaggable."*
+
+## The invariants this phase establishes
+
+This phase **establishes no new `L-n`** — `P0` and `P1` did that. What it does is put existing
+invariants under **new writers**, and a new writer is exactly how an invariant is lost. Each row names
+the invariant, the new writer, and the specific way this phase could break it (`H-008`).
+
+| # | Invariant | The new writer P5 introduces | How this phase breaks it if unwatched |
+|---|---|---|---|
+| **L-14** | **Non-own stock is never valued.** `owner_type != OWN` hands over for quantity and custody only | **3PL billing** — the first subsystem whose whole purpose is to attach money to somebody else's stock | this is the invariant P5 is most likely to break, and it would look like a feature. Billing prices a **service** (storage, handling, accessorials) against a client, and posts to AR through `wh3_ar_handovers`. It never writes a valuation row against `owner_type != OWN`, and no billing run may be the reason a stock value appears |
+| **L-10** | **Allocation is an open-item ledger** | **channel/marketplace order intake** and the returns-grading path | a marketplace connector that "reserves 40" against a channel rather than against a holder quad reintroduces the counter the invariant exists to forbid. Every channel reservation carries the same quad as a demand-order reservation |
+| **L-11** | **Ownership never changes silently** | **returns grading, refurbishment and RTO/NDR**, where goods change hands as a side effect of a workflow | a graded unit that becomes ours, or a client's unsold stock that becomes ours at contract end, is an explicit title-transfer movement type with its own reason code — never an `UPDATE` of `owner_id` |
 
 ## Exit criterion — as scenario ids
 
@@ -48,7 +60,7 @@ The full walked set for the phase: **`WH-SC-032` · `WH-SC-135` · `WH-SC-137` �
 
 ## ⚠ Twenty of this phase's requirements have no scenario, and that is a gate, not a footnote
 
-<!-- check-design-set: scenario-citations begin WH-SC-301 — the SCENARIO-CATALOGUE.md §5 rule 3 allocation marker — the next free scenario id, which by definition has no row yet. Named here so a parallel task does not silently take it twice; it is never a citation of a scenario that exists -->
+<!-- check-design-set: scenario-citations begin WH-SC-306 — the SCENARIO-CATALOGUE.md §5 rule 3 allocation marker — the next free scenario id, which by definition has no row yet. Named here so a parallel task does not silently take it twice; it is never a citation of a scenario that exists -->
 
 `SCENARIO-CATALOGUE.md` §4.2 lists them honestly: of 71 unproven requirements, **43 are v2**, and the bulk
 of those are this phase's — the whole carrier/channel surface (`FR-198`, `FR-200`–`FR-204`, `FR-208`–`FR-210`),
@@ -57,16 +69,35 @@ returns (`FR-272`, `FR-276`–`FR-279`), 3PL (`FR-293`, `FR-295`, `FR-297`, `FR-
 `FR-140`, `FR-181`, `FR-267`, `FR-338`, `FR-343`, `FR-445`.
 
 `IMPLEMENTATION-PLAN.md` §10 requires that *"the `WH-SC-nnn` scenarios the task claims to close are
-**walked in the running app**"* — so a task with none has nothing to walk. **Thirteen P5 tasks therefore
+**walked in the running app**"* — so a task with none has nothing to walk. **Seventeen P5 tasks therefore
 author their own scenarios as their first act** (`P5-05`, `P5-06`, `P5-07`, `P5-09`, `P5-10`, `P5-11`,
-`P5-12`, `P5-13`, `P5-15`, `P5-16`, `P5-17`, `P5-18`, `P5-19`, `P5-20`, `P5-21`).
+`P5-12`, `P5-13`, `P5-15`, `P5-16`, `P5-17`, `P5-18`, `P5-19`, `P5-20`, `P5-21`, `P5-22`, `P5-23`).
+Round-2 correction (`H-007`): the word said *thirteen* while the list held fifteen ids, and the two
+round-2 task files were missing from both. `P5-22` and `P5-23` are the sharper case — their
+`## Scenarios closed` sections hold **unnumbered prose bullets** rather than no scenarios at all
+(*"a key is issued, the plaintext is shown once, and a second read returns only `hasValue`"*;
+*"a GRN short by four units raises a claim from the receipt screen, pre-filled from the receipt line"*).
+Those bullets are real scenarios that were never allocated ids: the first act of each task is to
+number them from the `WH-SC-306` marker and add the rows to `SCENARIO-CATALOGUE.md`, not to invent
+new prose. `P5-14` is correctly absent — it closes catalogued scenarios only.
 
-> **⚠ ID COLLISION IS THE OBVIOUS FAILURE.** New ids continue from **`WH-SC-301`**
+> **⚠ ID COLLISION IS THE OBVIOUS FAILURE.** New ids continue from **`WH-SC-306`**
 > (`SCENARIO-CATALOGUE.md` §5 rule 3), and two parallel P5 tasks will both take 301.
 > **The rule for this phase: claim your ids by merging them into `SCENARIO-CATALOGUE.md` in one commit
 > BEFORE writing code.** The catalogue file is the allocation register; nothing else is.
 
 <!-- check-design-set: scenario-citations end -->
+
+## `A-3` — P5 builds screens over tables that already exist
+
+`H-008` found that this epic cited none of the four ladder amendments, and that the one it most needs
+reaches no phase epic at all. **`A-3` (`DECISIONS.md` §5.1) put the item-variant *schema* in v1 and
+kept only the *screens* in v2** — so `P5-20`'s Style × Variant Matrix (`WS-033`) and `WS-032`'s Variant
+Axes & Values are built **over `V500014`/`V500015`, which `P1-01` already shipped**. The failure this
+paragraph exists to prevent is a P5 lead reading their own epic, finding no variant model, and
+authoring a second one. `whb_items.style_item_id` and the axis/value tables are the model; the only
+genuinely missing table in this area is `FR-445`'s ratio/assortment **pack template**, which is
+`P5-20`'s own new table (`V500064`) and is recorded three sections down.
 
 ## Migration blocks — re-derived from the task headers, not transcribed
 
@@ -78,10 +109,10 @@ grep -h '^Part of' p5-*.md | grep -oE 'V5[0-9]{5}' | sort -u
 
 | Band | Module | Numbers this phase claims | Owners |
 |---|---|---|---|
-| `V510000`–`V519999` | `warehouse` | `V510200`–`V510214` **+ `V510215`** | `P5-09` `V510200` `V510208` `V510209` · `P5-10` `V510201`–`V510202` · `P5-11` `V510203`–`V510205` · `P5-12` `V510206`–`V510207` · `P5-13` `V510210` **+ `V510215`** · `P5-14` `V510211` · `P5-16` `V510212` · `P5-17` `V510213`–`V510214` |
+| `V510000`–`V519999` | `warehouse` | `V510200`–`V510214` **+ `V510215`, `V510216`** | `P5-09` `V510200` `V510208` `V510209` · `P5-10` `V510201`–`V510202` · `P5-11` `V510203`–`V510205` · `P5-12` `V510206`–`V510207` · `P5-13` `V510210` **+ `V510215`** · `P5-14` `V510211` · `P5-16` `V510212` · `P5-17` `V510213`–`V510214` · **`P5-23` `V510216`** |
 | `V520000`–`V529999` | adapters | `V520014` · `V521013` | `P5-15` (dealer cores · services warranty holds) |
 | `V530000`–`V539999` | `warehouse-3pl` | `V530000` · `V530010`–`V530011` · `V530020`–`V530021` · `V530030`–`V530031` · `V530040`–`V530044` · `V530050` · `V531000`–`V531099` | `P5-01` … `P5-07` |
-| `V500064`–`V500199` | `warehouse-base` post-v1 DDL | **two numbers still to claim** — `P5-20`'s ratio-pack template, `P5-21`'s packaging balance | see the defects below |
+| `V500064`–`V500199` | `warehouse-base` post-v1 DDL | `V500064` · `V500065` · **`V500066`** | `P5-20` ratio-pack templates · `P5-21` packaging balances · **`P5-22` API clients and keys** (`WHB-67`, not `WHB-66` — see `DATA-MODEL.md` §7). The two numbers this row once called *"still to claim"* were claimed in round 1; the third is round 2's |
 
 **Not this phase's, and it is easy to assume otherwise:** **`V530060` (`W3-13`,
 `wh3_client_gst_registrations`) belongs to `P4-10`** — a P4 task inside the 3PL band, because the band
@@ -91,11 +122,32 @@ divergence 6). `P4-10` therefore depends on `P5-01`, and it is **the only P4→P
 **Exactly one task owns each number.** A task needing a second file takes the next number **inside its own
 block**, never the next globally free one.
 
+## Build order
+
+`IMPLEMENTATION-PLAN.md` §3.8 graphs this phase; this is the same information as a schedule. **`A → B`
+means A precedes B.**
+
+- **First task: `P5-01`** — the module scaffold, the client object and the build-time ratchet. Every
+  other P5 task and one P4 task (`P4-10`) hang off `wh3_clients`.
+- **Long pole: the billing chain, `P5-02 → P5-03 → P5-04 → P5-05`.** `P5-05` is where the money
+  freezes, and `P5-03` is where it is measured — an event vocabulary that cannot price per line cannot
+  be repaired downstream.
+- **⚠ The one edge drawn across four phases: `P0-11 → P5-03`.** `P5-03`'s **first act** is to verify
+  `P0-11`'s event vocabulary. If `pick.line.confirmed` does not carry quantity, item and location, then
+  per-line handling billing — how every audited 3PL prices — is **permanently unavailable for the
+  past**, the defect is `P0-11`'s, and this phase stops until it is fixed.
+- **Parallel streams**, once `P5-01` lands: `{P5-02 → P5-03 → P5-04 → P5-05}` billing · `{P5-06}` and
+  `{P5-07}` freight and SLA, both joining at `P5-05` · `{P5-22 → P5-09 → P5-10, P5-11, P5-12}` the
+  integration surface then channels, match, carriers and NDR/COD · `{P5-13, P5-14, P5-15}` reverse
+  logistics · `{P5-16, P5-17}` NRV and weighing/labour · `{P5-18, P5-19, P5-20, P5-21, P5-23}`.
+- **`P5-08` (the portal) is scheduled after `P5-05`, not beside it.** It is a permission surface over
+  screens that must already exist, and the thing it exposes to a client is the billing run.
+
 ## Tasks
 
 __TASKS__
 
-**Sizing** (`IMPLEMENTATION-PLAN.md` §9.3): 1 XL · 6 L · 10 M · 4 S. **Staffing** (§9.4): 3–4 backend,
+**Sizing** (`IMPLEMENTATION-PLAN.md` §9.3): 1 XL · 6 L · 12 M · 4 S. **Staffing** (§9.4): 3–4 backend,
 3 frontend, 1 mobile, 2 QA. *"Two independent sub-streams. Billing needs someone who has built billing
 before."* §9.5 assumption 6: **P4 and P5 are two products** — they run fully concurrently with two teams
 and one shared base reviewer, and cannot be compressed into one team without serialising v2.
@@ -118,6 +170,13 @@ All four are recorded in `DEFECTS-FOUND.md` and fixed in the task files rather t
    which enumerates every other sub-allocation and asserts *"Six"* — does not record it.
 
 ## Traps this phase must not get wrong
+
+- **Every verb in a §4 Actions cell is a `@PreAuthorize`, not an `:edit`** (`H-001`). The strings are
+  rows in `BUILD-SPEC-SCREENS.md` §10.2 — twenty-five were added in round 2 and are seeded by `P5-01`
+  (`V531000`–`V531099`) — and **a screen whose verbs §3/§7 describes only in prose must enumerate them
+  in the task before the controller is written.** The failure this prevents is already visible in the
+  document: `wh3_billing_runs:approve` existed while `:cancel` did not, so anyone who could edit a
+  draft run could cancel an invoiced one.
 
 - **⚠ The meter's granularity reaches back into base and cannot be fixed here.** `PC-42`/`F-012`: *"a
   design that emits only `order.shipped` makes per-line handling billing — how every audited 3PL prices —

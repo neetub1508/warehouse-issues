@@ -1,6 +1,6 @@
 # GAP-REGISTER — the disposition of every review finding
 
-<!-- check-design-set: scenario-citations file WH-SC-301 — the allocation marker from SCENARIO-CATALOGUE.md §5 rule 3, not a scenario. This register cites it in §3.4 to explain the checker's own false positives (X-040) -->
+<!-- check-design-set: scenario-citations file WH-SC-306 — the allocation marker from SCENARIO-CATALOGUE.md §5 rule 3, not a scenario. This register cites it in §3.4 to explain the checker's own false positives (X-040). Round 2 took WH-SC-301-WH-SC-305 for SCENARIO-CATALOGUE.md 3.21, so the marker — and this declaration with it — moved to WH-SC-306 -->
 <!-- check-design-set: finding-citations file T-244 T-264 T-325 T-326 T-337 E-754 E-1 E-8 — the eight dangling citations this register reports in §3.7 and DESIGN-SET-DEFECTS.md X-045. Naming them is the finding; they are quoted, not used -->
 <!-- check-design-set: screen-citations file WS-238 — the screen id X-001's fix allocates for the marketplace-claim queue; BUILD-SPEC-SCREENS.md §1 has not yet carried the row (X-001, check-12) -->
 
@@ -854,7 +854,10 @@ defined-not-cited : WH-SC-204
 
 **Neither is a dangling reference.**
 
-- **`WH-SC-301` is the allocation marker, not a scenario.** `SCENARIO-CATALOGUE.md:685` §5 rule 3
+- **`WH-SC-301` was the allocation marker, not a scenario** — at the time of this run. Review round 2
+  took `WH-SC-301`–`WH-SC-305` for `SCENARIO-CATALOGUE.md` §3.21 on 2026-09-02 and moved the marker to
+  **`WH-SC-306`**; the paragraph below is the record of the run, not the current marker.
+  `SCENARIO-CATALOGUE.md:685` §5 rule 3
   reserves it as *"new scenarios start from"*, and the 29 citations of it in `issues/` are all
   instructions to claim the next free id. `tools/check-design-set.py` check-2 reports all 29 as
   failures; **the checker is wrong here, not the design set** — filed as `X-040`.
@@ -1033,6 +1036,16 @@ the lens itself or from `WAREHOUSE-FUNCTIONAL-REQUIREMENTS.md` §10 — that dec
 
 ### 4.1 The four proposed tasks, with their next free ids
 
+> **Status, 2026-09-02 — all four are authored.** `GAP-REGISTER-R2.md` §5.2 carried them into review
+> round 2 as *"still unwritten"*, and that round wrote them: `issues/p3-24.md`, `issues/p4-13.md`,
+> `issues/p5-22.md` and `issues/p5-23.md` now exist at exactly the ids this section proposed, own
+> `FR-452`–`FR-459` in `WAREHOUSE-FUNCTIONAL-REQUIREMENTS.md` §6.27, and carry their
+> `IMPLEMENTATION-PLAN.md` §2 rows. **The proposal below is kept as written**, per §7 rule 1 — the
+> table's "Closes" column is what each file actually closes, and `P5-22` closes `K-005` and `OD-8`
+> as well, which round 2 added. **`P4-13` being authored does not discharge `S-035`**: the file
+> opens by saying it is gated on a product decision that has now survived two review rounds
+> unanswered. See §5.1 below, which stands unchanged.
+
 Ids taken from the file glob, which `DECISIONS.md` §6 makes the authority
 (`ls issues/pN-*.md | tail -1`): highest today is `p0-17` · `p1-20` · `p2-29` · `p2in-04` · `p3-23` ·
 `p4-12` · `p5-21` · `p6-12`.
@@ -1116,6 +1129,13 @@ task file alone, the reviewer never reads why.
 **Remedy, one line each:** add the id to the owning task's `## Closes`. It costs 36 lines and it is
 the difference between *traceable* and *traced*.
 
+> **Applied 2026-09-02.** All 36 are now in a `## Closes` block, each under a line saying why it was
+> added, across sixteen task files — `P0-02` took eleven of them, `P1-03` four, `P1-02` three,
+> `P0-08` three, and the rest one or two each. `S-064` is now named in `p0-02.md`, which was the
+> point: a reviewer doing `P0-02`'s ledger review against the task file alone now reads *why* the
+> owner column is in the position key. **The finding was that the ids were invisible, not that the
+> work was unowned** — no scope moved, and the FRD rows that owned them still own them.
+
 ---
 
 ## §6 · The industry and segment verdicts, consolidated
@@ -1170,6 +1190,14 @@ undetectable."* Those two **are** owned, so the load-bearing half holds.
 
 ### 6.3 The product verdict, and where it is stale
 
+> **Superseded on 2026-09-02.** `X-050`'s remediation pass applied every correction this section
+> called for, directly to `COMPETITOR-BENCHMARK.md` — §2.16's challan and e-way rows, §4.1's returns,
+> label and apparel-segment claims, §4.2's Indian-statutory row (and the apparel row, deleted), §8.1
+> rows 12 and 15 (`○` → `◐`), §8.2's headline verdict, §9 rows 1, 2 and 4 (now RESOLVED), and §5.2.
+> The benchmark now cites the amendments **20** times, not 0. This section is kept as the record of
+> what was wrong and how it was found; **read the benchmark itself for the current verdict**, and
+> read the paragraph below as the draft that was adopted rather than as a correction still owed.
+
 `COMPETITOR-BENCHMARK.md` §8.2 states the v1 product in one paragraph and closes:
 *"…and — as the ladder currently reads — **not yet able to take a return**, which is the one gap that
 would embarrass it in front of any buyer in any segment."*
@@ -1178,12 +1206,12 @@ would embarrass it in front of any buyer in any segment."*
 `A-2` moved templated printing into **v1/P2**, and:
 
 ```bash
-grep -coE '`A-[1-4]`' docs/COMPETITOR-BENCHMARK.md   # → 0
+grep -coE '`A-[1-4]`' docs/COMPETITOR-BENCHMARK.md   # → 0   (as run 2026-09-01; → 20 after the fix)
 ```
 
-The benchmark carries **no** reference to any of the four amendments, so its §8.1 rows 12 and 15, its
+The benchmark carried **no** reference to any of the four amendments, so its §8.1 rows 12 and 15, its
 §8.2 headline verdict, and four of its sixteen §9 disagreement rows (1 returns · 2 apparel · 3 cost
-layers · 4 printing, all marked UNRESOLVED) are stale against the spine that outranks it. Same check
+layers · 4 printing, all marked UNRESOLVED) were stale against the spine that outranks it. Same check
 on the rest of the set: `COEXISTENCE.md` 0 · `MODULE-INTEGRATION.md` 0 · `PLATFORM-DEPENDENCIES.md` 0
 · `IRREVERSIBLE.md` 0 (defensible — it is schema-level, not ladder-level) · FRD 17 · plan 21 ·
 `DATA-MODEL.md` 12 · `INDIA-LOCALISATION-PACK.md` 5 · `BUILD-SPEC-SCREENS.md` 3 ·
@@ -1222,27 +1250,29 @@ Not findings — **decisions with a deadline**, from `DECISIONS.md` §3 and `IMP
 
 | Gate | Deadline | Status |
 |---|---|---|
-| **The partition key** — `occurred_at` (FRD + `DATA-MODEL.md` `WHB-30`) vs `posting_date` (`PD-D5`) | **before `P0-02`** — `V500030` is `PNR-1` **and** `PNR-2` | **⛔ has no `OD-` id at all.** `OD-1`…`OD-11` are allocated; the next is free and unassigned (`X-024`) |
+| **`OD-12`** — the partition key: `occurred_at` (FRD + `DATA-MODEL.md` `WHB-30`) vs `posting_date` (`PD-D5`) | **before `P0-02`** — `V500030` is `PNR-1` **and** `PNR-2` | open; recommendation is `occurred_at`. **Numbered 2026-09-02** (`X-024`); was unnumbered when this row was written; the next is free and unassigned (`X-024`) |
 | **`OD-10`** — is MRP a dimension of the position key? | **before `PNR-1`** — the tightest deadline in the set | open; recommendation is *no* |
 | **`OD-11`** — do value-only movements conserve value? Is there an `L-15`? | before P2 valuation | open. **`DECISIONS.md` §4 stops at `L-14` and `DATA-MODEL.md` §6.3 stops at `I-20`** (`X-030`) |
 | **`OD-7`** — precision scales | before `P0-02` | open; adopt accounting's resolved set |
 | **`OD-8`** — how an out-of-process consumer authenticates to the port | before `P0` builds the port | open. **Platform work, and the only thing platform must build for warehouse** |
 | **`OD-1`** — the reciprocal accounting edits | before accounting's P3 **and** before `P0-02` | open; a *different* repository's design set |
-| **The value-offset location's code** — `VALUE_OFFSET` (`OD-11`, `P2-28`) vs `LANDED_COST_OFFSET` (`PC-12`) | **before `P1-05` writes `V500013`** | open (`X-029`) |
-| **`M3`** — the union valuation report: build it (R3 `M3`/`E-084`) or refuse it (R7 §4.6) | *"before the P2 reports task is written"* — **which is now** | **open and unnumbered** (`X-036`) |
+| **`OD-13`** — the value-offset location's code: `VALUE_OFFSET` (`OD-11`, `P2-28`) vs `LANDED_COST_OFFSET` (`PC-12`), and `FR-084` seeds neither | **before `P1-05` writes `V500013`** | open; recommendation is `VALUE_OFFSET`. **Numbered 2026-09-02** (`X-029`) |
+| **`OD-14`** — is value conservation a fifteenth invariant `L-15`, or a movement-type behaviour column? | **before `P0-02`** — the guard is a constraint on the table | open; recommendation is `L-15` plus a matching `I-21`. **Numbered 2026-09-02** (`X-030`) |
+| **`OD-15`** — `M3`, the union valuation report: build it (R3 `M3`/`E-084`) or refuse it (R7 §4.6) | *"before the P2 reports task is written"* — **which is now** | open; recommendation is *not in v1*. **Numbered 2026-09-02** (`X-036`) |
 
-**Four of the eight gates have no id.** `DECISIONS.md` §3 owns the `OD-` namespace and four live gates
-sit outside it — the partition key, the value-offset code, the value-conservation invariant, and `M3`.
-An unnumbered gate cannot be tracked, and `IMPLEMENTATION-PLAN.md` §7 already carries the partition
-key as *"an unnumbered gate"*.
+**All nine gates now have an id.** When this section was written, four of them did not: the partition
+key, the value-offset code, the value-conservation invariant and `M3` sat outside the `OD-` namespace
+that `DECISIONS.md` §3 owns, and an unnumbered gate cannot be tracked. They were allocated
+**`OD-12`…`OD-15`** on 2026-09-02 and each is cited by id in its blocking task file. **Numbering a gate
+does not answer it** — all nine are still open, and every deadline above still stands.
 
 ### 7.2 The shortest honest statement of readiness
 
 > **`platform` + `warehouse-base` + `warehouse` cannot be sold to a first customer until: the eleven
 > R5 §7.1 ship-blockers are built (all eleven have an owning task, and two of the eleven are gated by
-> a defect in this set — `X-027` and `X-029`); the four unnumbered gates in §7.1 are numbered and
-> answered before `V500030` merges; and `S-035` is either written as a task or written off as a
-> declined segment.**
+> a defect in this set — `X-027` and `X-029`); the nine gates in §7.1 are answered before `V500030`
+> merges — the four that were unnumbered are now `OD-12`…`OD-15`, which makes them trackable, not
+> settled; and `S-035` is either written as a task or written off as a declined segment.**
 >
 > Everything else on the 575-finding list is a version placement, and the version placements are
 > carried in 138 task files.

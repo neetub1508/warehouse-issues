@@ -1,6 +1,6 @@
 # DESIGN-SET-DEFECTS — the merged defect log
 
-<!-- check-design-set: scenario-citations file WH-SC-301 — the allocation marker from SCENARIO-CATALOGUE.md §5 rule 3, not a scenario. X-006 established it and X-040 reports the checker's false positives on it -->
+<!-- check-design-set: scenario-citations file WH-SC-306 — the allocation marker from SCENARIO-CATALOGUE.md §5 rule 3, not a scenario. X-006 established it and X-040 reports the checker's false positives on it. Round 2 took WH-SC-301-WH-SC-305 for SCENARIO-CATALOGUE.md 3.21, so the marker — and this declaration with it — moved to WH-SC-306 -->
 <!-- check-design-set: finding-citations file T-244 T-264 T-325 T-326 T-337 E-754 E-1 E-8 — the eight dangling citations X-045 reports and §4.2 gives the citation rule for. Quoted as evidence, never used as references -->
 <!-- check-design-set: screen-citations file WS-238 — the screen id X-001's fix allocates; BUILD-SPEC-SCREENS.md §1 has not yet carried the row -->
 
@@ -19,7 +19,9 @@
 | **Date merged** | 2026-09-02 |
 | **Sources** | `issues/DEFECTS-FOUND.md` (29 entries, three authoring passes) · `docs/DEFECTS-FOUND.md` (9 entries, the P5/P6 pass) — **both deleted on merge** |
 | **New in the merge** | `X-039`…`X-053`, filed while writing [`GAP-REGISTER.md`](GAP-REGISTER.md) |
-| **Total** | **53** defects — 8 BLOCKER · 25 MAJOR · 20 MINOR |
+| **New in review round 2** | `X-054` and `X-055`, filed 2026-09-02 — while regenerating `DATA-MODEL.md` §8.4, and while authoring `WH-SC-301`. **55 entries in total** — `ls` is not the count; `grep -c '^### `X-0' docs/DESIGN-SET-DEFECTS.md` is |
+| **Total** | **55** defects — **7** BLOCKER · **28** MAJOR · **20** MINOR. *The row previously read 53 / 8 / 25 / 20, which summed correctly to 53 but matched no count in the file; recomputed 2026-09-02 with the command below* |
+| **Severity command** | ``awk '/^### `X-/{if(f)print s; f=1; s=""} f{if(s=="" && match($0,/(BLOCKER\|MAJOR\|MINOR)/)) s=substr($0,RSTART,RLENGTH)} END{if(f)print s}' docs/DESIGN-SET-DEFECTS.md \| sort \| uniq -c`` — **entries `X-039`…`X-053` carry their severity in the heading and the rest carry it in the quote block**, so a grep of `> **Severity**` alone returns 39, not 55. The `f` flag matters too: without it the §0 total row above is itself counted as a BLOCKER |
 | **Companion** | [`GAP-REGISTER.md`](GAP-REGISTER.md) — §3 of that document is where the computed failures below come from |
 
 **Severity, as used here.** **BLOCKER** — it breaks the build, breaks a startup, or leaves a
@@ -78,6 +80,7 @@ Nothing that already cites an old id dangles: every one of the 38 resolves.
 | `D-P2-11` | `issues/DEFECTS-FOUND.md` | **`X-037`** | MINOR |
 | `D-P2-12` | `issues/DEFECTS-FOUND.md` | **`X-038`** | MINOR |
 | — | filed 2026-09-02 in the merge | **`X-039`…`X-053`** | see §2 |
+| — | filed 2026-09-02 in review round 2 | **`X-054`**, **`X-055`** | see §2.1 |
 
 **Two pairs are the same defect found twice, independently.** Both members are preserved because the
 second finding is corroboration, not noise:
@@ -85,7 +88,7 @@ second finding is corroboration, not noise:
 | Pair | The defect | Why both are kept |
 |---|---|---|
 | `X-010` ≡ `X-033` | `INDIA-LOCALISATION-PACK.md` §11.2's wave-2 blocks land on `DATA-MODEL.md` §7.6's `WIN-30` config block | `X-010` names the mechanism (`Dockerfile.backend:140-181` flattens all modules into one directory, so it is a **startup failure**); `X-033` carries the fuller five-row collision table |
-| `X-007` ≡ `X-034` | `IMPLEMENTATION-PLAN.md` §8.5 states 119 scenarios; the same page's command returns 300 | `X-007` additionally proves §8.5's *v1 exit decomposition* command is wrong (`/^### 3\.2/` matches `### 3.20`); `X-034` confirms the stated `19` is nevertheless correct |
+| `X-007` ≡ `X-034` | `IMPLEMENTATION-PLAN.md` §8.5 states 119 scenarios; the same page's command returns 300 — **both FIXED 2026-09-02**, §8.5 now states 305 | `X-007` additionally proves §8.5's *v1 exit decomposition* command is wrong (`/^### 3\.2/` matches `### 3.20`); `X-034` confirms the stated `19` is nevertheless correct |
 
 ### 0.1 The two source files' own preambles, preserved
 
@@ -168,7 +171,10 @@ replaced by `X-010`. Nothing else in any heading changed.
 
 ### `X-001` · `FR-279` has no table and no screen, and `P5-13` is its sole owner — **BLOCKER**
 
-> **Severity** BLOCKER · **Status** FIXED in `issues/p5-13.md` (claims `V510215` + a new `WS-238`) · **OPEN** in `IMPLEMENTATION-PLAN.md` §2.7/§2.9, `DATA-MODEL.md` §7.3 and `BUILD-SPEC-SCREENS.md` §1/§8.4 · **Originally** `D-P5-1`, from `docs/DEFECTS-FOUND.md` (the P5/P6 authoring pass)
+> **Severity** BLOCKER · **Status** **PARTLY FIXED, re-measured 2026-09-02 (review round 2)** — the *table* half is closed, the *screen* half is not · **Originally** `D-P5-1`, from `docs/DEFECTS-FOUND.md` (the P5/P6 authoring pass)
+>
+> - **FIXED** in `issues/p5-13.md`; in `DATA-MODEL.md` — `wh_marketplace_claims` is a real row (§2.1.9, `WH-115`, `V510215`, `grep -c '`wh_marketplace_claims`' docs/DATA-MODEL.md` → **3**); and in `IMPLEMENTATION-PLAN.md` §2.7, whose `P5-13` row now reads `` `V510210` · `V510215` ``.
+> - **STILL OPEN** in `BUILD-SPEC-SCREENS.md` §1 (`grep -c 'WS-238' docs/BUILD-SPEC-SCREENS.md` → **0**), in its §8.4 count (**237**, which must become 238 in the same edit), and in `IMPLEMENTATION-PLAN.md` §2.7's screens cell, still `` `WS-137` `WS-138` ``. Round 2 did not touch any of the three. `WS-238` is exempted in six files and is the subject of §6.4 **`R-1`** — that entry, not this one, is the live to-do.
 
 **Claim.** `IMPLEMENTATION-PLAN.md` §2.7 assigns `FR-279` (the marketplace return-claim window) to
 `P5-13`, whose migrations are `V510210` and whose screens are `WS-137` and `WS-138`.
@@ -299,8 +305,10 @@ authors them or when**, and §10 silently assumes they exist.
 Every affected task authors its own scenarios as its **first act**, with the minimum set named in the task
 file. Four P6 tasks author **none, by design**, and say why (`P6-06`, `P6-09`, `P6-11`, `P6-12`) — which
 §5 rule 1 permits for infrastructure proved by an architecture test.
-**And an allocation rule, because the collision is obvious:** new ids continue from **`WH-SC-301`**
-(§5 rule 3) and parallel P5/P6 tasks will all take 301. Both phase epics state the rule — **claim ids by
+**And an allocation rule, because the collision is obvious:** new ids continue from **`WH-SC-306`**
+(§5 rule 3) and parallel P5/P6 tasks will all take the same one. *(The marker read `WH-SC-301` when
+this defect was filed; review round 2 took `WH-SC-301`–`WH-SC-305` for §3.21 on 2026-09-02 and moved
+it — which is the rule working, not an exception to it.)* Both phase epics state the rule — **claim ids by
 merging them into `SCENARIO-CATALOGUE.md` in one commit before writing code; the catalogue file is the
 allocation register and nothing else is.**
 
@@ -308,7 +316,7 @@ allocation register and nothing else is.**
 
 ### `X-007` · `IMPLEMENTATION-PLAN.md` §8.5 states 119 scenarios; its own stated command returns 300 — **MAJOR, and §8.5 claims nothing on it was counted by eye**
 
-> **Severity** MAJOR · **Status** FIXED in `issues/00-EPIC-master.md` · **OPEN** in `IMPLEMENTATION-PLAN.md` §8.5. Same defect as `X-034` · **Originally** `D-PLAN-7`, from `docs/DEFECTS-FOUND.md` (the P5/P6 authoring pass)
+> **Severity** MAJOR · **Status** **FIXED, 2026-09-02** — `IMPLEMENTATION-PLAN.md` §8.5 now states **305** (the value its own command returns after review round 2 added §3.21's five scenarios) and the *v1 exit decomposition* row now carries `/^### 3\.2 /,/^### 3\.3 /` with the trailing spaces, which returns the stated **19**; without them it returns **35**, because `### 3.20` and `### 3.21` both match. Was FIXED in `issues/00-EPIC-master.md` and OPEN in the plan. Same defect as `X-034` · **Originally** `D-PLAN-7`, from `docs/DEFECTS-FOUND.md` (the P5/P6 authoring pass)
 
 **Evidence, run 2026-09-02 from the repo root:**
 
@@ -455,7 +463,11 @@ and line pair built inside `V540170`'s block, flagged).
 
 ### `X-013` · **P4's phase description promises two things no `FR-` and no task carries**
 
-> **Severity** MAJOR · **Status** **OPEN** — four phase descriptions promise capabilities no `FR-` and no task carries. The register’s §5.1 makes this the single unowned BLOCKER · **Originally** `D-P4-4`, from `issues/DEFECTS-FOUND.md`
+> **Severity** MAJOR · **Status** **PARTLY FIXED, 2026-09-02 (review round 2)** — of the two promises, the regulated-goods packs now have a requirement and a task; Legal Metrology still does not · **Originally** `D-P4-4`, from `issues/DEFECTS-FOUND.md`
+>
+> - **The regulated-goods packs: FIXED.** `GAP-REGISTER.md` §4.1 proposed the task in round 1 and round 2 authored it — [`issues/p4-13.md`](../issues/p4-13.md), `warehouse-india`, `V540182` (`WIN-23`), owning the two requirements written for it, **`FR-456`** and **`FR-457`** (`WAREHOUSE-FUNCTIONAL-REQUIREMENTS.md` §6.27). `IMPLEMENTATION-PLAN.md` §2.6 carries its row and `issues/06-EPIC-p4.md` its migration block. **Authoring it does not discharge `S-035`** — the file opens with the gate: the pharma segment is a product decision that has now gone unanswered through two review rounds, and until it is answered the task must not be started. Building it against an undecided segment is the more expensive of the two mistakes.
+> - **Legal Metrology: STILL OPEN, and it is a phase-description defect, not an ownership one.** `FR-223` *is* owned — `IMPLEMENTATION-PLAN.md` §2.7 assigns it to **`P5-17`** (`V510213`/`V510214`), and the FRD row reads **`v2` · `P5`**. What has not changed is the four descriptions — `DECISIONS.md` §5's v2 row, `IMPLEMENTATION-PLAN.md` §1.6, `PORT-AND-ADAPTER-CONTRACT.md` §9.6 and `WAREHOUSE-FUNCTIONAL-REQUIREMENTS.md` §6.18's preamble — which still promise **P4** delivers it. The remaining fix is one sentence in each of the four, moving Legal Metrology from P4 to P5. It is deliberately not folded into `P4-13`: `P4-13` is India licences, and quietly widening its scope to make a stale sentence true is how a task grows past its estimate.
+> - The `INDIA-LOCALISATION-PACK.md` §11.2 **group F** tables (`whin_packaged_commodity_declarations`, `whin_mrp_revisions`, `whin_instrument_verifications`) travel with Legal Metrology and therefore stay unowned. §6.4 **`R-5`** is the live entry for them.
 
 `DECISIONS.md` §5's v2 row, `IMPLEMENTATION-PLAN.md` §1.6, `PORT-AND-ADAPTER-CONTRACT.md` §9.6 and
 `WAREHOUSE-FUNCTIONAL-REQUIREMENTS.md` §6.18's preamble all describe P4 as delivering *"MRP **and
@@ -518,7 +530,7 @@ invented.**
 
 ### `X-015` · **`FR-211` (seals at load and at unload) is proved by no scenario, and no acceptance test in the catalogue reaches it**
 
-> **Severity** MINOR · **Status** **OPEN** — write one two-line scenario at `WH-SC-301`. `P3-05` states `FR-211` is unproven and stands acceptance lines in · **Originally** `D-P3-2`, from `issues/DEFECTS-FOUND.md`
+> **Severity** MINOR · **Status** **OPEN** — write one two-line scenario at the next free id (`WH-SC-306` as of 2026-09-02). `P3-05` states `FR-211` is unproven and stands acceptance lines in · **Originally** `D-P3-2`, from `issues/DEFECTS-FOUND.md`
 
 Verified: `grep -E "FR-211\`" SCENARIO-CATALOGUE.md` returns **no `WH-SC-` row**.
 `SCENARIO-CATALOGUE.md` §4.2 **does** account for it — the 6.11 Outbound row lists
@@ -538,7 +550,7 @@ nobody will notice it never got a scenario.
 **What the P3 files did:** `P3-05` claims only `WH-SC-274` and states plainly that `FR-211` is
 unproven, with acceptance lines standing in for the missing scenario.
 **Decide:** write one. *"A seal captured at load and a **different** seal recorded at unload"* is a
-two-line scenario, it is the entire point of the requirement, and `WH-SC-301` is the next free id.
+two-line scenario, it is the entire point of the requirement, and `WH-SC-306` is the next free id.
 
 ---
 
@@ -729,7 +741,7 @@ fallback, and whether `WH-SC-170`/`WH-SC-213`'s `V·Ph` cells should read `P2` /
 
 ### `X-024` · **The partition-key conflict still has no `OD-` id, and `OD-1`…`OD-11` are all taken**
 
-> **Severity** BLOCKER · **Status** **OPEN** — the partition key has **no `OD-` id**, and its deadline is `V500030`, which is `PNR-1` **and** `PNR-2`. `GAP-REGISTER.md` §7.1 lists it first among the four unnumbered gates · **Originally** `D-P01-8`, from `issues/DEFECTS-FOUND.md`
+> **Severity** BLOCKER · **Status** **FIXED, 2026-09-02** — numbered **`OD-12`** in `DECISIONS.md` §3, recommendation `occurred_at`, and cited by id in `issues/p0-02.md`. **The decision itself remains open**: its deadline is `V500030`, which is `PNR-1` **and** `PNR-2`. This entry closed the *unnumbered* defect, not the gate · **Originally** `D-P01-8`, from `issues/DEFECTS-FOUND.md`
 
 `IMPLEMENTATION-PLAN.md` §2.10, §7 and §11 item 1 all say the same thing: `FR-022` and
 `DATA-MODEL.md` `WHB-30` specify `PARTITION BY RANGE (occurred_at)`; `PLATFORM-DEPENDENCIES.md`
@@ -832,7 +844,7 @@ Update vehicle · Cancel — and the screen states that extension and consolidat
 
 ### `X-029` · The value-offset virtual location has two names, and `FR-084` seeds neither
 
-> **Severity** BLOCKER · **Status** **OPEN**, with a deadline: one code must be agreed **before `P1-05` writes `V500013`**. `GAP-REGISTER.md` §7.1 carries it as an unnumbered gate · **Originally** `D-P2-03`, from `issues/DEFECTS-FOUND.md`
+> **Severity** BLOCKER · **Status** **FIXED, 2026-09-02** — numbered **`OD-13`** in `DECISIONS.md` §3, recommendation `VALUE_OFFSET` plus a row in `FR-084`'s seeded list, and cited in `issues/p1-05.md`, `issues/p2-17.md` and `issues/p2-28.md`. **The decision itself remains open** and one code must be agreed **before `P1-05` writes `V500013`** · **Originally** `D-P2-03`, from `issues/DEFECTS-FOUND.md`
 
 - `DECISIONS.md` `OD-11` and `IMPLEMENTATION-PLAN.md` `P2-28` call it **`VALUE_OFFSET`**.
 - `PORT-AND-ADAPTER-CONTRACT.md` `PC-12` calls it **`LANDED_COST_OFFSET`** and offers *"the reuse of
@@ -848,7 +860,7 @@ A migration author following one document seeds a row the other document's code 
 
 ### `X-030` · There is no `L-15` and no `I-n` row for value conservation
 
-> **Severity** MAJOR · **Status** **OPEN** — `DECISIONS.md` §4 stops at `L-14`, `DATA-MODEL.md` §6.3 stops at `I-20`, and `P2-17`, `P2-28` and `P3-11` all depend on the answer · **Originally** `D-P2-04`, from `issues/DEFECTS-FOUND.md`
+> **Severity** MAJOR · **Status** **FIXED, 2026-09-02** — numbered **`OD-14`** in `DECISIONS.md` §3, recommendation *a fifteenth invariant `L-15` with a matching `I-21`*, and cited in `issues/p2-17.md`, `issues/p2-28.md` and `issues/p3-11.md`. **The rows are still not allocated** — §4 stops at `L-14` and §6.3 at `I-20` — because allocating them is the decision, and it is due before `P0-02` · **Originally** `D-P2-04`, from `issues/DEFECTS-FOUND.md`
 
 `DECISIONS.md` §4's invariant table stops at **`L-14`** and `DATA-MODEL.md` §6.3's constraint table
 stops at **`I-20`**; neither carries a value-conservation row. `PC-12` states plainly that whether
@@ -909,7 +921,7 @@ The P2-IN task files use `DATA-MODEL.md`'s numbers throughout.
 
 ### `X-034` · `IMPLEMENTATION-PLAN.md` §8.5 states 119 scenarios; its own command returns 300
 
-> **Severity** MAJOR · **Status** **OPEN** — the same count defect as `X-007`, found independently. Both entries are preserved · **Originally** `D-P2-08`, from `issues/DEFECTS-FOUND.md`
+> **Severity** MAJOR · **Status** **FIXED, 2026-09-02** with `X-007` — §8.5 now states **305**, recomputed. The same count defect as `X-007`, found independently; both entries are preserved · **Originally** `D-P2-08`, from `issues/DEFECTS-FOUND.md`
 
 §8.5's traceability table reads *"Scenarios | **119** | `grep -cE '^\| \*\*WH-SC-[0-9]{3}\*\*'
 docs/SCENARIO-CATALOGUE.md`"*. Run against the current file:
@@ -920,7 +932,10 @@ grep -oE 'WH-SC-[0-9]{3}' docs/SCENARIO-CATALOGUE.md | sort -u | wc -l    # → 
 ```
 
 The 301st is `WH-SC-301`, which is legitimate — `SCENARIO-CATALOGUE.md:685` reserves it as the
-*"new scenarios start from"* marker. **The 119 is stale.** `DECISIONS.md` §7 rule 1 —
+*"new scenarios start from"* marker. *(Both numbers moved on 2026-09-02: the same two commands now
+return **305** and **306**, review round 2 having authored §3.21's five scenarios at
+`WH-SC-301`–`WH-SC-305` and moved the marker to `WH-SC-306`. The reasoning is unchanged — the count
+of defined rows and the count of distinct ids differ by exactly the marker.)* **The 119 is stale.** `DECISIONS.md` §7 rule 1 —
 *never state a count you did not compute* — makes this exactly the class of claim the programme is
 designed against. §8.5's row should be recomputed, and §8.5's *"Scenarios in the v1 exit
 decomposition | 19"* row is **correct**.
@@ -945,7 +960,7 @@ computed figure, never the headline.
 
 ### `X-036` · `M3`, the union valuation report, still has no `OD-` row and its deadline has arrived
 
-> **Severity** MAJOR · **Status** **OPEN, deadline arrived** — `M3` needs a numbered row in `DECISIONS.md` §3 before `P2-20` and `P2-27` merge. Carried as `## Blocked on` in `p2-27.md` · **Originally** `D-P2-10`, from `issues/DEFECTS-FOUND.md`
+> **Severity** MAJOR · **Status** **FIXED, 2026-09-02** — numbered **`OD-15`** in `DECISIONS.md` §3, recommendation *do not build the union in v1*, and cited by id in `issues/p2-27.md`. **The decision itself remains open** and its deadline has arrived: it is due before `P2-20` and `P2-27` merge · **Originally** `D-P2-10`, from `issues/DEFECTS-FOUND.md`
 
 `COEXISTENCE.md` §8.2: R3 `M3`/`E-084` says build it; R7 §4.6 item 4 says do not and document the
 separation in the UI instead; **`DECISIONS.md` settles neither**, and §8.2 flags that it needs an
@@ -994,16 +1009,25 @@ task's header. `P2-29`'s completion criterion is that every P2 grid has a number
 API parameter and a translation.
 
 ---
-## §2 · Filed in the merge — the fifteen defects `GAP-REGISTER.md` computed
+## §2 · Filed by command — the fifteen the merge computed, plus one from review round 2
 
 Each of these was found by running a traceability command rather than by reading a document, which is
 why no authoring pass caught them: they are *between* documents, not inside one.
+
+**`X-039`…`X-053`** were computed while writing [`GAP-REGISTER.md`](GAP-REGISTER.md) on 2026-09-02.
+**`X-054`** was found on the same date by review round 2, while regenerating `DATA-MODEL.md` §8.4 —
+and it is the first entry in this log whose subject is a *generated block that drifted from its
+sibling*, a failure mode no existing check can see. **`X-055`** was found in the same round while
+authoring `WH-SC-301`: the quality-inspection rollup has **two different stored values** across five
+documents. §2.1 separates both.
 
 ---
 
 ### `X-039` · `IMPLEMENTATION-PLAN.md` §2 assigns `FR-224` and `FR-225` to no task, while §8.1 asserts every requirement is owned — **MAJOR**
 
-> **Status** **OPEN** — amend §2.3's `P2-14` row. `issues/p2-14.md` is right.
+> **Status** **FIXED, verified 2026-09-02 (review round 2)** — §2.3's `P2-14` row now closes `` `FR-224` `FR-225` `` (`docs/IMPLEMENTATION-PLAN.md:468`), which is what `issues/p2-14.md` always claimed. `python3 tools/check-design-set.py` check-10 reports **0**, and §8.5's owned-exactly-once figure is recomputed each round from the task files rather than from §2.
+>
+> **The fix was to the plan, not to the task file** — the defect's own reading. Recorded here rather than deleted, per the append-only rule in the preamble.
 
 **Evidence.** `python3 tools/check-design-set.py`, check-10:
 
@@ -1029,7 +1053,7 @@ from §2 rather than from `issues/` does not schedule it.
 
 ### `X-040` · `tools/check-design-set.py` check-2 reports the scenario **allocation marker** as 29 dangling citations — **MINOR, a checker defect**
 
-> **Status** **OPEN** — exempt `WH-SC-301`, or teach the checker the marker.
+> **Status** **OPEN** — exempt the marker id, or teach the checker what a marker is. *(The declarations exist and pass; the checker still has no concept of a marker, so each allocation re-writes all 31 of them — see `X-040`'s note below and 2026-09-02's `WH-SC-301`→`WH-SC-306` move.)*
 
 **Evidence.**
 
@@ -1038,7 +1062,8 @@ python3 tools/check-design-set.py | grep -c 'WH-SC-301'   # → 26 of check-2's 
 ```
 
 *(29 before this file replaced the two defect logs, which cited the marker three times between them.
-This file and `GAP-REGISTER.md` both declare a narrow `scenario-citations file WH-SC-301` exemption,
+This file and `GAP-REGISTER.md` both declare a narrow `scenario-citations file WH-SC-306` exemption (it named
+`WH-SC-301` until 2026-09-02),
 which the checker prints on every run — the remaining 26 are in `issues/` and the catalogue and are
 the defect.)*
 
@@ -1060,7 +1085,7 @@ comm -13 <(grep -oE '^\| \*\*WH-SC-[0-9]{3}\*\*' docs/SCENARIO-CATALOGUE.md | gr
 
 ### `X-041` · `WH-SC-204` is a real scenario that no task claims — **MINOR**
 
-> **Status** **OPEN** — one line in one `## Scenarios closed` block.
+> **Status** **FIXED, 2026-09-02** — `WH-SC-204` claimed by `issues/p2-14.md` (v1 printing; the print server that would choose the template by zone is `P3-08`, v1.1). The same pass claimed `X-023`'s `WH-SC-170` into `issues/p2-01.md`, so `comm -13` over the catalogue is now **empty**: all 300 scenarios are walked by a task.
 
 **Evidence.**
 
@@ -1156,8 +1181,20 @@ band, deliberately` heading. `P2-29` and `P3-04` carry no such notice.
 
 ### `X-045` · Eight finding citations resolve to nothing, six of them in `COMPETITOR-BENCHMARK.md` — **MAJOR**
 
-> **Status** **OPEN** — this is the exact failure `DECISIONS.md` §7.4a says was already caught four
-> times in the first authoring wave.
+> **Status** **FIXED, verified 2026-09-02 (review round 2)** — `python3 tools/check-design-set.py`
+> check-7 reports **0**. The six `COMPETITOR-BENCHMARK.md` citations were rewritten to name the review
+> *section* they came from rather than a finding id that never existed — `docs/COMPETITOR-BENCHMARK.md:349`
+> now reads *"(R2 §1.12 row 244)"*, and its siblings the same way. `E-754` is fenced at
+> `docs/COMPETITOR-BENCHMARK.md:994` as what it actually is: the tail of *IEEE-754* at
+> `docs/reviews/R1-codebase-reality.md:441`, quoted as a false positive and never cited as a finding.
+> `R6-prior-art-triage.md`'s `E-1`/`E-8` were likewise not finding ids and no longer read as such.
+>
+> **The eight tokens survive in this file** — §6.4 and the `finding-citations` declaration on line 4
+> exempt them, because a defect log that cannot quote the broken citation cannot evidence the defect.
+> That exemption is the reason check-7's exempt count for this file is 32, not 0.
+>
+> This is still the exact failure `DECISIONS.md` §7.4a says was already caught four times in the first
+> authoring wave. Round 2 found no new instance, which is the first round that can say so.
 
 **Evidence.** `python3 tools/check-design-set.py`, check-7:
 
@@ -1254,7 +1291,7 @@ The recommended check-13 is in `GAP-REGISTER.md` §8 item 3.
 
 ### `X-049` · The FRD says "All seven remain open" and lists `OD-1`…`OD-7`; `DECISIONS.md` §3 carries eleven — **MAJOR**
 
-> **Status** **OPEN** — add `OD-8`…`OD-11` to the FRD §9 table.
+> **Status** **FIXED, 2026-09-02** in `WAREHOUSE-FUNCTIONAL-REQUIREMENTS.md` §9 — the heading sentence now reads *All fifteen remain open*, the table carries `OD-8`…`OD-15` with each one's requirement exposure, and it states inline why it drifted. `OD-12`…`OD-15` are the four formerly unnumbered gates, allocated the same day (`X-024`, `X-029`, `X-030`, `X-036`).
 
 **Evidence.**
 
@@ -1280,7 +1317,51 @@ movements it says *not gated*.
 
 ### `X-050` · Five documents carry no reference to the four ladder amendments, and `COMPETITOR-BENCHMARK.md`'s product verdict is stale as a result — **MAJOR**
 
-> **Status** **OPEN** — the benchmark's §8.1 rows 12 and 15, §8.2 and §9 rows 1–4 need a pass.
+> **Status** **FIXED for `COMPETITOR-BENCHMARK.md` on 2026-09-02 — OPEN for the other four documents.**
+> The benchmark now cites the amendments **20** times where it cited none; the same command re-run
+> against the other four still returns **0** for `COEXISTENCE`, `MODULE-INTEGRATION`,
+> `PLATFORM-DEPENDENCIES` and `IRREVERSIBLE`, and `IRREVERSIBLE`'s zero remains defensible for the
+> reason given below.
+>
+> **Why the reviewer's earlier refusal was lifted, and how far.** Round 2 first declined to fold this
+> in, on the ground that *"editing a competitor verdict is a **product** judgement … and no reviewer
+> may make it unilaterally."* `J-004` changed what the edit is: it supplies **nine rows of corrected
+> replacement text**, each derived from an amendment already taken in `DECISIONS.md` §5.1, so applying
+> them is transcription of a decision the owner has already made, not a new judgement about where we
+> sit against Oracle, Körber or Manhattan. **No competitor's mark moved.** The only marks that moved
+> are two of *our own* — §8.1 rows 12 and 15, `○` → `◐` — and both follow mechanically from `A-1`
+> and `A-2`.
+>
+> **What was applied** (all in `docs/COMPETITOR-BENCHMARK.md`, one pass):
+> §2.3 vehicle-fitment ERP cell → `○ (Epicor ●)`, with one sentence added to **W1** (`J-006`) ·
+> §2.16 delivery-challan row → **v1/P2-IN in full** · §2.16 e-way row → **v1/P2-IN generation**, IRP
+> round-trip only at v2, lifecycle extended with `CLOSED` (`J-002`, landed in `P2-IN-04`) ·
+> §4.1 row 1 rewritten to *"Products with a full reverse-logistics suite"* · §4.1 row 2 rewritten to
+> *"Every product with a managed print fleet"* · §4.1's closing segment clause — apparel/footwear
+> removed from *"cannot be served at all at v1"* (`A-3`) · §4.2's Indian-statutory row narrowed to
+> IRP / Rule 56 / ITC-04 · §4.2's apparel-matrix row **deleted**, because `A-3` took the decision the
+> row feared would not be taken · §8.1 rows 12 and 15 `○` → `◐`, and the *"where we are below the
+> median"* summary reduced from three areas to one · §8.2's *"not yet able to take a return"* clause
+> struck and replaced · §9 rows 1, 2 and 4 → **RESOLVED** by `A-1` / `A-3` / `A-2`, leaving row 3
+> (cost-layer ownership) the only unresolved item in the top four · §9.2's SAP LE-WM `?` removed from
+> the forbidden-citation list and the resolved fact recorded with its two sources (`J-008`) · §5.2
+> gained a **SAP Stock Room Management** displacement paragraph.
+>
+> **Two corrections outside `J-004`'s nine**, both the same class of staleness and both recorded here
+> rather than left standing: §5.2's *"the style×size×colour matrix is undecided"*, contradicted by
+> `A-3`; and §9's preamble, which said ranks 1–3 all needed a decision when only rank 3 now does.
+>
+> **`X-045`'s dangling-citation sweep was run over the edited rows.** Four files quoted text this pass
+> deleted, and each was annotated rather than silently rewritten: `GAP-REGISTER.md` §6.3 — the whole
+> section is now marked superseded, and its counting command records both the 2026-09-01 run and the
+> new value; `IMPLEMENTATION-PLAN.md` §5.3 — kept, because it names the **task** that closes each row,
+> which the benchmark deliberately does not; and `issues/03-EPIC-p2.md` and `issues/p2-12.md`, which
+> both quoted §4.1's *"most damaging line"* in the present tense. `issues/p2-14.md`'s Dymo sentence
+> was left alone: it cites `A-2`'s rationale, not §4.1.
+>
+> **What remains open is genuinely the owner's:** the four documents still at 0. `COEXISTENCE.md` §5
+> `M6` is the load-bearing one (below); `MODULE-INTEGRATION.md` and `PLATFORM-DEPENDENCIES.md` need a
+> line each; `IRREVERSIBLE.md` needs none.
 
 **Evidence.**
 
@@ -1290,10 +1371,22 @@ for f in COMPETITOR-BENCHMARK COEXISTENCE MODULE-INTEGRATION PLATFORM-DEPENDENCI
          BUILD-SPEC-SCREENS SCENARIO-CATALOGUE PORT-AND-ADAPTER-CONTRACT; do
   printf '%-38s %s\n' "$f" "$(grep -coE '`A-[1-4]`' docs/$f.md)"
 done
+
+# Round-2 extension (`H-008`): the command above never tested issues/, where the phase leads read.
+for f in issues/0*-EPIC-*.md; do
+  printf '%-22s A:%-28s L:%s\n' "$(basename $f .md)" \
+    "$(grep -ohE '`A-[1-4]`' $f | sort -u | tr '\n' ' ')" \
+    "$(grep -ohE '\bL-1?[0-9]\b' $f | sort -u | wc -l)"
+done
+# Before round 2: 01-EPIC-p0, 02-EPIC-p1, 07-EPIC-p5 and 08-EPIC-p6 cited no `A-n` at all, and
+# `A-3` reached no phase epic — while its two owning phases are P1 (the schema) and P5 (the screens).
+# 03-EPIC-p2 and 08-EPIC-p6 cited zero `L-n`. Round 2 added `A-3` to 02-EPIC-p1 and 07-EPIC-p5 and a
+# `## The invariants this phase establishes` section to 05-EPIC-p3 … 08-EPIC-p6. **This extension is
+# part of the ratchet: a new epic with `A:` empty is a defect, not a style choice.**
 ```
 
 ```
-COMPETITOR-BENCHMARK                   0
+COMPETITOR-BENCHMARK                   0   <- 20 after the 2026-09-02 fix; every other row unchanged
 COEXISTENCE                            0
 MODULE-INTEGRATION                     0
 PLATFORM-DEPENDENCIES                  0
@@ -1309,7 +1402,8 @@ PORT-AND-ADAPTER-CONTRACT              1
 
 `DECISIONS.md` §5.1 took four amendments on 2026-09-01: `A-1` returns → **v1/P2**, `A-2` printing →
 **v1/P2**, `A-3` variants → **v1 schema**, `A-4` India in two waves. `COMPETITOR-BENCHMARK.md` was
-written the same day and does not know about any of them. Consequences, in its own words:
+written the same day and did not know about any of them. Consequences, in the words it carried
+**before** the 2026-09-02 fix recorded in the Status above:
 
 - **§8.2**, the headline product verdict: *"…and — as the ladder currently reads — **not yet able to take a return**, which is the one gap that would embarrass it in front of any buyer in any segment."* **`A-1` closed that gap.**
 - **§8.1 row 15** Returns: *"`return_type` in v1 and nothing else. The ladder's most damaging placement ‡"*.
@@ -1352,7 +1446,7 @@ between `0` and `a`. `tools/check-design-set.py` gets it right (its R2 register 
 
 ### `X-052` · `COEXISTENCE.md` mitigation `M4` is named in no task file — **MINOR**
 
-> **Status** **OPEN** — fold into `P2-27`, which already ships `M1`, `M2` and `M8`.
+> **Status** **FIXED, 2026-09-02** — declared in `issues/p2-27.md` alongside `M1`/`M2`/`M8`, and the seed it actually requires is named in `issues/p0-04.md`. `M4` is now owned in one place and cross-referenced from the other, which is the shape `M5`/`M9` already had.
 
 **Evidence.**
 
@@ -1372,7 +1466,22 @@ declared-not-owned rather than forgotten. **`M4` is neither owned nor declared.*
 
 ### `X-053` · Forty-six tables are named in task files with no `DATA-MODEL.md` row — **MAJOR**
 
-> **Status** **OPEN** — superset of `X-002`, `X-003` and `X-012`, computed rather than enumerated by hand.
+> **Status** **FIXED, verified 2026-09-02 (review round 2)** — `python3 tools/check-design-set.py`
+> check-3 reports **0 violations**, with 24 declared exemptions across 11 files. Superset of `X-002`,
+> `X-003` and `X-012`, which close with it. **The four groups closed by three different means, and the
+> distinction matters to anyone re-reading this log:**
+>
+> | Group | How it closed | Evidence |
+> |---|---|---|
+> | India wave-2 orphans | **Renamed, not added.** The task files were brought onto `DATA-MODEL.md`'s spellings — `whin_customs_licences` → `whin_counterparty_licences`/`whin_entity_licences`, `whin_hsn_codes` → `whin_hsn_tax_master`, `whin_exbond_clearances` → `whin_ex_bond_clearances`, `whin_eway_bill_consolidations` → `whin_eway_bills_consolidated`. `X-011`/`X-012` own the naming rule | `grep -ohE '`whin_[a-z_]+`' docs/DATA-MODEL.md \| sort -u` → 52 names, all of them now the ones the tasks use |
+> | New tables the P5 fixes created | **Rows written.** `wh_marketplace_claims` (`DATA-MODEL.md:1076`), `whb_ratio_pack_templates` (`:542`), `whb_packaging_balances` (`:513`) | closes `X-001`'s table half, `X-002`, `X-003` |
+> | Report and archive tables the tasks invent | **Rows written** — `wh_rpt_coexistence`, `wh_rpt_health`, `wh_rpt_consolidated_valuation`, `whin_rpt_stock_by_mrp`, and the three archive tables under `WHB-66`/`V500100` (`DATA-MODEL.md:929`, `:2932`) | the group *"nobody has filed"*, now filed and allocated |
+> | Names that diverge from `DATA-MODEL.md` | **Fenced as counter-examples, not built.** `whaf_van_stock` (`issues/p3-20.md:54`) and `wh_tyre_fitments` (`issues/p5-21.md:55`) are named by their traps precisely so they are *not* built; a `DATA-MODEL.md` row would have granted them the existence the trap forbids | the fence text says so in both files |
+>
+> **Two residuals survive, and neither is a check-3 subject** because check-3 reads task files only:
+>
+> - **`wh_transport_details` is the wrong name in two places.** The table is `whb_transport_details` (`DATA-MODEL.md:924`, `WHB-52`, `V500052`). `INDIA-LOCALISATION-PACK.md` (`:129`, `:221`, `:529`–`:531`, `:1148`, `:1240`, `:1334`) and `issues/04-EPIC-p2in.md:59` still write `wh_`. The **module** call is right and already reasoned — a vehicle number is not an Indian rule, so it lives in base, not `whin_` — it is the prefix that drifted. `:1334` is the funniest instance: it corrects `whin_transport_details` to `wh_transport_details`, and is itself wrong by one letter.
+> - **`wh_location_occupancy` is a suggestion, not a design object.** It appears once, in `docs/reviews/R1-codebase-reality.md:532`, where `C-033` proposes copying `pdi_storage_slot_assignments`' derive-at-read shape. No task file and no document treats it as a table. It should not get a `DATA-MODEL.md` row unless a task claims it — recorded so the next author does not add one to silence a violation that does not exist.
 
 **Evidence.** `python3 tools/check-design-set.py`, check-3 — 46 violations. They fall into four groups:
 
@@ -1390,6 +1499,115 @@ and no migration number. `P6-01`'s three archive tables are the sharpest case: t
 undefined.
 
 ---
+
+### 2.1 · Filed in review round 2
+
+One entry. It is here rather than in `GAP-REGISTER-R2.md` because it is a **design-set defect** — a
+document disagreeing with itself — not a *gap in the design*, and this log is where those live.
+
+### `X-054` · `DATA-MODEL.md` §8.4's two generated blocks were regenerated separately, and the version block silently fell eleven rows behind the inventory — **MAJOR**
+
+> **Severity** MAJOR · **Status** **FIXED, 2026-09-02 (review round 2)** — both blocks regenerated in the same pass and now agree exactly. Filed rather than fixed silently, because the *mechanism* recurs every time a table is added and no check can see it.
+
+**Claim.** `DATA-MODEL.md` §8.4 carries two machine-generated blocks — `TABLE-INVENTORY`
+(`docs/DATA-MODEL.md:3137`–`:3454`) and `TABLE-VERSIONS` (`:3565`–`:3882`). They are generated by two
+different commands, live 111 lines apart, and **nothing enforces that they hold the same tables.** When
+round 1's eleven late allocations (`WHB-64`, `WHB-65`, `WHB-66`, `WH-115`, `WIN-05`'s two children,
+`WIN-22`, and the report tables) were appended, the inventory block was regenerated and the version
+block was not. The two disagreed by eleven rows for the length of a commit.
+
+**Why it matters.** §8.4's inventory is what `IMPLEMENTATION-PLAN.md` §8.5 and both READMEs quote for
+*"N tables"*; the version block is what the **v1 cut** is computed from. A table present in one and
+absent from the other is a table that is counted in the total and **not costed into any version** — the
+exact shape of *"we shipped v1 and this table has no home"*. It is invisible to
+`tools/check-design-set.py`, which reads task files against the inventory and never compares the two
+blocks to each other.
+
+**Evidence — the diff that must return two empty lists.**
+
+```python
+import re
+s = open('docs/DATA-MODEL.md').read()
+inv = re.search(r'<!-- TABLE-INVENTORY-BEGIN -->\n```\n(.*?)\n```\n<!-- TABLE-INVENTORY-END -->', s, re.S).group(1)
+ver = re.search(r'<!-- TABLE-VERSIONS-BEGIN -->\n```\n(.*?)\n```\n<!-- TABLE-VERSIONS-END -->',  s, re.S).group(1)
+I = [l.strip()   for l in inv.splitlines() if l.strip()]
+V = [l.split()[0] for l in ver.splitlines() if l.strip()]
+print(len(I), len(V), sorted(set(I) - set(V)), sorted(set(V) - set(I)))
+```
+
+```
+314 314 [] []
+```
+
+**Fix applied.** Both blocks regenerated together in review round 2, which also added the thirteen
+round-2 tables (`WHB-55`, `WHB-56`, `WHB-67`, `WH-116`, `WIN-23`). §8.4's own re-run note at
+`docs/DATA-MODEL.md:3490`–`:3492` records both regenerations and their dates.
+
+**The durable fix is a check, and it is not written.** A check comparing the two blocks set-for-set is
+four lines and would have caught this at the commit that caused it. **It is not `check-13`** — §5 item 11
+already claims that number for `D-12`, and §6.4 `R-4` floats `check-14` for dangling document
+references, so this one is **`check-15`**. It is proposed in §5, not built here: adding a check inside a
+defect log is the kind of scope creep this set forbids.
+
+**Related.** `X-042` and `X-043` are the same *class* of defect on `IMPLEMENTATION-PLAN.md` §8.3 —
+a stated output that its own command no longer produces. `DECISIONS.md` §7 rule 1 — *never state a
+count you did not compute* — is written for exactly this failure, and here the count was computed;
+it was **the second block that was not re-derived**.
+
+---
+
+### `X-055` · The quality-inspection mixed-result rollup is `CONDITIONAL` in the FRD and the exit scenario, and `PARTIAL` in the data model, the screen spec and the task — **MAJOR, and it is the column's stored value**
+
+> **Severity** MAJOR · **Status** **OPEN — a naming decision, deliberately not taken here.** Found 2026-09-02 by review round 2 while authoring `WH-SC-301` for `Q-006`
+
+**Claim.** `FR-133` states the rollup as *"all pass → `PASS`, all fail → `FAIL`, anything mixed or
+partial → `CONDITIONAL`"*, and `WH-SC-070` — a **P1 acceptance scenario** — asserts the same word.
+Three other places state the same rule with a different third value:
+
+| Document | Value | Where |
+|---|---|---|
+| `WAREHOUSE-FUNCTIONAL-REQUIREMENTS.md` `FR-133` | **`CONDITIONAL`** | `:298` |
+| `SCENARIO-CATALOGUE.md` `WH-SC-070` | **`CONDITIONAL`** | `:246` |
+| `DATA-MODEL.md` `wh_quality_inspections` | **`PARTIAL`** | `:979`, in the `result` column's stated values |
+| `BUILD-SPEC-SCREENS.md` WS-080 | **`PARTIAL`** | `:1505`, in the grid column spec |
+| `issues/p1-14.md` | **`PARTIAL`** | scope, Traps and Acceptance — **three separate assertions** |
+
+```bash
+grep -n 'CONDITIONAL' docs/WAREHOUSE-FUNCTIONAL-REQUIREMENTS.md docs/SCENARIO-CATALOGUE.md   # -> 2 rollup hits
+grep -n 'PARTIAL'     docs/DATA-MODEL.md docs/BUILD-SPEC-SCREENS.md issues/p1-14.md          # -> the five above
+```
+
+**Why it matters, and why it is MAJOR rather than cosmetic.** This is not a label — it is **the value
+stored in `wh_quality_inspections.result`** and the value a `whb_`-registry row or a `CHECK` would
+carry. A builder reading `DATA-MODEL.md` and `BUILD-SPEC-SCREENS.md` writes `PARTIAL`; the acceptance
+scenario the same builder must walk asserts `CONDITIONAL`; the task file agrees with the data model
+in three places and with the FRD in none. The scenario fails, the fix is a **data migration on a
+column that already has rows**, and `FR-133`'s own stated purpose — *"stated to the value, because
+'mostly passed' is not a QC result"* — is defeated by the set disagreeing with itself about what the
+value is.
+
+**Not resolved here.** `DECISIONS.md` §7 — *never resolve a cross-document conflict by editing the
+losing document silently* — applies, and the two sides are not equal in weight in the same direction:
+the **requirement authority** (`FR-133`) and the **acceptance scenario** say `CONDITIONAL`, while the
+**implementation surface** (data model, screen spec, task) says `PARTIAL` in five places. Either is
+defensible; picking one by counting occurrences is not.
+
+**Recommendation, for the product owner rather than an author.** Take **`PARTIAL`**, and amend
+`FR-133` and `WH-SC-070` — it is two edits against five, it is the word already in the column spec
+and the grid, and `CONDITIONAL` collides with the *conditional release* vocabulary `WH-SC-071` uses
+for a disposition, which is a **different concept on the same document**. If `CONDITIONAL` is taken
+instead, the five implementation-side edits must land **in one commit**, because a half-applied
+rename here is a `CHECK` violation at runtime.
+
+**`WH-SC-301` deliberately does not name the value.** Round 2 authored the inspection-completeness
+scenario without citing either word, so this conflict is decided once, by a person, rather than
+being quietly settled by a new scenario taking a side.
+
+**Related.** `X-047` (id namespaces with two owners) and `X-053` (task files naming tables the data
+model does not) are the same class: **two documents, both authoritative-sounding, no arbiter named**.
+
+---
+
 ## §3 · The cross-document conflicts that remain open, ranked by how expensive they get
 
 Ranked by **the cost of discovering it late**, not by severity today. Rank 1 costs a production
@@ -1398,10 +1616,10 @@ incident; rank 8 costs an argument.
 | # | Conflict | The two documents | Cost if found late | Defect | Deadline |
 |---:|---|---|---|---|---|
 | **1** | **The `V541000`/`V541100` India migration-block collision.** `INDIA-LOCALISATION-PACK.md` §11.2 gives wave-2 group A `V541000`–`V541099` and group B `V541100`–`V541199`; `DATA-MODEL.md` §7.6 `WIN-30` gives `V541000`–`V541199` to wave-1 permissions, menus, grid config and `admin_settings`; and `IMPLEMENTATION-PLAN.md` §2.9 sub-allocates `V541000`–`V541049` to `P2-IN-01` and `V541100`–`V541149` to `P4-01` | `INDIA-LOCALISATION-PACK.md` §11.2 · `DATA-MODEL.md` §7.6 · `BUILD-SPEC-SCREENS.md` §0.9 | **A backend startup failure, not a merge conflict.** All module migrations are flattened into one directory at build time (`Dockerfile.backend:140-181`), and `FlywayConfiguration.java:296-327` renumbers legacy history into these bands and then `DELETE`s duplicate history rows — **so a collision does not fail loudly; it silently deletes a history row and re-runs a migration.** Discovered in production, it is a corrupted schema history on every install | `X-010` `X-033` | **before `P2-IN-01` writes a permission migration** |
-| **2** | **Twelve wave-2 India tables have no owning task and no migration number**, and six of them (group H — drug/FSSAI/PESO/customs licences, hazmat ceilings, the Schedule H1 register, recall notifications) have **no `FR-` either**, while `DECISIONS.md` §5, `IMPLEMENTATION-PLAN.md` §1.6, `PORT-AND-ADAPTER-CONTRACT.md` §9.6 and FRD §6.18 all promise *"the regulated-goods packs"* at v2 | `INDIA-LOCALISATION-PACK.md` §11.2 (42 tables) · `DATA-MODEL.md` §7.6 (~30) · `IMPLEMENTATION-PLAN.md` §2.6 (12 tasks) | **A whole segment is sold and cannot be delivered.** R5 §6 marks pharmaceutical distribution `CANNOT SERVE`; `S-035` is the **only unowned BLOCKER** in the 575 (`GAP-REGISTER.md` §5.1). §8's *"every requirement is owned by exactly one task"* stays true only because **there is no requirement**, which is why no traceability check can see it | `X-012` `X-013` | **before P4 is scoped**, and before anyone bids pharma |
+| **2** | **Twelve wave-2 India tables have no owning task and no migration number**, and six of them (group H — drug/FSSAI/PESO/customs licences, hazmat ceilings, the Schedule H1 register, recall notifications) have **no `FR-` either**, while `DECISIONS.md` §5, `IMPLEMENTATION-PLAN.md` §1.6, `PORT-AND-ADAPTER-CONTRACT.md` §9.6 and FRD §6.18 all promise *"the regulated-goods packs"* at v2 | `INDIA-LOCALISATION-PACK.md` §11.2 (42 tables) · `DATA-MODEL.md` §7.6 (~30) · `IMPLEMENTATION-PLAN.md` §2.6 (12 tasks) | **A whole segment is sold and cannot be delivered.** R5 §6 marks pharmaceutical distribution `CANNOT SERVE`; `S-035` is the **only unowned BLOCKER** in the 575 (`GAP-REGISTER.md` §5.1). §8's *"every requirement is owned by exactly one task"* stays true only because **there is no requirement**, which is why no traceability check can see it | `X-012` `X-013` | **before P4 is scoped**, and before anyone bids pharma. **Round 2, 2026-09-02: the task now exists** — `issues/p4-13.md`, `V540182`, owning `FR-456`/`FR-457`, so *"there is no requirement"* is no longer true. **`S-035` is unchanged**: the task opens gated, and the decision to serve pharma or decline it in writing has now gone unanswered through two review rounds |
 | **3** | **The value-offset virtual location has two names and `FR-084` seeds neither.** `DECISIONS.md` `OD-11` and `P2-28` say `VALUE_OFFSET`; `PORT-AND-ADAPTER-CONTRACT.md` `PC-12` says `LANDED_COST_OFFSET` and offers reusing `ADJUSTMENT_OFFSET`; `FR-084`'s seed list has ten codes and none of them | `DECISIONS.md` `OD-11` · `PORT-AND-ADAPTER-CONTRACT.md` `PC-12` · FRD `FR-084` | **A migration seeds a row the other document's code looks for and does not find**, and `I-17` requires the virtual location to exist before a movement can balance. So landed cost silently fails to post, or unbalances the value column — and `L-1`…`L-14` conserve **quantity only**, so nothing catches it | `X-029` · related `X-030` | **before `P1-05` writes `V500013`** |
 | **4** | **The ledger's partition key** — `occurred_at` (FRD `FR-022` + `DATA-MODEL.md` `WHB-30`) or `posting_date` (`PLATFORM-DEPENDENCIES.md` `PD-D5`) — **has no `OD-` id at all**, and both arguments are substantive: `occurred_at` is what the as-at query and EPCIS want, `posting_date` is what period close and the statutory register want, and `L-13` says they are different columns | FRD + `DATA-MODEL.md` · `PLATFORM-DEPENDENCIES.md` | **A partition key cannot be added to a populated table without a rewrite**, and `V500030` is `PNR-1` **and** `PNR-2`. This is the single most expensive thing on this page to get wrong | `X-024` | **before `P0-02`** — the first ledger migration |
-| **5** | **`IMPLEMENTATION-PLAN.md` §8.5 states 119 scenarios; the command printed beside the number returns 300**, under the heading *"The counts on this page, and where each came from"* and the closing line *"Nothing on this page was counted by eye."* §8.5's *v1 exit decomposition* command is also wrong (`/^### 3\.2/` matches `### 3.20`, returning 30) though its stated value 19 is right | `IMPLEMENTATION-PLAN.md` §8.5 · `SCENARIO-CATALOGUE.md` §4.1 | **Every downstream document quoting §8.5 states a scenario count wrong by a factor of two and a half.** Worse, it discredits the page: if the one section that promises computed counts has a stale one, no count on it can be trusted without re-running | `X-007` `X-034` · and `X-042`/`X-043` for the same page's migration count | before anyone else quotes §8.5 |
+| **5** | **`IMPLEMENTATION-PLAN.md` §8.5 states 119 scenarios; the command printed beside the number returns 300**, under the heading *"The counts on this page, and where each came from"* and the closing line *"Nothing on this page was counted by eye."* §8.5's *v1 exit decomposition* command is also wrong (`/^### 3\.2/` matches `### 3.20`, returning 30) though its stated value 19 is right | `IMPLEMENTATION-PLAN.md` §8.5 · `SCENARIO-CATALOGUE.md` §4.1 | **Every downstream document quoting §8.5 states a scenario count wrong by a factor of two and a half.** Worse, it discredits the page: if the one section that promises computed counts has a stale one, no count on it can be trusted without re-running | `X-007` `X-034` · and `X-042`/`X-043` for the same page's migration count | **CLOSED 2026-09-02** — §8.5 now states **305** and the exit-decomposition command carries its trailing spaces. `X-042`/`X-043`'s migration count on the same page is **still open** |
 | **6** | **`IRREVERSIBLE.md` §7.3 item 1 is stale** — it records cost-layer placement as unresolved *"`OD-1`/`OD-6` territory, needs closing before `P2`"*, but `D-6` was rewritten and `DATA-MODEL.md` §2.1/§7.2 place `whb_valuation_policies`, `whb_cost_layers` and `whb_cost_layer_consumptions` in `warehouse-base` at `V500021` | `IRREVERSIBLE.md` §7.3 · `DECISIONS.md` `D-6` · `DATA-MODEL.md` §7.2 | **A settled decision gets re-opened**, and `IRREVERSIBLE.md` is the document authors are told to read *immediately before writing a migration* — so it is read at exactly the moment re-opening is most expensive | `X-032` | before `P2-16` |
 | **7** | **`BUILD-SPEC-SCREENS.md` §10.2 lists no verb permission for any P3, P4, P5 or P6 transition** — roughly 45 are missing, from `whb_tasks:assign` to `whin_ex_bond_clearances:clear` — under its own closing line *"a transition with no verb permission is a transition anybody with `:edit` can perform, which is the failure `FR-408` names"* | `BUILD-SPEC-SCREENS.md` §10.2 · the P3–P6 task files | **A security defect that reads as complete.** Every P3+ transition ships gated by `:edit`, which every operator has. The task files derived the names from the documented convention and marked each *absent from §10.2 today* — so the names exist, but no single document is the seed authority for the permission migrations | `X-014` | before the first P3 permission migration |
 | **8** | **`BUILD-SPEC-SCREENS.md` §1's `Ver · Ph` column disagrees with `IMPLEMENTATION-PLAN.md` §2 for 21 screens**, and §1.1 says P0 ships fifteen screens where §2.1 assigns thirty-three | `BUILD-SPEC-SCREENS.md` §1 · `IMPLEMENTATION-PLAN.md` §1.1/§2.1 | **A screen in the wrong phase lands in the wrong migration block** — §2.9's divergence 1 splits `V501020`–`V501099` across four tasks *by phase* — so the disagreement is not cosmetic, it moves migration numbers | `X-019` `X-020` | before `P1-20` writes the first grid-config block |
@@ -1414,7 +1632,7 @@ These need one editorial pass each, not a decision:
 |---|---|---|
 | `PORT-AND-ADAPTER-CONTRACT.md` §9.7 and R7 §7 place `logistics` at v2 | `DECISIONS.md` §5 puts it at **v3** and its preamble says *"a document that disagrees with this one is wrong"*. `P6-08` is correctly placed | `X-008` |
 | `COEXISTENCE.md` §5 `M6` puts the challan at v2/P4 | `A-4` puts it at **v1/P2-IN**, and `FR-308` makes the transport block `wh_`, not `whin_` | `X-037` |
-| `COMPETITOR-BENCHMARK.md` §9 rows 1–4 read `UNRESOLVED` | `A-1`, `A-2`, `A-3` and the `D-6` rewrite resolved all four on 2026-09-01 | `X-050` |
+| `COMPETITOR-BENCHMARK.md` §9 rows 1–4 read `UNRESOLVED` | `A-1`, `A-2`, `A-3` and the `D-6` rewrite resolved all four on 2026-09-01. **Re-measured 2026-09-02 and still unwritten** — the pass is a product judgement, not an editorial one; see `X-050` | `X-050` |
 | `D-9`/`FR-370` quote *"17 duplicated tables, 33 mobile screens"* | `COEXISTENCE.md` §1.1/§1.2 compute **19** tables and **33 mobile screens of which 14 are inventory** | `X-035` |
 | R4 §5.3/§5.6 put `warehouse-3pl` at `V930000`–`V939999` | `D-2` fixes the bands at `V500000`–`V549999`; R7 `G-070` already flags it | — (`G-070`, `DECIDED`) |
 
@@ -1501,7 +1719,7 @@ written; 5–9 before the phase they name; 10–13 are hygiene that keeps this l
 | **2** | **Number the four unnumbered gates** as `OD-12`…`OD-15`: the partition key, the value-offset location code, the value-conservation invariant (`L-15`?), and `M3`. `DECISIONS.md` §3 owns the namespace and no other document may allocate | the decisions owner | `P0-02` (`PNR-1`+`PNR-2`), `P1-05`'s `V500013`, `P2-16`/`P2-17`/`P2-28`, `P2-20`/`P2-27` | `X-024` `X-029` `X-030` `X-036` |
 | **3** | **Answer `OD-10`** (is MRP in the position key?) — *"the tightest deadline in the set"*, and unrecoverable if wrong | the decisions owner | `PNR-1` / `V500030` | — |
 | **4** | **Decide `S-035`**: write the `FR-` rows and `P4-13` (`GAP-REGISTER.md` §4.1), **or** amend the four phase descriptions to stop promising the regulated-goods packs and record pharma as a declined segment. Silence is the third option and it is the one that fails | product | the pharma segment, and `GAP-REGISTER.md`'s only unowned BLOCKER | `X-012` `X-013` |
-| **5** | **Recompute `IMPLEMENTATION-PLAN.md` §8.3 and §8.5 from `issues/`**, and replace §8.3's `migs.txt` step with the header parser in `X-042`, so the count is re-runnable by anyone | the plan owner | trust in every count on those pages | `X-007` `X-034` `X-042` `X-043` |
+| **5** | **Recompute `IMPLEMENTATION-PLAN.md` §8.3 and §8.5 from `issues/`**, and replace §8.3's `migs.txt` step with the header parser in `X-042`, so the count is re-runnable by anyone. **§8.5's scenario half is done (2026-09-02, `X-007`/`X-034` closed); §8.3's migration count is not** | the plan owner | trust in every count on those pages | `X-007` `X-034` `X-042` `X-043` |
 | **6** | **Assign `FR-224`/`FR-225` to `P2-14` in §2.3**, so the plan's 444 becomes the task files' 446 | the plan owner | ship-blocker #2 (printing) being scheduled | `X-039` |
 | **7** | **Add the ~45 verb permissions to `BUILD-SPEC-SCREENS.md` §10.2**, so the permission migrations have one seed authority | the build-spec owner | every P3+ permission migration | `X-014` |
 | **8** | **Reconcile `BUILD-SPEC-SCREENS.md` §1's `Ver · Ph` with `IMPLEMENTATION-PLAN.md` §2** for the 21 screens, and correct §1.1's fifteen-screen list. Note the knock-on: the phase column picks the grid-config sub-block | the build-spec owner | `P1-20`'s first grid-config block | `X-019` `X-020` |
@@ -1520,6 +1738,33 @@ written; 5–9 before the phase they name; 10–13 are hygiene that keeps this l
 - **Never resolve a cross-document conflict by editing the losing document silently.** Both entries
   in §3 name the two documents; the loser gets an annotation, exactly as `DECISIONS.md` §5.1
   annotates the four ladder amendments.
+
+
+### 5.2 Round-2 status of this list, 2026-09-02
+
+Re-measured against the current tree at the end of review round 2. **Nothing was deleted; the actions
+that are done say so and name the file.** Items are keyed to the table above.
+
+| # | Round-2 status |
+|---:|---|
+| **1** | **OPEN.** `INDIA-LOCALISATION-PACK.md` §11.2's Block column is unchanged. Still the most expensive item on the page, and still one edit. |
+| **2** | **DONE.** `OD-12`…`OD-15` are allocated in `DECISIONS.md` §3 and carried into `WAREHOUSE-FUNCTIONAL-REQUIREMENTS.md` §9 — see `X-049`, now FIXED. **Numbering them is not answering them**; all four remain open decisions. |
+| **3** | **OPEN, and now the tightest thing on the page.** `OD-10` went through a second review round unanswered. It gates `V500030`, and a partition key cannot be changed on a populated table. |
+| **4** | **HALF DONE.** The `FR-` rows and the task exist — `FR-456`/`FR-457`, `issues/p4-13.md`. The **decision** does not. Round 2 deliberately took the first branch (author it, gated) rather than the second (decline pharma in writing), because authoring is reversible and a declined segment is not. See `X-013`. |
+| **5** | **DONE.** §8.1, §8.3 and §8.5 were recomputed from `issues/` in both rounds; §8.3 now states **823** migration numbers, **143** tasks, **459** requirements, and §8.5's scenario count is the catalogue's own. `issues/README.md`'s unreproducible *"915 versions"* was replaced and the discrepancy recorded rather than quietly swapped. |
+| **6** | **DONE.** `IMPLEMENTATION-PLAN.md:468`. `X-039` is FIXED and check-10 reports 0. |
+| **7** | **OPEN.** `BUILD-SPEC-SCREENS.md` §10.2 still stops after the v1 adapters. Round 2's `Q-` lens re-confirmed it. This is the highest-value open item that needs no decision from anyone — it is transcription, and it is a security defect that reads as complete. |
+| **8** | **OPEN.** The 21-screen `Ver · Ph` disagreement stands. |
+| **9** | **OPEN, and reclassified.** Round 2 re-measured `X-050`: all five documents still return 0 for `` `A-1` ``…`` `A-4` ``. It was **not** folded in, because rewriting a competitor verdict is a product judgement. Escalated rather than closed. |
+| **10** | **DONE.** check-7 reports 0; see `X-045`. |
+| **11** | **PARTLY.** The scenario **allocation marker** is exempted in check-2 and the gate no longer cries wolf — the marker is now `WH-SC-306`, round 2 having taken `WH-SC-301`–`WH-SC-305` for `SCENARIO-CATALOGUE.md` §3.21. **check-13 is still not written**, so `D-12` is still asserted rather than enforced — and `X-054` adds a **`check-15`** to the same queue. |
+| **12** | **DONE.** Commit `dd5ac16`, *"cite the 36 COVERED-uncited BLOCKERs in their owning task files"*. `issues/README.md`'s round-1 traceability figure moved 385 → **427 of 575** as a direct result. |
+| **13** | **MOSTLY DONE.** `X-049` and `X-053` are FIXED; `X-052`'s `M4` and `IRREVERSIBLE.md` §7.3 item 1 (`X-032`) are not. The eight report/archive tables all have `DATA-MODEL.md` rows. |
+
+**Two items round 2 added to this list, both requiring a person rather than an author:**
+
+- **`OD-9`'s deadline conflict** (round-2 finding `U-003`) — it must be answered **before `V520100`**, which is earlier than the date `DECISIONS.md` §3 records against it.
+- **The accounting-side edit `OD-1` implies** (round-2 finding `O-001`) — due at the *accounting* set's P1, `V600136`–`V600137`, in a different repository. Nobody on this side can make it, and nobody on that side has been told.
 
 ---
 
@@ -1677,7 +1922,7 @@ fails. The checker prints every count on every run and reports a declaration tha
 
 | Rule | Where | Ids named | Why it is a quotation, not a citation |
 |---|---|---|---|
-| `scenario-citations` | 29 region fences: `SCENARIO-CATALOGUE.md` §5, `07-EPIC-p5.md`, `08-EPIC-p6.md`, and the 23 P5/P6 tasks | `WH-SC-301` | The §5 rule 3 **allocation marker** — the next free scenario id, which by definition has no row. Each task names it to reserve from it and to warn that two parallel tasks will both take 301 |
+| `scenario-citations` | **31 declarations**: 27 region fences — `SCENARIO-CATALOGUE.md` §5, `issues/README.md`, `07-EPIC-p5.md`, `08-EPIC-p6.md` and the 23 P5/P6 tasks — plus 4 file-level, in this file, `GAP-REGISTER.md`, `GAP-REGISTER-R2.md` and `R10-operational-walkthrough.md` | `WH-SC-306` (`WH-SC-301` until 2026-09-02) | The §5 rule 3 **allocation marker** — the next free scenario id, which by definition has no row. Each task names it to reserve from it and to warn that two parallel tasks will both take 301 |
 | `screen-citations` | `p5-13.md` `## Traps`, `DECISIONS.md` §6, plus the pre-existing fences in `issues/README.md` and the two census documents | `WS-238` | The `BUILD-SPEC-SCREENS.md` §1 **next-free marker**, named so a new screen takes it rather than reusing `WS-137`'s grid |
 | `table-names` | 9 task-file sections: `p2in-01`, `p2in-04`, `p3-20`, `p4-02`, `p4-03`, `p4-05`, `p4-07`, `p4-12`, `p5-21` | 22 tables, each named on its fence | Two kinds. **Prior-art names** — `INDIA-LOCALISATION-PACK.md` §11.2's names for objects `DATA-MODEL.md` names differently; the trap exists to carry the divergence and to say the data model wins. **Counter-examples** — `whaf_van_stock` ("the moment the van becomes a quantity table there are two stock truths") and `wh_tyre_fitments` ("building it here is precisely how the boundary rots"). Both are named so they are *not* built |
 | `finding-citations` | `COMPETITOR-BENCHMARK.md` §10's counting table, plus the two pre-existing census fences | `E-754` | **Not a fabrication.** `E-754` is the tail of *IEEE-754* at `docs/reviews/R1-codebase-reality.md:441` — verified — and §10 names the token to explain why the counting command's word boundary excludes it |
@@ -1695,7 +1940,7 @@ not lost:
 |---|---|---|
 | **R-1** | **`WS-238` has no row.** `X-001` stays open. `P5-13`'s claim queue now has its table (`wh_marketplace_claims`, `WH-115`, `V510215`) but still no screen id | Add the `WS-238` row to `BUILD-SPEC-SCREENS.md` §1 and drop the two task-side fences |
 | **R-2** | **`P5-21`'s movement-linked entry table is unnamed.** Its acceptance says *"the balance reconciles to the sum of its entries"*; `whb_packaging_balances` was allocated, the entry table was **not invented** | `P5-21` names it, adds the §2.1.4 row and puts the number in `WHB-65`, in one PR |
-| **R-3** | **`P6-01`'s archive-run record is unallocated.** The choice between extending `whb_job_runs` and a new `whb_archive_runs` is the task's, not this document's | `P6-01` picks one; the row goes in §2.1.14 and the number into `WHB-66` |
+| **R-3** | **`P6-01`'s archive-run record is unallocated.** The choice between extending `whb_job_runs` and a new `whb_archive_runs` is the task's, not this document's. **Amended 2026-09-02:** the three archive *tables* are now allocated — `WHB-66`/`V500100` (`DATA-MODEL.md:2932`) — so the run record can no longer go there. `WHB-67`/`V500066` was taken by `P5-22` in round 2 | `P6-01` picks one; the row goes in §2.1.14 and the number into **the next free base id, `WHB-68`**, not `WHB-66` |
 | **R-4** | **`DEFECTS-FOUND.md` does not exist.** Fourteen task files and both epics cite it; the file in this repository is `docs/DESIGN-SET-DEFECTS.md`. No check covers a dangling *document* reference | Decide whether it is this file renamed or a separate log, then fix the citations — and consider a check-14 for document references |
 | **R-5** | **`INDIA-LOCALISATION-PACK.md` §11.2 group F is owned by nobody.** `whin_packaged_commodity_declarations`, `whin_mrp_revisions`, `whin_instrument_verifications`: `P4-05` names them precisely to say no §2 task owns them. They are fenced as an unowned gap, **not** allocated — allocating a row would have hidden the gap | `FR-223` is v2 · P5; either a task claims them or the pack records them as out of scope |
 | **R-6** | **Three non-failing Flyway advisories**, all correct: `p5-01:70` `V531100`, `p5-09:48` `V510126` cite blocks another task owns; `p6-08:131` `V524000` is the reserved logistics block this set no longer claims | Nothing — they are advisories by design and should not be silenced |

@@ -1,13 +1,22 @@
 TITLE: [Warehouse] EPIC: P1 — Masters, identity, inbound
 LABELS: epic,warehouse,phase-p1
 ---
-Part of __MASTER__ · Modules `warehouse-base` (masters) + `warehouse` (inbound documents) · Migrations — **19 blocks, enumerated below** · Ships in **v1**
+Part of __MASTER__ · Modules `warehouse-base` (masters) + `warehouse` (inbound documents) · Migrations — **20 blocks, enumerated below** · Ships in **v1**
 
 ## Overview
 
 **One item master, one facility model, one party identity, one numbering generator, one import
 framework — and the whole inbound chain on top of them:** purchase order → receiving session → GRN →
 QC → putaway, with reversal and the layered-truth model.
+
+**`A-3` is why the variant schema is here and not in v2** (`DECISIONS.md` §5.1; `H-008` — this epic
+cited no amendment at all). R2 and R3 placed the style × variant model at v2; R5 `S-056` argued it is
+v1 *schema*, and the amendment accepted that **as schema only**: the style/parent item, the variant
+axes and their values land in `V500014`/`V500015` under the same rule as `owner_id` (`D-5`), while the
+matrix screens, grids and reports (`WS-032`, `WS-033`) stay v2/P5. The reason is that a flat SKU model
+is **unrecoverable** — correcting it later is a re-keying of the item master and of every movement
+that references it — and apparel and footwear is the largest Indian segment we would otherwise
+decline. **`P1-01` ships the columns whether or not any screen reads them yet.**
 
 P1 delivers: the item master with its four independent status facts and its **v1 variant schema**;
 UoM, packaging and the barcode registry with **one scan-resolution service**; the item's commercial
@@ -81,7 +90,7 @@ client's month-one dock-to-stock report cannot be produced*; and **`whb_lpns.rec
 
 ## Migration blocks
 
-**19 blocks**, re-derived from the `Migrations` field of every P1 task header, not transcribed from
+**20 blocks**, re-derived from the `Migrations` field of every P1 task header, not transcribed from
 an earlier table:
 
 ```bash
@@ -102,6 +111,7 @@ That command is the authority; re-run it after any header change.
 - `V500017` `V500053` — `P1-04` item external refs and documents · **`D-9`'s two mandatory mitigations**
 - `V500046` — `P1-10` import batches and rows
 - `V500050` — `P1-03` item × site settings, supplier sources, supersessions
+- `V500055` — `P1-21` **`whb_master_merges`** — the round-2 master-merge task (`FR-451`, `Z-007`)
 - `V500051` `V500052` `V500054` — `P1-11` channels · transport details · the `whb_activity_history` **view**
 - `V501050`–`V501069` — `P1-20` base grid configuration, **wave 2**
 

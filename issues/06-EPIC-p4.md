@@ -1,7 +1,7 @@
 TITLE: [Warehouse] EPIC: P4 — India statutory & compliance
 LABELS: epic,warehouse,phase-p4
 ---
-Part of __MASTER__ · Modules `warehouse-india` (wave 2) · `warehouse` · `warehouse-base` · one table in the `warehouse-3pl` band · Migrations — **6 blocks, enumerated below** · Ships in **v2**
+Part of __MASTER__ · Modules `warehouse-india` (wave 2) · `warehouse` · `warehouse-base` · one table in the `warehouse-3pl` band · Migrations — **7 blocks, enumerated below** · Ships in **v2**
 
 ## Overview
 
@@ -51,6 +51,18 @@ available in this phase:
 are accounting's. It does not build the six conditional `whin_` tables a warehouse-side tax engine
 would need **unless `OD-9` resolves the other way**, which is what makes the India pack **50 tables
 or 56**.
+
+## The invariants this phase establishes
+
+This phase **establishes no new `L-n`** — `P0` and `P1` did that. What it does is put existing
+invariants under **new writers**, and a new writer is exactly how an invariant is lost. Each row names
+the invariant, the new writer, and the specific way this phase could break it (`H-008`).
+
+| # | Invariant | The new writer P4 introduces | How this phase breaks it if unwatched |
+|---|---|---|---|
+| **L-13** | **Three timestamps, never one:** `occurred_at`, `recorded_at`, `posting_date` | the **statutory registers and filings**, which are the first readers that must choose *one* of the three | a register that sums on `recorded_at` puts a late-entered movement in the wrong return period, and an amended return is a regulator-visible defect. Every P4 register states which timestamp it periodises on, in its task file, before the query is written |
+| **L-7** | **Quantity in base UoM with the conversion factor frozen on the line** | the **HSN-wise and quantity-wise statutory summaries**, which report in statutory UoM, not base | re-deriving the statutory quantity from today's conversion factor **silently restates a filed period**. The register reads the factor frozen on the line, exactly as the ledger does |
+| **L-12** | **Traceability is reconstructible in both directions**, for the full retention period | the **compliance document archive** and the API-log trail | a filing whose supporting movements have aged out of a partition is not defensible in an assessment. P4's retention floor is a **statutory** number, and it is the longer of the two — `P6-01`'s archive job reads it, never overrides it |
 
 ## Exit criterion
 
@@ -116,7 +128,7 @@ Regulations 2016 and MOOWR 2019 s.65 · Legal Metrology Act 2009 and the Package
 
 ## Migration blocks
 
-**6 blocks**, re-derived from the `Migrations` field of every P4 task header — not transcribed from
+**7 blocks**, re-derived from the `Migrations` field of every P4 task header — not transcribed from
 an earlier table. That glob is the authority; **re-run it after any header change**:
 
 ```bash
@@ -135,6 +147,9 @@ done
   ex-bond clearances (`V540140`) · `P4-06` approval dispatches and clocks (`V540150`) · `P4-08` EPR
   categories, returns and lines (`V540160`) · `P4-09` retention policies (`V540170`) · `P4-10`
   compliance tasks, rules and rule conditions (`V540180`)
+- `V540182` — `P4-13` the regulated-goods licence pack: licence types, entity and counterparty
+  licences, quantity ceilings, the Schedule H1 register, recall notifications (`FR-456` `FR-457`).
+  **Gated on a product decision — see the task file** (`S-035`, unanswered through two review rounds)
 - `V541100`–`V541149` — `P4-01` permissions, `permission_dependencies`, menus, grid configuration and
   filter scopes for the whole wave (`V541150`–`V541199` left free)
 - **`V530060`** ⚠ — `P4-10` `wh3_client_gst_registrations`, **in the 3PL band**
@@ -149,6 +164,30 @@ parallel (§3.6).
 **`V541100`–`V541149` is a sub-allocation of `WIN-30`** (§2.9 row 3): `P2-IN-01` took
 `V541000`–`V541049` for wave 1, this wave takes `V541100`–`V541149`, and `V541050`–`V541099` plus
 `V541150`–`V541199` are left free.
+
+## Build order
+
+`IMPLEMENTATION-PLAN.md` §3.8 graphs this phase; this is the same information as a schedule. **`A → B`
+means A precedes B.**
+
+- **First task: `P4-01` (GST reference masters and the tax engine).** Six P4 tasks write against it and
+  none of them can be started honestly before it — a register built on a guessed rate table is a
+  filing built on a guessed rate table.
+- **Long pole: `P4-04` (ITC reversal reaching back to the receipt that brought the lot in).** It is the
+  only P4 task that needs both the tax engine *and* the statutory stock account, and the reach-back is
+  a ledger query over a period that may already be archived — which is why `P4-09`'s retention clocks
+  sit beside it and not after it.
+- **`P4-10` runs last on the 3PL leg, not first on the India leg.** It writes
+  `wh3_client_gst_registrations` **in the 3PL band** (`V530060`, §2.9 divergence 6), so it needs
+  `wh3_clients` from `P5-01`. **`P4-10` waits on `P5-01`** — the one edge between the two v2 phases, and
+  its direction is the opposite of the one the task numbers suggest.
+- **Parallel streams**, once `P4-01` lands: `{P4-03 → P4-04}` the statutory core · `{P4-02, P4-12}` job
+  work and e-way bill wave 2 · `{P4-06, P4-07}` approval sales and bonded/MOOWR · `{P4-08, P4-13}`
+  EPR and the regulated-goods licence pack · `{P4-05, P4-11}` MRP and the tax-basis value.
+- **⚠ `P4-05` carries a deadline this phase does not own.** `OD-10` decides whether MRP is a
+  **position-key dimension**; a position key is `L-5` and is decided **before `V500030`**, in P0. If the
+  answer is yes and it arrives late, the column cannot be added — if it is no, `P4-05` carries a second
+  balance model for the life of the product. **This is the tightest open deadline in the programme.**
 
 ## Tasks
 

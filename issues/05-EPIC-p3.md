@@ -1,7 +1,7 @@
 TITLE: [Warehouse] EPIC: P3 — Execution & mobile
 LABELS: epic,warehouse,phase-p3
 ---
-Part of __MASTER__ · Modules `mobile` · `warehouse` · `warehouse-base` · `warehouse-adapter-field-service` · `warehouse-adapter-assets` · `warehouse-adapter-dealer` · Migrations — **10 blocks, enumerated below** · Ships in **v1.1**
+Part of __MASTER__ · Modules `mobile` · `warehouse` · `warehouse-base` · `warehouse-adapter-field-service` · `warehouse-adapter-assets` · `warehouse-adapter-dealer` · Migrations — **11 blocks, enumerated below** · Ships in **v1.1**
 
 ## Overview
 
@@ -35,6 +35,18 @@ Each verified by command against the live `classic` checkout on **2026-09-02**:
 | **No `FOR UPDATE SKIP LOCKED` anywhere** | `grep -rn "SKIP LOCKED" --include=*.java --include=*.sql . \| wc -l` | **0** — zero precedent; it is **built and load-tested, not assumed** (`FR-425`) | `P3-02` |
 | **No label or document rendering anywhere** | `grep -rliE "zpl\|escpos\|dymo" --include=*.java --include=*.ts --include=*.tsx . \| wc -l` | **0** — the renderer is `P2-14`'s (`A-2` moved it into v1); P3 adds the **print server** on top of it | `P3-08` |
 
+## The invariants this phase establishes
+
+This phase **establishes no new `L-n`** — `P0` and `P1` did that. What it does is put existing
+invariants under **new writers**, and a new writer is exactly how an invariant is lost. Each row names
+the invariant, the new writer, and the specific way this phase could break it (`H-008`).
+
+| # | Invariant | The new writer P3 introduces | How this phase breaks it if unwatched |
+|---|---|---|---|
+| **L-10** | **Allocation is an open-item ledger**, never a counter — a holder quad and an `expires_at` per row | the **RF/mobile pick confirm**, which is the first writer that consumes a reservation *outside a request/response the user can see fail* | a device that confirms twice offline, or confirms a line whose reservation expired mid-shift, decrements a counter instead of closing an open item. The confirm must resolve the reservation **row** by holder quad, and a second confirm must be `L-9`-idempotent, not additive |
+| **L-14** | **Non-own stock is never valued.** `owner_type != OWN` hands over for quantity and custody only | the **exception console** and the **replenishment engine**, both of which move stock without a document a person authored | a replenishment move that crosses owners, or a console force that repairs a count variance on client-owned stock, must still emit a quantity-only handover. A repair path is not a licence to value |
+| **L-3** | **Correction is reversal** | the supervisor **force** and **exception** verbs (`wh_blocked_movements:force`) | "fix it on the device" is the most natural thing a supervisor asks for and the one thing the ledger does not offer. The console corrects by posting a reversal with a catalogue reason code, never by editing |
+
 ## Exit criterion
 
 `DECISIONS.md` §5, and `SCENARIO-CATALOGUE.md` §5 item 5 makes it two scenario ids and nothing else:
@@ -52,7 +64,7 @@ and is load-tested** (`FR-425`).
 
 ## Migration blocks
 
-**10 blocks**, re-derived from the `Migrations` field of every P3 task header — not transcribed from
+**11 blocks**, re-derived from the `Migrations` field of every P3 task header — not transcribed from
 an earlier table. That glob is the authority; **re-run it after any header change**:
 
 ```bash
@@ -62,6 +74,7 @@ for f in issues/p3-*.md; do
 done
 ```
 
+- `V500056` — `P3-24` **`whb_gs1_settings`, `whb_gs1_serial_counters`** and the GS1 identity columns — the round-2 task (`FR-452`–`FR-455`)
 - `V500060` — `P3-10` kits and kit components
 - `V500061` — `P3-12` item × location settings
 - `V500062` — `P3-03` devices
@@ -79,6 +92,29 @@ That is not a defect: it is service, frontend and mobile work over DDL that v1 a
 **Two sub-allocations are stated rather than taken silently** (`IMPLEMENTATION-PLAN.md` §2.9 rows 1
 and 2): `V501101`–`V501109` comes out of `DATA-MODEL.md` §7.2's *"reserved for post-v1 base work"*,
 and `V511140`–`V511179` sits inside `WH-203`'s `V511020`–`V511199`.
+
+## Build order
+
+`IMPLEMENTATION-PLAN.md` §3.8 graphs this phase; this is the same information as a schedule. **`A → B`
+means A precedes B.**
+
+- **First task: `P3-03` (the device registry), then `P3-01` + `P3-02` as one unit.** A device-bound
+  session is the precondition for every RF screen, and `P3-01` and `P3-02` are a **two-way edge**, not a
+  sequence: `WS-237` pulls its next task through `FOR UPDATE SKIP LOCKED` and *the claiming query is
+  `P3-02`'s*, while `P3-02`'s board and console are screens over `P3-01`'s interaction contract. One
+  engineer, or two on one branch, claiming query first. Scheduling them a sprint apart blocks both.
+- **Long pole: `P3-04` (the offline queue and degraded mode)** — not `P3-08` (the print server), which
+  is wide but shallow. `P3-04` is the only task that changes what `occurred_at` *means* for every writer
+  after it: `L-13`'s three timestamps stop being a schema decision and become an operational one the
+  moment a device can post yesterday's movement. **No offline mutation queue exists anywhere in the
+  mobile app** (`grep -rlE "persistQueryClient|createAsyncStoragePersister|offlineQueue" mobile/src` →
+  **0**), so there is no precedent to copy.
+- **One cluster, not three tasks: `P3-02` + `P3-06` + `P3-12`.** All three close `WH-SC-228` and *"all
+  three must land before it walks"* (`p3-02.md:44`). None can report done against its own scenario list.
+- **Parallel streams**, once `P3-01`/`P3-02` land: `{P3-06 → P3-07 → P3-09}` execution · `{P3-08}` print
+  server, which `P3-07` needs · `{P3-10, P3-11}` kits and work orders · `{P3-16, P3-17, P3-18}`
+  observability and migration · `{P3-20, P3-21}` the two adapters, after `P3-22`'s event stream ·
+  `{P3-23, P3-24}` sandbox and GS1, which nothing else waits on.
 
 ## Tasks
 

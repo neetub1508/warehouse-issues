@@ -295,6 +295,10 @@ are still unsupported**.
 | **OD-10** | **Is MRP a dimension of the stock position?** `FR-321`. If two MRP-labelled batches of one SKU must never merge, MRP joins the position unique key — and that key is set at `PNR-1`, warehouse's first point of no return | **Before `PNR-1`** (migration `V500030`) — this is the tightest deadline in the set | **No.** MRP belongs on the **lot**, not on the position key. A tenth key member costs every index and every rebuild; the lot already carries it and retail MRP segregation is a lot-level question. If this is wrong it is unrecoverable, so it must be answered, not assumed |
 | **OD-11** | **Do value-only movements conserve value?** `PC-12`: `L-1`…`L-14` conserve **quantity** only, and a landed-cost movement posts `quantity = 0` with a value. `FR-084`'s seeded virtual-location list has no value-offset row | Before `P2` valuation | Add a `VALUE_OFFSET` virtual location and a value-conservation invariant (`L-15`) that applies only to lines where `quantity = 0 AND unit_cost IS NOT NULL`. Cheaper than discovering that landed cost silently unbalances the value column |
 | **OD-7** | **Precision.** Quantities `DECIMAL(18,4)`? Money `DECIMAL(19,4)`? Per-unit cost `DECIMAL(19,6)`? Percentages `DECIMAL(9,6)`? Accounting took a CLAUDE.md deviation for exactly this and the percentage row was stated wrongly for three rounds | Before `P0-02` | Adopt accounting's resolved set verbatim, including the corrected `DECIMAL(9,6)` for percentages, and cite it rather than restating it |
+| **OD-12** | **The `whb_stock_movements` partition key — `occurred_at` or `posting_date`?** `FR-022` and `DATA-MODEL.md` `WHB-30` specify `PARTITION BY RANGE (occurred_at)`; `PLATFORM-DEPENDENCIES.md` `PD-D5` recommends `posting_date`. `L-13` makes these different columns, so the choice is real: `occurred_at` is what the as-at query and EPCIS want, `posting_date` is what period close and the statutory register want | **Before `PNR-1` (migration `V500030`)**, which is also `PNR-2`. A partition key cannot be added to a populated table without a rewrite | **`occurred_at`**, following `FR-022` and `WHB-30`, which is what `p0-02.md` already builds. Period close reads `posting_date` through an index, not through the partition; the reverse — an as-at query scanning every partition — is the query that runs constantly. Source: `X-024` |
+| **OD-13** | **The value-offset virtual location's code.** `OD-11` and `P2-28` call it `VALUE_OFFSET`; `PORT-AND-ADAPTER-CONTRACT.md` `PC-12` calls it `LANDED_COST_OFFSET` and offers reuse of an `ADJUSTMENT_OFFSET`-typed location. **`FR-084`'s seeded list contains none of the three** | **Before `P1-05` writes `V500013`** — the seed migration | **`VALUE_OFFSET`**, and add it to `FR-084`'s seeded list. Two documents already use it and it is the name that does not presume *why* the value moved, which matters because landed cost is not its only use. Whichever wins, the losing document must be amended, not left standing. Source: `X-029` |
+| **OD-14** | **Is value conservation a fifteenth invariant (`L-15`) or a movement-type behaviour column?** `PC-12` states the question and explicitly refuses to decide it. `DECISIONS.md` §4 stops at `L-14` and `DATA-MODEL.md` §6.3 stops at `I-20`; neither carries a value-conservation row, and `P2-17`, `P2-28` and `P3-11` all depend on the answer | **Before `P0-02`**, because the guard is a constraint on the table | **A fifteenth invariant `L-15`**, scoped to lines where `quantity = 0 AND unit_cost IS NOT NULL`, with a matching `I-21` in `DATA-MODEL.md` §6.3. `OD-11` already recommends exactly this; what is missing is the row, not the reasoning. A behaviour column puts the rule in data that a migration can edit, which is the wrong home for something the ledger's correctness rests on. Source: `X-030` |
+| **OD-15** | **Is the union valuation report (`M3`) built?** With `accessories` permanently separate (`D-9`), a finance user asking *"what is my total stock value"* gets two numbers. R3 `M3`/`E-084` says build one report that unions them; R7 §4.6 item 4 says do not, and document the separation in the UI instead | **Before `P2-20` and `P2-27` merge** — the deadline has arrived | **Do not build the union in v1.** Ship `P2-27`'s reports over warehouse stock only, and make the separation explicit on the report header and in the `D-9` cost note. A union report whose two halves use different valuation methods states a total that reconciles to nothing. Revisit at v2 if a customer asks. Source: `X-036` |
 
 ---
 
@@ -380,10 +384,37 @@ That cannot happen here.
 | Findings — R5 standards / statute | **`S-001` … `S-098`** | `reviews/R5` |
 | Findings — R6 prior art | **`P-001` … `P-060`** | `reviews/R6` |
 | Findings — R7 logistics seam | **`G-001` … `G-086`** | `reviews/R7` |
+| Findings — R8 task buildability v1 | **`Q-001` … `Q-006`** | `reviews/R8` |
+| Findings — R9 task buildability v2 / epics | **`H-001` … `H-010`** | `reviews/R9` |
+| Findings — R10 operational walkthrough | **`U-001` … `U-006`** | `reviews/R10` |
+| Findings — R11 exception & unhappy paths | **`Y-001` … `Y-009`** | `reviews/R11` |
+| Findings — R12 lifecycle & data migration | **`Z-001` … `Z-010`** | `reviews/R12` |
+| Findings — R13 non-functional & operability | **`K-001` … `K-006`** | `reviews/R13` |
+| Findings — R14 codebase & sibling re-verify | **`O-001` … `O-007`** | `reviews/R14` |
+| Findings — R15 competitor round 2 | **`J-001` … `J-008`** | `reviews/R15` |
 | Traps — R1 §8 | **`T-1` … `T-18`**, unpadded | `reviews/R1` §8 |
 
 `P-` (prior art) and `Pn-nn` (tasks) are distinguishable because a task id always carries a phase digit
 and a hyphen-separated pair. The check script asserts no id is used for two things.
+
+**`O-` is not `OD-`.** The R14 register and the open-decision register differ by one letter that is
+itself a register prefix, which is the exact shape of the `I-`/`IRR-` collision this table was
+extended to record. They do not collide, and the reason is mechanical rather than editorial:
+`check-design-set.py`'s `FINDING_CITE_RE` requires a hyphen immediately after the register letter, so
+`OD-1` can never be read as an `O-` finding, and `O-001` can never be read as an open decision because
+the open-decision register is unpadded and single-digit. Nothing else in the set may take `OD` as a
+finding prefix.
+
+**The eight round-2 rows were added on 2026-09-02, before their findings were cited anywhere.** Round 2
+ran eight lenses against the set that round 1's seven had not: per-task buildability over v1 (R8) and
+over v1.1–v3 plus the epics (R9), a journey-first operational walkthrough (R10), the exception and
+unhappy paths (R11), the master-data lifecycle from go-live to disposal (R12), the non-functional
+surface (R13), a re-verification against the live `classic` checkout and the sibling `accounting` and
+`classic-issues` sets (R14), and a live competitor diff (R15). Every prefix was grep-verified free
+against the whole repository before allocation — the eight letters `Q H U Y Z K O J` are precisely the
+letters that were free — and `check-design-set.py` check 7 resolves each of the 62 round-2 citations
+against its own authority exactly as it does the round-1 registers. `GAP-REGISTER-R2.md` holds the
+disposition of all 62.
 
 **Three of the rows above were added on 2026-09-02, and two of them are the record of a collision that
 had already happened.** They are stated here rather than only in the documents that own them, because
@@ -441,3 +472,13 @@ collision.
 6. **Do not run `mvn` / `npm` / `tsc`.** This project builds only in Docker; there is no usable local
    toolchain. Verification is by reading, grep and diff against the canonical reference pages named in
    CLAUDE.md.
+7. **A block headed *"re-derived, not transcribed"* must have its output regenerated in the same
+   commit as any task-header change it reads.** A stale generated block is worse than a hand-written
+   one, because the heading invites the trust that stops the next reader checking. Round 2 found
+   `08-EPIC-p6.md`'s block showing `V524099` — a number no task header has ever contained (`H-006`).
+   The same rule covers `DATA-MODEL.md` §8.4's two generated blocks, which must be regenerated
+   **together** or the table count and the version table disagree (`X-054`).
+8. **A grep over header text cannot tell a claim from a refusal.** `Migrations **none in this design
+   set's bands** — ... the reservation `V524000`–`V524999` ...` yields two version numbers to
+   `grep -oE 'V5[0-9]{5}'` and zero claims. Always read the field verbatim before reading the
+   extracted numbers.

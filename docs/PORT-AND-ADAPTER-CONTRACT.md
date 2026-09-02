@@ -1177,6 +1177,10 @@ extend: **logistics** needs #1, #2, #3, #5, #6, #10; a **supply-chain** module n
 The adapter sub-bands are pre-allocated so parallel work cannot collide — dealer `V520000–520999`,
 services `V521000–521999`, field-service `V522000–522999`, assets `V523000–523999`, **logistics
 `V524000–524999`** — all inside `warehouse-adapter-*`'s `V520000–V529999` band (`D-2`, `G-043`).
+**No task in this design set writes a number inside the logistics sub-band** (`H-006`): the reservation
+exists so the `logistics` design set can number its own registration migration, and the example below
+is written **from that module's repository**, not from this one. `IMPLEMENTATION-PLAN.md` §11 records
+the withdrawal of `P6-08`'s former `V524000`–`V524099` claim.
 
 **Worked example — the whole cost of a logistics module learning to move stock:**
 
