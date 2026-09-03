@@ -104,6 +104,18 @@ REVIEWS = {
     "K": "docs/reviews/R13-non-functional-and-operability.md",
     "O": "docs/reviews/R14-codebase-and-sibling-set-reverification.md",
     "J": "docs/reviews/R15-competitor-benchmark-r2.md",
+    # round 3 — six orthogonal lenses. The single-letter space was exhausted at allocation time:
+    # `M` alone was free (`R-1`…`R-5` are DATA-MODEL.md rounding rules, `V-3` and `W-n` are live
+    # registers, `B-04` is a rack label in R2 and `N-045` a citation into the accounting set), so
+    # round 3 takes a two-letter register. `RA`…`RF` were grep-verified free of the whole tree
+    # before allocation and stay unambiguous under the same letter-then-hyphen rule that separates
+    # `O-` from `OD-`.
+    "RA": "docs/reviews/R16-role-and-persona-completeness.md",
+    "RB": "docs/reviews/R17-screen-and-field-buildability.md",
+    "RC": "docs/reviews/R18-reporting-and-analytics-completeness.md",
+    "RD": "docs/reviews/R19-integration-device-and-channel-surface.md",
+    "RE": "docs/reviews/R20-configuration-and-day-one-setup.md",
+    "RF": "docs/reviews/R21-money-costing-and-billing.md",
 }
 
 # Each review anchors its findings differently. These are the *definition* anchors, not citations:
@@ -125,6 +137,13 @@ FINDING_DEF_RE = {
     "K": re.compile(r"^###\s+`K-(\d{3})`"),
     "O": re.compile(r"^###\s+`O-(\d{3})`"),
     "J": re.compile(r"^###\s+`J-(\d{3})`"),
+    # The six round-3 lenses share one anchor, as round 2's eight do.
+    "RA": re.compile(r"^###\s+`RA-(\d{3})`"),
+    "RB": re.compile(r"^###\s+`RB-(\d{3})`"),
+    "RC": re.compile(r"^###\s+`RC-(\d{3})`"),
+    "RD": re.compile(r"^###\s+`RD-(\d{3})`"),
+    "RE": re.compile(r"^###\s+`RE-(\d{3})`"),
+    "RF": re.compile(r"^###\s+`RF-(\d{3})`"),
 }
 REVIEW_LABEL = {
     "C": "R1 codebase reality", "T": "R2 tier-1 WMS", "E": "R3 ERP / mid-market",
@@ -134,6 +153,9 @@ REVIEW_LABEL = {
     "U": "R10 operational walkthrough", "Y": "R11 exception paths",
     "Z": "R12 lifecycle / data migration", "K": "R13 non-functional",
     "O": "R14 codebase / sibling re-verify", "J": "R15 competitor round 2",
+    "RA": "R16 role & persona", "RB": "R17 screen & field buildability",
+    "RC": "R18 reporting & analytics", "RD": "R19 integration, device & channel",
+    "RE": "R20 configuration & day-1 setup", "RF": "R21 money, costing & billing",
 }
 
 # R1 §8's traps are a *second* register under the same `T-` prefix, separated from R2's findings
@@ -175,7 +197,7 @@ SC_DEF_RE = re.compile(r"^\|\s*\*\*WH-SC-(\d{3})\*\*")
 WS_CITE_RE = re.compile(r"\bWS-(\d+)\b")
 WS_DEF_RE = re.compile(r"^\|\s*WS-(\d{3})\s*\|")
 TABLE_RE = re.compile(r"\b(?:whb|wh3|whin|wha[a-z]|wh)_[a-z0-9_]+\b")
-FINDING_CITE_RE = re.compile(r"\b([CTEFSPGQHUYZKOJ])-(\d{1,3}[a-z]?)\b(?!-\d)")
+FINDING_CITE_RE = re.compile(r"\b(R[A-F]|[CTEFSPGQHUYZKOJ])-(\d{1,3}[a-z]?)\b(?!-\d)")
 ISSUE_CITE_RE = re.compile(r"(?<![\w/#])#(\d{1,4})\b")
 PR_REF_RE = re.compile(r"(?:\bPR|\bpull request)\s*#\d{1,4}\b", re.IGNORECASE)
 ISSUE_MAP_ROW_RE = re.compile(r"^\|\s*#(\d+)\s*\|\s*`([^`]+)`")
@@ -224,7 +246,7 @@ RULE_TOKEN_RE = {
     "table-names": TABLE_RE,
     "flyway-band": re.compile(r"\bV\d{6}\b"),
     "issue-citations": ISSUE_CITE_RE,
-    "finding-citations": re.compile(r"\b[CTEFSPGQHUYZKOJ]-\d{1,3}[a-z]?\b"),
+    "finding-citations": re.compile(r"\b(?:R[A-F]|[CTEFSPGQHUYZKOJ])-\d{1,3}[a-z]?\b"),
     "id-collision": re.compile(r"\b[A-Z][A-Z-]*-\d+[a-z]?\b"),
     "screen-citations": re.compile(r"\bWS-\d+\b"),
 }
@@ -1252,6 +1274,12 @@ AUTHORITY_STEM = {
     "docs/reviews/R13-non-functional-and-operability.md": "R13",
     "docs/reviews/R14-codebase-and-sibling-set-reverification.md": "R14",
     "docs/reviews/R15-competitor-benchmark-r2.md": "R15",
+    "docs/reviews/R16-role-and-persona-completeness.md": "R16",
+    "docs/reviews/R17-screen-and-field-buildability.md": "R17",
+    "docs/reviews/R18-reporting-and-analytics-completeness.md": "R18",
+    "docs/reviews/R19-integration-device-and-channel-surface.md": "R19",
+    "docs/reviews/R20-configuration-and-day-one-setup.md": "R20",
+    "docs/reviews/R21-money-costing-and-billing.md": "R21",
 }
 
 
