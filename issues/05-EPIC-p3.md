@@ -1,5 +1,6 @@
 TITLE: [Warehouse] EPIC: P3 — Execution & mobile
 LABELS: epic,warehouse,phase-p3
+issue: 7
 ---
 Part of __MASTER__ · Modules `mobile` · `warehouse` · `warehouse-base` · `warehouse-adapter-field-service` · `warehouse-adapter-assets` · `warehouse-adapter-dealer` · Migrations — **11 blocks, enumerated below** · Ships in **v1.1**
 

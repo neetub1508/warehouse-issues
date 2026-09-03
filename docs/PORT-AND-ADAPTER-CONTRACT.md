@@ -1,5 +1,7 @@
 # The movement port and adapter contract
 
+<!-- check-design-set: issue-citations file #2 #9 #790 #791 — `#2` and `#9` are ordinals in prose, not issue references — *Refusal #2*, *Adapter #2 (services)*, *ship-blocker #2*, *logistics needs #1, #2, #3, #5, #6, #10* — and at COMPETITOR-BENCHMARK.md:70/:146 `#9` is the markdown in-page anchor `[§9](#9--where-the-audits-disagree)`. In this repository `#2` and `#9` are in fact the two **pull requests** opened while the backlog was being filed, so no issue row can ever exist for either: see issues/CREATED.md. And `#790` and `#791` are issues in **`neetub1508/classic`**, cited as `classic#790, #791` with the second elided in the ordinary English way. The first resolves; the elided continuation reads to the checker as a bare `#NN`. It is a cross-repo citation, never a warehouse issue -->
+
 > **What this document is for.** The user's requirement is that warehouse serves the dealer module
 > now, a logistics/supply-chain module later, and *"if we have more in the future, we should be able
 > to do that"*. This is the document that turns that sentence into a **testable claim**. It is read

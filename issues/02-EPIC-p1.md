@@ -1,5 +1,6 @@
 TITLE: [Warehouse] EPIC: P1 — Masters, identity, inbound
 LABELS: epic,warehouse,phase-p1
+issue: 4
 ---
 Part of __MASTER__ · Modules `warehouse-base` (masters) + `warehouse` (inbound documents) · Migrations — **20 blocks, enumerated below** · Ships in **v1**
 

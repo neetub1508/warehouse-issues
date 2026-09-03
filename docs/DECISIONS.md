@@ -1,5 +1,7 @@
 # Decisions — the spine of the Warehouse design set
 
+<!-- check-design-set: issue-citations file #2 — `#2` and `#9` are ordinals in prose, not issue references — *Refusal #2*, *Adapter #2 (services)*, *ship-blocker #2*, *logistics needs #1, #2, #3, #5, #6, #10* — and at COMPETITOR-BENCHMARK.md:70/:146 `#9` is the markdown in-page anchor `[§9](#9--where-the-audits-disagree)`. In this repository `#2` and `#9` are in fact the two **pull requests** opened while the backlog was being filed, so no issue row can ever exist for either: see issues/CREATED.md -->
+
 > **This document wins over every other document in this repository except
 > [`reviews/R1-codebase-reality.md`](reviews/R1-codebase-reality.md), which wins on any question about what
 > the *existing* `neetub1508/classic` codebase does, because it carries `file:line` evidence.**

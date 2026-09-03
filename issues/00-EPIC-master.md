@@ -1,5 +1,7 @@
 TITLE: [Warehouse] EPIC: Warehouse and inventory management — master
 LABELS: epic,warehouse
+issue: 1
+<!-- check-design-set: issue-citations file #2 — `#2` and `#9` are ordinals in prose, not issue references — *Refusal #2*, *Adapter #2 (services)*, *ship-blocker #2*, *logistics needs #1, #2, #3, #5, #6, #10* — and at COMPETITOR-BENCHMARK.md:70/:146 `#9` is the markdown in-page anchor `[§9](#9--where-the-audits-disagree)`. In this repository `#2` and `#9` are in fact the two **pull requests** opened while the backlog was being filed, so no issue row can ever exist for either: see issues/CREATED.md — declared in the front matter, above the `---`, so the declaration never enters the issue body and cannot drift against the filed issue -->
 ---
 Build a **standalone-capable, country-neutral warehouse and inventory-management product** for the
 Classic platform, as **five Maven modules plus adapters**.

@@ -1,7 +1,7 @@
 # Issue backlog — the source of truth
 
-The full Classic Warehouse backlog, ready to file on GitHub: **1 master epic + 8 phase epics + 143
-task issues = 152 issues**, 17,362 lines of task and epic text.
+The full Classic Warehouse backlog, **filed on GitHub** in `neetub1508/warehouse-issues`:
+**1 master epic + 8 phase epics + 143 task issues = 152 issues**, 17,362 lines of task and epic text.
 
 Every count on this page was computed, not estimated. The command is next to the number, and
 the checker figures are from the run of **2026-09-02 08:25 IST** — the design set is under active
@@ -19,12 +19,26 @@ checklist → traps → Definition of done; task issues open with
 
 ---
 
-## The backlog is **not filed yet** — read this before running the script
+## The backlog is **filed** — read this before touching anything
 
-`issues/CREATED.md` does not exist, no file carries an `issue: NN` line, and
-`tools/check-design-set.py --check 5` skips cleanly and says so. That is the current state.
+All **152** issues exist. `issues/CREATED.md` is written and holds the full
+`Issue | Task file | Title` map; **every one of the 152 files carries an `issue: NN` line** in its
+front matter; and `tools/check-design-set.py --check 5` therefore no longer skips — it resolves
+every `#NN` cross-reference against that map.
 
-**`DECISIONS.md` §7 rule 5 fixes the authority direction now, before anything is filed:**
+| | |
+|---|---|
+| Master epic | `#1` |
+| Phase epics | P0 `#3` · P1 `#4` · P2 `#5` · P2-IN `#6` · P3 `#7` · P4 `#8` · P5 `#10` · P6 `#11` |
+| The 143 tasks | **`#12`–`#154`** |
+
+**`#2` and `#9` are pull requests, not issues.** GitHub numbers issues and pull requests from one
+sequence per repository, and two PRs were opened while the backlog was being filed. That is the
+whole reason the phase epics are not `#2`–`#9` and the tasks are not `#10`–`#152`. **Nothing is
+missing from the backlog** — the two absent numbers are the PRs.
+
+**`DECISIONS.md` §7 rule 5 fixes the authority direction, and it is now load-bearing rather than
+prospective:**
 
 > The `.md` files in this repository are authoritative; GitHub issue bodies are a **mirror** kept in
 > sync mechanically by `issues/create-issues.sh --sync`, and `--check` fails CI on drift. **Never
@@ -36,7 +50,10 @@ bodies in place on GitHub and declared GitHub the winner — and round 3 then am
 artefact for weeks (accounting round 4, `B-003`). Reconciling in the other direction meant re-keying
 ~1,140 lines by hand and would have left the same failure mode in place.
 
-So: **files win, and the files are pushed to GitHub mechanically.**
+So: **files win, and the files are pushed to GitHub mechanically.** Now that the backlog is filed,
+the only two commands that matter are `--sync` (push every `.md` to its issue) and `--check` (fail
+CI on drift). **Never edit an issue body in the GitHub UI** — an edit there is drift `--check` will
+flag and `--sync` will overwrite.
 
 ```bash
 gh auth login                                   # needs a token with Issues: write
@@ -47,10 +64,10 @@ gh auth login                                   # needs a token with Issues: wri
 REPO=owner/other-repo ./issues/create-issues.sh # stand this backlog up somewhere else
 ```
 
-`create-issues.sh` **refuses to run the create path against a repository that already has issues**,
-so a re-run cannot duplicate 147 issues or orphan every cross-reference in the first set. Once filed
-it remains useful for standing the backlog up in a *different* repository, and `--sync` / `--check`
-are what you use from then on.
+`create-issues.sh` **refuses to run the create path against a repository that already has issues** —
+which `neetub1508/warehouse-issues` now does — so a re-run cannot duplicate the 152 or orphan every
+cross-reference in the first set. The create path remains useful only for standing the backlog up in
+a *different* repository; **`--sync` / `--check` are what you use from here on.**
 
 ## What the script does, in order
 
@@ -76,8 +93,15 @@ Part of __P0__ · Module **`warehouse-base`** · Migrations **V500030–V500032,
 ```
 
 `create-issues.sh` reads the title from `TITLE:`, the labels from `LABELS:`, and the body as
-everything after the first `---`. After filing, an `issue: NN` line is written between `LABELS:` and
-`---`; it stays out of the body because the body starts after the `---`.
+everything after the first `---`. The `issue: NN` line sits between `LABELS:` and `---`; it stays
+out of the body because the body starts after the `---`. **All 152 files carry theirs** — `p0-02.md`
+carries `issue: 25`, one line below its `LABELS:` and one above its `---` — which is what makes
+`--sync` and `--check` work with no hand-keyed list of 152 numbers.
+
+> The line is deliberately **not** reproduced at the left margin anywhere on this page.
+> `create-issues.sh` reads it with `sed -n 's/^issue: *//p'`, which does not know a fenced code
+> block from a file, so an example here would make this README look like issue #25 and `--sync`
+> would overwrite that issue with this page. Read a real file for the shape.
 
 `DEFECTS-FOUND.md` and this README live in `issues/` and declare no `TITLE:`, so the script skips
 them. They are documents, not issues.

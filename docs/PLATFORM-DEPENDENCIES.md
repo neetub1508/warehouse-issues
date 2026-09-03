@@ -1,5 +1,7 @@
 # Platform dependencies — what warehouse needs from `platform`, with a verdict per capability
 
+<!-- check-design-set: issue-citations file #791 — `#790` and `#791` are issues in **`neetub1508/classic`**, cited as `classic#790, #791` with the second elided in the ordinary English way. The first resolves; the elided continuation reads to the checker as a bare `#NN`. It is a cross-repo citation, never a warehouse issue -->
+
 > **What this document is.** A register. One row per platform capability the warehouse product
 > depends on, with a verdict: **EXISTS AND FITS**, **EXISTS BUT SHAPE-MISMATCHES**, or **DOES NOT
 > EXIST — BLOCKS SHIPPING**. Every row carries `file:line` and, where it blocks, the cost, the phase

@@ -1,5 +1,7 @@
 # LENS R1 — Codebase Reality
 
+<!-- check-design-set: issue-citations file #791 — `#790` and `#791` are issues in **`neetub1508/classic`**, cited as `classic#790, #791` with the second elided in the ordinary English way. The first resolves; the elided continuation reads to the checker as a bare `#NN`. It is a cross-repo citation, never a warehouse issue -->
+
 **Target:** a new four-module Warehouse / Inventory product
 (`warehouse-base` + `warehouse` + `warehouse-adapter-<vertical>` + `warehouse-3pl`)
 **Truth source:** `/Users/bbhushan/work/git/workspace/classic` — branch `main`, HEAD `f9b43a5804`, working tree clean

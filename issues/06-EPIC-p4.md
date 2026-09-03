@@ -1,5 +1,6 @@
 TITLE: [Warehouse] EPIC: P4 — India statutory & compliance
 LABELS: epic,warehouse,phase-p4
+issue: 8
 ---
 Part of __MASTER__ · Modules `warehouse-india` (wave 2) · `warehouse` · `warehouse-base` · one table in the `warehouse-3pl` band · Migrations — **7 blocks, enumerated below** · Ships in **v2**
 

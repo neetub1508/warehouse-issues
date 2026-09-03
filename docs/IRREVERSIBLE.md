@@ -1,5 +1,7 @@
 # IRREVERSIBLE — free now, impossible later
 
+<!-- check-design-set: issue-citations file #2 #9 — `#2` and `#9` are ordinals in prose, not issue references — *Refusal #2*, *Adapter #2 (services)*, *ship-blocker #2*, *logistics needs #1, #2, #3, #5, #6, #10* — and at COMPETITOR-BENCHMARK.md:70/:146 `#9` is the markdown in-page anchor `[§9](#9--where-the-audits-disagree)`. In this repository `#2` and `#9` are in fact the two **pull requests** opened while the backlog was being filed, so no issue row can ever exist for either: see issues/CREATED.md -->
+
 > **Read this immediately before writing the first migration of any phase.** Not at planning time,
 > not at review time — at the moment the `.sql` file is created. Every row below is a column, a key,
 > a table or a trigger that costs hours today and is either unaffordable or *untruthful* later.

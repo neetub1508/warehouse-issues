@@ -212,6 +212,7 @@ EXEMPT_RULES = {
     "scenario-citations": 2,
     "table-names": 3,
     "flyway-band": 4,
+    "issue-citations": 5,
     "finding-citations": 7,
     "id-collision": 11,
     "screen-citations": 12,
@@ -222,6 +223,7 @@ RULE_TOKEN_RE = {
     "scenario-citations": re.compile(r"\bWH-SC-\d+\b"),
     "table-names": TABLE_RE,
     "flyway-band": re.compile(r"\bV\d{6}\b"),
+    "issue-citations": ISSUE_CITE_RE,
     "finding-citations": re.compile(r"\b[CTEFSPGQHUYZKOJ]-\d{1,3}[a-z]?\b"),
     "id-collision": re.compile(r"\b[A-Z][A-Z-]*-\d+[a-z]?\b"),
     "screen-citations": re.compile(r"\bWS-\d+\b"),
@@ -804,8 +806,15 @@ def issue_map(root):
     return mapping
 
 
-def check_issue_refs(root, files):
-    """Skips cleanly, with a count, until the backlog is filed and CREATED.md exists."""
+def check_issue_refs(root, files, ledger, directives):
+    """Skips cleanly, with a count, until the backlog is filed and CREATED.md exists.
+
+    `#NN` is also how English writes an ordinal — *Refusal #2*, *Adapter #2*, *ship-blocker #2*,
+    *the most important row in this table is #263* — and how markdown writes an in-page anchor
+    (`[§9](#9--…)`). A design set that argues in prose therefore carries far more `#NN` tokens than
+    it carries issue references, which is why this check answers to the `issue-citations` rule like
+    every other check answers to its own: a document exempts itself, in the open, naming the ids.
+    """
     if not exists(root, ISSUE_MAP):
         pending = 0
         for path in files:
@@ -819,19 +828,31 @@ def check_issue_refs(root, files):
                     "numbers, not issues. See tools/README.md."
                     % (ISSUE_MAP, pending, "" if pending == 1 else "s"))
     mapping = issue_map(root)
+    scanner = Scanner(root, files, ledger, directives)
     out = []
     for path in files:
+        fe = scanner.exemptions(path)
         for lineno, text, in_code in iter_lines(read_lines(root, path)):
-            if in_code:
-                continue
+            if lineno in fe.declaration_lines:
+                continue  # an id named on a fence is the fence's scope, not a citation
             scan = PR_REF_RE.sub(" ", strip_code(text))
             for m in ISSUE_CITE_RE.finditer(scan):
                 num = int(m.group(1))
-                if num not in mapping:
-                    out.append(Violation(
-                        5, path, lineno,
-                        "#%d is referenced but has no row in %s "
-                        "(a cross-repo issue must be written owner/repo#%d)" % (num, ISSUE_MAP, num)))
+                if num in mapping:
+                    continue
+                token = "#%d" % num
+                if in_code:
+                    ledger.record(path, lineno, token, "code-block/5", 0,
+                                  "inside a fenced code block")
+                    continue
+                cover = fe.cover("issue-citations", lineno, token)
+                if cover is not None:
+                    ledger.record(path, lineno, token, "issue-citations", cover[0], cover[1])
+                    continue
+                out.append(Violation(
+                    5, path, lineno,
+                    "#%d is referenced but has no row in %s "
+                    "(a cross-repo issue must be written owner/repo#%d)" % (num, ISSUE_MAP, num)))
     return sorted(out, key=lambda v: v.key()), None
 
 
@@ -1329,7 +1350,7 @@ def run(root, selected):
     if 4 in selected:
         results[4] = check_flyway(root, ledger, directives)
     if 5 in selected:
-        results[5], note = check_issue_refs(root, files)
+        results[5], note = check_issue_refs(root, files, ledger, directives)
         if note:
             notes[5] = note
     if 6 in selected:

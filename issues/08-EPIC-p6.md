@@ -1,5 +1,6 @@
 TITLE: [Warehouse] EPIC: P6 — Optimisation, planning and the logistics seam
 LABELS: epic,warehouse,phase-p6
+issue: 11
 ---
 Part of __MASTER__ · Modules `warehouse-base` · `warehouse` · `warehouse-3pl` · **`logistics` (new)** · Migrations — **four blocks, enumerated below** · Ships in **v3**
 

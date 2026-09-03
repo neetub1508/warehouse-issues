@@ -196,6 +196,7 @@ between two rows splits the table.
 | `fr-citations` | 1 | an `FR-nnn` that resolves to nothing |
 | `scenario-citations` | 2 | a `WH-SC-nnn` that resolves to nothing |
 | `table-names` | 3 | a warehouse table with no `DATA-MODEL.md` row |
+| `issue-citations` | 5 | a `#NN` that is an **ordinal in prose** (*Refusal #2*, *ship-blocker #2*), a **document row number** (R2's feature-table rows), a **markdown in-page anchor** (`[§9](#9--…)`), or a **cross-repo citation elided** after its first mention (`classic#790, #791`) |
 | `flyway-band` | 4 | a version deliberately claimed outside its module's band. **No file in the set declares one today** — `p4-10` is the case that reads like it needs one (`V530060` follows the `wh3_` prefix while the task follows `FR-301`'s phase) and it does not, because its header names **both** `warehouse-india` and `warehouse-3pl`. Declaring the second module is always better than fencing |
 | `finding-citations` | 7 | a finding id named as the subject of a discussion rather than cited |
 | `id-collision` | 11 | an ambiguous id in a document that says which register it means |
@@ -267,26 +268,31 @@ reason is printed back at the next reader.
 - **`tools/` is not scanned at all.** This file is the checker's documentation, not the design set,
   and the directive examples above must stay examples — a checker must not be able to exempt itself.
 
-## Known residual hazard: check 5 after the backlog is filed
+## Known residual hazard: check 5, now that the backlog is filed
 
-`issues/CREATED.md` does not exist until `issues/create-issues.sh` runs, so check 5 skips cleanly and
-prints a count instead:
+`issues/CREATED.md` exists, so **check 5 no longer skips.** It activated against 152 rows and raised
+**64** violations on the first run — and every one was a false positive, in three families:
 
-```
-check-5  pass    0  #NN issue cross-references resolve to issues/CREATED.md
-        note: issues/CREATED.md does not exist yet — the backlog is unfiled. 231 bare `#NN` mentions
-        will become check-5 subjects the moment it does; most are document row numbers, not issues.
-```
+| family | ids | why it is not an issue reference |
+|---|---|---|
+| ordinals in prose | `#2` `#9` | *Refusal #2* · *Adapter #2 (services)* · *ship-blocker #2* · *logistics needs #1, #2, #3, #5, #6, #10*. `COMPETITOR-BENCHMARK.md:70`/`:146` additionally use `#9` as the markdown anchor `[§9](#9--where-the-audits-disagree)`. In this repository `#2` and `#9` are the two **pull requests**, so no issue row can ever exist for them |
+| document row numbers | `#230` `#263` `#275` `#303` `#312` `#314` `#325` `#334` `#375` `#388` | the row numbers of `R2-tier1-wms-audit.md`'s own feature tables — *"the single most important row in this table is #263"* |
+| cross-repo, elided | `#790` `#791` | issues in `neetub1508/classic`, cited `classic#790, #791`. The first resolves; the elided continuation reads as a bare `#NN`. **Writing it `neetub1508/classic#791` is the real fix** and remains the preferred mitigation |
 
-Read that note as a warning, not a reassurance. Of those 231 mentions, the great majority are
-**document row numbers** — CLAUDE.md rule numbers, R2/R3 capability-matrix rows, `IRREVERSIBLE.md`
-question numbers — and once 147 issues exist, `#116` will *resolve*, to the wrong thing, exactly like
-accounting's 19 mis-resolving `FR` citations. **The checker cannot detect that**, because a
-resolving reference is indistinguishable from a correct one.
+All 64 are declared, in the open, by 21 `issue-citations` file-scoped directives — one per offending
+document — so the run prints `exempt 64 mentions — issue-citations 64 (21 declarations in 21 files)`
+and any *new* dangling `#NN` still fails. **Nothing was fixed into an issue reference and the check
+was not weakened.** In the seven `issues/*.md` files the directive sits in the **front matter, above
+the `---`**, so it never enters an issue body and cannot drift against the filed issue.
+
+**The hazard the exemptions do not cover, and cannot.** A row number that *resolves* is invisible to
+this check — `IRREVERSIBLE.md:679`'s *"logistics needs #1, #2, #3, #5, #6, #10"* has `#2` flagged and
+exempted while `#1`, `#3`, `#5`, `#6` and `#10` now silently resolve to the master epic and four
+phase epics. That is accounting's 19 mis-resolving `FR` citations in a different costume, and **the
+checker cannot detect it**, because a resolving reference is indistinguishable from a correct one.
 
 Two mitigations, in order of preference: write a row number as `row 116` or inside a code span, and
-write a cross-repo issue as `owner/repo#791` (the four `#791` mentions in this set are
-`classic-issues` issues and will be reported by check 5 as unresolvable, which is correct).
+write a cross-repo issue as `owner/repo#791`.
 
 ## CI
 
@@ -325,7 +331,7 @@ python3 tools/check-design-set.py --summary        # exit 0
 | 2 scenario citations | **pass** | 45 | 26 → 0. Every subject was `WH-SC-301`, the §5 rule 3 allocation marker. **29 region fences**, each naming that one id, in the catalogue, the two phase epics and the 23 P5/P6 tasks that reserve from it |
 | 3 table names | **pass** | 22 | 46 → 0. **4 typos fixed** in task files, **11 genuinely missing tables added** to `DATA-MODEL.md` §2 *and* §7, **20 report grid identifiers documented as non-tables** in §8.3, **22 prior-art and counter-example quotations fenced** by id across 9 task files |
 | 4 Flyway | **pass** | — | 3 → 0. `p2-29`/`p3-04` now name `warehouse-base` on the header; `p6-08` withdraws its claim on `V524000`–`V524099`, because `D-2` allocates `logistics` no band. **0 duplicate versions of the 818 now claimed** |
-| 5 issue refs | **pass** | — | still skipped — `issues/CREATED.md` does not exist yet; 231 bare `#NN` are waiting for it. Read the hazard note above, not this row |
+| 5 issue refs | **pass** | 64 | **activated** — `issues/CREATED.md` now carries all 152 rows. 64 → 0, every one a false positive: ordinals in prose, R2 table row numbers, and the elided half of a `classic#790, #791` cross-repo citation. **21 file-scoped `issue-citations` directives**, one per offending document. Read the hazard note above, not this row |
 | 6 required sections | **pass** | — | all 138 task files carry all six sections |
 | 7 finding ids | **pass** | 52 | 8 → 0. Five R2 **capability-matrix rows** rewritten as `R2 §1.n row N`; `E-1`/`E-8` in R6 rewritten as `§L items 1–8`; `E-754` fenced — it is the tail of *IEEE-754* at `R1:441`, quoted to explain a counting command, not a fabrication |
 | 8 plan ↔ files | **pass** | — | 138 = 138, both directions, no duplicate plan rows |

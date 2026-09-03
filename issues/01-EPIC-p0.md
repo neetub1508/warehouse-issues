@@ -1,5 +1,6 @@
 TITLE: [Warehouse] EPIC: P0 — Ledger foundation
 LABELS: epic,warehouse,phase-p0
+issue: 3
 ---
 Part of __MASTER__ · Modules `warehouse-base` + the CI-only `warehouse-adapter-example` · Migrations — **16 blocks, enumerated below** · Ships in **v1**
 

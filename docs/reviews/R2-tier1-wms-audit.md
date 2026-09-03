@@ -1,5 +1,7 @@
 # LENS R2 — Tier-1 / enterprise WMS feature-by-feature audit
 
+<!-- check-design-set: issue-citations file #230 #263 #275 #303 #312 #314 #325 #334 #375 #388 — `#230` `#263` `#275` `#303` `#312` `#314` `#325` `#334` `#375` `#388` are **row numbers in R2's own feature tables** — *“the single most important row in this table is #263”*, *“Gap. #230.”* — not issue references. This lens numbers its rows and refers back to them by number throughout -->
+
 **Audited:** the *proposed* four-module Warehouse / Inventory design set for the Classic platform —
 `warehouse-base` · `warehouse` · `warehouse-adapter-<vertical>` · `warehouse-3pl` — as described in the
 lens brief, 2026-09-01.

@@ -1,5 +1,6 @@
 TITLE: [Warehouse] EPIC: P2-IN — The India movement documents
 LABELS: epic,warehouse,phase-p2in
+issue: 6
 ---
 Part of __MASTER__ · Modules `warehouse-india` · Migrations — **6 blocks, enumerated below** · Ships in **v1**
 

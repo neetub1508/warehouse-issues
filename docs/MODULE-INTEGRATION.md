@@ -1,5 +1,7 @@
 # Module integration runbook — landing five warehouse modules in `classic`
 
+<!-- check-design-set: issue-citations file #2 #791 — `#2` and `#9` are ordinals in prose, not issue references — *Refusal #2*, *Adapter #2 (services)*, *ship-blocker #2*, *logistics needs #1, #2, #3, #5, #6, #10* — and at COMPETITOR-BENCHMARK.md:70/:146 `#9` is the markdown in-page anchor `[§9](#9--where-the-audits-disagree)`. In this repository `#2` and `#9` are in fact the two **pull requests** opened while the backlog was being filed, so no issue row can ever exist for either: see issues/CREATED.md. And `#790` and `#791` are issues in **`neetub1508/classic`**, cited as `classic#790, #791` with the second elided in the ordinary English way. The first resolves; the elided continuation reads to the checker as a bare `#NN`. It is a cross-repo citation, never a warehouse issue -->
+
 > **What this document is.** A runbook an engineer executes, top to bottom, to land
 > `warehouse-base`, `warehouse`, `warehouse-adapter-<vertical>`, `warehouse-3pl` and `warehouse-india`
 > in the `neetub1508/classic` monorepo. It is not a description of the build system. Every row names
