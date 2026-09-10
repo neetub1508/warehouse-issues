@@ -23,8 +23,8 @@ Checks
    4  every Flyway version is claimed by exactly one task, inside its module's declared band
    5  every #NN issue cross-reference resolves to a row in issues/CREATED.md
    6  every task file carries the six required sections
-   7  every finding id cited (round 1 C/T/E/F/S/P/G, round 2 Q/H/U/Y/Z/K/O/J) resolves to a
-      real finding in its owning review
+   7  every finding id cited (round 1 C/T/E/F/S/P/G, round 2 Q/H/U/Y/Z/K/O/J, round 3 RA-RF,
+      round 4 RG/RH/RJ/RK/RL) resolves to a real finding in its owning review
    8  every task in IMPLEMENTATION-PLAN.md §2 has a file, and every file is in the plan
    9  every task appears in exactly one phase epic's __TASKS__ / checklist region
   10  every FR-nnn is owned by exactly one task
@@ -116,6 +116,14 @@ REVIEWS = {
     "RD": "docs/reviews/R19-integration-device-and-channel-surface.md",
     "RE": "docs/reviews/R20-configuration-and-day-one-setup.md",
     "RF": "docs/reviews/R21-money-costing-and-billing.md",
+    # round 4 — five lenses. `RG` `RH` `RJ` `RK` `RL` continue the two-letter series; `RI` is skipped
+    # because `I` beside `1` is the `I-`/`IRR-` hazard DECISIONS.md §6 records. All five were
+    # grep-verified free of the tree before allocation (each lens prints its own check).
+    "RG": "docs/reviews/R22-cardinality-and-junctions.md",
+    "RH": "docs/reviews/R23-platform-alignment.md",
+    "RJ": "docs/reviews/R24-workflow-contract-completeness.md",
+    "RK": "docs/reviews/R25-competitor-gap-r3.md",
+    "RL": "docs/reviews/R26-extensibility-and-future-proofing.md",
 }
 
 # Each review anchors its findings differently. These are the *definition* anchors, not citations:
@@ -144,6 +152,12 @@ FINDING_DEF_RE = {
     "RD": re.compile(r"^###\s+`RD-(\d{3})`"),
     "RE": re.compile(r"^###\s+`RE-(\d{3})`"),
     "RF": re.compile(r"^###\s+`RF-(\d{3})`"),
+    # The five round-4 lenses share the same anchor.
+    "RG": re.compile(r"^###\s+`RG-(\d{3})`"),
+    "RH": re.compile(r"^###\s+`RH-(\d{3})`"),
+    "RJ": re.compile(r"^###\s+`RJ-(\d{3})`"),
+    "RK": re.compile(r"^###\s+`RK-(\d{3})`"),
+    "RL": re.compile(r"^###\s+`RL-(\d{3})`"),
 }
 REVIEW_LABEL = {
     "C": "R1 codebase reality", "T": "R2 tier-1 WMS", "E": "R3 ERP / mid-market",
@@ -156,6 +170,9 @@ REVIEW_LABEL = {
     "RA": "R16 role & persona", "RB": "R17 screen & field buildability",
     "RC": "R18 reporting & analytics", "RD": "R19 integration, device & channel",
     "RE": "R20 configuration & day-1 setup", "RF": "R21 money, costing & billing",
+    "RG": "R22 cardinality & junctions", "RH": "R23 platform alignment",
+    "RJ": "R24 workflow contract completeness", "RK": "R25 competitor gap round 3",
+    "RL": "R26 extensibility & future-proofing",
 }
 
 # R1 §8's traps are a *second* register under the same `T-` prefix, separated from R2's findings
@@ -197,7 +214,7 @@ SC_DEF_RE = re.compile(r"^\|\s*\*\*WH-SC-(\d{3})\*\*")
 WS_CITE_RE = re.compile(r"\bWS-(\d+)\b")
 WS_DEF_RE = re.compile(r"^\|\s*WS-(\d{3})\s*\|")
 TABLE_RE = re.compile(r"\b(?:whb|wh3|whin|wha[a-z]|wh)_[a-z0-9_]+\b")
-FINDING_CITE_RE = re.compile(r"\b(R[A-F]|[CTEFSPGQHUYZKOJ])-(\d{1,3}[a-z]?)\b(?!-\d)")
+FINDING_CITE_RE = re.compile(r"\b(R[A-HJ-L]|[CTEFSPGQHUYZKOJ])-(\d{1,3}[a-z]?)\b(?!-\d)")
 ISSUE_CITE_RE = re.compile(r"(?<![\w/#])#(\d{1,4})\b")
 PR_REF_RE = re.compile(r"(?:\bPR|\bpull request)\s*#\d{1,4}\b", re.IGNORECASE)
 ISSUE_MAP_ROW_RE = re.compile(r"^\|\s*#(\d+)\s*\|\s*`([^`]+)`")
@@ -246,7 +263,7 @@ RULE_TOKEN_RE = {
     "table-names": TABLE_RE,
     "flyway-band": re.compile(r"\bV\d{6}\b"),
     "issue-citations": ISSUE_CITE_RE,
-    "finding-citations": re.compile(r"\b(?:R[A-F]|[CTEFSPGQHUYZKOJ])-\d{1,3}[a-z]?\b"),
+    "finding-citations": re.compile(r"\b(?:R[A-HJ-L]|[CTEFSPGQHUYZKOJ])-\d{1,3}[a-z]?\b"),
     "id-collision": re.compile(r"\b[A-Z][A-Z-]*-\d+[a-z]?\b"),
     "screen-citations": re.compile(r"\bWS-\d+\b"),
 }
@@ -1280,6 +1297,11 @@ AUTHORITY_STEM = {
     "docs/reviews/R19-integration-device-and-channel-surface.md": "R19",
     "docs/reviews/R20-configuration-and-day-one-setup.md": "R20",
     "docs/reviews/R21-money-costing-and-billing.md": "R21",
+    "docs/reviews/R22-cardinality-and-junctions.md": "R22",
+    "docs/reviews/R23-platform-alignment.md": "R23",
+    "docs/reviews/R24-workflow-contract-completeness.md": "R24",
+    "docs/reviews/R25-competitor-gap-r3.md": "R25",
+    "docs/reviews/R26-extensibility-and-future-proofing.md": "R26",
 }
 
 

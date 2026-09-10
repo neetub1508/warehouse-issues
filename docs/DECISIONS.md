@@ -280,6 +280,51 @@ handheld is not a warehouse product. Note the correction to CLAUDE.md found by R
 `mobile/…/ListHeader.tsx:210-218` now supports `type?: 'dropdown' | 'text'` filters — **date filters
 are still unsupported**.
 
+### D-14 · Associations between masters are dated many-to-many; a warehouse has exactly one REGISTERED branch
+
+**User decision, taken 2026-09-10**, on round 4's findings (`reviews/R22`–`R26`, §6). The disposition of
+all 83 findings and the full fold plan are in [`GAP-REGISTER-R4.md`](GAP-REGISTER-R4.md).
+
+1. **Every association between two independent masters is an effective-dated many-to-many junction.**
+   It carries `is_primary`, or a role, where a default is needed. **Two kinds of row stay scalar**:
+   composition, where a line belongs to its parent document, and ledger fact rows, which record what
+   happened and are never re-pointed. The junction shape is R22 §1.3: `effective_from`/`effective_to`,
+   one current row per key enforced by an `EXCLUDE` constraint, and no `is_active` on a dated junction.
+   R22's six KEEP-SCALAR findings (`RG-022`…`RG-027`) mark the edge of this rule.
+2. **A warehouse is linked to platform branches through `whb_warehouse_branches`.** At every instant it
+   has **exactly one `REGISTERED` link**. That branch supplies the site's GSTIN, its branch-scoped
+   statutory numbering, and its tax attribution. `whb_warehouses` loses `branch_id`,
+   `tax_registration_id` and `legal_entity_id`.
+   - `SERVING` links grant visibility and let the branch draw stock.
+   - Classification reads the `REGISTERED` link at the movement's `occurred_at`. Access reads today's
+     links.
+   - A site with no link is visible to no branch-scoped user.
+   - **This reverses `FR-079`'s *"belongs to exactly one branch"*, `DATA-MODEL.md` §9.2's
+     dropped-junction row, and the advice of `C-016`/`C-030`.** `RG-001` is canonical.
+3. **The serving-branch rule.**
+   - A document handed over at the requesting branch (a counter sale, a job issue) posts directly from a
+     site only when that branch holds a current `REGISTERED` or `SERVING` link to the site **and** its
+     GSTIN equals the site's `REGISTERED` GSTIN.
+   - **A `SERVING` branch under a different GSTIN draws by transfer, and that transfer is a cross-GSTIN
+     supply.** It sets `is_taxable_supply = true` and carries a challan or invoice and, above the
+     threshold, an e-way bill. The source is the `REGISTERED` branch; the destination is a site
+     registered to the serving branch. The counter refuses a direct sale with
+     `422 CROSS_GSTIN_COUNTER_SALE`.
+   - A demand order despatched to a third party is billed from the site's `REGISTERED` GSTIN at despatch.
+4. **A registration change is maker–checker, and it is refused while the site holds stock** under a
+   different GSTIN. It closes one history row and opens the next at the same instant. `OD-19` asks
+   whether that refusal can ever be relaxed.
+5. **Link, never mirror.** A site is not a branch row. A `WAREHOUSE`-type branch is created only when a
+   site is itself a GST place of business that no existing branch carries (`RH-003`).
+6. **One branch-scope mechanism.** Scope uses platform's `BranchScopeService` and the
+   `:view:all`/`:view:branch` pair. The warehouse resolver returns the set of allowed warehouse ids
+   (`RH-001`, `RH-002`).
+7. **Not everything on day one** (user decision 3, same date). A capability that is useful but not needed
+   on day one goes into v2 or a later phase **and still gets a task file**, per `D-12`. Round 4 therefore
+   adds six task files: one at v1.1 and five at v2. It also lifts every v2 junction a lens had placed on
+   a v1 task out into a v2 task. Where a lens offered a heavier and a lighter shape, the lighter one is
+   taken and the reason is written in `GAP-REGISTER-R4.md` §3.7.
+
 ---
 
 ## 3. OD — open decisions. Each names its deadline and who decides.
@@ -290,6 +335,8 @@ are still unsupported**.
 > this date by round 3 and escalated with them. Seventeen rows, none deleted: a resolved decision changes state and
 > names the file that carries its evidence,
 > [`OPEN-DECISIONS-RESOLVED.md`](OPEN-DECISIONS-RESOLVED.md).
+>
+> **2026-09-10.** Round 4 allocated **`OD-18`** and **`OD-19`**, both escalated (§3.5). Nineteen rows now stand.
 >
 > **The sorting rule, stated so it can be applied again:** a recommendation is *technical* — and is adopted here —
 > when this design set can execute it inside this repository. It is a *business call* — and is escalated — when it
@@ -349,6 +396,18 @@ here. Both are escalated: `D-12` makes the cut line a product decision.
 | **OD-16** | **v1 foreign-currency costing has no exchange-rate source, no field on the wire to carry one, and no statement of which currency the stored numbers are in.** `FR-245` and `WH-SC-160` are **v1** and carry a concrete rate; `PORT-AND-ADAPTER-CONTRACT.md:280-282` has no `exchange_rate` wire field; `cost_currency_code` is marked *"column v1, multi-currency v2"*. `PLATFORM-DEPENDENCIES.md` §2.12 states the problem, offers two options, **decides neither**, and is **not an `OD-` row**, so nothing gives it a deadline or an owner. Source: `RF-004`, which explicitly recommends promoting it | **Before `P0-17` writes `V500021`** (the `whb_cost_layers` DDL, which itself precedes `V500030` per `WHB-21`); `IRR-36` puts `cost_currency_code` on the line at `PNR-1`, so the earlier of the two binds. **Gates `P2-16`** and the column set of `P0-17` | **ESCALATED — the cheap answer changes what v1 *is*** ("v1 values in the install's base currency") and moves `cost_currency_code` from a v2 feature to a v1 audit trail, which is a statement to a customer. Recommendation: **v1 values in the base currency; `currency_code`/`exchange_rate` record what was paid, supplied by the producer on the line and frozen at post exactly as `conversion_factor_used` is under `L-7`** — one optional `DECIMAL(19,8)` wire field defaulting to 1, one sentence declaring `unit_cost`/`layer_value` base currency, one `CHECK` that `currency_code <> base` implies a rate. **`IRR-36` already makes this unrecoverable**: retro-fitting currency onto a cost history is guessing. ⚠ **The finding's premise has changed** — a rate table now exists in `accounting-base` (`V600040`, `acc_exchange_rates`), but `D-7` makes standalone the reference configuration and `FR-231` forbids reading it; the conclusion stands and §2.12's grep is stale. [`OPEN-DECISIONS-RESOLVED.md`](OPEN-DECISIONS-RESOLVED.md) §4.1 |
 | **OD-17** | **v1 prints a GS1-128 pallet label carrying an SSCC that v1 cannot allocate and cannot read back.** Three version cells, each defensible alone, do not compose: `FR-225` and `WH-SC-203` put the GS1-128 LPN label in **v1/P2** and `issues/p2-14.md` accepts *"encodes AI `00`"* — AI `00` **is** the SSCC; `FR-452` puts the allocator (`whb_gs1_settings`, `whb_gs1_serial_counters`, `V500056`) in **v1.1/P3**; `FR-063`'s GS1 element-string parsing is **v1.1/P3**, so v1 hands the string to a resolver that logs it unresolved. No document in the set reads two of the three together. Source: `RD-001` | **Before `P2-14` merges** — the moment a template ships is the moment the first label is printed, and `FR-064` records that a printed label cannot be recalled | **ESCALATED — both fixes move the v1 cut line** (one moves work into v1, the other takes a promised v1 capability out), and the failure is **irreversible in the physical world, not in the schema**: pallets in racking, in transit and at customers carry labels with no licence plate or a hand-typed one, and `P3-24`'s counter cannot be seeded to avoid collision because nothing recorded which values were typed. Recommendation: **(a) move the SSCC allocator into the v1 wave** — two tables plus a mod-10 function, reusing the locked-counter-row idiom `FR-426` already builds in v1. The alternative is **(b) remove the GS1-128 label from the v1 eleven** and ship a Code-128 plate carrying `lpn_code` only. **(a), because GS1-128 without an SSCC is not GS1-128.** Whichever wins, `p2-14`'s acceptance line and `WH-SC-203`'s text move with it. [`OPEN-DECISIONS-RESOLVED.md`](OPEN-DECISIONS-RESOLVED.md) §4.2 |
 
+### 3.5 Allocated 2026-09-10 by round 4 — open and escalated
+
+Round 4's lenses (`reviews/R22`–`R26`, §6) produced two questions that a person must answer. They are numbered here,
+because this section owns the `OD-` namespace. After them, nineteen rows stand and the next free id is `OD-20`. Neither
+blocks the fold of round 4: each has a safe default already written into the design. Disposition:
+[`GAP-REGISTER-R4.md`](GAP-REGISTER-R4.md) §5.
+
+| # | Decision | Deadline | Recommendation · why it is not ours to take |
+|---|---|---|---|
+| **OD-18** | **What does the product record for a drop-shipment?** A drop-shipment is goods bought from a supplier and shipped by that supplier straight to a customer, never touching a warehouse. R7 asked for a decision in v1 with the implementation in v2 (`G-037`); nothing decided it. The movement model has one answer that costs nothing now — a virtual-to-virtual movement — but the product must say what it claims to track. Source: `RK-005` | Before the first purchase of a drop-shipped part is posted in any install; the v2 posting itself is built by `P5-09`, which is blocked on this row | **ESCALATED — it decides what the product claims to track for goods it never touches, a positioning statement to a customer.** Recommendation (R25): **one movement `SUPPLIER → CUSTOMER`** in v2, with both the purchase order and the sales order in its source quad, serial and lot capture mandatory where the item is tracked, and no stock position ever created. In v1 a drop-shipment is simply not recorded by warehouse. **Nothing is seeded in v1**: movement types live in `V500003`, not `V500013` as R25 wrote, and `D-10` lets any module seed the type once this row is answered |
+| **OD-19** | **What is the statutory treatment of on-hand stock when a site's `REGISTERED` branch moves to a branch under a different GSTIN?** `D-14` makes a registration change a dated history event. Goods held at that instant move from one registration to another, and the design set cannot say whether that is a supply, a transfer of a going concern, or an amendment of the place of business. Source: `RG-001` (R22 §1.2.6) | **Before `P1-05` ships the *Change registration* action** on `WS-016`. The history table itself (`V500012`) does not wait: it is correct under every answer | **ESCALATED — a tax question with a liability tail.** The design's **safe default is already in force and stays until this is answered**: the change is **refused** while the site holds any stock under a different GSTIN. The operator empties the site by transfers, which are taxable supplies documented under the existing rules, and then repeats the change. This is operationally costly but never wrong. If an adviser rules otherwise, `P1-05`'s guard 4 is relaxed and `P4-03`'s Rule 56 split reads the switch instant, with no schema change. The INDIA-LOCALISATION-PACK RE-VERIFY register carries the statutory check |
+
 ## 4. L — the load-bearing invariants
 
 Get these wrong and everything after is built on sand. Each has **a database guard and a service
@@ -407,7 +466,7 @@ and not know which won.
 
 ## 6. Id namespaces — disjoint by construction
 
-<!-- check-design-set: screen-citations begin WS-238 — the BUILD-SPEC-SCREENS.md §1 allocation marker — the next free screen id, which by definition has no row yet. Named so a new screen takes it instead of reusing another screen's grid -->
+<!-- check-design-set: screen-citations begin WS-238 WS-239 WS-240 WS-241 WS-242 — the BUILD-SPEC-SCREENS.md §1 allocation marker and the ids reserved or allocated ahead of it: WS-238/WS-239 reserved for round 3's RA-001/RA-002, WS-240/WS-241 allocated by GAP-REGISTER-R4.md §4.0, WS-242 the next free. None has a row yet; named so a new screen takes the marker instead of reusing another screen's grid -->
 
 The accounting set's most expensive defect was three different things sharing one namespace, which a
 late rename could not repair because a blanket search-and-replace corrupted the decisions table twice.
@@ -420,10 +479,10 @@ That cannot happen here.
 | Decisions | **`D-1` …** | this file |
 | Open decisions | **`OD-1` …** | this file |
 | Invariants | **`L-1` … `L-14`** — plus **`L-15`, allocated 2026-09-03** by `OD-14` and **owed into §4**, which still stops at `L-14`. The row is written verbatim in [`OPEN-DECISIONS-RESOLVED.md`](OPEN-DECISIONS-RESOLVED.md) §2 so the later wave transcribes rather than re-derives it | this file |
-| Enforceable constraints | **`I-1` … `I-20`** — plus **`I-21`, allocated 2026-09-03** by `OD-14` as `L-15`'s database guard and **owed into `DATA-MODEL.md` §6.3**, which still stops at `I-20`. Allocating it here rather than there is deliberate: §6 is the allocation, and an id claimed in two places is the collision this table exists to prevent | `DATA-MODEL.md` §invariants-as-SQL |
-| Irreversible rows | **`IRR-01` … `IRR-63`** | `IRREVERSIBLE.md` §2 |
+| Enforceable constraints | **`I-1` … `I-20`** — plus **`I-21`, allocated 2026-09-03** by `OD-14` as `L-15`'s database guard and **owed into `DATA-MODEL.md` §6.3**, which still stops at `I-20`. Allocating it here rather than there is deliberate: §6 is the allocation, and an id claimed in two places is the collision this table exists to prevent. **`I-22`, `I-23`, `I-24`** were **allocated 2026-09-10** by `GAP-REGISTER-R4.md` §4.0 and are owed into §6.3 after `I-21`: `I-22`, a movement at an instant with no `REGISTERED` link is refused (`V500030`); `I-23`, the `REGISTERED` history is exclusive and append-only (`V500037`); `I-24`, a rule row that a reservation or task references is immutable (`V500031`, `V500033`, `V510017`) | `DATA-MODEL.md` §invariants-as-SQL |
+| Irreversible rows | **`IRR-01` … `IRR-63`** — plus **`IRR-64` … `IRR-67`, allocated 2026-09-10** by `GAP-REGISTER-R4.md` §4.0 and owed into `IRREVERSIBLE.md` §2: registration history, v1 junction history, the outbox event schema, and non-ledger partitioning at `CREATE`. The next free is `IRR-68` | `IRREVERSIBLE.md` §2 |
 | Scenarios | **`WH-SC-001` …** | `SCENARIO-CATALOGUE.md` |
-| Screens | **`WS-001` … `WS-237`** | `BUILD-SPEC-SCREENS.md` §1 — the index is the allocation; the next free is `WS-238` |
+| Screens | **`WS-001` … `WS-237`** — **`WS-238` and `WS-239` are reserved** for round 3's `RA-001`/`RA-002` (`GAP-REGISTER-R3.md` §4.4). **`WS-240`** *Trade Portal* and **`WS-241`** *Approval Levels* were **allocated 2026-09-10** by `GAP-REGISTER-R4.md` §4.0 | `BUILD-SPEC-SCREENS.md` §1 — the index is the allocation; the next free is `WS-242` |
 | Findings — R1 codebase reality | **`C-001` … `C-050`** | `reviews/R1` |
 | Findings — R2 tier-1 WMS | **`T-001` … `T-097`** | `reviews/R2` |
 | Findings — R3 ERP / mid-market | **`E-001` … `E-090`** | `reviews/R3` |
@@ -445,6 +504,11 @@ That cannot happen here.
 | Findings — R19 integration, device & channel surface | **`RD-001` … `RD-008`** | `reviews/R19` |
 | Findings — R20 configuration & day-one setup | **`RE-001` … `RE-008`** | `reviews/R20` |
 | Findings — R21 money, costing & billing | **`RF-001` … `RF-010`** | `reviews/R21` |
+| Findings — R22 cardinality & junctions | **`RG-001` … `RG-027`** | `reviews/R22` |
+| Findings — R23 platform alignment | **`RH-001` … `RH-012`** | `reviews/R23` |
+| Findings — R24 workflow contract completeness | **`RJ-001` … `RJ-018`** | `reviews/R24` |
+| Findings — R25 competitor gap, round 3 | **`RK-001` … `RK-009`** | `reviews/R25` |
+| Findings — R26 extensibility & future-proofing | **`RL-001` … `RL-017`** | `reviews/R26` |
 | Traps — R1 §8 | **`T-1` … `T-18`**, unpadded | `reviews/R1` §8 |
 
 `P-` (prior art) and `Pn-nn` (tasks) are distinguishable because a task id always carries a phase digit
@@ -518,6 +582,19 @@ it does not match `RA-001`…`RF-010` **at all**. Round-3 citations therefore pa
 two-letter registers so that a round-3 citation is resolved against its own authority exactly as a
 round-1 citation is. **A later wave does it; until then every `RA-`…`RF-` citation in this set is
 unchecked**, and that is recorded rather than assumed.
+
+**The five round-4 rows were added on 2026-09-10, and the obligation above is discharged with them.**
+Round 4 ran five lenses (`reviews/R22`–`R26`) and took five more two-letter registers under the same
+hyphen rule: `RG`, `RH`, `RJ`, `RK` and `RL`.
+- **`RI` is skipped on purpose.** `I` beside `1` is the `I-`/`IRR-` hazard recorded below, and `RI-001`
+  would read like a mis-typed `R1` citation.
+- **`tools/check-design-set.py` now admits every two-letter register:** `FINDING_CITE_RE` and
+  `RULE_TOKEN_RE["finding-citations"]` take `R[A-HJ-L]`, and `REVIEWS`, `FINDING_DEF_RE`,
+  `REVIEW_LABEL` and `AUTHORITY_STEM` carry R22–R26. So a round-3 or round-4 citation resolves against
+  its own authority, or fails.
+- **Negative test, run 2026-09-10:** an undefined `RG-` id cited in a doc failed check 7, and the
+  citation was removed.
+- `GAP-REGISTER-R4.md` holds the disposition of all 83 findings.
 
 
 **Three of the rows above were added on 2026-09-02, and two of them are the record of a collision that
