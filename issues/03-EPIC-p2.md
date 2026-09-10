@@ -95,7 +95,7 @@ through `POST /api/warehouse/movements` with **zero commits to `warehouse-base`*
 
 ## Migration blocks
 
-**12 blocks**, re-derived from the `Migrations` field of every P2 task header — not transcribed from
+**13 blocks**, re-derived from the `Migrations` field of every P2 task header — not transcribed from
 an earlier table. That glob is the authority; **re-run it after any header change**:
 
 ```bash
@@ -119,14 +119,21 @@ done
 - `V510090` — `P2-19` opening-stock batches, cut-over checklists
 - `V501070`–`V501099` — `P2-29` `warehouse-base` grid configuration, wave 3
 - `V511060`–`V511139` — `P2-29` `warehouse` grid configuration, wave 3
+- `V511201`–`V511207` **and** `V511231`–`V511237` — the `WH-206` verb-permission pairs, one per task that
+  ships a status transition (`RJ-005`, round 4): `P2-01` adjustments · `P2-02` transfers
+  (`request` `approve` `reject` `report_variance` `cancel`, `RK-001`) · `P2-04` counts · `P2-10` shipments ·
+  `P2-12` RMAs and return receipts · `P2-13` supplier returns · `P2-15` replenishment suggestions. The
+  first number of each pair seeds the permissions, the second the dependency rows. `V511000`/`V511001`
+  are released and are never edited for this (`IMPLEMENTATION-PLAN.md` §2.9 row 2a)
 - `V520000`, `V520010`–`V520012`, `V520100`–`V520149` — `P2-25` dealer adapter · `P2-24` fitments
 - `V521000`, `V521010`–`V521012`, `V521100`–`V521149` — `P2-26` services adapter
 
-**Eleven tasks write no migration** — `P2-02`, `P2-05`, `P2-07`, `P2-16`, `P2-18`, `P2-20`, `P2-21`,
+**Ten tasks write no migration** — `P2-05`, `P2-07`, `P2-16`, `P2-18`, `P2-20`, `P2-21`,
 `P2-22`, `P2-23`, `P2-27`, `P2-28`. **That is not a defect**: it is service, frontend, job and report
 work over DDL that `P0` and `P1` already shipped — most visibly `P2-16`, whose three tables are
 `P0-17`'s `V500021` because `whb_stock_movement_lines.cost_layer_id` is a real FK and `V500021` must
-precede `V500030`.
+precede `V500030`. *(`P2-02` left this list in round 4: its transfer verbs claim the `V511202`/`V511232`
+pair.)*
 
 **One sub-allocation is stated rather than taken silently.** `P2-29` owns the two grid-config bands,
 but `IMPLEMENTATION-PLAN.md` §3.6 also says config *"is scheduled with its screens, not after them"*

@@ -10,7 +10,9 @@
 > **Authority.** [`DECISIONS.md`](DECISIONS.md) wins on module names, packages, bands and prefixes.
 > [`reviews/R1-codebase-reality.md`](reviews/R1-codebase-reality.md) wins on what the existing
 > codebase does. This document extends R1 §4, §7, §8 and §9 and **corrects four of its rows** where
-> re-verification found them stale — those corrections are §0.
+> re-verification found them stale — those corrections are §0. **Round 4** (`R23`, folded 2026-09-10
+> under `D-14`) corrected §1.1, §1.7, §1.9, §1.10, §1.15(a), §2.1–§2.3, §2.5, §4.11 and `PD-D11`, added
+> §2.15, and closed one §7 open claim. Row numbers are kept because other documents cite them.
 >
 > **Method.** Reading and `grep` only, against `/Users/bbhushan/work/git/workspace/classic`,
 > 2026-09-01. No `mvn` / `npm` / `tsc` was run. Every count carries its command. Anything not
@@ -37,21 +39,22 @@
 
 ## 1. EXISTS AND FITS — consume as-is
 
-Fourteen capabilities warehouse inherits with no platform change. For each: the artefact, and how
-warehouse uses it.
+Fourteen rows, each with the artefact and how warehouse uses it. Round 4 moved one of them out of this
+verdict — **§1.7 is a shape-mismatch** (`RH-009`) — and corrected three in place: §1.1 (`RH-003`), §1.9
+(`RH-007`) and §1.10 (`RH-012`). The row numbers are kept because other documents cite them.
 
 | # | Capability | Platform artefact (`file:line`) | How warehouse uses it |
 |---|---|---|---|
-| 1.1 | **Branch master** | `branches` @ `platform/…/V149__create_branches_table.sql:9`. Column is **`branch_name`, not `name`** (`:18`). `chk_branches_type` (`:61`) admits `SHOWROOM, SERVICE_CENTER, BOTH, WAREHOUSE, OFFICE, FACTORY, DISTRIBUTION_CENTER`. `branch_code` is **globally unique** since `V160:19` | A warehouse *site* **is** a platform branch with `branch_type='WAREHOUSE'` or `'DISTRIBUTION_CENTER'` — free, no schema change. `whb_locations` hangs off `branches.id`. **Do not repeat accessories' junction table**: `accessory_warehouses` has no `branch_id` and links through `accessory_warehouse_branch` (R1 `C-030`) |
+| 1.1 | **Branch master** | `branches` @ `platform/…/V149__create_branches_table.sql:9`. Column is **`branch_name`, not `name`** (`:18`). `chk_branches_type` (`:61`) admits `SHOWROOM, SERVICE_CENTER, BOTH, WAREHOUSE, OFFICE, FACTORY, DISTRIBUTION_CENTER`. `branch_code` is **globally unique** since `V160:19` | A warehouse *site* is **linked** to branches (M:N through `whb_warehouse_branches`, exactly one `REGISTERED` link at every instant), **never a branch row** (`D-14` items 2 and 5, `RH-003`). `whb_warehouses` carries its own `code`, never derived from, copied to or validated against `branch_code`, and `whb_locations` hangs off `whb_warehouses`. **One exception:** a site that is itself a GST place of business no branch carries gets an **ordinary** branch (type `WAREHOUSE` or `DISTRIBUTION_CENTER`, carrying `gst_number`) as its `REGISTERED` link — the tax anchor, while the warehouse stays the stock anchor. Branch pickers on warehouse screens call `useUserBranches()` unfiltered. Accessories' junction (`accessory_warehouse_branch`, R1 `C-030`) is now the precedent for the *shape* — `D-14` reverses `C-030`'s *"do not repeat it"* — but not for its meaning: its `is_primary` is *the primary warehouse for the branch* (`V30018:35`), and its *"unassigned warehouses stay shared"* guard (`AccessoryStockTransferAccessGuard.java:186-187`) is refused (`RH-001`) |
 | 1.2 | **Users and person display** | `user_details.employee_id` (**not** `employee_code`); canonical formatter `UserDetails.getFullName()` @ `platform/…/entity/UserDetails.java` | Every operator, counter, picker and approver is a platform user. Render people through the shared helper only — CLAUDE.md *USER DISPLAY FORMAT* and the duplicated-segment bug it names |
 | 1.3 | **RBAC + permission dependencies** | `permissions` @ `V1_1__Initial_schema_safe.sql:30`; **`permission_dependencies` is a PLATFORM table** @ `V248:17-30`, with `uq_permission_dependency` (`:27`) and `chk_no_self_reference` (`:29`). Columns are `permission_id` / **`dependent_permission_id`** / `dependency_type DEFAULT 'REQUIRED'`. Semantics documented `V248:38-41` | `@PreAuthorize("hasAuthority('warehouse-movements:view')")` on every controller method. **INSERT rows into `permission_dependencies`; never `CREATE TABLE`** — the only other creator, `dealer/V20501:10`, is `IF NOT EXISTS` and now a no-op (R1 `C-017`, `T-10`) |
 | 1.4 | **Menus** | `menus` @ `V16:7` with `CHECK (menu_level BETWEEN 1 AND 3)` (`:27`); `menu_translations` (`:49`); `menu_permissions` (`:36`); `required_permission_prefix` @ `V209:7`; `is_mobile_enabled` @ `V199:7` | One L1 "Warehouse" node for the whole family (the same decision `V600200:22-27` records for accounting). **Three menu levels only** — a receive→putaway→count tree must fit. **Every menu INSERT needs a `WHERE NOT EXISTS` guard**: there is no unique constraint on `(name, parent_id, menu_level)`, so `ON CONFLICT DO NOTHING` does not stop a duplicate on a Flyway retry (`assets/…/V60171:154-155` spells it out). Seed `en`/`fr`/`hi` `menu_translations` |
 | 1.5 | **Grid configuration** | `grid_preferences` @ `V18:7` (`default_columns JSONB NOT NULL DEFAULT '[]'` `:12`), `user_grid_preferences` @ `V18:25`, `grid_column_definitions` @ `V18:43` (`UNIQUE(grid_identifier, column_key)` `:63`), **`filter_definitions`** @ `V229:8` (`uk_filter_definitions_grid_key` `:20`), `grid_preferences.default_filters JSONB` @ `V229:50-51` | Every warehouse grid is a `grid_identifier` with column and filter definition rows. **Two traps.** (a) `grid_filter_definitions` **does not exist** — `grep -rln "CREATE TABLE.*grid_filter_definitions"` → 0; the nine references in migrations are comments and one `IF EXISTS` guard. Inserting into that name crash-loops Flyway. (b) **`default_filters` AND `default_columns` must BOTH be populated**; `filter_definitions.default_visible = true` alone does not build the strip — `useGridPreferences` reads `grid_preferences.default_filters`. `V229:53-56` is the worked example |
 | 1.6 | **Export** | `BaseExportService` @ `platform/…/service/BaseExportService.java`; `DEFAULT_MAX_EXPORT_ROWS = 10_000` (`:48`); `CSV_UTF8_BOM` (`:59`, with the reason at `:51-58`); `ExportService(List<ExportFormatHandler>)` @ `platform/…/service/export/ExportService.java:31`; `followVisibleColumns` @ `platform/frontend/src/types/export.ts:119`; ratchet `platform/backend/src/test/java/ai/platform/service/ExportServiceContractTest.java` | Grid↔export parity is the rule. **Return raw `Boolean` from `extractRowData`** — `BaseExportService` renders Yes/No on every path and does **not** expose `formatBoolean(Boolean)` (that is on `BaseController`), so calling it is a compile error (CLAUDE.md, R1 `T-17`). See §5.3 for the 10 000-row ceiling |
-| 1.7 | **Import (frontend)** | `ImportButton.tsx`, `ImportModal.tsx` @ `platform/frontend/src/components/common/` | Reusable as-is for item master, opening stock and ASN import. The **backend** half is a mismatch — §2.5 |
+| 1.7 | **Import (frontend)** — **SHAPE-MISMATCH** (`RH-009`) | `ImportButton.tsx`, `ImportModal.tsx` @ `platform/frontend/src/components/common/`. `effectiveMaxRows = useBulkImportMaxRows() ?? config.maxRows ?? IMPORT_MAX_ROWS` (`ImportModal.tsx:174`); `IMPORT_MAX_ROWS = 500` (`platform/frontend/src/constants/import.ts:6`); the admin setting `bulk_import_max_rows` is seeded `'500'` (`V628:11`) and is **one value for every module's import**; the file is parsed **in the browser** (`hooks/useImport.ts`) | **Not a fit for opening stock**, which is 200k–1M rows (§2.5). `ImportButton` serves the **small masters only**. Above `bulk_import_max_rows` the file takes a **server-side path**: it is uploaded to platform `documents` (`whb_import_batches.document_id`), then parsed, validated and applied by the handler in batches, with progress on the batch row (`P1-10`, used by `P2-19`). **The global setting is never raised** — that raises it for every module's importer and still parses in a browser tab. The backend half — §2.5 |
 | 1.8 | **Documents / object storage** | `documents` @ `V81:39`; `document_folders` (`:18`); `document_categories` (`:2`); `document_permissions` (`:75`); `ObjectStorageService`, `FileStorageService`, `FileSecurityService` @ `platform/…/service/` | Upload/download/permission machinery is complete and reusable. **Ownership is a mismatch** — §2.4 |
-| 1.9 | **Notifications** | `notifications` @ `V319:13`; `notification_preferences` (`:95`); `notification_type_preferences` (`:137`); `NotificationDeliveryListener` @ `platform/…/listener/NotificationDeliveryListener.java:39` — `@TransactionalEventListener(phase = AFTER_COMMIT, fallbackExecution = true)` | Replenishment alerts, expiry warnings, count-overdue, blocked-move escalation. After-commit delivery is exactly right for a ledger: a notification never fires for a movement that rolled back |
-| 1.10 | **Activity / audit telemetry** | `user_activity_logs` @ `V717:29`, fed by `UserActivityTrackingAspect`. Pointcut `within(ai..controller..*)` @ `:59`; module derived from **package segment 2**, uppercased, @ `:169-171` | Free write-auditing for every warehouse controller — **provided controllers live in `ai.<module>.controller…`**. Module names will render as `WAREHOUSEBASE`, `WAREHOUSE`, `WAREHOUSE3PL`, `WAREHOUSEINDIA`. It is telemetry, not the ledger's audit trail — §2.6 |
+| 1.9 | **Notifications** | `notifications` @ `V319:13`; `notification_preferences` (`:95`); `notification_type_preferences` (`:137`); `NotificationDeliveryListener` @ `platform/…/listener/NotificationDeliveryListener.java:39` — `@TransactionalEventListener(phase = AFTER_COMMIT, fallbackExecution = true)` | Replenishment alerts, expiry warnings, count-overdue, blocked-move escalation. After-commit delivery is exactly right for a ledger: a notification never fires for a movement that rolled back. **Three edits and a stub the tables do not show** (`RH-007`): (1) `NotificationCategory` is a **Java enum** (`platform/…/constants/NotificationCategory.java:14`) with no warehouse value, and unread counts bind to a menu route through `NotificationCategoryMenuMapping` — `NotificationCategory.WAREHOUSE_REPLENISHMENT` is a **platform commit**, owned by `P2-15`, the first warehouse notification in v1; (2) email templates are **registered in code** (`platform/…/service/notification/email/EmailTemplateDefaults.java:82`) — one registration per email kind, a **platform commit**; (3) a menu row whose route the category mapping resolves — a warehouse migration. **SMS is a stub**: `NotificationDeliveryService.deliverViaSMS` logs and returns (`:423`, *`// TODO: Implement SMS sending via SMS gateway`*), so `whb_alert_rules.notify_sms` is hidden in the UI until platform ships a gateway (`P3-16`). `notify_push` reuses `FCMService` and `notification_devices` unchanged. §2.15 `PDEP-1`…`PDEP-3` |
+| 1.10 | **Activity / audit telemetry** | `user_activity_logs` @ `V717:29`, fed by `UserActivityTrackingAspect`. Pointcut `within(ai..controller..*)` @ `:59`; module derived from **package segment 2**, uppercased, @ `:169-171` | **Opt-in per role, not free** (`RH-012`): `user_activity_logs` is written only for a user or role with `activity_tracking_enabled` (`platform/…/V719:12-13`; the column at `:26`), so a role nobody flagged leaves no trail. Where it is on, it covers every warehouse controller — **provided controllers live in `ai.<module>.controller…`**. Module names will render as `WAREHOUSEBASE`, `WAREHOUSE`, `WAREHOUSE3PL`, `WAREHOUSEINDIA`. It is telemetry, not the ledger's audit trail — §2.6 |
 | 1.11 | **Global settings** | `global_settings` @ `V337:8`; `chk_global_setting_module` widened by `platform/…/V553:13-15` to include **`'WAREHOUSE'`** | **Free.** `module='WAREHOUSE'` is already allowed. V553's header (`:3-5`) credits a `V190035 (warehouse-core)` migration that does not exist in this checkout — a value left behind by a deleted module. Still emit the defensive merge migration of `MODULE-INTEGRATION.md` §10, because a later module's hardcoded DROP/ADD can discard it |
 | 1.12 | **i18n** | `I18nConstants.SupportedLocales` @ `platform/…/constants/I18nConstants.java:28-33` → `en`, `hi`, `fr`; `platform/frontend/src/i18n/locales/{en,fr,hi}/` | Three locales from the first file, following `accounting-base` (R1 `C-050`). **RTL is absent platform-wide** — record it as a known limit (R5 `S-095`) |
 | 1.13 | **Common component set** | Verified present: `DynamicDataTable.tsx`, `BaseFilter.tsx`, `ViewModalBase.tsx`, `SearchableSelect.tsx`, `ExportButton.tsx`, `ImportButton.tsx`, `ImportModal.tsx`, `HelpButton.tsx` — all in `platform/frontend/src/components/common/`; `lazyModal.ts` @ `platform/frontend/src/utils/`; `useUserBranches.ts` @ `platform/frontend/src/hooks/` | Every warehouse screen is built from these. `HelpButton` exists and **needs content** — R5 `S-094` |
@@ -65,6 +68,13 @@ and `V663` still carry hardcoded `wms_*` / `scc_*` / `warehouse-*` permission ex
 deleted module. Those migrations have already run, so they grant a new module nothing — but they are
 why D-3 forbids naming anything `wms_*` or `scc_*`. A `wms_`-prefixed permission would silently
 inherit an exclusion nobody chose.
+
+**The deleted module's *code* also survives** (`RH-012`). `classic` has remote branches `origin/warehouse`
+(last commit `2244152dc0`, 2026-04-11) and `origin/warehouse-backup`, carrying `warehouse-core/` and
+`warehouse-base/` with migrations `V190001…`. It is recorded here as **un-triaged code prior art**: R6
+triaged the `classic-issues` documents, not this code, and R6 is not edited (reviews are dated records).
+Its band, `V190000+`, is not a D-2 band, so nothing collides. It is the only place the prior module's
+permission names — the `wms_*` exclusions in `V528` / `V663` — can be read from source.
 
 **(b) `dateOnly` is a distinct filter type and warehouse needs it everywhere.**
 `platform/frontend/src/utils/filterUtils.ts:30` lists eight types; `:49-56` documents the difference:
@@ -110,15 +120,19 @@ field, and its `@UniqueConstraint` at `:25` names `branch_code` alone.
 
 1. **Do not build anything on `branches.owner_type`.** There is no owner dimension on a branch to
    scope a warehouse site by. `chk_branches_type` (`V149:61`) survives and still admits `'WAREHOUSE'`
-   and `'DISTRIBUTION_CENTER'`, so a warehouse site is a branch **by type**, not by owner.
-2. **Branch codes are globally unique.** A warehouse site code shares a namespace with every dealer
-   showroom and service centre in the same database. Warehouse's site-code generator must therefore
-   check `branches.branch_code`, not just its own table — or, better, `whb_sites` carries its own
-   code and references `branches.id` without duplicating the code.
+   and `'DISTRIBUTION_CENTER'`. That type is used **only** for §1.1's one exception — a branch created
+   because a site is itself a GST place of business no branch carries. A site is never mirrored as a
+   branch row (`RH-003`).
+2. **Branch codes are globally unique.** A branch-row site would consume a code in the namespace of
+   every dealer showroom and service centre in the same database — one of the four reasons a site is
+   **linked, never mirrored** (`RH-003`). `whb_warehouses.code` is its own namespace: never derived
+   from, copied to or validated against `branches.branch_code`. The site reaches branches only through
+   `whb_warehouse_branches`.
 3. **`warehouse-3pl`'s owner dimension is not `branches`.** D-5 already fixes this: `owner_id` lives
    on the movement and the position key, and a 3PL's clients are an owner dimension, not tenants
    (OD-3, R5 Fact 3). PD-1 removes the last argument for reaching for a branch owner column instead.
-4. **`whb_locations` FKs `branches(id)`** and nothing else. That FK is on
+4. **`branches(id)` is FK'd by the branch axis** — `whb_warehouse_branches` above all, and
+   `whb_company_branches` (`RH-004`) — **not by `whb_locations`**, which hangs off `whb_warehouses`. That FK target is on
    `WarehouseBaseCouplingTest`'s whitelist (`MODULE-INTEGRATION.md` §13.2 assertion 3).
 
 **UNVERIFIED:** whether any live install still has the pre-`V160` columns (a database that never ran
@@ -140,8 +154,13 @@ between two branches under **different GSTINs** is a taxable supply requiring a 
 e-way bill; a transfer between two branches under the **same** GSTIN is not. The GSTIN comparison is
 therefore a *branching condition in the transfer workflow*, not a display field.
 
-**What warehouse does.** The transfer service reads `branches.gst_number` for source and destination
-and branches on equality. `warehouse-india` owns the document generation; `warehouse` owns nothing
+**What warehouse does.** The transfer service reads `branches.gst_number` of the **two `REGISTERED`
+branches** — the source warehouse's `REGISTERED` link and the destination warehouse's — and branches on
+equality. A `SERVING` link is never read by the test: *the `REGISTERED` link is the only branch any
+tax, statutory-numbering or supply rule reads* (`RH-005`, `D-14` item 2). `source_branch_id` /
+`destination_branch_id` hold those two branches, derived **at creation** and frozen (`FR-305`).
+`RH-005`'s *at `dispatched_at`* is overruled: a registration change is refused while the site holds
+stock under another GSTIN, so a created-but-undispatched transfer cannot go stale. `warehouse-india` owns the document generation; `warehouse` owns nothing
 GST-specific (D-8). **`warehouse-base` must not learn what a GSTIN is** — it carries `company_id` on
 the movement and nothing more.
 
@@ -160,6 +179,19 @@ the movement and nothing more.
 
 Frontend counterpart: `useUserBranches` @ `platform/frontend/src/hooks/useUserBranches.ts`.
 
+**And the resolution half is already a platform service** (`RH-002`). `BranchScopeService` @
+`platform/…/service/common/BranchScopeService.java:14-40` was *"extracted from the copies that had
+accumulated"*. It resolves a caller's scope from the `<resource>:view:all` / `<resource>:view:branch`
+permission pair — `resolve(principal, viewAll)` (`:110`), `resolveStrict(principal, viewAll,
+viewBranch)` (`:143`, fails closed), `assertBranchAccess` (`:208`), `restrictToScope` (`:226`) — and
+*"no permission combination yields unscoped access except `:view:all`"* (`:28-30`). It is called from
+153 files in six modules, and 94 distinct `:view:branch` names are seeded.
+`V685__Add_users_view_branch_scope_and_branch_column.sql:20-47` is the seed pattern (ADMIN `:all`), and
+`:72-85` the Branch Admin rule (`:branch`, **never** `:all`). **Warehouse reuses it — one branch-scope
+mechanism** (`D-14` item 6). `P0-15` and `P1-20` seed `:view:all` and `:view:branch` for every
+management resource, with dependency rows: ADMIN and AUDITOR `:all`, Branch Admin `:branch`, the
+operational bundles `:branch`.
+
 ```bash
 grep -rl "BranchFilterService" --include=*.java . | grep -v node_modules | wc -l   # → 251 files
 ```
@@ -169,16 +201,33 @@ to apply it. Accessories does — `accessories/…/service/report/StockReportQue
 `BranchFilterService.toBranchIdsCsv(filter.getUserBranchIds())` and threads it through at `:79`,
 `:100`. A query that forgets returns every branch's rows to every user, and no test catches it.
 
+**And under M:N the fragment has no column to bind** (`RH-001`). It binds `%s.branch_id` on the queried
+alias, and once a warehouse's branch is a set, neither `whb_warehouses` nor any ledger table has that
+column.
+
 **What warehouse does.** Three things, and the third is the one that makes it stick:
 
-1. Every `RepositoryCustomImpl` query takes `userBranchIds` and uses `BRANCH_FILTER_SQL`.
+1. **Resolve once, bind a set** (`RH-001`). One resolver (`P1-18`) wraps
+   `branchScopeService.resolveStrict(principal, VIEW_ALL, VIEW_BRANCH)` and returns
+   `Set<UUID> allowedWarehouseIds`. `null` means view-all. Otherwise the set holds the warehouses joined
+   by a current `whb_warehouse_branches` row — **any role** — to one of the caller's active
+   `branch_staff` branches. **Empty in, empty out:** a caller whose branches link to no warehouse gets
+   an empty set, never "every warehouse". **An unlinked warehouse is visible to no branch-scoped
+   caller** — accessories' *"unassigned warehouses stay shared"* arm
+   (`AccessoryStockTransferAccessGuard.java:186-187`) is refused by name. Every `RepositoryCustomImpl`
+   query binds `:allowedWarehouseIds` against the denormalised `warehouse_id` — never
+   `BRANCH_FILTER_SQL`, and never a join to the junction on a ledger-sized table.
 2. Note the empty-vs-null semantics — `StockReportQueryService.java:58-59` documents it: *"A non-null
    but EMPTY `userBranchIds` means the caller resolved to no branch access"*, which must return zero
-   rows, **not** all rows. The SQL fragment above treats `''` as "no filter", so the **service** must
+   rows, **not** all rows. The warehouse set obeys the same rule, and it is the second **empty in,
+   empty out**: a non-null but empty `allowedWarehouseIds` returns an empty page, export, statistics
+   strip and dropdown. The SQL fragment above treats `''` as "no filter", so the **service** must
    short-circuit before the query. Getting this backwards is a data leak.
-3. Add a rule to `warehouse-base`'s `ArchitectureInvariantsTest`: every native query in a
-   `*RepositoryCustomImpl` that selects from a `whb_`/`wh_` table with a `branch_id` column must bind
-   `:userBranchIds`. Empty baseline, so the first one that forgets fails the build.
+3. Add rules to `warehouse-base`'s `ArchitectureInvariantsTest`, **re-aimed from `:userBranchIds` to
+   `:allowedWarehouseIds`**: every native query in a `*RepositoryCustomImpl` that selects from a
+   `whb_`/`wh_` table carrying `warehouse_id` must bind `:allowedWarehouseIds`; and no `ai.warehouse*`
+   class injects `BranchStaffRepository` or re-implements branch resolution (`RH-002`). Empty baseline,
+   so the first one that forgets fails the build.
 
 ### 2.4 `documents` has no polymorphic owner — every module builds its own link table
 
@@ -203,7 +252,8 @@ delete fail loudly, or add a `deleted_at` on the link. R1 `C-018` reaches the sa
 **The mismatch.** Every importer in this repo is bespoke: `platform/…/service/leave/LeaveBalanceImport*`
 (9 classes), `accessories/…/StockReceiptBulkImportService`, and
 `accounting-base/…/service/imports/AccImportHandlerRegistry`. The frontend half (`ImportButton`,
-`ImportModal`) is reusable; the backend half is not.
+`ImportModal`) is reusable **for small masters only** — it parses in the browser under a global
+500-row cap (§1.7, `RH-009`); the backend half is not reusable at all.
 
 **The best shape is accounting's, and it is recent.**
 `AccImportHandlerRegistry.java:41-45` is a `List<AccImportHandler>` bean-collection registry with a
@@ -220,6 +270,8 @@ importer.** Then extend it for what warehouse specifically needs and accounting 
 
 - opening stock at **200k–1M rows**, carrying position **and value and layers and lot and serial and
   owner and duty status**;
+- a **server-side path** for any file above `bulk_import_max_rows`: upload to `documents`, then parse,
+  validate and apply in batches with progress on the batch row (§1.7, `RH-009`);
 - a **dry run** with an error report and a **closing-stock-value tie-out against the source**, before
   apply (accounting's `P2-15` shape);
 - mapping profiles for Tally / Busy / Marg / Excel, **exportable and importable**, because
@@ -243,7 +295,7 @@ ledger:
 **What warehouse does.** L-2 and R5 `S-083` already require it: the ledger's immutability evidence
 lives in the ledger, not in a side table. `accounting-base/…/V600111` is the template — §4.4.
 
-`user_activity_logs` stays useful for "who opened which screen", and it is free provided controllers
+`user_activity_logs` stays useful for "who opened which screen", and it is **opt-in per role** (§1.10, `V719`), provided controllers
 sit in `ai.<module>.controller…` (`UserActivityTrackingAspect.java:59`, `:169-171`).
 
 ### 2.7 `all_activity_history` is dealer-owned — stay out of it
@@ -390,6 +442,32 @@ Full treatment, including the merge idiom and the out-of-order re-assertion haza
   `V557:16-18` = `('platform','dealer','shared','accessories','assets','insurance','services')`. The
   first warehouse dashboard widget insert fails with `23514`. One merge migration in the
   `warehouse-base` band, copying `accounting-base/V600200`, fixes it.
+
+### 2.15 Seven platform commits warehouse cannot make inside its own modules — R23 §2.1
+
+None of these was on §3 or `PP-1`…`PP-13` before round 4 (`RH-006`, `RH-007`, `RH-008`). Each is a
+platform, or platform-adjacent, commit. `IMPLEMENTATION-PLAN.md` `PP-9` carries the list, and the ids
+are R23's own. `MODULE-INTEGRATION.md` §12.4 ledgers the platform files they touch.
+
+| # | Dependency | File | Needed by | Version | Finding |
+|---|---|---|---|---|---|
+| PDEP-1 | `NotificationCategory.WAREHOUSE_*` enum values | `platform/…/constants/NotificationCategory.java:14` | the first warehouse notification (`U-002`; `P2-15` sends it) | v1 · P2 | `RH-007` |
+| PDEP-2 | `EmailTemplateDefaults` registrations per warehouse email kind | `platform/…/service/notification/email/EmailTemplateDefaults.java:82` | document e-mail (`P2-14`), alerts | v1 · P2 | `RH-007` |
+| PDEP-3 | An SMS gateway behind `deliverViaSMS` | `NotificationDeliveryService.java:402-423` | `whb_alert_rules.notify_sms`, hidden until it ships (`P3-16`) | v1.1 · P3 | `RH-007` |
+| PDEP-4 | One `FALLBACK_MODES` entry for the warehouse widget group (≤10 entries in `Map.of`, 6 used) | `DashboardWidgetScopeResolver.java:104-118` | `P6-10`, any v1 widget | v1 / v3 | `RH-006` |
+| PDEP-5 | `'warehouse'` in the widget module union | `platform/frontend/…/widgets/registry.ts:35` | the first widget | v1 / v3 | `RH-006` |
+| PDEP-6 | Mobile navigation touchpoints — `lazyScreens.ts`, `RootNavigator.tsx`, `GenericScreen.tsx` | `mobile/src/navigation/…`, `mobile/src/screens/GenericScreen.tsx` | every mobile counterpart (`D-13`); `MODULE-INTEGRATION.md` §2 rows 23–27 | v1 · P0 onward | `RH-008` |
+| PDEP-7 | A shared barcode/RF scanner component with GS1 DataMatrix / GS1-128 | extract from `mobile/src/screens/assets/AssetQrScannerScreen.tsx` | RF task flows (`P3-01`) | v1.1 · P3 | `RH-008` |
+
+**Withdrawn:** `PP-13` / `PD-D11` (*"extract branch-scope enforcement to platform"*). It is **already
+shipped** as `BranchScopeService` — §2.3, §4.11, `RH-002`.
+
+**Not a platform dependency, stated so nobody files one:**
+
+- the scheduled-report engine (`RH-010`) — module-pluggable: one `ReportDataProviderInterface` bean plus
+  `report_types` rows;
+- the company axis (`RH-004`) — warehouse-owned `whb_company_branches`;
+- the import server path (`RH-009`) — warehouse-owned, §1.7.
 
 ---
 
@@ -692,7 +770,7 @@ exactly one implementation and would make the second adapter impossible.
 | Advisory-lock helper | **No.** | Three call sites, four lines each. A helper would hide the transactional-vs-session distinction, which is the only thing that can go wrong |
 | Append-only trigger generator | **No.** | Two consumers (accounting, warehouse) with materially different needs (hash chain vs conservation). Two copies with a comment cross-referencing each other is more honest than one abstraction |
 | Balance-cache-with-rebuild | **No, not yet.** | One consumer. Extract when a second appears — which, per D-9, will not be accessories |
-| Branch-scope enforcement | **Yes, worth proposing.** | 251 files call `BranchFilterService` and every one of them can forget (§2.3). A platform-level `@BranchScoped` aspect or a repository base class would close a whole class of data leaks across the suite. File as a platform task; **warehouse does not wait for it** — it ships its own architecture rule instead |
+| Branch-scope enforcement | **No — reuse `BranchScopeService` (shipped).** | Platform already extracted the resolution half: `BranchScopeService` (`platform/…/service/common/BranchScopeService.java:14-40`), called from 153 files in six modules and keyed on the `:view:all` / `:view:branch` pair (§2.3, `RH-002`). What remains — enforcement by aspect rather than by call — is **optional platform work, never blocking**. Warehouse wraps the service in its warehouse-set resolver and ships its own architecture rule (§2.3 item 3) |
 
 ---
 
@@ -811,7 +889,7 @@ or impossible.
 | **PD-D8** | **Which precision set** (OD-7) — and its interaction with `currencies.default_decimal_places CHECK (<= 4)` (`V203:17`) | Every numeric column in the ledger | **Before P0-02** | Adopt accounting's resolved set verbatim, including the corrected `DECIMAL(9,6)` for percentages, and state the display rule for a `DECIMAL(19,6)` per-unit cost |
 | **PD-D9** | **Mobile date filters** — extend `ListHeader`/`EntityListScreen`, or design warehouse mobile screens without date ranges? | Every mobile warehouse grid | **Before P3** (execution & mobile) | Extend `ListHeader` with a `'date'` type. It is a small platform-adjacent change and it unblocks every module, not just warehouse |
 | **PD-D10** | **Does an adapter ship a frontend?** | The adapter scaffolds | **Before the first adapter is scaffolded** | No, following `accounting-adapter-dealer`. R7 `B10` forbids duplicating a base grid, which is the usual reason one would want a screen. If one ever does, it costs 8 aliases + SafeTranslation + 3 locale JSONs + Dockerfile.frontend + jest.config.js |
-| **PD-D11** | **Extract branch-scope enforcement to platform?** (§4.11) | Nothing — but it prevents a class of leaks | Propose in v1, ship whenever | File the platform task; ship warehouse's own architecture rule regardless. Do not couple the two |
+| **PD-D11** | **Extract branch-scope enforcement to platform?** (§4.11) — **withdrawn** (`RH-002`) | Nothing | — | **Reuse `BranchScopeService` (shipped); aspect-level enforcement optional, never blocking.** The extraction this row asked for had already happened. Warehouse's own architecture rule ships regardless |
 | **PD-D12** | **Impersonation column now, feature later** — is `on_behalf_of_actor_id` in v1? | The ledger's audit event DDL | **Before P0-02** | **Yes.** Copy `AccAuditActorKind`. Year one is what the first audit covers |
 
 ---
@@ -871,6 +949,11 @@ grep -n "type?: 'dropdown' | 'text'" mobile/src/components/common/ListHeader.tsx
 
 # No per-module npm manifest
 ls */frontend/package.json | wc -l                                                                  # → 1
+
+# Mobile navigation gate — verified 2026-09-10 (R23 RH-008): a screen needs all three files
+grep -n "AccessoryWarehouseListScreen" mobile/src/navigation/screens/lazyScreens.ts \
+  mobile/src/navigation/RootNavigator.tsx                                                           # → :1954-1956 · :4771
+sed -n '41,47p' mobile/src/screens/GenericScreen.tsx       # the first arms of its routePath.includes(…) / menuName === chain
 ```
 
 ### Claims this document does **not** make, because they cannot be verified statically
@@ -882,7 +965,6 @@ ls */frontend/package.json | wc -l                                              
 | Whether any table in this suite is partitioned | Needs a database | `SELECT relname FROM pg_class WHERE relkind = 'p';` |
 | Whether `enable.warehouse.3pl` binds inside `@ConditionalOnExpression` | No local Spring run; Docker-only build | One Docker boot with the flag, then `docker logs platform-backend \| grep "Warehouse Base Module"` — **PD-D1** |
 | Free `menus.sort_order` at L1 for a Warehouse root node | Static analysis cannot see seeded rows | `SELECT name, sort_order FROM menus WHERE menu_level = 1 ORDER BY sort_order;` |
-| Whether `mobile/src/screens/GenericScreen.tsx` gates a warehouse route | Not read | Read its `routePath.includes(...)` chain |
 | Real export/pagination timings at warehouse volumes | Requires data and a running stack | A seeded 10M-row `whb_stock_movements` and `EXPLAIN (ANALYZE, BUFFERS)` on the grid query |
 
 ---

@@ -127,6 +127,17 @@ appears to do nothing), `jest.config.js` (suites written and never run).
 | 20 | `.github/workflows/tests.yml` | **B** | a `warehouse-ratchets` job + a blocking frontend step | same job | same job | same job | same job | `:106-128` (frontend gate), `:259-408` (backend gate) — **MI-1/MI-2** |
 | 21 | `CLAUDE.md` MODULES table + SafeTranslation list | **D** | 1 row | 1 row | 2 rows | 1 row | 1 row | `CLAUDE.md:106-123` (18 rows today), `:125` |
 | 22 | Widening migration for two platform CHECK constraints | **B/R** | owns it | — | — | — | — | `accounting-base/…/V600200__Allow_accounting_in_platform_module_check_constraints.sql` — see §10 |
+| 23 | `mobile/src/navigation/screens/lazyScreens.ts` | **B/R** | one lazy registration per mobile screen | same | — (backend-only) | same (v2) | same (v2) | accounting has no mobile screen; accessories' warehouse list at `:1954-1956` — `RH-008` |
+| 24 | `mobile/src/navigation/RootNavigator.tsx` | **B/R** | one route per mobile screen | same | — | same (v2) | same (v2) | the same accessories screen at `:4771` — `RH-008` |
+| 25 | `mobile/src/screens/GenericScreen.tsx` — the `routePath.includes(…)` / `menuName ===` chain | **B/R** | one arm per mobile menu route | same | — | same (v2) | same (v2) | `:41-47` are its first arms (2,783 lines); the gate is a **string match**, verified by R23 — it closes `PLATFORM-DEPENDENCIES.md` §7's open row — `RH-008` |
+| 26 | `menus` rows with `is_mobile_enabled = true` | **B/R** | the warehouse L1 and its mobile L2 children | its own L2 rows | — | same (v2) | same (v2) | `menuService.ts:303,320` requires it alongside `isActive && isVisible`; column `V199:7` — `RH-008` |
+| 27 | Every level-1 menu needs a level-2 child | **B/R** | a warehouse L1 with at least one `is_mobile_enabled` L2 child, seeded **before any mobile task merges** (`P0-01`) | — | — | — | — | `BottomTabNavigator.tsx:516-534` drops an L1 with no L2 children — `RH-008` |
+
+**Twenty-seven touchpoints.** Rows 1–22 land the module in the build and the platform. Rows 23–27
+(`RH-008`) make its mobile screens reachable, and each is **B/R**: the app builds, and the screen is
+unreachable. `D-13` puts a mobile counterpart in every task that ships a web screen, so the five apply
+from the first mobile task; before round 4 this matrix did not contain the word *mobile*. The three
+navigation files (rows 23–25) are also in §12.4's platform-file ledger.
 
 **Verified NOT required** (contra a common assumption — R1 `C-007`, `C-008`, and the note under its
 §2 table, all re-confirmed):
@@ -846,6 +857,30 @@ git log --oneline -- warehouse-base/ | wc -l
 
 Record the number in the adapter's PR description (R7 §4.4 layer 3). CI cannot see this reliably
 across rebases; a reviewer can, in one command.
+
+### 12.4 The platform-file ledger — every platform file a warehouse module keeps editing
+
+§12.3 is honest only if the list of platform files is complete. Round 4 found it short by seven
+(`RH-006`, `RH-007`, `RH-008`). [`PLATFORM-DEPENDENCIES.md`](PLATFORM-DEPENDENCIES.md) §2.15 carries them
+as `PDEP-1`…`PDEP-7`, and `IMPLEMENTATION-PLAN.md` `PP-9` lists the commits.
+
+| Platform file | Edited when | What changes | Owner | Source |
+|---|---|---|---|---|
+| `platform/frontend/src/utils/filterUtils.ts` | every grid | one `COMMON_FILTER_CONFIGS` scope | the grid's task | §12.1 |
+| `platform/…/config/CacheConfiguration.java` | every cached name | one `dropdown.warehouse.<entity>` name | the service's task | §12.2 |
+| `platform/…/constants/NotificationCategory.java` | the first warehouse notification, then each category | a `WAREHOUSE_*` enum value (`:14`), `WAREHOUSE_REPLENISHMENT` first | `P2-15`, then `P3-16` | `RH-007`, `PDEP-1` |
+| `platform/…/service/notification/email/EmailTemplateDefaults.java` | each warehouse email kind | one `register(new EmailTemplateDef(…))` (`:82` onward) | `P2-15` first, then each kind's task | `RH-007`, `PDEP-2` |
+| `platform/…/service/dashboard/DashboardWidgetScopeResolver.java` | the first warehouse widget | one `FALLBACK_MODES` entry (`:104-118`; `Map.of`, 6 of 10 used) | `P6-10` | `RH-006`, `PDEP-4` |
+| `platform/frontend/src/components/dashboard/widgets/registry.ts` | the first warehouse widget | `'warehouse'` in the module union (`:35`) | `P6-10` | `RH-006`, `PDEP-5` |
+| `mobile/src/navigation/screens/lazyScreens.ts` | every mobile screen | one lazy registration | the screen's task | §2 row 23, `PDEP-6` |
+| `mobile/src/navigation/RootNavigator.tsx` | every mobile screen | one route | the screen's task | §2 row 24, `PDEP-6` |
+| `mobile/src/screens/GenericScreen.tsx` | every mobile menu route | one arm in the string-match chain (`:41-47`) | the screen's task | §2 row 25, `PDEP-6` |
+
+§2 names the files each module edits **once**, when it lands (`ModuleImportSelector.java`,
+`tsconfig.json`, `jest.config.js`, the two Dockerfiles). This ledger is the set that keeps changing
+after that. The SMS gateway (`PDEP-3`) and the v1.1 shared scanner (`PDEP-7`, extracted from
+`AssetQrScannerScreen.tsx`) are new platform or platform-adjacent files rather than edits, and are
+listed in `PLATFORM-DEPENDENCIES.md` §2.15.
 
 ---
 

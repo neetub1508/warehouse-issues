@@ -55,8 +55,9 @@ references `whb_counterparties`, and `whb_owners` is `V500007` while `whb_counte
 
 `WH-SC-045` … `WH-SC-052` run **in order**:
 
-1. **`WH-SC-045`** — create a warehouse under a branch with a structured address and a timezone; the
-   GSTIN is **read from the branch**, never duplicated.
+1. **`WH-SC-045`** — create a warehouse with its `REGISTERED` branch link, a structured address and a
+   timezone; the GSTIN is **read from that branch**, never duplicated. A second current `REGISTERED`
+   link is refused and `SERVING` is offered (`FR-460`, `D-14`).
 2. **`WH-SC-046`** — generate **1,152 bins** from a format mask, with the **count and the first and
    last codes previewed before anything is written**.
 3. **`WH-SC-047`** — import an item master where the dry run reports **per-row, per-cell** errors.
@@ -83,6 +84,7 @@ references `whb_counterparties`, and `whb_owners` is `V500007` while `whb_counte
 | **Genealogy recorded at the moment of transformation** | Answerable **both** directions; **never reconstructed** | `P1-07` · `V500035` · `L-12` |
 | **Warehouse ∩ branch ∩ owner scope in the `WHERE` clause** | **A menu filter is not a guard** | `P1-18` |
 | **`is_taxable_supply` derived at creation and frozen** | A branch's GST registration changes; a filed return does not | `P1-17` · `V510031` |
+| **One `REGISTERED` branch at every instant** (`FR-460`, `D-14`) | A warehouse links to branches through `whb_warehouse_branches`; the `REGISTERED` link supplies the GSTIN, the branch-scoped series and the tax attribution, and classification reads it at `occurred_at`. Its history is dated and append-only once a movement stands in its range, so a re-registration closes one row and opens the next — it never overwrites (`RG-001`) | `P1-05` · `V500012` · `I-22`/`I-23` (`P0-02`, `V500030`/`V500037`) |
 
 **Two `PNR-3` deadlines land in P1** and neither breaks anything on the day:
 **GRN lifecycle timestamps** (`V510014`, `P1-13`) — *a duration cannot be backfilled, so the first

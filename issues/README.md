@@ -2,13 +2,15 @@
 
 The full Classic Warehouse backlog, **filed on GitHub** in `neetub1508/warehouse-issues`:
 **1 master epic + 8 phase epics + 143 task issues = 152 issues**, 17,362 lines of task and epic text.
+**Round 4 (2026-09-10) added six task files — `p3-25`, `p5-24`…`p5-28` — so the backlog is now 149
+task files: 143 filed + 6 to file** (`GAP-REGISTER-R4.md` §4.0, `D-14` item 7).
 
 Every count on this page was computed, not estimated. The command is next to the number, and
 the checker figures are from the run of **2026-09-02 08:25 IST** — the design set is under active
 authoring, so re-run before quoting one.
 
 ```bash
-ls issues/p*.md | wc -l              # 143 tasks
+ls issues/p*.md | wc -l              # 149 tasks (143 filed + 6 round-4 files to file)
 ls issues/0*-EPIC-*.md | wc -l       #   9 epics (1 master + 8 phase)
 ```
 
@@ -30,7 +32,14 @@ every `#NN` cross-reference against that map.
 |---|---|
 | Master epic | `#1` |
 | Phase epics | P0 `#3` · P1 `#4` · P2 `#5` · P2-IN `#6` · P3 `#7` · P4 `#8` · P5 `#10` · P6 `#11` |
-| The 143 tasks | **`#12`–`#154`** |
+| The 143 filed tasks | **`#12`–`#154`** |
+| Round 4's six task files | **not yet filed** — `p3-25`, `p5-24`, `p5-25`, `p5-26`, `p5-27`, `p5-28` carry no `issue:` line |
+
+**Six new files await `create-issues.sh`.** They were authored without an `issue:` line, as
+`GAP-REGISTER-R3.md` §4.3 requires, because a hand-typed number is how cross-references rot. Until they
+are filed, `CREATED.md` has no row for them and `--sync` / `--check` skip them. The create path refuses a
+repository that already has issues (below), so filing them is a deliberate single-file step, not a
+re-run of the whole backlog.
 
 **`#2` and `#9` are pull requests, not issues.** GitHub numbers issues and pull requests from one
 sequence per repository, and two PRs were opened while the backlog was being filed. That is the
@@ -137,7 +146,7 @@ Two rules the script enforces, both learned the hard way:
 
 | File | What it is |
 |---|---|
-| `00-EPIC-master.md` | Master epic — the 13 decisions, five modules, the Flyway bands, the 14 invariants, the version ladder, `OD-1`…`OD-11`, the definition of done |
+| `00-EPIC-master.md` | Master epic — the 14 decisions (`D-14` from round 4), five modules, the Flyway bands, the 14 invariants, the version ladder, `OD-1`…`OD-11`, the definition of done |
 | `01-EPIC-p0.md` | **P0** Ledger foundation · `warehouse-base` · 16 migration blocks · **v1** |
 | `02-EPIC-p1.md` | **P1** Masters, identity, inbound · base + app · **v1** |
 | `03-EPIC-p2.md` | **P2** Outbound, counting, valuation, returns, printing, reports · **v1** |
@@ -147,12 +156,12 @@ Two rules the script enforces, both learned the hard way:
 | `07-EPIC-p5.md` | **P5** 3PL, channels and reverse logistics · **v2** |
 | `08-EPIC-p6.md` | **P6** Optimisation, planning and the logistics seam · **v3** |
 | `p0-01.md` … `p0-17.md` | **17** P0 tasks |
-| `p1-01.md` … `p1-20.md` | **20** P1 tasks |
+| `p1-01.md` … `p1-21.md` | **21** P1 tasks |
 | `p2-01.md` … `p2-29.md` | **29** P2 tasks |
 | `p2in-01.md` … `p2in-04.md` | **4** P2-IN tasks — phase **`P2-IN`**, epic `04-EPIC-p2in.md`, placeholder `__P2IN__` |
-| `p3-01.md` … `p3-23.md` | **23** P3 tasks |
-| `p4-01.md` … `p4-12.md` | **12** P4 tasks |
-| `p5-01.md` … `p5-21.md` | **21** P5 tasks |
+| `p3-01.md` … `p3-25.md` | **25** P3 tasks — `p3-25` is round 4's |
+| `p4-01.md` … `p4-13.md` | **13** P4 tasks |
+| `p5-01.md` … `p5-28.md` | **28** P5 tasks — `p5-24`…`p5-28` are round 4's |
 | `p6-01.md` … `p6-12.md` | **12** P6 tasks |
 | `DEFECTS-FOUND.md` | Defects found while authoring the task files — not an issue |
 | `create-issues.sh` | The filing and sync tool |
@@ -163,7 +172,7 @@ so the two phases stay separate by construction.
 
 ## Task ids are phase-prefixed, and that is deliberate
 
-`P0-01` … `P6-12`, matching the filenames — **143 ids**, `ls issues/p*.md | wc -l`. The ids must never
+`P0-01` … `P6-12`, matching the filenames — **149 ids**, `ls issues/p*.md | wc -l`. The ids must never
 collide with anything else in this design set. `DECISIONS.md` §6 fixes the namespaces:
 
 > Tasks `P0-01`… · Requirements `FR-001`… · Decisions `D-1`… · Open decisions `OD-1`… · Invariants
@@ -183,8 +192,9 @@ file and verified in context, and by declaring `IRR-`, `WS-` and the `T-n`/`T-nn
 
 - **`## Scope`** — the build list
 - the **module** it lands in and its **pre-allocated migration numbers**, on the header line, so
-  parallel work cannot collide. **823 migration numbers are allocated across 143 tasks with zero
-  duplicates and none outside its module's band** — the computed figure and the script that produces
+  parallel work cannot collide. **851 migration numbers are allocated across 149 tasks with zero
+  duplicates and none outside its module's band** (823 before round 4, which claimed twenty-nine and
+  released `V500061`) — the computed figure and the script that produces
   it are `IMPLEMENTATION-PLAN.md` §8.3, which is the one place this number is derived; **33 tasks
   write no migration**, which is not a defect — the DDL sits in another task, or the work is
   service, frontend or registry only
@@ -199,7 +209,8 @@ file and verified in context, and by declaring `IRR-`, `WS-` and the `T-n`/`T-nn
 - **`## Traps`** — the traps *specific to this codebase* that will otherwise cost a rebuild cycle,
   each with `file:line` evidence from `reviews/R1`
 - **`## Acceptance`** — checkboxes, each naming the scenario that proves it
-- **`## Blocked on`** — on the **24** tasks that are gated on an open decision
+- **`## Blocked on`** — on the **25** tasks that are gated on an open decision
+  (`grep -l '^## Blocked on' issues/p*.md | wc -l`; round 4 added `P5-09` → `OD-18`)
 
 ## The six tasks that carry the most risk
 
@@ -220,40 +231,48 @@ Run these after any change to the backlog. Each audit round of the accounting pr
 the *previous* round's findings were indexed and not traced; indexing feels like closure and is not.
 
 ```bash
-# 143 tasks, and the plan's §2 table agrees in both directions
-ls issues/p*.md | wc -l                                                  # 143
+# 149 tasks, and the plan's §2 table agrees in both directions
+ls issues/p*.md | wc -l                                                  # 149
 python3 tools/check-design-set.py --check 8                              # pass
 
 # every requirement is owned by exactly one task
-grep -ohE '\bFR-[0-9]{3}\b' issues/p*.md | sort -u | wc -l               # 459 of 459
-python3 tools/check-design-set.py --check 10                             # pass
+grep -ohE '\bFR-[0-9]{3}\b' issues/p*.md | sort -u | wc -l               # 469 of 469
+python3 tools/check-design-set.py --check 10                             # pass once the FRD's §6.28 lands
 
 # every review finding is cited by the task that closes it
 grep -ohE '\b[CTEFSPG]-[0-9]{3}\b' issues/p*.md | sort -u | wc -l        # 427 of 575  (round 1)
-grep -ohE '\b[QHUYZKOJ]-[0-9]{3}\b' issues/p*.md | sort -u | wc -l        #   7 of  62  (round 2)
+grep -ohE '\b[QHUYZKOJ]-[0-9]{3}\b' issues/p*.md | sort -u | wc -l        #  46 of  62  (round 2)
+grep -ohE '\bR[GHJKL]-[0-9]{3}\b' issues/p*.md | sort -u | wc -l         #  80 of  83  (round 4)
 
 # scenarios, screens and tables the tasks reach for
-grep -ohE '\bWH-SC-[0-9]{3}\b' issues/p*.md | sort -u | wc -l            # 306 (305 real + WH-SC-306)
-grep -ohE '\bWS-[0-9]{3}\b'    issues/p*.md | sort -u | wc -l            # 238 (237 real + WS-238)
-grep -ohE '\b(whb|wh3|whin|wha[a-z]|wh)_[a-z0-9_]+\b' issues/p*.md | sort -u | wc -l   # 345
+grep -ohE '\bWH-SC-[0-9]{3}\b' issues/p*.md | sort -u | wc -l            # 324 (catalogue: 327 once §3.22 lands)
+grep -ohE '\bWS-[0-9]{3}\b'    issues/p*.md | sort -u | wc -l            # 240 (237 + WS-238 + WS-240 + WS-241)
+grep -ohE '\b(whb|wh3|whin|wha[a-z]|wh)_[a-z0-9_]+\b' issues/p*.md | sort -u | wc -l   # 391
 
 # the whole gate
 python3 tools/check-design-set.py --summary                              # 0 violations, exit 0
 ```
 
-<!-- check-design-set: scenario-citations begin WH-SC-306 - the allocation marker named as the subject of this paragraph, not cited as a scenario -->
-<!-- check-design-set: screen-citations begin WS-238 - the next free screen id named as the subject of this paragraph, not cited as a screen -->
+<!-- check-design-set: scenario-citations begin WH-SC-328 - the allocation marker named as the subject of this paragraph, not cited as a scenario -->
+<!-- check-design-set: screen-citations begin WS-238 WS-239 WS-242 - WS-238 and WS-239 are reserved for round 3 (WS-238 is also claimed by p5-13), and WS-242 is the next free screen id; all three are named as the subject of this paragraph, not cited as screens -->
 
-Read those last three the way the checker does. **306 scenario ids** is all 305 of the catalogue
-plus the `WH-SC-306` allocation marker — round 2 took `WH-SC-301`–`WH-SC-305` for §3.21 and moved the
-marker, which is the reason the marker exists. `WH-SC-170` and `WH-SC-204` were the last two cited by no
+**The figures above were computed on 2026-09-10 against the P-LATE tree, before the other three round-4
+fold partitions merged. Re-run them after the merge** (`GAP-REGISTER-R4.md` §4.1 rule 3). The
+scenario, round-2 and table figures move when the other partitions' task files land.
+
+Read those last three the way the checker does. **The scenario marker is now `WH-SC-328`.** Round 4
+took `WH-SC-306`–`WH-SC-327` for §3.22 and moved the marker, just as round 2 took
+`WH-SC-301`–`WH-SC-305` for §3.21. That movement is the reason the marker exists. `WH-SC-170` and `WH-SC-204` were the last two cited by no
 task; `X-041` closed them on 2026-09-02 into `P2-01` and `P2-14`, so **every scenario in the
-catalogue is now walked by a task**. **238
-screen ids** is 237 real ones plus `WS-238`, which `p5-13` claims for the marketplace-claim queue
-before `BUILD-SPEC-SCREENS.md` §1 allocates it — **the table it also needed now exists**
-(`wh_marketplace_claims`, `WH-115`, `V510215`); the screen id is still to be allocated.
-**345 table names** is up from 330: the round-2 tasks name the thirteen tables `DATA-MODEL.md` §2
-gained, plus two fenced counter-examples (`whb_rfid_reads` in `p3-24`, `wh_damage_claims` in `p5-23`)
+catalogue is now walked by a task**. **240
+screen ids** is 237 real ones, plus `WS-240` (`P5-25`) and `WS-241` (`P5-27`) from round 4, plus
+`WS-238`. **The screen marker is now `WS-242`.** `p5-13` claims `WS-238` for the marketplace-claim
+queue before `BUILD-SPEC-SCREENS.md` §1 allocates it — **the table it also needed now exists**
+(`wh_marketplace_claims`, `WH-115`, `V510215`). But `GAP-REGISTER-R4.md` §4.0 **reserves `WS-238` and
+`WS-239`** for round 3's `RA-001` and `RA-002`. The two claims on `WS-238` collide, and the next screen
+allocation must settle it. That is recorded here, not decided.
+**391 table names** is up from 345: the round-4 files name the junctions and side tables
+`GAP-REGISTER-R4.md` §4.2 owes to `DATA-MODEL.md` §2, plus two fenced counter-examples (`whb_rfid_reads` in `p3-24`, `wh_damage_claims` in `p5-23`)
 which are named **so they are not built** and are excluded from check-3 by their own fences.
 
 **427 of 575 round-1 findings** are cited by a task — up from 385 when `X-050` closed the 36
@@ -263,6 +282,12 @@ this line, for the honest number. **7 of 62 round-2 findings** are cited by a ta
 number is correct rather than alarming: `GAP-REGISTER-R2.md` §2.1 dispositions 51 of the 62 as
 `FOLD-TASK` or `FOLD-DOC` amendments to text that already exists, and only the five new tasks carry a
 round-2 id in a `## Closes` block.
+
+**80 of 83 round-4 findings** (`RG-`, `RH-`, `RJ-`, `RK-`, `RL-`) are cited by a task file, measured on
+the same partial tree. `GAP-REGISTER-R4.md` §2 dispositions all 83. The six new task files carry their
+own `## Closes` blocks: `RK-003` (`P3-25`), `RG-010`…`RG-014`, `RG-018` and `RG-020` (`P5-24`), `RK-006`
+(`P5-25`), `RK-007` (`P5-26`), `RK-008` (`P5-27`) and `RL-015` (`P5-28`). Requirements now run to
+`FR-469`, and the screen marker is `WS-242`.
 
 <!-- check-design-set: screen-citations end -->
 <!-- check-design-set: scenario-citations end -->

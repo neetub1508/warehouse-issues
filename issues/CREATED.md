@@ -1,12 +1,16 @@
 # Created issues
 
-Filed in `neetub1508/warehouse-issues`. **1 master epic + 8 phase epics + 143 tasks = 152.**
+Filed in `neetub1508/warehouse-issues`. **1 master epic + 8 phase epics + 149 tasks = 158.**
 
 > Verified against the file glob, which is the authority:
-> `ls issues/p*.md | wc -l` → **143**; per phase
+> `ls issues/p*.md | wc -l` → **149**; per phase
 > `for p in p0 p1 p2 p2in p3 p4 p5 p6; do ls issues/$p-[0-9][0-9].md | wc -l; done`
-> → **17 · 21 · 29 · 4 · 24 · 13 · 23 · 12**. `ls issues/*EPIC*.md | wc -l` → **9**
+> → **17 · 21 · 29 · 4 · 25 · 13 · 28 · 12**. `ls issues/*EPIC*.md | wc -l` → **9**
 > (1 master + 8 phase). The headline is correct.
+
+> **Round 4 (2026-09-10) filed six tasks, `#156`–`#161`:** `P3-25` and `P5-24`…`P5-28`
+> (`docs/GAP-REGISTER-R4.md`). **`#155` is a pull request** (the round-3 review and backlog map),
+> for the same reason as `#2` and `#9` below.
 
 > **`#2` and `#9` are pull requests, not issues.** GitHub draws issue and pull-request
 > numbers from one sequence per repository, and two PRs were opened while the backlog was
@@ -128,6 +132,7 @@ cross-reference against — regenerate it with `create-issues.sh`, do not hand-e
 | #111 | `p3-22.md` | P3-22 · The event stream as the adapters' subscription point — in-process and HTTP, registered by the consumer |
 | #116 | `p3-23.md` | P3-23 · A sandbox practice warehouse with disposable data, and in-product help per screen |
 | #121 | `p3-24.md` | P3-24 · GS1 identity — SSCC allocation, EPC on the serial and the LPN, Digital Link, and the authorised-source flag |
+| #156 | `p3-25.md` | P3-25 · Simple ABC recompute — the class a v1 count programme reads, computed at v1.1 |
 | #16 | `p4-01.md` | P4-01 · GST reference masters, the relational tax engine with its known defects fixed as blockers, and the e-invoicing adapter for the transfer IRN |
 | #22 | `p4-02.md` | P4-02 · Job work and ITC-04 — the challan clock aged, and the return filed from warehouse data |
 | #27 | `p4-03.md` | P4-03 · The Rule 56 statutory stock account — a shipped report in the mandated categories, not a movement grid |
@@ -164,6 +169,11 @@ cross-reference against — regenerate it with `create-issues.sh`, do not hand-e
 | #114 | `p5-21.md` | P5-21 · The four remaining owner- and transport-shaped v2 items — per-owner print templates, fitments and equipment, the gate, and returnable packaging |
 | #119 | `p5-22.md` | P5-22 · The integration surface — named API clients, rotatable keys, rate limits, replay, and the lag-shaped signal the outbox does not have |
 | #123 | `p5-23.md` | P5-23 · One supplier claim register — short shipment, damage, quality reject, obsolescence and price, with a status ladder, a settlement and an ageing report |
+| #157 | `p5-24.md` | P5-24 · The v2 association junctions — UoM defaults, site-scoped supplier sources, company and owner links, owner-set cages, tax-scheme codes and configuration scopes |
+| #158 | `p5-25.md` | P5-25 · Trade-customer portal — the independent garage orders from the dealer on the portal surface |
+| #159 | `p5-26.md` | P5-26 · Inter-company movement as a linked sale and purchase, created in one action |
+| #160 | `p5-27.md` | P5-27 · Value-banded approval levels — ordered typed rows, not a workflow engine |
+| #161 | `p5-28.md` | P5-28 · Registry row translations — install-created codes render in the reader's language |
 | #94 | `p6-01.md` | P6-01 · Archiving as a transaction — an `OPENING_BALANCE` movement at the cut-off before a single row moves |
 | #99 | `p6-02.md` | P6-02 · The best stocking level is computed, not typed |
 | #103 | `p6-03.md` | P6-03 · Measured labour, not engineered standards — and the refusal is the requirement |

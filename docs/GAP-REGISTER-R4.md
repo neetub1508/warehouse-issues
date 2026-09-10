@@ -190,7 +190,7 @@ python3 tools/check-design-set.py --check 7 | head -1        # pass — all 83 r
 | **`NEW-TASK`** | **12** | `RG-010` `RG-011` `RG-012` `RG-013` `RG-014` `RG-018` `RG-020` → `P5-24` · `RK-003` → `P3-25` · `RK-006` → `P5-25` · `RK-007` → `P5-26` · `RK-008` → `P5-27` · `RL-015` → `P5-28` |
 | **`DECIDED`** | **1** | `RK-005` → **`OD-18`** |
 | **`MERGED`** | **4** | `RH-001` `RH-005` `RJ-001` `RK-002` → `RG-001` |
-| **`DECLINED`** | **0** | — five partial refusals are written into their rows and §3.7 |
+| **`DECLINED`** | **0** | — thirteen partial refusals and overrulings are written into their rows and §3.7 |
 | **Total** | **83** | |
 
 ---

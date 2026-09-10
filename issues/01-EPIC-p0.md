@@ -110,7 +110,7 @@ That command is the authority; re-run it after any header change.
 - `V500005` `V500006` `V500008` `V500010` — `P0-05` stock statuses, condition codes, location types, item types, task types, dispositions, attribute keys ★
 - `V500007` `V500044` — `P0-06` owner types and owners ★ · owner grants
 - `V500021` — `P0-17` cost-layer schema, DDL only ★
-- **`V500030`–`V500032`, `V500036` — `P0-02` ★★ THE LEDGER · `PNR-1` + `PNR-2` in one file ★★** · positions · the period trigger · the base-UoM trigger
+- **`V500030`–`V500032`, `V500036`, `V500037` — `P0-02` ★★ THE LEDGER · `PNR-1` + `PNR-2` in one file ★★** · positions · the period trigger · the base-UoM trigger · **`V500037`: `I-23`**, the `REGISTERED`-history guard (exclusion, deferred at-least-one, append-only once a movement stands in range). It reads the ledger, so it cannot sit in `P1-05`'s `V500012`; `I-22` rides `V500030` (`RG-001`, `D-14`)
 - `V500033` — `P0-09` reservations, allocation strategies and rules
 - `V500034` — `P0-10` tasks
 - `V500040` — `P0-11` the outbox, subscriptions, deliveries and the cursor

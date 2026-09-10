@@ -86,6 +86,12 @@ table**) · **`WH-SC-209`** (Part-A generated, Part-B fillable later) · **`WH-S
 through the same code path).
 Plus `WH-SC-208` (`P1`, the polymorphic transport block the adapter reads).
 
+**Places of business (`RG-002`, round 4).** One GSTIN covers every branch in its state, so a GSTIN
+profile maps to **several** branches through `whin_gstin_profile_branches` (`PRINCIPAL`/`ADDITIONAL`,
+dated, `V540010`), never to one. `WH-SC-313` — the second Delhi branch, an additional place of business
+under the Delhi GSTIN, resolves the profile and issues a challan — and `WH-SC-311` — a `REGISTERED` link
+to a branch in another state is refused — join the exit walk. `P2-IN-01` owns both.
+
 **And the negative test, which is the `D-8` half:** **`WH-SC-213`** — none of that code is reachable,
 and **no `whin_` table is referenced**, on a **Mode-A** install.
 
@@ -197,18 +203,22 @@ migration and then a confidently wrong answer to an auditor.* The challan rule c
   `branches.gst_number VARCHAR(15)` (`platform/…/V182__Add_financial_columns_to_branches.sql:7`) is
   the per-state registration `CLAUDE.md:148` names; `companies.gstin`
   (`automotive/…/V10002:19`) **contradicts that rule and was never dropped**; `dealers.gstin`
-  (`dealer/…/V20000:11`) is a third candidate. **Read the branch. Never duplicate onto the
-  warehouse** — duplication is how the three-way disagreement happened. And **do not copy
-  `accessory_warehouse_branch`**'s many-to-many bridge (`accessories/…/V30018:8`): *a warehouse under
-  two tax registrations is not a thing.*
+  (`dealer/…/V20000:11`) is a third candidate. **Read the site's `REGISTERED` branch at the document
+  date. Never duplicate onto the warehouse** — duplication is how the three-way disagreement happened
+  (`D-14`, `RG-001`). The warehouse's branch links are the dated junction `whb_warehouse_branches`, and
+  **do not copy `accessory_warehouse_branch`'s semantics** (`accessories/…/V30018:8`): its
+  unlinked-is-shared arm and its `is_primary` meaning are both refused (`RH-001`). *A warehouse under two
+  tax registrations at one instant is still not a thing* — exactly one link is `REGISTERED`.
 - **There is no GST state-code master and no state-code column anywhere.**
   `grep -rn "gst_state_code\|state_code" --include="*.sql" .` excluding client/test/seed → **0**.
   `branches.state` is free-text `VARCHAR(100)` (`platform/…/V149:33`), **not** the two-digit code
   Part A requires. `whb_warehouses.state_code` is a **denormalised snapshot with a derivation rule**
   — the first two digits of a valid GSTIN — not a second source of truth. The **master** is wave 2.
 - **`warehouse-base` must not gain a foreign key into `warehouse-india`, in either direction**
-  (`D-11`, `MODULE-INTEGRATION.md:889`). `whb_warehouses.tax_registration_id` is a **`UUID` with no
-  `REFERENCES` clause**, resolved through a registry at read time; in a non-India install it is null.
+  (`D-11`, `MODULE-INTEGRATION.md:889`). Round 4 removed the one column that
+  tempted it: `whb_warehouses.tax_registration_id` is **dropped** (`RG-001`). The registration is
+  resolved from the site's `REGISTERED` branch through `WarehouseBranchLinkValidator` beans that
+  `warehouse-india` registers, at read time; in a non-India install none is registered.
   Likewise `wh_transfer_orders` gains no `challan_id` and `wh_shipments` no `eway_bill_id`.
 - **The transport block is `wh_`, not `whin_`, and that is a deliberate divergence from
   `COEXISTENCE.md` §5 `M6`** — which places `whin_transport_details` in `warehouse-india` at v2.
