@@ -117,6 +117,7 @@ done
 - `V510070` — `P2-15` replenishment runs, suggestions, demand history
 - `V510080` — `P2-17` landed cost documents and allocations, revaluations
 - `V510090` — `P2-19` opening-stock batches, cut-over checklists
+- `V510222` `V511180` `V511210` `V511240` — `P2-23` **v2 increment**: `wh_approval_levels`, its `WS-241` grid, its resource permissions and menu (`RK-008`, folded from former `P5-27`)
 - `V501070`–`V501099` — `P2-29` `warehouse-base` grid configuration, wave 3
 - `V511060`–`V511139` — `P2-29` `warehouse` grid configuration, wave 3
 - `V511201`–`V511207` **and** `V511231`–`V511237` — the `WH-206` verb-permission pairs, one per task that
@@ -128,12 +129,12 @@ done
 - `V520000`, `V520010`–`V520012`, `V520100`–`V520149` — `P2-25` dealer adapter · `P2-24` fitments
 - `V521000`, `V521010`–`V521012`, `V521100`–`V521149` — `P2-26` services adapter
 
-**Ten tasks write no migration** — `P2-05`, `P2-07`, `P2-16`, `P2-18`, `P2-20`, `P2-21`,
-`P2-22`, `P2-23`, `P2-27`, `P2-28`. **That is not a defect**: it is service, frontend, job and report
+**Nine tasks write no migration** — `P2-05`, `P2-07`, `P2-16`, `P2-18`, `P2-20`, `P2-21`,
+`P2-22`, `P2-27`, `P2-28`. **That is not a defect**: it is service, frontend, job and report
 work over DDL that `P0` and `P1` already shipped — most visibly `P2-16`, whose three tables are
 `P0-17`'s `V500021` because `whb_stock_movement_lines.cost_layer_id` is a real FK and `V500021` must
 precede `V500030`. *(`P2-02` left this list in round 4: its transfer verbs claim the `V511202`/`V511232`
-pair.)*
+pair. `P2-23` left it at the 2026-09-10 fold: it claims former `P5-27`'s four numbers as its v2 increment.)*
 
 **One sub-allocation is stated rather than taken silently.** `P2-29` owns the two grid-config bands,
 but `IMPLEMENTATION-PLAN.md` §3.6 also says config *"is scheduled with its screens, not after them"*

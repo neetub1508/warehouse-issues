@@ -265,7 +265,7 @@ product, so their DMS cell is `–`. Each names its R25 row and finding.
 | Negative-stock policy per site × item — block · warn · allow | ● | ● | ● | ● | ● | ◐ | **v1**, default block (L-6, `T-025`, `S-076`, `F-090`) |
 | Inter-site transfer with **in-transit as a real location** (three legs) | ● | ● | ◐ (Cin7 ●) | ◐ | ● | ◐ | **v1** ‡ (`E-032`, `S-069`; R2 placed the three-leg document v1.1) |
 | **Transfer request** raised by the receiving branch; the source approves, part-approves or rejects | ◐ (MAN ?, BY ○) | ●/◐ (NS ●, B1 ●) | ◐ | ◐ (UNI ?, Tally ?) | – | ○ (LGW ?) | **v1** (`FR-462`, `P2-02`) — approval reserves through the demand model; the refused remainder is logged as insufficient-stock demand. R25 row 3, `RK-001` |
-| Transfer between two **legal entities** in one install | ○ (EWM ◐) | ● (B1 ?) | ? (Cin7 ◐) | ? (VIN ●) | – | ? | **v1 refusal** `422 CROSS_COMPANY_TRANSFER` (`P1-17`) · **v2** linked demand order + purchase order, never a transfer (`FR-465`, `P5-26`). R25 row 30, `RK-007` |
+| Transfer between two **legal entities** in one install | ○ (EWM ◐) | ● (B1 ?) | ? (Cin7 ◐) | ? (VIN ●) | – | ? | **v1 refusal** `422 CROSS_COMPANY_TRANSFER` (`P1-17`) · **v2** linked demand order + purchase order, never a transfer (`FR-465`, `P1-17`'s v2 increment). R25 row 30, `RK-007` |
 | Adjustment with a **mandatory reason code from a closed, tax-mapped catalogue** | ● | ● | ● | ◐ | ● | ● | **v1** (`T-010`, `S-028`, `E-033`) — free text for a year cannot be reclassified |
 | **Three timestamps** — occurred · recorded · posting date | ◐ (EWM ● posting ≠ entry) | ◐ | ○ | ◐ | ? | ◐ (CAM ●, EXT ●) | **v1** (L-13, `S-007`, `F-083`, `T-018`) |
 | Idempotent ingestion with a **producer-supplied** key | ● / ◐ | ● | ◐ | ○ | ◐ | ◐ (SST ●, FBA ●) | **v1** (L-9, `T-091`, `F-081`) |
@@ -281,7 +281,7 @@ product, so their DMS cell is `–`. Each names its R25 row and finding.
 | Full physical count with a freeze / snapshot of book quantity | ● | ● | ● | ● | ● | ● | **v1** (`S-091`, `E-038`) |
 | Cycle count by zone / location range / aisle sweep | ● | ● | ◐ (SkuVault ●) | ◐ | ● | ● | **v1** |
 | Cycle count driven by ABC / count class on a schedule | ● | ● | ◐ | ◐ | ● | ● | **v1.1** |
-| ABC class **computed** by the product from issue value, not maintained by hand | ◐ (BY ?) | ● (NS ◐, B1 ?) | ● (Cin7 ?) | ●/◐ (VIN ?) | – | ? | **v1.1** simple recompute (`FR-463`, `P3-25`); a v1 `ABC` programme counts by manually maintained classes; velocity/XYZ **v3**. R25 row 23 (scored with ageing), `RK-003` |
+| ABC class **computed** by the product from issue value, not maintained by hand | ◐ (BY ?) | ● (NS ◐, B1 ?) | ● (Cin7 ?) | ●/◐ (VIN ?) | – | ? | **v1.1** simple recompute (`FR-463`, `P1-03`'s v1.1 increment); a v1 `ABC` programme counts by manually maintained classes; velocity/XYZ **v3**. R25 row 23 (scored with ageing), `RK-003` |
 | Blind count (book quantity hidden from the counter) | ● | ● | ● | ◐ | ● | ● | **v1** — a flag on the header, cheap now (`T-089`) |
 | **`count_snapshot_quantity` on the count line** | – | – | – | – | – | – | **v1** (`S-091`). Variance against a live quantity is not reproducible |
 | Variance tolerance by qty % **and by value**, approval before posting | ● | ● | ◐ | ◐ | ● | ● | **v1** approval (`T-090`, `E-038`) / v1.1 tolerance table |
@@ -411,7 +411,7 @@ product, so their DMS cell is `–`. Each names its R25 row and finding.
 | Billing run with a frozen approved state; dispute and credit | ● | ○ | ○ | ◐ | ○ | ● (dispute: EXT ◐, LGW ○) | **v2** (`F-019`, `F-020`) |
 | **Invoice handed to accounting AR — the WMS prints none** | ● | – | – | ● | – | ● | **v2** AR envelope (`F-021`) — refusal #16 |
 | Client portal — stock, order entry, ASN, returns, reports, document vault | ● (EWM ○) | ◐ | ○ | ● | ○ | ● | **v2** (`F-008`) on the platform public/no-login foundation |
-| **B2B trade-customer portal** — an independent garage checks availability and orders | ? (BY ◐) | ◐ (Odoo ●, B1 ?) | ◐ (Cin7 ●, Fishbowl ?) | ◐ (UNI ?, INC ?, Tally ○) | – | ◐ (SHH ○) | **v2** (`FR-464`, `P5-25`, `WS-240`) — availability as a flag, `DRAFT` orders, no pricing engine, no payment. R25 row 20, `RK-006` |
+| **B2B trade-customer portal** — an independent garage checks availability and orders | ? (BY ◐) | ◐ (Odoo ●, B1 ?) | ◐ (Cin7 ●, Fishbowl ?) | ◐ (UNI ?, INC ?, Tally ○) | – | ◐ (SHH ○) | **v2** (`FR-464`, `P5-08`, `WS-240`) — availability as a flag, `DRAFT` orders, no pricing engine, no payment. R25 row 20, `RK-006` |
 | Per-owner numbering series | ● | ◐ | ○ | ● | ○ | ● (SHH ○) | **v2** (`F-007`) |
 | **Mixed-owner movement balancing per `(owner, item)`**, not per movement | ? | ? | ○ | ○ | ○ | ◐ (LGW ○, SHH ○, FUL ○) | **v1** (`F-059`) — **ahead of the segment.** A 3PL's own packaging consumed against a client's order is one atomic event |
 | Client SLA definition, measurement, breach record, service credit | ● | ○ | ○ | ● | ○ | ● / ◐ (penalties mostly ○) | **v2** SLA · **v3** penalties (`F-075`, `F-078`) |
@@ -480,7 +480,7 @@ product, so their DMS cell is `–`. Each names its R25 row and finding.
 | **The auditor's five artefacts** — as-at ledger · movement export · adjustment analysis by reason/user/value · count history · immutability evidence | – | – | – | – | – | – | **v1.1** (`S-083`) |
 | Configurable dashboards / control tower | ● | ● | ◐ | ◐ | ◐ | ● | **PLATFORM** + **v2** |
 | **A metric explainer stating each KPI's definition** | – | – | – | – | – | – | **v1.1** (R3 §4.7) — a KPI a manager cannot reproduce by hand is a KPI they will not trust |
-| **Multi-level approvals** by value band | ? (EWM ◐) | ● (Odoo ◐, B1 ?) | ◐ (Zoho ●) | ? (UNI ◐, EEC ◐) | – | ? | **v1** single step (`FR-408`) · **v2** ordered, value-banded levels — a bounded table, not a workflow engine (`FR-466`, `P5-27`, `WS-241`). R25 row 25, `RK-008` |
+| **Multi-level approvals** by value band | ? (EWM ◐) | ● (Odoo ◐, B1 ?) | ◐ (Zoho ●) | ? (UNI ◐, EEC ◐) | – | ? | **v1** single step (`FR-408`) · **v2** ordered, value-banded levels — a bounded table, not a workflow engine (`FR-466`, `P2-23`'s v2 increment, `WS-241`). R25 row 25, `RK-008` |
 
 ### 2.18 Integration, extensibility and non-functional
 
@@ -907,7 +907,7 @@ proposal for the product owner, not a finding of either audit.
 | 23 | **Yard and trailer management** | R4#12 | Made4net · Deposco `◐` · CartonCloud `◐` · Manhattan · Blue Yonder · SAP EWM YM · Infor | The dock door is ours; the yard beyond it is transport | The future `logistics` module. `wh_dock_appointments` is the join and it exists in v2 (`F-080`, R7 §2.3) |
 | 24 | **A vendor / supplier portal** — suppliers acknowledge POs, post ASNs, see payments | R25 §4.2 a | D365 vendor collaboration · Vinculum · NetSuite (view-only) · Increff | A dealer's dominant supplier is the OEM, which runs its own portal and will not log into ours; the long tail sends a WhatsApp and an invoice PDF. A public attack surface with no user | `J-005`'s document capture over `doc-ocr-ai` reads the supplier's paper instead. ASN ingestion stays an API |
 | 25 | **Per-channel marketplace catalogue management** — listing, content and price sync per marketplace | R25 §4.2 b | Unicommerce · EasyEcom · Vinculum · Increff | §4.3 already concedes connector breadth; this is the catalogue half of the same thing, and it belongs to the seller's channel tool | `FR-209` publishes *stock*; the channel tool owns the listing |
-| 26 | **A generic workflow designer** — draw any approval graph | R25 §4.2 c | D365 workflow editor · NetSuite SuiteFlow · SAP flexible workflow | Refusal #10 in a workflow costume. `RK-008`'s bounded level table covers what a dealer asks for | A new **bounded** column on `wh_approval_levels` (`P5-27`), reviewed once |
+| 26 | **A generic workflow designer** — draw any approval graph | R25 §4.2 c | D365 workflow editor · NetSuite SuiteFlow · SAP flexible workflow | Refusal #10 in a workflow costume. `RK-008`'s bounded level table covers what a dealer asks for | A new **bounded** column on `wh_approval_levels` (`P2-23`), reviewed once |
 | 27 | **Sale-or-return consignment *to* customers with automatic invoicing on non-return** | R25 §4.2 d | Vinculum `◐` · several Indian distribution ERPs | Stock at a customer is already modelled (`FR-113`, consignment out). *Converting* it to a sale on a date is a receivable decision, which refusal #18 / `FR-274` keep out of warehouse | Emit the aged consignment-out position; accounting or the channel invoices |
 
 ---

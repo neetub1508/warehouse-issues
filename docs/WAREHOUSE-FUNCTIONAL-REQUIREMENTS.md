@@ -820,9 +820,10 @@ fifteen review files.
 forbids renumbering a published id.** They are transcribed from `GAP-REGISTER-R4.md` §4.0, which allocated
 them; the next free id is the one after `FR-469`. `FR-460` and `FR-461` are `D-14` items 2 and 3 and belong with
 §6.4 and §6.11; `FR-462` belongs with §6.11, `FR-463` with §6.9, and the six v2 rows are round 4's
-*"not everything on day one"* (`D-14` item 7): each has its own task file (`P3-25`, `P5-24`…`P5-28`) so the
-capability is scheduled rather than lost. The owning task of each row is `P1-05`, `P2-25`, `P2-02`,
-`P3-25`, `P5-25`, `P5-26`, `P5-27`, `P5-09`, `P5-24` and `P5-28`, in order.
+*"not everything on day one"* (`D-14` item 7): each was first filed as its own task (`P3-25`, `P5-24`…`P5-28`) and, on 2026-09-10, folded into its
+most similar existing task as a versioned increment (no duplicate tasks), so the capability is scheduled
+rather than lost. The owning task of each row is `P1-05`, `P2-25`, `P2-02`, `P1-03`, `P5-08`, `P1-17`,
+`P2-23`, `P5-09`, `P1-05` and `P1-19`, in order.
 
 | # | Requirement | Module | Ver | Ph | Closes |
 |---|---|---|---|---|---|

@@ -13,8 +13,9 @@ and batch picking, the pack session, the print server, manifests and handovers, 
 pick-face replenishment, order-edit rules, LPN move expansion and GS1 parsing, alert rules and health
 signals, the migration workbench, and the field-service and assets adapters.
 
-**Twenty-five tasks** — `P3-24` from round 2, and `P3-25`, the simple ABC recompute, from round 4
-(`RK-003`, `D-14` item 7). Sized in `IMPLEMENTATION-PLAN.md` §9.3 as 1 XL · 8 L · 10 M · 6 S, with
+**Twenty-four tasks** — `P3-24` from round 2. Round 4's `P3-25`, the simple ABC recompute, was folded
+into `P1-03` on 2026-09-10 as a v1.1 increment built in this wave (`RK-003`, `#156` closed as a
+duplicate). Sized in `IMPLEMENTATION-PLAN.md` §9.3 as 1 XL · 8 L · 10 M · 5 S, with
 `P3-01` (the RF family) the XL and a long tail behind it. It is the **only** phase with a real mobile
 load — 2–3 mobile engineers — and §9.6 says plainly that mobile is where the estimate is least
 trustworthy.
@@ -81,11 +82,10 @@ done
 - `V500062` — `P3-03` devices, and the dated `whb_device_assignments` (`RG-018`)
 - `V500063` — `P3-16` alert rules, conditions, recipients, events
 - `V500068` — `P3-06` `whb_location_zone_memberships`, functional zones beside the physical tree (`RG-015`, round 4)
-- `V500069` — `P3-25` the two ABC cut-offs on the site, and `previous_abc_class` / `abc_computed_at` (`RK-003`, round 4)
 - `V501101`–`V501109` — `P3-04` base grid configuration, wave 4
 - `V510012` — `P3-05` ASNs, ASN lines, ASN line serials
 - `V510100`–`V510108` — `P3-06` waves · `P3-07` pack sessions · `P3-11` work orders and VAS service types · `P3-08` printers, routing rules, shipping labels · `P3-09` consignments, manifests, handovers, pickup requests · `P3-13` order-edit rules · `P3-17` KPI snapshots · `P3-18` migration mappings · `P3-12` replenishment tasks
-- `V511140`–`V511179` — `P3-04` app grid configuration, wave 4. `V511180` is `P5-27`'s `WS-241` grid (round 4); `V511181`–`V511199` stay free
+- `V511140`–`V511179` — `P3-04` app grid configuration, wave 4. `V511180` is `P2-23`'s `WS-241` grid (its v2 increment, round 4); `V511181`–`V511199` stay free
 - `V511208` **and** `V511238` — `P3-11` the work-order verb permissions and their dependency rows, its `WH-206` pair (`RJ-005`, round 4)
 
 **Released, not reused:** `P3-12`'s former base number, `V500061`. `whb_item_location_settings` moved
@@ -123,7 +123,8 @@ means A precedes B.**
   server, which `P3-07` needs · `{P3-10, P3-11}` kits and work orders · `{P3-16, P3-17, P3-18}`
   observability and migration · `{P3-20, P3-21}` the two adapters, after `P3-22`'s event stream ·
   `{P3-23, P3-24}` sandbox and GS1, which nothing else waits on.
-- **`P3-25` (the simple ABC recompute, round 4) hangs off v1, not off P3.** `P2-15 → P3-25`: its job
+- **The simple ABC recompute (round 4) is `P1-03`'s v1.1 increment, built in this wave** (folded from
+  former `P3-25`, `#156`; `V500069` is claimed by `P1-03`). `P2-15 → P1-03 (v1.1)`: its job
   reads `P2-15`'s demand history and writes the class `P2-04`'s count programme reads, with its
   `whb_job_runs` row in `P0-13`'s register. Nothing in P3 waits on it, so it can start the day v1 ships
   and fill any gap (`RK-003`, `FR-463`).

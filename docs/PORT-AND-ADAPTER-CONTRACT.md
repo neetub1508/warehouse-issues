@@ -1282,7 +1282,7 @@ keys"*. Three rules, each checkable:
 > **`PC-69`** · **i18n falls back to the registry row's `name`** when `t('warehouse:statuses.<code>')`
 > misses, so a newly registered status renders in **English rather than as a raw key**. *(`FR-381`,
 > `G-065`.)* From **v2** the fallback reads `whb_registry_translations` for the user's locale
-> **first**, then the row's `name` (`FR-469`, `P5-28`, `RL-015`): an install-created row
+> **first**, then the row's `name` (`FR-469`, `P1-19`'s v2 increment, `RL-015`): an install-created row
 > (`owning_module = 'INSTALL'`) has no i18n key at all, and its translation is the only place a
 > second language can live. And every registry gets a **mobile-vocabulary consideration on day one**, because
 > `mobile/…/common.schemas.ts` is a third copy of every dropdown vocabulary and a missing value makes

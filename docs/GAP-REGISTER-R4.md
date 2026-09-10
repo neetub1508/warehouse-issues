@@ -844,6 +844,60 @@ Labels follow the existing files: `task,warehouse,phase-p3|phase-p5,<module labe
 - 459 → 469 FRs; the scenario and screen markers `WH-SC-328`/`WS-242`.
 - The round-4 citation count line, and *six new files await `create-issues.sh`*.
 
+### 4.6 Post-fold amendment, 2026-09-10 — the six `NEW-TASK` dispositions folded into existing hosts
+
+**Added the same day, after the fold agents merged, under a user rule: no duplicate tasks.** The six task
+files §4.0 minted — `P3-25`, `P5-24`…`P5-28` — were filed as `#156`–`#161` and then folded into the most
+similar existing task, found by the owner of the related table, screen or requirement. The files are
+deleted and the six issues are closed as duplicates. **§2, §4.0 and §4.5 above are not rewritten**: they
+are the dated record of what round 4 decided, and they name the former ids. Read the host for each id
+from this table.
+
+Each folded item keeps its own version. A v1.1 or v2 item inside a v1 host is marked *"v1.1 / v2
+increment of this task — design the schema now, build in the v1.1 / v2 wave"* in a section headed
+`## Round-4 additions (folded from former P?-??, #NNN)`.
+
+| Former task | Finding | Host | Migration claimed by the host | Requirement · scenario now owned by the host |
+|---|---|---|---|---|
+| `P3-25` (`#156`) | `RK-003` | **`P1-03`** (`#33`) — owns `abc_class` (`FR-070`) · v1.1 increment | `V500069` | `FR-463` · `WH-SC-320` |
+| `P5-24` (`#157`) | `RG-012`, `RG-014` | **`P1-05`** (`#54`) — owns `whb_warehouses`, `whb_locations` · v2 increment | `V500070` | `FR-468` (all of it; the rows below are its parts) |
+| `P5-24` | `RG-020` (reason codes) | **`P0-04`** (`#43`) · v2 increment | **`V500072`** (new) | — |
+| `P5-24` | `RG-013` | **`P0-06`** (`#56`) · v2 increment | **`V500073`** (new) | — |
+| `P5-24` | `RG-018` (subscriptions) | **`P0-11`** (`#89`) · v2 increment | **`V500074`** (new) | — |
+| `P5-24` | `RG-010`, `RG-020` (items) | **`P1-01`** (`#13`) · v2 increment | **`V500075`** (new) | — |
+| `P5-24` | `RG-020` (UoMs) | **`P1-02`** (`#20`) · v2 increment | **`V500076`** (new) | — |
+| `P5-24` | `RG-011` | **`P1-03`** (`#33`) · v2 increment | **`V500077`** (new) | `WH-SC-324` |
+| `P5-24` | `RG-018` (inspection plans) | **`P1-14`** (`#120`) · v2 increment | `V510220` | — |
+| `P5-24` | `RG-018` (print templates) | **`P5-21`** (`#114`) · v2, its own wave | **`V510223`** (new) | — |
+| `P5-24` | `RG-018` (count programmes) | **`P2-04`** (`#37`) · v2 increment | none — a whitelisted scope value | — |
+| `P5-25` (`#158`) | `RK-006` | **`P5-08`** (`#48`) — the portal surface and resolver it extends · v2 | `V510221`, `V511209`, `V511239` | `FR-464` · `WH-SC-321` · `WS-240` |
+| `P5-26` (`#159`) | `RK-007` | **`P1-17`** (`#133`) — already owns `RK-007`'s v1 guard · v2 increment | none | `FR-465` · `WH-SC-322` |
+| `P5-27` (`#160`) | `RK-008` | **`P2-23`** (`#146`) — owns `FR-408` on every approval surface · v2 increment | `V510222`, `V511180`, `V511210`, `V511240` | `FR-466` · `WH-SC-323` · `WS-241` |
+| `P5-28` (`#161`) | `RL-015` | **`P1-19`** (`#139`) — owns the registry-name fallback and the locales · v2 increment | `V500071` | `FR-469` · `WH-SC-325` |
+
+**Seven new migration numbers, and why §4.1 rule 2 is not broken by them.** Former `P5-24` claimed one
+base migration (`V500070`) and one app migration (`V510220`) for tables whose parents belong to ten
+different tasks. A Flyway version has exactly one owner (`D-2`, check 4), so the split needed one number
+per host: `V500072`–`V500077` from the post-v1 base gap and `V510223` from the app correction reserve.
+They were taken at the fold, after every fold agent had merged, and are recorded here as §4.0 recorded
+its own. Every other migration moved with its content under the number §4.0 gave it. Net: **851 → 858**
+allocated numbers; **149 → 143** tasks; tasks writing no migration **32 → 28** (`IMPLEMENTATION-PLAN.md`
+§8.3).
+
+**`RG-017` and `RG-018`'s *at-build* tables never lived in `P5-24`** and did not move: `wh3_client_counterparties`
+(`P5-01`), `wh3_rate_card_clients` (`P5-02`), `wh3_sla_definition_clients` (`P5-07`),
+`wh_channel_account_warehouses` (`P5-09`), `wh_working_calendar_assignments` (`P5-10`),
+`wh_carrier_account_scopes` (`P5-11`), `whb_api_client_endpoints` + `whb_api_client_companies` (`P5-22`),
+`whb_device_assignments` (`P3-03`) and `whin_compliance_registration_document_kinds` (`P2-IN-01`).
+
+**Where the citations were re-pointed**: every task file, the eight epics, `issues/README.md`,
+`issues/CREATED.md` (the six rows kept, marked closed), `DECISIONS.md` (`D-14` item 7, an amendment note),
+`DATA-MODEL.md` §2 and §7, the FRD §6.28 intro, `BUILD-SPEC-SCREENS.md` (`WS-240`/`WS-241` owners,
+`WS-093`, the registry block), `COMPETITOR-BENCHMARK.md`, `PORT-AND-ADAPTER-CONTRACT.md` and
+`IMPLEMENTATION-PLAN.md` §2, §2.9, §3, §8 and §9. **Not edited**: `docs/reviews/` (dated records) and
+`GAP-REGISTER-R3.md` §4.3, whose *next free id* table was true when written.
+
+
 ---
 
 ## §5 · What needs a person

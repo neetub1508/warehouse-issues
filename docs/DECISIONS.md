@@ -324,6 +324,11 @@ all 83 findings and the full fold plan are in [`GAP-REGISTER-R4.md`](GAP-REGISTE
    adds six task files: one at v1.1 and five at v2. It also lifts every v2 junction a lens had placed on
    a v1 task out into a v2 task. Where a lens offered a heavier and a lighter shape, the lighter one is
    taken and the reason is written in `GAP-REGISTER-R4.md` §3.7.
+   *Amended the same day, 2026-09-10 (user rule: **no duplicate tasks**).* The six task files were then
+   folded into their most similar existing tasks and deleted; `#156`–`#161` are closed as duplicates. The
+   substance stands — useful-but-not-day-one work is still tracked and still versioned later — but it is
+   tracked as a *v1.1* or *v2 increment* inside an existing task, not as a new task file.
+   `GAP-REGISTER-R4.md` §4.6 has the mapping.
 
 ---
 

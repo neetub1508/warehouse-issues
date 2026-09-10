@@ -67,7 +67,7 @@ built. This is the exact trap the accounting round-4 review found and corrected.
 | **D-11** | **Adapters are proved by a build-time test, not by intent.** `warehouse-adapter-dealer` ships with **zero commits to `warehouse-base`**, enforced by an `ArchitectureInvariantsTest` per module and a `warehouse-adapter-example` fixture CI builds. **Adapter #2 (services) is in v1 for the reason that one adapter proves nothing about genericity** |
 | **D-12** | **v1 is a cut line, not the scope limit.** Every capability found by any lens is placed in a version and carried in a task file **now**. Nothing is deferred to *"we'll look at it later"* — which is why P5 and P6 exist and why four P6 tasks produce a written determination and no code |
 | **D-13** | **Mobile is not optional.** Every user-visible capability with a web screen has a mobile counterpart **in the same task**, per CLAUDE.md's web↔mobile mirroring rule — or a stated `none` with a reason. **Silence is a defect.** Note the correction R1 `CM-1` found: `mobile/…/ListHeader.tsx:210-218` now supports `type?: 'dropdown' \| 'text'`; **date filters are still unsupported** |
-| **D-14** | **Associations between masters are dated many-to-many; a warehouse has exactly one `REGISTERED` branch** (user decision, 2026-09-10, round 4). Every association between two independent masters is an effective-dated junction; composition and ledger fact rows stay scalar. A warehouse links to branches through `whb_warehouse_branches`, with exactly one `REGISTERED` link at every instant, which supplies its GSTIN; `SERVING` links grant visibility and let a branch draw stock, and a draw across GSTINs is a taxable transfer. A registration change is maker–checker and refused while stock is held (`OD-19`). Useful-but-not-day-one work goes to a later version **and still gets a task** — hence `P3-25` and `P5-24`…`P5-28`. Reverses `FR-079`'s *"belongs to exactly one branch"*; `RG-001` is canonical |
+| **D-14** | **Associations between masters are dated many-to-many; a warehouse has exactly one `REGISTERED` branch** (user decision, 2026-09-10, round 4). Every association between two independent masters is an effective-dated junction; composition and ledger fact rows stay scalar. A warehouse links to branches through `whb_warehouse_branches`, with exactly one `REGISTERED` link at every instant, which supplies its GSTIN; `SERVING` links grant visibility and let a branch draw stock, and a draw across GSTINs is a taxable transfer. A registration change is maker–checker and refused while stock is held (`OD-19`). Useful-but-not-day-one work goes to a later version **and is still tracked** — as a versioned increment of the most similar existing task (round 4 filed `P3-25` and `P5-24`…`P5-28`, and folded all six into their hosts on 2026-09-10: no duplicate tasks). Reverses `FR-079`'s *"belongs to exactly one branch"*; `RG-001` is canonical |
 
 ## The fourteen load-bearing invariants
 
@@ -155,13 +155,14 @@ adapter proves nothing*) · field-service and assets **v1.1** · logistics **v3*
 | P1 | __P1__ | Masters, identity, inbound | **21** | v1 |
 | P2 | __P2__ | Outbound, counting, valuation, returns, printing, reports | **29** | v1 |
 | P2-IN | __P2IN__ | The India movement documents | **4** | v1 |
-| P3 | __P3__ | Execution and mobile | **25** | v1.1 |
+| P3 | __P3__ | Execution and mobile | **24** | v1.1 |
 | P4 | __P4__ | India statutory and compliance | **13** | v2 |
-| P5 | __P5__ | 3PL, channels and reverse logistics | **28** | v2 |
+| P5 | __P5__ | 3PL, channels and reverse logistics | **23** | v2 |
 | P6 | __P6__ | Optimisation, planning and the logistics seam | **12** | v3 |
 
-**149 tasks** — `ls issues/p*.md | wc -l`, and 17 + 21 + 29 + 4 + 25 + 13 + 28 + 12. Round 4 added six
-(`P3-25`, `P5-24`…`P5-28`, `D-14` item 7); they await `create-issues.sh`.
+**143 tasks** — `ls issues/p*.md | wc -l`, and 17 + 21 + 29 + 4 + 24 + 13 + 23 + 12. Round 4 filed six
+(`P3-25`, `P5-24`…`P5-28`, `#156`–`#161`) and on 2026-09-10 folded each into its most similar existing
+task; the six issues are closed as duplicates (`issues/CREATED.md`, `GAP-REGISTER-R4.md` §4.6).
 **469 requirements**, each owned by **exactly one** task. **305 scenarios** (computed:
 `grep -cE '^\| \*\*WH-SC-[0-9]{3}\*\*' docs/SCENARIO-CATALOGUE.md`; 300 before review round 2 added
 §3.21's five. `IMPLEMENTATION-PLAN.md` §8.5 stated **119** for that same command until 2026-09-02,
@@ -304,7 +305,7 @@ a compliance filing product until v1.1, v2 and v2 respectively.
    criteria.** "Done" means walked in a running application.
 7. **[`BUILD-SPEC-SCREENS.md`](../blob/main/docs/BUILD-SPEC-SCREENS.md)** — the 237 screens, their tables,
    columns, filters, actions and mobile verdicts.
-8. **[`IMPLEMENTATION-PLAN.md`](../blob/main/docs/IMPLEMENTATION-PLAN.md)** — the 149-task decomposition,
+8. **[`IMPLEMENTATION-PLAN.md`](../blob/main/docs/IMPLEMENTATION-PLAN.md)** — the 143-task decomposition,
    the critical path, the four points of no return, the open decisions as gates, and the traceability.
 9. **[`MODULE-INTEGRATION.md`](../blob/main/docs/MODULE-INTEGRATION.md)** — the **22** integration
    touchpoints, three of which fail **silently**.

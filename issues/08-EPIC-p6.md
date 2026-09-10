@@ -111,7 +111,7 @@ means A precedes B.**
   contract, so `P6-04 → P6-08` binds.
 - **Parallel streams**, once `P6-01` lands: `{P6-02, P6-03, P6-05}` the derived numbers, all three
   feeding `{P6-10}` the dashboard. **`P6-02` is narrower than it was** (round 4, `RK-003`): the simple
-  ABC recompute left it for `P3-25` at v1.1 (`FR-463`), because v1 ships a count programme that reads the
+  ABC recompute left it for `P1-03`'s v1.1 increment (`FR-463`, folded from former `P3-25`), because v1 ships a count programme that reads the
   class. `P6-02` keeps velocity, affinity, XYZ and the computed stocking level · `{P6-07}` 3PL v3, after `P5-07` · `{P6-04 → P6-08}` automation and
   logistics.
 - **`P6-06`, `P6-09`, `P6-11` and `P6-12` write records and decisions, not code.** They have no
