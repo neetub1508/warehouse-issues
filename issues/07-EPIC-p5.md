@@ -1,11 +1,19 @@
 TITLE: [Warehouse] EPIC: P5 — 3PL, channels and reverse logistics
 LABELS: epic,warehouse,phase-p5
+issue: 10
+<!-- check-design-set: issue-citations file #791 — `#790` and `#791` are issues in **`neetub1508/classic`**, cited as `classic#790, #791` with the second elided in the ordinary English way. The first resolves; the elided continuation reads to the checker as a bare `#NN`. It is a cross-repo citation, never a warehouse issue — declared in the front matter, above the `---`, so the declaration never enters the issue body and cannot drift against the filed issue -->
 ---
 Part of __MASTER__ · Modules `warehouse-3pl` (new) · `warehouse` · `warehouse-adapter-dealer` · `warehouse-adapter-services` · Migrations — **four blocks, enumerated below** · Ships in **v2**
 
 ## Overview
 
 **23 tasks. Three products sharing one base, and two of them can be built in parallel by two teams.**
+Round 4 filed five more P5 task files under `D-14` item 7 and, on 2026-09-10, folded each into its most
+similar existing task (no duplicate tasks; `#157`–`#161` closed as duplicates): the trade-customer
+portal into `P5-08` as its second persona, the print-template scopes into `P5-21`, and the rest into v1
+hosts as **v2 increments built in this wave** — the v2 junctions into their parent-table owners
+(`P0-04`, `P0-06`, `P0-11`, `P1-01`, `P1-02`, `P1-03`, `P1-05`, `P1-14`, `P2-04`), inter-company sale
+and purchase into `P1-17`, value-banded approval levels into `P2-23`, registry translations into `P1-19`.
 
 - **3PL** — clients as objects with contracts and onboarding templates, charge codes, versioned
   effective-dated rate cards, **the append-only reversible billable-event meter**, storage billing in four
@@ -109,10 +117,10 @@ grep -h '^Part of' p5-*.md | grep -oE 'V5[0-9]{5}' | sort -u
 
 | Band | Module | Numbers this phase claims | Owners |
 |---|---|---|---|
-| `V510000`–`V519999` | `warehouse` | `V510200`–`V510214` **+ `V510215`, `V510216`** | `P5-09` `V510200` `V510208` `V510209` · `P5-10` `V510201`–`V510202` · `P5-11` `V510203`–`V510205` · `P5-12` `V510206`–`V510207` · `P5-13` `V510210` **+ `V510215`** · `P5-14` `V510211` · `P5-16` `V510212` · `P5-17` `V510213`–`V510214` · **`P5-23` `V510216`** |
+| `V510000`–`V519999` | `warehouse` | `V510200`–`V510214` **+ `V510215`, `V510216`** · round 4: **`V510221`**, **`V510223`**, **`V511209` + `V511239`** | `P5-09` `V510200` `V510208` `V510209` · `P5-10` `V510201`–`V510202` · `P5-11` `V510203`–`V510205` · `P5-12` `V510206`–`V510207` · `P5-13` `V510210` **+ `V510215`** · `P5-14` `V510211` · `P5-16` `V510212` · `P5-17` `V510213`–`V510214` · **`P5-23` `V510216`** · **`P5-08` `V510221` + the pair `V511209`/`V511239`** (the trade persona, folded from former `P5-25`) · **`P5-21` `V510223`** (print-template scopes, folded from former `P5-24`). `V510221` and `V510223` are carved from the correction reserve and the pair is `WH-206`'s (`IMPLEMENTATION-PLAN.md` §2.9 rows 2a and 7). Round 4's other app claims left this phase at the fold: `V510220` is `P1-14`'s, and `V510222`, `V511180` and `V511210`/`V511240` are `P2-23`'s — v2 increments of v1 tasks, built in this wave |
 | `V520000`–`V529999` | adapters | `V520014` · `V521013` | `P5-15` (dealer cores · services warranty holds) |
 | `V530000`–`V539999` | `warehouse-3pl` | `V530000` · `V530010`–`V530011` · `V530020`–`V530021` · `V530030`–`V530031` · `V530040`–`V530044` · `V530050` · `V531000`–`V531099` | `P5-01` … `P5-07` |
-| `V500064`–`V500199` | `warehouse-base` post-v1 DDL | `V500064` · `V500065` · **`V500066`** | `P5-20` ratio-pack templates · `P5-21` packaging balances · **`P5-22` API clients and keys** (`WHB-67`, not `WHB-66` — see `DATA-MODEL.md` §7). The two numbers this row once called *"still to claim"* were claimed in round 1; the third is round 2's |
+| `V500064`–`V500199` | `warehouse-base` post-v1 DDL | `V500064` · `V500065` · **`V500066`** | `P5-20` ratio-pack templates · `P5-21` packaging balances · **`P5-22` API clients and keys** (`WHB-67`, not `WHB-66` — see `DATA-MODEL.md` §7), plus `whb_api_client_endpoints` and `whb_api_client_companies` (`RG-018`). The two numbers this row once called *"still to claim"* were claimed in round 1; the third is round 2's. Round 4's base numbers `V500069`–`V500077` are claimed by P0/P1 hosts as v1.1 or v2 increments since the 2026-09-10 fold, so no P5 header carries them |
 
 **Not this phase's, and it is easy to assume otherwise:** **`V530060` (`W3-13`,
 `wh3_client_gst_registrations`) belongs to `P4-10`** — a P4 task inside the 3PL band, because the band
@@ -142,12 +150,18 @@ means A precedes B.**
   logistics · `{P5-16, P5-17}` NRV and weighing/labour · `{P5-18, P5-19, P5-20, P5-21, P5-23}`.
 - **`P5-08` (the portal) is scheduled after `P5-05`, not beside it.** It is a permission surface over
   screens that must already exist, and the thing it exposes to a client is the billing run.
+- **Round 4's P5 work is increments of existing tasks, not tasks** (folded 2026-09-10). The trade-customer
+  persona is built inside `P5-08`, after its client persona; the print-template scopes inside `P5-21`.
+  The v2 increments of v1 hosts (`P0-04`, `P0-06`, `P0-11`, `P1-01`, `P1-02`, `P1-03`, `P1-05`, `P1-14`,
+  `P1-17`, `P1-19`, `P2-04`, `P2-23`) are scheduled into this wave's gaps. Schedule `P1-03`'s v2 increment
+  before `P5-18` where possible: the site-scoped supplier preference is what sister-branch replenishment
+  reads per site (`WH-SC-324`).
 
 ## Tasks
 
 __TASKS__
 
-**Sizing** (`IMPLEMENTATION-PLAN.md` §9.3): 1 XL · 6 L · 12 M · 4 S. **Staffing** (§9.4): 3–4 backend,
+**Sizing** (`IMPLEMENTATION-PLAN.md` §9.3): 1 XL · 6 L · 15 M · 6 S. **Staffing** (§9.4): 3–4 backend,
 3 frontend, 1 mobile, 2 QA. *"Two independent sub-streams. Billing needs someone who has built billing
 before."* §9.5 assumption 6: **P4 and P5 are two products** — they run fully concurrently with two teams
 and one shared base reviewer, and cannot be compressed into one team without serialising v2.
@@ -229,6 +243,10 @@ All four are recorded in `DEFECTS-FOUND.md` and fixed in the task files rather t
 - **`OD-5`** (does the frontend re-close the vocabularies the backend opens) lands first in this phase at
   `P5-02`'s charge-code categories and `P5-13`'s condition grades.
 - **`OD-9`** is already answered — **warehouse never computes tax** — and `P5-05` depends on it.
+- **⛔ `OD-18`** blocks **`P5-09`'s drop-ship requirement `FR-467`** (round 4, `RK-005`) — *what v1
+  records for a drop-shipment*, answered by the first drop-shipped purchase. The channel work in `P5-09`
+  proceeds; the drop-ship movement type is **not** seeded in v1, and any module seeds it under `D-10` once
+  the row is answered.
 
 ## Definition of done
 Per __MASTER__ — including the four additions specific to this programme, of which two bite hardest here:

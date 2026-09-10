@@ -1,5 +1,7 @@
 # Decisions — the spine of the Warehouse design set
 
+<!-- check-design-set: issue-citations file #2 — `#2` and `#9` are ordinals in prose, not issue references — *Refusal #2*, *Adapter #2 (services)*, *ship-blocker #2*, *logistics needs #1, #2, #3, #5, #6, #10* — and at COMPETITOR-BENCHMARK.md:70/:146 `#9` is the markdown in-page anchor `[§9](#9--where-the-audits-disagree)`. In this repository `#2` and `#9` are in fact the two **pull requests** opened while the backlog was being filed, so no issue row can ever exist for either: see issues/CREATED.md -->
+
 > **This document wins over every other document in this repository except
 > [`reviews/R1-codebase-reality.md`](reviews/R1-codebase-reality.md), which wins on any question about what
 > the *existing* `neetub1508/classic` codebase does, because it carries `file:line` evidence.**
@@ -278,29 +280,138 @@ handheld is not a warehouse product. Note the correction to CLAUDE.md found by R
 `mobile/…/ListHeader.tsx:210-218` now supports `type?: 'dropdown' | 'text'` filters — **date filters
 are still unsupported**.
 
+### D-14 · Associations between masters are dated many-to-many; a warehouse has exactly one REGISTERED branch
+
+**User decision, taken 2026-09-10**, on round 4's findings (`reviews/R22`–`R26`, §6). The disposition of
+all 83 findings and the full fold plan are in [`GAP-REGISTER-R4.md`](GAP-REGISTER-R4.md).
+
+1. **Every association between two independent masters is an effective-dated many-to-many junction.**
+   It carries `is_primary`, or a role, where a default is needed. **Two kinds of row stay scalar**:
+   composition, where a line belongs to its parent document, and ledger fact rows, which record what
+   happened and are never re-pointed. The junction shape is R22 §1.3: `effective_from`/`effective_to`,
+   one current row per key enforced by an `EXCLUDE` constraint, and no `is_active` on a dated junction.
+   R22's six KEEP-SCALAR findings (`RG-022`…`RG-027`) mark the edge of this rule.
+2. **A warehouse is linked to platform branches through `whb_warehouse_branches`.** At every instant it
+   has **exactly one `REGISTERED` link**. That branch supplies the site's GSTIN, its branch-scoped
+   statutory numbering, and its tax attribution. `whb_warehouses` loses `branch_id`,
+   `tax_registration_id` and `legal_entity_id`.
+   - `SERVING` links grant visibility and let the branch draw stock.
+   - Classification reads the `REGISTERED` link at the movement's `occurred_at`. Access reads today's
+     links.
+   - A site with no link is visible to no branch-scoped user.
+   - **This reverses `FR-079`'s *"belongs to exactly one branch"*, `DATA-MODEL.md` §9.2's
+     dropped-junction row, and the advice of `C-016`/`C-030`.** `RG-001` is canonical.
+3. **The serving-branch rule.**
+   - A document handed over at the requesting branch (a counter sale, a job issue) posts directly from a
+     site only when that branch holds a current `REGISTERED` or `SERVING` link to the site **and** its
+     GSTIN equals the site's `REGISTERED` GSTIN.
+   - **A `SERVING` branch under a different GSTIN draws by transfer, and that transfer is a cross-GSTIN
+     supply.** It sets `is_taxable_supply = true` and carries a challan or invoice and, above the
+     threshold, an e-way bill. The source is the `REGISTERED` branch; the destination is a site
+     registered to the serving branch. The counter refuses a direct sale with
+     `422 CROSS_GSTIN_COUNTER_SALE`.
+   - A demand order despatched to a third party is billed from the site's `REGISTERED` GSTIN at despatch.
+4. **A registration change is maker–checker, and it is refused while the site holds stock** under a
+   different GSTIN. It closes one history row and opens the next at the same instant. `OD-19` asks
+   whether that refusal can ever be relaxed.
+5. **Link, never mirror.** A site is not a branch row. A `WAREHOUSE`-type branch is created only when a
+   site is itself a GST place of business that no existing branch carries (`RH-003`).
+6. **One branch-scope mechanism.** Scope uses platform's `BranchScopeService` and the
+   `:view:all`/`:view:branch` pair. The warehouse resolver returns the set of allowed warehouse ids
+   (`RH-001`, `RH-002`).
+7. **Not everything on day one** (user decision 3, same date). A capability that is useful but not needed
+   on day one goes into v2 or a later phase **and still gets a task file**, per `D-12`. Round 4 therefore
+   adds six task files: one at v1.1 and five at v2. It also lifts every v2 junction a lens had placed on
+   a v1 task out into a v2 task. Where a lens offered a heavier and a lighter shape, the lighter one is
+   taken and the reason is written in `GAP-REGISTER-R4.md` §3.7.
+   *Amended the same day, 2026-09-10 (user rule: **no duplicate tasks**).* The six task files were then
+   folded into their most similar existing tasks and deleted; `#156`–`#161` are closed as duplicates. The
+   substance stands — useful-but-not-day-one work is still tracked and still versioned later — but it is
+   tracked as a *v1.1* or *v2 increment* inside an existing task, not as a new task file.
+   `GAP-REGISTER-R4.md` §4.6 has the mapping.
+
 ---
 
 ## 3. OD — open decisions. Each names its deadline and who decides.
 
+> **State, 2026-09-03.** Fifteen rows stood open through three review rounds with nothing in the fourth column but a
+> *Recommendation*. **Nine are now decided**; **four** (`OD-1`, `OD-3`, `OD-8`, `OD-9`) are **escalated** as business
+> calls; **two** (`OD-2`, `OD-4`) stay open **by schedule** for v3; and **two** — `OD-16`, `OD-17` — were allocated on
+> this date by round 3 and escalated with them. Seventeen rows, none deleted: a resolved decision changes state and
+> names the file that carries its evidence,
+> [`OPEN-DECISIONS-RESOLVED.md`](OPEN-DECISIONS-RESOLVED.md).
+>
+> **2026-09-10.** Round 4 allocated **`OD-18`** and **`OD-19`**, both escalated (§3.5). Nineteen rows now stand.
+>
+> **The sorting rule, stated so it can be applied again:** a recommendation is *technical* — and is adopted here —
+> when this design set can execute it inside this repository. It is a *business call* — and is escalated — when it
+> asks another team to build something, another repository to change, a segment to be served or declined, or the v1
+> cut line to move.
+
+```bash
+# the rows whose DEADLINE CELL (field 4) gates P0-02 / PNR-1 = V500030, the migration
+# that cannot be taken back. The cell is read, not the whole row: OD-16's deadline mentions
+# V500030 in passing and is not one of these gates (DECISIONS.md sec 7 rule 8).
+awk -F'|' '/^\| \*\*OD-/ && $4 ~ /[Bb]efore [^.;]*(P0-02|PNR-1)/ {gsub(/[*` ]/,"",$2); printf "%s ", $2}' docs/DECISIONS.md
+# -> OD-10 OD-12 OD-14 OD-11 OD-7 OD-1   -- six, not five
+```
+
+`S-035` — **pharma: serve regulated goods or decline the segment in writing** — is escalated alongside these. It is a
+finding rather than an `OD-` row and it stays in `GAP-REGISTER.md` §5.1 as the design set's one **unowned BLOCKER**;
+it is not renumbered here, because a finding is a dated record. See [`OPEN-DECISIONS-RESOLVED.md`](OPEN-DECISIONS-RESOLVED.md) §3.1.
+
+### 3.1 Resolved — the nine technical decisions
+
+| # | Decision | Deadline it cleared | Resolution |
+|---|---|---|---|
+| **OD-10** | **Is MRP a dimension of the stock position?** `FR-321`. If two MRP-labelled batches of one SKU must never merge, MRP joins the position unique key — and that key is set at `PNR-1`, warehouse's first point of no return | **Before `PNR-1`** (migration `V500030`) — this is the tightest deadline in the set | **RESOLVED 2026-09-03 · No.** MRP belongs on the **lot**, not on the position key; the `L-5` key stays at nine members. A tenth member widens the unique index, every position row and the `L-4` rebuild, and can never be removed; an MRP that turns out to be needed is reachable through the lot. `P4-05`'s report reads it from there, and an item whose MRP is segregated is by definition batch-tracked. Record, reasoning and owed edits: [`OPEN-DECISIONS-RESOLVED.md`](OPEN-DECISIONS-RESOLVED.md) §2 |
+| **OD-12** | **The `whb_stock_movements` partition key — `occurred_at` or `posting_date`?** `FR-022` and `DATA-MODEL.md` `WHB-30` specify `PARTITION BY RANGE (occurred_at)`; `PLATFORM-DEPENDENCIES.md` `PD-D5` recommends `posting_date`. `L-13` makes these different columns, so the choice is real: `occurred_at` is what the as-at query and EPCIS want, `posting_date` is what period close and the statutory register want | **Before `PNR-1` (migration `V500030`)**, which is also `PNR-2`. A partition key cannot be added to a populated table without a rewrite | **RESOLVED 2026-09-03 · `occurred_at`.** As `FR-022` and `WHB-30` specify and `issues/p0-02.md` already builds. The as-at query and the `L-4` rebuild run constantly and range over `occurred_at`; period close runs monthly and reads `posting_date` through a btree index declared in the same migration. **`PD-D5`'s argument is real and is accepted as a cost, not denied**: `occurred_at` is producer-supplied, so late arrivals write into historical partitions and **no partition is ever closed**. `PLATFORM-DEPENDENCIES.md` `PD-D5` must be amended, not left standing. Record: [`OPEN-DECISIONS-RESOLVED.md`](OPEN-DECISIONS-RESOLVED.md) §2 |
+| **OD-14** | **Is value conservation a fifteenth invariant (`L-15`) or a movement-type behaviour column?** `PC-12` states the question and explicitly refuses to decide it. `DECISIONS.md` §4 stops at `L-14` and `DATA-MODEL.md` §6.3 stops at `I-20`; neither carries a value-conservation row, and `P2-17`, `P2-28` and `P3-11` all depend on the answer | **Before `P0-02`**, because the guard is a constraint on the table | **RESOLVED 2026-09-03 · A fifteenth invariant `L-15`**, scoped to `quantity = 0 AND unit_cost IS NOT NULL`, with a matching `I-21` in `DATA-MODEL.md` §6.3, both sitting in `V500030`. Not a behaviour column: a `value_balance_rule` puts the ledger's correctness in data any migration or support script can edit. A movement mixing zero- and non-zero-quantity lines is refused — it is two movements. **The `L-15` row is owed to §4 and the `I-21` row to `DATA-MODEL.md`; both are stated verbatim in** [`OPEN-DECISIONS-RESOLVED.md`](OPEN-DECISIONS-RESOLVED.md) §2 |
+| **OD-11** | **Do value-only movements conserve value?** `PC-12`: `L-1`…`L-14` conserve **quantity** only, and a landed-cost movement posts `quantity = 0` with a value. `FR-084`'s seeded virtual-location list has no value-offset row | **Before `P0-02`.** *(Corrected 2026-09-03: this cell read "Before `P2` valuation". `PORT-AND-ADAPTER-CONTRACT.md` §12.2 row 3 and `IMPLEMENTATION-PLAN.md`:1319 both say before `P0-02`, and the tighter deadline wins — a conservation invariant is a constraint on the table, not on a report. This correction is why the `P0-02` gate set computes as **six**, not five.)* | **RESOLVED 2026-09-03 · Yes.** A `VALUE_OFFSET` virtual location (`OD-13`) carries the counter-side and `L-15` (`OD-14`) is the invariant that makes it testable. This is `D-4` applied to the value column: a one-line "movement" is the single-sided log `D-4` exists to refuse, is not reversible under `L-3` and is not rebuildable under `L-4`. Record: [`OPEN-DECISIONS-RESOLVED.md`](OPEN-DECISIONS-RESOLVED.md) §2 |
+| **OD-7** | **Precision.** Quantities `DECIMAL(18,4)`? Money `DECIMAL(19,4)`? Per-unit cost `DECIMAL(19,6)`? Percentages `DECIMAL(9,6)`? Accounting took a CLAUDE.md deviation for exactly this and the percentage row was stated wrongly for three rounds | Before `P0-02` | **RESOLVED 2026-09-03 · Adopt accounting's resolved set verbatim, by citation** — `accounting/docs/OPEN-DECISIONS-RESOLVED.md` `OD-7`, including the corrected `DECIMAL(9,6)` for percentages and both tie-breaks (`unit_*` beats `value`; `_percent` beats "rate"; `DECIMAL(19,8)` is the currency-conversion type and nothing else). **One warehouse-only row is added**: `conversion_factor_used DECIMAL(18,8)`, a sixth named kind — it cannot be `DECIMAL(9,6)` (1 tonne = 1,000,000 g) and must not be `DECIMAL(19,8)` (reserved). **The display rule is decided with it**, as `PLATFORM-DEPENDENCIES.md` §2.11 requires. Record: [`OPEN-DECISIONS-RESOLVED.md`](OPEN-DECISIONS-RESOLVED.md) §2 |
+| **OD-13** | **The value-offset virtual location's code.** `OD-11` and `P2-28` call it `VALUE_OFFSET`; `PORT-AND-ADAPTER-CONTRACT.md` `PC-12` calls it `LANDED_COST_OFFSET` and offers reuse of an `ADJUSTMENT_OFFSET`-typed location. **`FR-084`'s seeded list contains none of the three** | **Before `P1-05` writes `V500013`** — the seed migration | **RESOLVED 2026-09-03 · `VALUE_OFFSET`**, added to `FR-084`'s seeded list as an eleventh code and seeded by `P1-05`'s `V500013`. It does not presume *why* the value moved — revaluation, standard-cost variance and assembly completion post value with no quantity too. **Reusing `ADJUSTMENT_OFFSET` is refused**: it would merge quantity adjustments and value-only postings behind one counter-side that no query separates afterwards. **`PC-12`'s `LANDED_COST_OFFSET` must be amended, not left standing.** Record: [`OPEN-DECISIONS-RESOLVED.md`](OPEN-DECISIONS-RESOLVED.md) §2 |
+| **OD-6** | **Valuation method scope in v1** — FIFO + weighted average + standard, or weighted average only? *(Who owns the layers is no longer open: **D-6** settles it — whichever system is authoritative for quantity is authoritative for cost, so with warehouse installed the layers are `whb_cost_layers`.)* | Before `P2` valuation tasks | **RESOLVED 2026-09-03 · Weighted average + FIFO in v1**, `whb_cost_layers` present (its DDL is `P0-17`'s `V500021` regardless), method configurable per item category × site; **standard cost with variances in v1.1**; **LIFO never built** — and, because `D-10` makes the method vocabulary an open catalogue with no CHECK, **never seeded either**. `IRR-40`'s *valuation grain* declaration is **not** discharged by this and remains owed to `P0-17`. Record: [`OPEN-DECISIONS-RESOLVED.md`](OPEN-DECISIONS-RESOLVED.md) §2 |
+| **OD-15** | **Is the union valuation report (`M3`) built?** With `accessories` permanently separate (`D-9`), a finance user asking *"what is my total stock value"* gets two numbers. R3 `M3`/`E-084` says build one report that unions them; R7 §4.6 item 4 says do not, and document the separation in the UI instead | **Before `P2-20` and `P2-27` merge** — the deadline has arrived | **RESOLVED 2026-09-03 · Do not build the union in v1.** `P2-27` ships reports over warehouse stock only, with the separation stated on the report header and in `D-9`'s cost note; revisit at v2 if a customer asks. A union whose halves use different valuation methods states a total that reconciles to nothing — `accessories` has no cost layers and its balance is not derivable from its own movements. **`D-9`'s two mandatory mitigations are unaffected**: detectability is preserved, only the false total is refused. `COEXISTENCE.md`'s `M3` row must be restated, not deleted. Record: [`OPEN-DECISIONS-RESOLVED.md`](OPEN-DECISIONS-RESOLVED.md) §2 |
+| **OD-5** | **Does the frontend re-close the vocabularies the backend opens?** CLAUDE.md TYPESCRIPT RULE #6 mandates string-union types over enums; D-10 mandates open catalogues. These conflict, and R2 records it as a *documented recurring defect* in this codebase | Before the first warehouse page is written | **RESOLVED 2026-09-03 · The frontend does not re-close them.** A catalogue-backed dropdown **fetches** its values; a TypeScript string union is permitted **only** for a closed system vocabulary the product itself defines and no install may extend (e.g. `posting_status`). If the vocabulary is one of `D-10`'s thirteen catalogue tables, a union is a defect. `FR-380` is the rule and this is the ruling that gives it a test. **The CLAUDE.md rule #6 carve-out is owed to the standards owner in a different repository and does not block a warehouse page**, because a page that fetches its values violates nothing today. Record: [`OPEN-DECISIONS-RESOLVED.md`](OPEN-DECISIONS-RESOLVED.md) §2 |
+
+### 3.2 Escalated — the business calls. Recommendation attached; **not** taken here
+
+| # | Decision | Deadline | Recommendation · why it is not ours to take |
+|---|---|---|---|
+| **OD-1** | **The reciprocal accounting edits.** D-6 requires `accounting` to stand down `acc_stock_balances`, `acc_physical_stock_counts`, `acc_stock_journals`, `acc_cost_layers`' quantity grain and the port's `unit_cost` semantics when warehouse is installed. That is an edit to a *different* repository's design set (`neetub1508/accounting`, phase P3, tasks not yet built) | **Before accounting's `P1-04` ships `V600136`/`V600137`** — the schema lands in accounting's **P1**, not its P3 (`accounting/issues/p1-04.md:5,13,15`; `accounting/docs/DATA-MODEL.md:4291`). *(Corrected 2026-09-03 from "Before accounting's P3", per round 2's `O-001`.)* And before warehouse `P0-02` writes `whb_stock_movements` | **ESCALATED 2026-09-03 — owed to a different repository; recorded, not made.** Recommendation stands: amend the accounting set with a **third install state** ("a warehouse product is present and owns quantity"). **Two corrections and one addition**, from round 2's `O-001` and round 3's `RF-005`: the deadline is accounting's **P1**, not P3 (deadline cell); accounting's Mode C invariant *"zero change to `accounting-base`"* (`accounting/docs/ACCOUNTING-FUNCTIONAL-REQUIREMENTS.md:48`) **contradicts `D-6`** and must be relaxed in the same edit, and `accounting/docs/MODULE-INTEGRATION.md:26` still records warehouse as absent; and a **fourth reciprocal edit** — add `extended_value`, `currency_code`, `exchange_rate` and `cost_basis` to `acc_source_document_movements`, with *"where `extended_value` is present it is authoritative; `quantity × unit_cost` is never recomputed"*, because otherwise the receiver must re-cost, which `FR-446` forbids, and rounds a second time. Still free today: `V600136`/`V600137` have not shipped (32 files, 0 matches, computed 2026-09-03). [`OPEN-DECISIONS-RESOLVED.md`](OPEN-DECISIONS-RESOLVED.md) §3.2 |
+| **OD-9** | **Does `warehouse` carry a tax engine, or never compute tax?** `FR-325` has warehouse carrying one; `FR-294` and R3 `D4` say warehouse never computes tax. This decides whether 6 `whin_` tables exist — the India pack is **50 or 56 tables** depending on the answer | **Before `P2-25`**, not before `P2-IN` — `P2-25` builds the v1 table that implements the rejected option (`U-003`), so the rejected option is being built while the decision is open. *(Corrected 2026-09-03; the FRD §9 row already carried the tighter deadline.)* Gates `P2-IN-01` **and** `P4-01` | **ESCALATED 2026-09-03 — a positioning call with a liability tail, not an architecture preference.** Recommendation stands: **warehouse never computes tax**; it captures HSN, place of supply, `is_taxable_supply` frozen at creation and taxable value, and hands them over. Same three-state shape as `OD-1`. **Drops the 6 conditional tables.** Note that `U-003` records the v1 counter-sale screen already computing `tax_amount` — the rejected option is being built while the decision is open. [`OPEN-DECISIONS-RESOLVED.md`](OPEN-DECISIONS-RESOLVED.md) §3.4 |
+| **OD-3** | **One database per customer, or shared multi-tenancy?** `grep -ril "tenant" platform/backend/src/main/java` → **0 files**. Classic is one-DB-per-customer today, which is why a 3PL's clients must be an **owner dimension**, not tenants | Before `warehouse-3pl` P5 starts | **ESCALATED 2026-09-03 — a deployment and commercial call, not a schema one.** The schema half is already closed and is not open: `D-5` puts `owner_id` in v1 and in the position key, so a 3PL's clients are an **owner dimension**, never tenants. Recommendation stands: **keep one database per customer** (`grep -ril "tenant" platform/backend/src/main/java` → **0 files**). Two consequences travel with it: the second customer is a different database, so every mapping profile, import template, label template and reason-code catalogue must be exportable and importable; and `platform/…/db/client/` version numbers are deliberately reused across clients. [`OPEN-DECISIONS-RESOLVED.md`](OPEN-DECISIONS-RESOLVED.md) §3.3 |
+| **OD-8** | **How does an out-of-process consumer authenticate to the port?** `PORT-AND-ADAPTER-CONTRACT.md` `PC-33`: a `logistics` module deployed separately has nothing to authenticate with. There is no API-key table in platform (grep → 0); the only API-key path in the repo is per-handler inside the boom-barrier webhook | Before `P0` builds the port, because the auth model shapes the endpoint | **ESCALATED 2026-09-03 — the recommendation asks the platform team to build a new identity primitive, which is not this set's to decide. The warehouse-side fallback is ADOPTED so `P0-08` is not blocked**: the port ships authenticated by an ordinary user account holding `warehouse:movements:post`, and a separately deployed consumer is **not supported until v3**. This forecloses nothing — an endpoint gated by a role grant accepts a service principal unchanged on the day platform ships one. The platform ask must be answered **before `P6-08` (`logistics`) is planned**. [`OPEN-DECISIONS-RESOLVED.md`](OPEN-DECISIONS-RESOLVED.md) §3.5 |
+
+### 3.3 Open by schedule — v3, and deliberately not decided in a v1 wave
+
 | # | Decision | Deadline | Recommendation |
 |---|---|---|---|
-| **OD-1** | **The reciprocal accounting edits.** D-6 requires `accounting` to stand down `acc_stock_balances`, `acc_physical_stock_counts`, `acc_stock_journals`, `acc_cost_layers`' quantity grain and the port's `unit_cost` semantics when warehouse is installed. That is an edit to a *different* repository's design set (`neetub1508/accounting`, phase P3, tasks not yet built) | Before accounting's **P3** starts, and before warehouse `P0-02` writes `whb_stock_movements` | Amend the accounting set: add a **third install state** ("a warehouse product is present and owns quantity"). Cheap now — accounting P3 is unbuilt. Expensive once `acc_valuation_entries` has rows |
-| **OD-2** | **Does the dealer *vehicle* inventory (`pdi_vehicle_inventory`, `pdi_stock_yards`, `pdi_yard_storage_locations`, `pdi_storage_slot_assignments`) migrate onto the warehouse ledger?** A vehicle is a serial-controlled item in a location; the model fits. But it is a shipped, load-bearing dealer workflow | v3 planning, not before | **Do not migrate in v1 or v2.** Model it as a documented future adapter (`whad_`), and prove the ledger on *parts* first. Source: R7 `G-050` |
-| **OD-3** | **One database per customer, or shared multi-tenancy?** `grep -ril "tenant" platform/backend/src/main/java` → **0 files**. Classic is one-DB-per-customer today, which is why a 3PL's clients must be an **owner dimension**, not tenants | Before `warehouse-3pl` P5 starts | Keep one-DB-per-customer. `owner_id` (D-5) already carries the 3PL case. Source: R5 Fact 3 |
-| **OD-4** | **Who owns the shared supplier/counterparty master long-term?** `warehouse-base` owns `whb_counterparties` in v1 because nothing else does (`asset_vendors` is assets-owned; accessories receiving has no supplier field at all). If a supply-chain module is built in v3 it will want one too | v3 | `warehouse-base` keeps its own counterparty; any future module joins through `whb_counterparty_external_refs`. **Never** an FK from base into another module — the previous attempt at this seam died of exactly that: 84 FK references from warehouse into `scc_*`, several to tables that never existed. Source: R7 §3.3, `G-025`/`G-026` |
-| **OD-5** | **Does the frontend re-close the vocabularies the backend opens?** CLAUDE.md TYPESCRIPT RULE #6 mandates string-union types over enums; D-10 mandates open catalogues. These conflict, and R2 records it as a *documented recurring defect* in this codebase | Before the first warehouse page is written | Referred to the standards owner. Recommended: catalogue-backed dropdowns fetch their values; string unions are permitted only for **closed** system vocabularies (e.g. `posting_status`). Source: R7 `G-064` |
-| **OD-6** | **Valuation method scope in v1** — FIFO + weighted average + standard, or weighted average only? *(Who owns the layers is no longer open: **D-6** settles it — whichever system is authoritative for quantity is authoritative for cost, so with warehouse installed the layers are `whb_cost_layers`.)* | Before `P2` valuation tasks | Ship **weighted average + FIFO** in v1, with `whb_cost_layers` present and the method configurable per item category × site; standard cost with variances in v1.1. LIFO is never built (prohibited under Ind AS 2 / IAS 2) |
-| **OD-8** | **How does an out-of-process consumer authenticate to the port?** `PORT-AND-ADAPTER-CONTRACT.md` `PC-33`: a `logistics` module deployed separately has nothing to authenticate with. There is no API-key table in platform (grep → 0); the only API-key path in the repo is per-handler inside the boom-barrier webhook | Before `P0` builds the port, because the auth model shapes the endpoint | A **platform service principal** — a first-class non-human identity with role grants, so the port needs no auth mechanism of its own. It is platform work, and it is the only item in this set that platform must build for warehouse |
-| **OD-9** | **Does `warehouse` carry a tax engine, or never compute tax?** `FR-325` has warehouse carrying one; `FR-294` and R3 `D4` say warehouse never computes tax. This decides whether 6 `whin_` tables exist — the India pack is **50 or 56 tables** depending on the answer | Before `P2-IN` | **Warehouse never computes tax.** It captures the tax-relevant facts (HSN, place of supply, `is_taxable_supply` frozen at creation, taxable value) and hands them over; accounting or the compliance provider computes. Same three-state shape as `OD-1`. This drops the 6 conditional tables |
-| **OD-10** | **Is MRP a dimension of the stock position?** `FR-321`. If two MRP-labelled batches of one SKU must never merge, MRP joins the position unique key — and that key is set at `PNR-1`, warehouse's first point of no return | **Before `PNR-1`** (migration `V500030`) — this is the tightest deadline in the set | **No.** MRP belongs on the **lot**, not on the position key. A tenth key member costs every index and every rebuild; the lot already carries it and retail MRP segregation is a lot-level question. If this is wrong it is unrecoverable, so it must be answered, not assumed |
-| **OD-11** | **Do value-only movements conserve value?** `PC-12`: `L-1`…`L-14` conserve **quantity** only, and a landed-cost movement posts `quantity = 0` with a value. `FR-084`'s seeded virtual-location list has no value-offset row | Before `P2` valuation | Add a `VALUE_OFFSET` virtual location and a value-conservation invariant (`L-15`) that applies only to lines where `quantity = 0 AND unit_cost IS NOT NULL`. Cheaper than discovering that landed cost silently unbalances the value column |
-| **OD-7** | **Precision.** Quantities `DECIMAL(18,4)`? Money `DECIMAL(19,4)`? Per-unit cost `DECIMAL(19,6)`? Percentages `DECIMAL(9,6)`? Accounting took a CLAUDE.md deviation for exactly this and the percentage row was stated wrongly for three rounds | Before `P0-02` | Adopt accounting's resolved set verbatim, including the corrected `DECIMAL(9,6)` for percentages, and cite it rather than restating it |
-| **OD-12** | **The `whb_stock_movements` partition key — `occurred_at` or `posting_date`?** `FR-022` and `DATA-MODEL.md` `WHB-30` specify `PARTITION BY RANGE (occurred_at)`; `PLATFORM-DEPENDENCIES.md` `PD-D5` recommends `posting_date`. `L-13` makes these different columns, so the choice is real: `occurred_at` is what the as-at query and EPCIS want, `posting_date` is what period close and the statutory register want | **Before `PNR-1` (migration `V500030`)**, which is also `PNR-2`. A partition key cannot be added to a populated table without a rewrite | **`occurred_at`**, following `FR-022` and `WHB-30`, which is what `p0-02.md` already builds. Period close reads `posting_date` through an index, not through the partition; the reverse — an as-at query scanning every partition — is the query that runs constantly. Source: `X-024` |
-| **OD-13** | **The value-offset virtual location's code.** `OD-11` and `P2-28` call it `VALUE_OFFSET`; `PORT-AND-ADAPTER-CONTRACT.md` `PC-12` calls it `LANDED_COST_OFFSET` and offers reuse of an `ADJUSTMENT_OFFSET`-typed location. **`FR-084`'s seeded list contains none of the three** | **Before `P1-05` writes `V500013`** — the seed migration | **`VALUE_OFFSET`**, and add it to `FR-084`'s seeded list. Two documents already use it and it is the name that does not presume *why* the value moved, which matters because landed cost is not its only use. Whichever wins, the losing document must be amended, not left standing. Source: `X-029` |
-| **OD-14** | **Is value conservation a fifteenth invariant (`L-15`) or a movement-type behaviour column?** `PC-12` states the question and explicitly refuses to decide it. `DECISIONS.md` §4 stops at `L-14` and `DATA-MODEL.md` §6.3 stops at `I-20`; neither carries a value-conservation row, and `P2-17`, `P2-28` and `P3-11` all depend on the answer | **Before `P0-02`**, because the guard is a constraint on the table | **A fifteenth invariant `L-15`**, scoped to lines where `quantity = 0 AND unit_cost IS NOT NULL`, with a matching `I-21` in `DATA-MODEL.md` §6.3. `OD-11` already recommends exactly this; what is missing is the row, not the reasoning. A behaviour column puts the rule in data that a migration can edit, which is the wrong home for something the ledger's correctness rests on. Source: `X-030` |
-| **OD-15** | **Is the union valuation report (`M3`) built?** With `accessories` permanently separate (`D-9`), a finance user asking *"what is my total stock value"* gets two numbers. R3 `M3`/`E-084` says build one report that unions them; R7 §4.6 item 4 says do not, and document the separation in the UI instead | **Before `P2-20` and `P2-27` merge** — the deadline has arrived | **Do not build the union in v1.** Ship `P2-27`'s reports over warehouse stock only, and make the separation explicit on the report header and in the `D-9` cost note. A union report whose two halves use different valuation methods states a total that reconciles to nothing. Revisit at v2 if a customer asks. Source: `X-036` |
+| **OD-2** | **Does the dealer *vehicle* inventory (`pdi_vehicle_inventory`, `pdi_stock_yards`, `pdi_yard_storage_locations`, `pdi_storage_slot_assignments`) migrate onto the warehouse ledger?** A vehicle is a serial-controlled item in a location; the model fits. But it is a shipped, load-bearing dealer workflow | v3 planning, not before | **OPEN — by schedule, not by neglect.** Deadline restated: **v3 planning, not before**; `P6-09` is where it is answered and it is carried there now, per `D-12`. Recommendation unchanged: **do not migrate in v1 or v2**; model it as a documented future `whad_` adapter and prove the ledger on **parts** first. `FR-365` states the *test*, not the answer. Source: R7 `G-050` |
+| **OD-4** | **Who owns the shared supplier/counterparty master long-term?** `warehouse-base` owns `whb_counterparties` in v1 because nothing else does (`asset_vendors` is assets-owned; accessories receiving has no supplier field at all). If a supply-chain module is built in v3 it will want one too | v3 | **OPEN — by schedule, not by neglect.** Deadline restated: **v3**; `P6-06` answers it and `P1-08` proceeds regardless. Recommendation unchanged: `warehouse-base` keeps `whb_counterparties`; any future module joins through `whb_counterparty_external_refs`. **Never an FK from base into another module** — the previous attempt died of exactly that: 84 FK references into `scc_*`, several to tables that never existed. Source: R7 §3.3, `G-025`/`G-026` |
 
----
+### 3.4 Allocated 2026-09-03 by round 3 — open, escalated, and both move the v1 cut line
+
+Round 3's lenses (`reviews/R16`–`R21`, §6) produced two BLOCKERs that are not defects in a document but gaps in the
+**v1 cut line**. `DECISIONS.md` §3 owns the `OD-` namespace and no other document may allocate, so they are numbered
+here. Both are escalated: `D-12` makes the cut line a product decision.
+
+| # | Decision | Deadline | Recommendation · why it is not ours to take |
+|---|---|---|---|
+| **OD-16** | **v1 foreign-currency costing has no exchange-rate source, no field on the wire to carry one, and no statement of which currency the stored numbers are in.** `FR-245` and `WH-SC-160` are **v1** and carry a concrete rate; `PORT-AND-ADAPTER-CONTRACT.md:280-282` has no `exchange_rate` wire field; `cost_currency_code` is marked *"column v1, multi-currency v2"*. `PLATFORM-DEPENDENCIES.md` §2.12 states the problem, offers two options, **decides neither**, and is **not an `OD-` row**, so nothing gives it a deadline or an owner. Source: `RF-004`, which explicitly recommends promoting it | **Before `P0-17` writes `V500021`** (the `whb_cost_layers` DDL, which itself precedes `V500030` per `WHB-21`); `IRR-36` puts `cost_currency_code` on the line at `PNR-1`, so the earlier of the two binds. **Gates `P2-16`** and the column set of `P0-17` | **ESCALATED — the cheap answer changes what v1 *is*** ("v1 values in the install's base currency") and moves `cost_currency_code` from a v2 feature to a v1 audit trail, which is a statement to a customer. Recommendation: **v1 values in the base currency; `currency_code`/`exchange_rate` record what was paid, supplied by the producer on the line and frozen at post exactly as `conversion_factor_used` is under `L-7`** — one optional `DECIMAL(19,8)` wire field defaulting to 1, one sentence declaring `unit_cost`/`layer_value` base currency, one `CHECK` that `currency_code <> base` implies a rate. **`IRR-36` already makes this unrecoverable**: retro-fitting currency onto a cost history is guessing. ⚠ **The finding's premise has changed** — a rate table now exists in `accounting-base` (`V600040`, `acc_exchange_rates`), but `D-7` makes standalone the reference configuration and `FR-231` forbids reading it; the conclusion stands and §2.12's grep is stale. [`OPEN-DECISIONS-RESOLVED.md`](OPEN-DECISIONS-RESOLVED.md) §4.1 |
+| **OD-17** | **v1 prints a GS1-128 pallet label carrying an SSCC that v1 cannot allocate and cannot read back.** Three version cells, each defensible alone, do not compose: `FR-225` and `WH-SC-203` put the GS1-128 LPN label in **v1/P2** and `issues/p2-14.md` accepts *"encodes AI `00`"* — AI `00` **is** the SSCC; `FR-452` puts the allocator (`whb_gs1_settings`, `whb_gs1_serial_counters`, `V500056`) in **v1.1/P3**; `FR-063`'s GS1 element-string parsing is **v1.1/P3**, so v1 hands the string to a resolver that logs it unresolved. No document in the set reads two of the three together. Source: `RD-001` | **Before `P2-14` merges** — the moment a template ships is the moment the first label is printed, and `FR-064` records that a printed label cannot be recalled | **ESCALATED — both fixes move the v1 cut line** (one moves work into v1, the other takes a promised v1 capability out), and the failure is **irreversible in the physical world, not in the schema**: pallets in racking, in transit and at customers carry labels with no licence plate or a hand-typed one, and `P3-24`'s counter cannot be seeded to avoid collision because nothing recorded which values were typed. Recommendation: **(a) move the SSCC allocator into the v1 wave** — two tables plus a mod-10 function, reusing the locked-counter-row idiom `FR-426` already builds in v1. The alternative is **(b) remove the GS1-128 label from the v1 eleven** and ship a Code-128 plate carrying `lpn_code` only. **(a), because GS1-128 without an SSCC is not GS1-128.** Whichever wins, `p2-14`'s acceptance line and `WH-SC-203`'s text move with it. [`OPEN-DECISIONS-RESOLVED.md`](OPEN-DECISIONS-RESOLVED.md) §4.2 |
+
+### 3.5 Allocated 2026-09-10 by round 4 — open and escalated
+
+Round 4's lenses (`reviews/R22`–`R26`, §6) produced two questions that a person must answer. They are numbered here,
+because this section owns the `OD-` namespace. After them, nineteen rows stand and the next free id is `OD-20`. Neither
+blocks the fold of round 4: each has a safe default already written into the design. Disposition:
+[`GAP-REGISTER-R4.md`](GAP-REGISTER-R4.md) §5.
+
+| # | Decision | Deadline | Recommendation · why it is not ours to take |
+|---|---|---|---|
+| **OD-18** | **What does the product record for a drop-shipment?** A drop-shipment is goods bought from a supplier and shipped by that supplier straight to a customer, never touching a warehouse. R7 asked for a decision in v1 with the implementation in v2 (`G-037`); nothing decided it. The movement model has one answer that costs nothing now — a virtual-to-virtual movement — but the product must say what it claims to track. Source: `RK-005` | Before the first purchase of a drop-shipped part is posted in any install; the v2 posting itself is built by `P5-09`, which is blocked on this row | **ESCALATED — it decides what the product claims to track for goods it never touches, a positioning statement to a customer.** Recommendation (R25): **one movement `SUPPLIER → CUSTOMER`** in v2, with both the purchase order and the sales order in its source quad, serial and lot capture mandatory where the item is tracked, and no stock position ever created. In v1 a drop-shipment is simply not recorded by warehouse. **Nothing is seeded in v1**: movement types live in `V500003`, not `V500013` as R25 wrote, and `D-10` lets any module seed the type once this row is answered |
+| **OD-19** | **What is the statutory treatment of on-hand stock when a site's `REGISTERED` branch moves to a branch under a different GSTIN?** `D-14` makes a registration change a dated history event. Goods held at that instant move from one registration to another, and the design set cannot say whether that is a supply, a transfer of a going concern, or an amendment of the place of business. Source: `RG-001` (R22 §1.2.6) | **Before `P1-05` ships the *Change registration* action** on `WS-016`. The history table itself (`V500012`) does not wait: it is correct under every answer | **ESCALATED — a tax question with a liability tail.** The design's **safe default is already in force and stays until this is answered**: the change is **refused** while the site holds any stock under a different GSTIN. The operator empties the site by transfers, which are taxable supplies documented under the existing rules, and then repeats the change. This is operationally costly but never wrong. If an adviser rules otherwise, `P1-05`'s guard 4 is relaxed and `P4-03`'s Rule 56 split reads the switch instant, with no schema change. The INDIA-LOCALISATION-PACK RE-VERIFY register carries the statutory check |
 
 ## 4. L — the load-bearing invariants
 
@@ -360,7 +471,7 @@ and not know which won.
 
 ## 6. Id namespaces — disjoint by construction
 
-<!-- check-design-set: screen-citations begin WS-238 — the BUILD-SPEC-SCREENS.md §1 allocation marker — the next free screen id, which by definition has no row yet. Named so a new screen takes it instead of reusing another screen's grid -->
+<!-- check-design-set: screen-citations begin WS-238 WS-239 WS-240 WS-241 WS-242 — the BUILD-SPEC-SCREENS.md §1 allocation marker and the ids reserved or allocated ahead of it: WS-238/WS-239 reserved for round 3's RA-001/RA-002, WS-240/WS-241 allocated by GAP-REGISTER-R4.md §4.0, WS-242 the next free. None has a row yet; named so a new screen takes the marker instead of reusing another screen's grid -->
 
 The accounting set's most expensive defect was three different things sharing one namespace, which a
 late rename could not repair because a blanket search-and-replace corrupted the decisions table twice.
@@ -372,11 +483,11 @@ That cannot happen here.
 | Requirements | **`FR-001` …** | `WAREHOUSE-FUNCTIONAL-REQUIREMENTS.md` |
 | Decisions | **`D-1` …** | this file |
 | Open decisions | **`OD-1` …** | this file |
-| Invariants | **`L-1` … `L-14`** | this file |
-| Enforceable constraints | **`I-1` … `I-20`** | `DATA-MODEL.md` §invariants-as-SQL |
-| Irreversible rows | **`IRR-01` … `IRR-63`** | `IRREVERSIBLE.md` §2 |
+| Invariants | **`L-1` … `L-14`** — plus **`L-15`, allocated 2026-09-03** by `OD-14` and **owed into §4**, which still stops at `L-14`. The row is written verbatim in [`OPEN-DECISIONS-RESOLVED.md`](OPEN-DECISIONS-RESOLVED.md) §2 so the later wave transcribes rather than re-derives it | this file |
+| Enforceable constraints | **`I-1` … `I-20`** — plus **`I-21`, allocated 2026-09-03** by `OD-14` as `L-15`'s database guard and **owed into `DATA-MODEL.md` §6.3**, which still stops at `I-20`. Allocating it here rather than there is deliberate: §6 is the allocation, and an id claimed in two places is the collision this table exists to prevent. **`I-22`, `I-23`, `I-24`** were **allocated 2026-09-10** by `GAP-REGISTER-R4.md` §4.0 and are owed into §6.3 after `I-21`: `I-22`, a movement at an instant with no `REGISTERED` link is refused (`V500030`); `I-23`, the `REGISTERED` history is exclusive and append-only (`V500037`); `I-24`, a rule row that a reservation or task references is immutable (`V500031`, `V500033`, `V510017`) | `DATA-MODEL.md` §invariants-as-SQL |
+| Irreversible rows | **`IRR-01` … `IRR-63`** — plus **`IRR-64` … `IRR-67`, allocated 2026-09-10** by `GAP-REGISTER-R4.md` §4.0 and owed into `IRREVERSIBLE.md` §2: registration history, v1 junction history, the outbox event schema, and non-ledger partitioning at `CREATE`. The next free is `IRR-68` | `IRREVERSIBLE.md` §2 |
 | Scenarios | **`WH-SC-001` …** | `SCENARIO-CATALOGUE.md` |
-| Screens | **`WS-001` … `WS-237`** | `BUILD-SPEC-SCREENS.md` §1 — the index is the allocation; the next free is `WS-238` |
+| Screens | **`WS-001` … `WS-237`** — **`WS-238` and `WS-239` are reserved** for round 3's `RA-001`/`RA-002` (`GAP-REGISTER-R3.md` §4.4). **`WS-240`** *Trade Portal* and **`WS-241`** *Approval Levels* were **allocated 2026-09-10** by `GAP-REGISTER-R4.md` §4.0 | `BUILD-SPEC-SCREENS.md` §1 — the index is the allocation; the next free is `WS-242` |
 | Findings — R1 codebase reality | **`C-001` … `C-050`** | `reviews/R1` |
 | Findings — R2 tier-1 WMS | **`T-001` … `T-097`** | `reviews/R2` |
 | Findings — R3 ERP / mid-market | **`E-001` … `E-090`** | `reviews/R3` |
@@ -392,6 +503,17 @@ That cannot happen here.
 | Findings — R13 non-functional & operability | **`K-001` … `K-006`** | `reviews/R13` |
 | Findings — R14 codebase & sibling re-verify | **`O-001` … `O-007`** | `reviews/R14` |
 | Findings — R15 competitor round 2 | **`J-001` … `J-008`** | `reviews/R15` |
+| Findings — R16 role & persona completeness | **`RA-001` … `RA-008`** | `reviews/R16` |
+| Findings — R17 screen & field buildability | **`RB-001` … `RB-009`** | `reviews/R17` |
+| Findings — R18 reporting & analytics completeness | **`RC-001` … `RC-009`** | `reviews/R18` |
+| Findings — R19 integration, device & channel surface | **`RD-001` … `RD-008`** | `reviews/R19` |
+| Findings — R20 configuration & day-one setup | **`RE-001` … `RE-008`** | `reviews/R20` |
+| Findings — R21 money, costing & billing | **`RF-001` … `RF-010`** | `reviews/R21` |
+| Findings — R22 cardinality & junctions | **`RG-001` … `RG-027`** | `reviews/R22` |
+| Findings — R23 platform alignment | **`RH-001` … `RH-012`** | `reviews/R23` |
+| Findings — R24 workflow contract completeness | **`RJ-001` … `RJ-018`** | `reviews/R24` |
+| Findings — R25 competitor gap, round 3 | **`RK-001` … `RK-009`** | `reviews/R25` |
+| Findings — R26 extensibility & future-proofing | **`RL-001` … `RL-017`** | `reviews/R26` |
 | Traps — R1 §8 | **`T-1` … `T-18`**, unpadded | `reviews/R1` §8 |
 
 `P-` (prior art) and `Pn-nn` (tasks) are distinguishable because a task id always carries a phase digit
@@ -415,6 +537,70 @@ against the whole repository before allocation — the eight letters `Q H U Y Z 
 letters that were free — and `check-design-set.py` check 7 resolves each of the 62 round-2 citations
 against its own authority exactly as it does the round-1 registers. `GAP-REGISTER-R2.md` holds the
 disposition of all 62.
+
+**The six round-3 rows were added on 2026-09-03, and they are the first two-letter registers in this
+set. The two letters are not a style choice — the single-letter space is exhausted.** Round 3 ran six
+lenses (`reviews/R16`–`R21`) and needed six registers; the alphabet had one to give.
+
+```bash
+# every finding id of the shape LETTER-digits, by letter, across the whole set
+for L in A B M N R V W; do printf '%s: ' "$L"; \
+  grep -rnoE "\b${L}-[0-9]{1,3}\b" docs/ issues/ tools/ | wc -l; done
+# -> A 289 · B 5 · M 0 · N 4 · R 37 · V 3 · W 4
+
+# the two-letter space, run BEFORE allocation on 2026-09-02  -> nothing
+# re-run today it returns only the six round-3 reviews themselves, and nothing else:
+grep -rlE "\bR[A-Z]-[0-9]{1,3}\b" docs/ issues/ tools/
+# -> docs/reviews/R16 R17 R18 R19 R20 R21
+```
+
+Fifteen letters are already finding registers (seven from round 1, eight from round 2), on top of
+`D-`, `L-`, `I-` and `X-`. Of the seven that look free, **only `M` is free**, and one letter is not
+six:
+
+- **`A`** is `§5.1`'s ladder amendments `A-1`…`A-4` — 289 mentions, load-bearing.
+- **`B`** collides: **`B-04` is a rack label** in a worked example in `reviews/R2`:828, quoted into
+  the FRD at `:222` and into `reviews/R18` at `:657` and `:673`. A finding id that is also a physical
+  location reads wrong in both directions.
+- **`N`** collides: `N-045` and `N-043` are **citations into the *accounting* set's register**
+  (`IRREVERSIBLE.md`:251, `reviews/R5`). A cross-set citation that silently resolves to a local
+  finding is the failure this table exists to prevent.
+- **`R`** is the **rounding-rules register** `R-1`…`R-5` in `DATA-MODEL.md`:2125 — and `R` is also the
+  review-file prefix, so `R-1` beside `R1` is exactly the `I-`/`IRR-` hazard recorded below.
+- **`V`** is a citation into the accounting register (`V-3`, `reviews/R14`:159) and is the Flyway
+  prefix. **`W`** is a small local register in `reviews/R6` (`W-1`, `W-3`, `W-5`, `W-6`).
+
+**Renumbering a review to free a letter is forbidden** — the rule is already stated below: a review is
+a dated record of what was found, and rewriting its ids makes every external citation of it wrong.
+
+**Two letters are unambiguous under the same hyphen rule this section already uses to separate `O-`
+from `OD-`.** `FINDING_CITE_RE` requires a hyphen immediately after the register prefix, so `OD-1`
+can never be read as an `O-` finding. The identical mechanism separates the six new registers from
+every single letter and from each other: `RA-001` has no hyphen after `R`, so it is not an `R-` id;
+`R-2` has no letter after `R`, so it is not an `RA-` id. Mechanical, not editorial.
+
+**One obligation follows, and it is not discharged.** `tools/check-design-set.py`'s
+`FINDING_CITE_RE` is `\b([CTEFSPGQHUYZKOJ])-(\d{1,3}[a-z]?)\b(?!-\d)` — a **single-letter** class, so
+it does not match `RA-001`…`RF-010` **at all**. Round-3 citations therefore pass CI because they are
+**invisible to check 7, not because they resolve**. `FINDING_CITE_RE`,
+`RULE_TOKEN_RE["finding-citations"]`, `REVIEWS` and `FINDING_DEF_RE` must all be extended to admit the
+two-letter registers so that a round-3 citation is resolved against its own authority exactly as a
+round-1 citation is. **A later wave does it; until then every `RA-`…`RF-` citation in this set is
+unchecked**, and that is recorded rather than assumed.
+
+**The five round-4 rows were added on 2026-09-10, and the obligation above is discharged with them.**
+Round 4 ran five lenses (`reviews/R22`–`R26`) and took five more two-letter registers under the same
+hyphen rule: `RG`, `RH`, `RJ`, `RK` and `RL`.
+- **`RI` is skipped on purpose.** `I` beside `1` is the `I-`/`IRR-` hazard recorded below, and `RI-001`
+  would read like a mis-typed `R1` citation.
+- **`tools/check-design-set.py` now admits every two-letter register:** `FINDING_CITE_RE` and
+  `RULE_TOKEN_RE["finding-citations"]` take `R[A-HJ-L]`, and `REVIEWS`, `FINDING_DEF_RE`,
+  `REVIEW_LABEL` and `AUTHORITY_STEM` carry R22–R26. So a round-3 or round-4 citation resolves against
+  its own authority, or fails.
+- **Negative test, run 2026-09-10:** an undefined `RG-` id cited in a doc failed check 7, and the
+  citation was removed.
+- `GAP-REGISTER-R4.md` holds the disposition of all 83 findings.
+
 
 **Three of the rows above were added on 2026-09-02, and two of them are the record of a collision that
 had already happened.** They are stated here rather than only in the documents that own them, because

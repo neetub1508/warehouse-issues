@@ -1,5 +1,7 @@
 # Competitor benchmark — where the Classic Warehouse product stands against the market
 
+<!-- check-design-set: issue-citations file #2 #9 — `#2` and `#9` are ordinals in prose, not issue references — *Refusal #2*, *Adapter #2 (services)*, *ship-blocker #2*, *logistics needs #1, #2, #3, #5, #6, #10* — and at COMPETITOR-BENCHMARK.md:70/:146 `#9` is the markdown in-page anchor `[§9](#9--where-the-audits-disagree)`. In this repository `#2` and `#9` are in fact the two **pull requests** opened while the backlog was being filed, so no issue row can ever exist for either: see issues/CREATED.md -->
+
 > **Authority.** [`DECISIONS.md`](DECISIONS.md) wins over this document on every question of module
 > names, Flyway bands, table prefixes, invariants and the version ladder. This document does not
 > re-decide anything; it reads the five audits against that spine and turns them into one picture a
@@ -145,6 +147,10 @@ case, to a buyer whose *parts catalogue* and *Indian statutory shape* no generic
 depends on one. `‡` marks a row where the audits disagree with each other or with the `DECISIONS.md`
 ladder — all sixteen are consolidated in [§9](#9--where-the-audits-disagree).
 
+**Eight rows added 2026-09-10** (`RK-009`) carry `reviews/R25` §2.0's per-product marks, collapsed to
+the six segments by §0.2's modal rule (`Y` → `●`, `P` → `◐`, `N` → `○`, `?` kept). R25 scored no DMS
+product, so their DMS cell is `–`. Each names its R25 row and finding.
+
 ### 2.1 Item master & identity
 
 | Capability | T1 | ERP | SMB | IN | DMS | 3PL | Ours · version |
@@ -216,6 +222,7 @@ ladder — all sixteen are consolidated in [§9](#9--where-the-audits-disagree).
 | Location **type** vocabulary driving behaviour | ● | ● | ◐ | ○ | ◐ | ● | **v1** catalogue, no CHECK (D-10) |
 | **Virtual locations** — in-transit · supplier · customer · job-worker · scrap · adjustment · opening | ● | ● (Odoo ●) | ○ | ○ | ○ | ◐ | **v1 — non-negotiable** (L-1, `T-009`, `S-069`). Without them the ledger cannot net to zero |
 | Warehouse bound to a legal entity + tax registration + state code | ◐ | ◐ (localised) | ○ | ● | ● | ◐ | **v1** (`E-048`, `S-022`) |
+| **Selling branch ≠ fulfilling site** — which branch may sell or issue from which warehouse, under which GSTIN | ◐ (EWM ●, BY ?) | ◐ (B1 ?) | ? (Zoho ●) | ◐ (UNI ●, EEC ●) | – | ◐ (SHH ●) | **v1** — dated `whb_warehouse_branches` links with one `REGISTERED` branch (`D-14`, `FR-460`); a same-GSTIN counter posts directly, another GSTIN draws by taxable transfer, `422 CROSS_GSTIN_COUNTER_SALE` (`FR-461`). R25 row 1, `RK-002` |
 | **Commingle policy per location** + dedicated owner | ● | ◐ | ○ | ○ | ○ | ● (IFP ◐, SHH ○) | **v1 column** (`F-003`) |
 | Capacity constraints: weight · volume · height · LPN count · unit count | ● | ● | ◐ | ◐ | ○ | ● | **v1 columns** / v1.1 enforcement |
 | Mass location generator (aisle × rack × level) | ● | ? | ? | ? | ? | – | **v1** (`T-024`) — nobody keys 4,000 bins by hand |
@@ -257,6 +264,8 @@ ladder — all sixteen are consolidated in [§9](#9--where-the-audits-disagree).
 | **Allocation as an open-item ledger** with a holder quad and an expiry, not a counter | ● | ● soft / ◐ hard | ◐ | ○ | ◐ | ● | **v1** (L-10, `T-014`, `F-028`) |
 | Negative-stock policy per site × item — block · warn · allow | ● | ● | ● | ● | ● | ◐ | **v1**, default block (L-6, `T-025`, `S-076`, `F-090`) |
 | Inter-site transfer with **in-transit as a real location** (three legs) | ● | ● | ◐ (Cin7 ●) | ◐ | ● | ◐ | **v1** ‡ (`E-032`, `S-069`; R2 placed the three-leg document v1.1) |
+| **Transfer request** raised by the receiving branch; the source approves, part-approves or rejects | ◐ (MAN ?, BY ○) | ●/◐ (NS ●, B1 ●) | ◐ | ◐ (UNI ?, Tally ?) | – | ○ (LGW ?) | **v1** (`FR-462`, `P2-02`) — approval reserves through the demand model; the refused remainder is logged as insufficient-stock demand. R25 row 3, `RK-001` |
+| Transfer between two **legal entities** in one install | ○ (EWM ◐) | ● (B1 ?) | ? (Cin7 ◐) | ? (VIN ●) | – | ? | **v1 refusal** `422 CROSS_COMPANY_TRANSFER` (`P1-17`) · **v2** linked demand order + purchase order, never a transfer (`FR-465`, `P1-17`'s v2 increment). R25 row 30, `RK-007` |
 | Adjustment with a **mandatory reason code from a closed, tax-mapped catalogue** | ● | ● | ● | ◐ | ● | ● | **v1** (`T-010`, `S-028`, `E-033`) — free text for a year cannot be reclassified |
 | **Three timestamps** — occurred · recorded · posting date | ◐ (EWM ● posting ≠ entry) | ◐ | ○ | ◐ | ? | ◐ (CAM ●, EXT ●) | **v1** (L-13, `S-007`, `F-083`, `T-018`) |
 | Idempotent ingestion with a **producer-supplied** key | ● / ◐ | ● | ◐ | ○ | ◐ | ◐ (SST ●, FBA ●) | **v1** (L-9, `T-091`, `F-081`) |
@@ -272,6 +281,7 @@ ladder — all sixteen are consolidated in [§9](#9--where-the-audits-disagree).
 | Full physical count with a freeze / snapshot of book quantity | ● | ● | ● | ● | ● | ● | **v1** (`S-091`, `E-038`) |
 | Cycle count by zone / location range / aisle sweep | ● | ● | ◐ (SkuVault ●) | ◐ | ● | ● | **v1** |
 | Cycle count driven by ABC / count class on a schedule | ● | ● | ◐ | ◐ | ● | ● | **v1.1** |
+| ABC class **computed** by the product from issue value, not maintained by hand | ◐ (BY ?) | ● (NS ◐, B1 ?) | ● (Cin7 ?) | ●/◐ (VIN ?) | – | ? | **v1.1** simple recompute (`FR-463`, `P1-03`'s v1.1 increment); a v1 `ABC` programme counts by manually maintained classes; velocity/XYZ **v3**. R25 row 23 (scored with ageing), `RK-003` |
 | Blind count (book quantity hidden from the counter) | ● | ● | ● | ◐ | ● | ● | **v1** — a flag on the header, cheap now (`T-089`) |
 | **`count_snapshot_quantity` on the count line** | – | – | – | – | – | – | **v1** (`S-091`). Variance against a live quantity is not reproducible |
 | Variance tolerance by qty % **and by value**, approval before posting | ● | ● | ◐ | ◐ | ● | ● | **v1** approval (`T-090`, `E-038`) / v1.1 tolerance table |
@@ -297,6 +307,7 @@ ladder — all sixteen are consolidated in [§9](#9--where-the-audits-disagree).
 | Order edit after release with automatic de-allocation | ● | ◐ | ◐ | ◐ | ? | ◐ | **v1.1** ‡ (`F-034`; R2 said v2) — the most-requested and least-designed feature in every WMS |
 | Cancel after allocation → deterministic de-allocation | ● | ● | ◐ | ◐ | ● | ● | **v1** — impossible with a counter (`T-014`) |
 | Order split / sourcing across sites (DOM) | ● (Manhattan/BY DOM) | ◐ | ○ | ○ | ○ | ◐ | **NO** — refusal #2, that is an OMS |
+| **Drop-ship** — the supplier ships straight to the customer | ◐ | ● | ● (Fishbowl ?) | ? (VIN ●, INC ●) | – | ● | **v2**, gated on `OD-18` (`FR-467`, `P5-09`); the movement type is not seeded in v1. R25 row 5, `RK-005` |
 | Pick confirmation validates the scan (location · item · lot · serial · qty) | ● | ● | ● | ◐ | ● | ● | **v1.1** (`T-050`) |
 
 ### 2.10 Packing, shipping, carriers — including the Indian carrier surface
@@ -330,6 +341,7 @@ ladder — all sixteen are consolidated in [§9](#9--where-the-audits-disagree).
 | Min / max per item × **location** | ● | ● | ◐ | ◐ | ● | ● | **v1.1** |
 | Pick-face replenishment — min/max, demand-driven, top-off, break-case, emergency | ● | ◐ | ◐ | ◐ | ○ | ◐ | **v1.1** min/max · **v2** the rest |
 | Replenishment run producing an **order document**, not a grid to retype | ○ (suggestions only) | ● | ● | ◐ | ● | ◐ | **v1.1** (`E-040`) |
+| **Reorder alert** — a scheduled run tells the buyer when stock falls below the reorder point | ? (BY ◐) | ◐ (B1 ?) | ◐ (Cin7 ?) | ◐ (UNI ●, Tally ?) | – | ? | **v1** nightly scheduled replenishment run, in-app + email to the site's buyer role, no auto-PO (`FR-253`, `P2-15`). R25 row 13, `RK-004` |
 | **Computed best stocking level** from demand hits, with phase-in / phase-out | ◐ | ● (NetSuite ●, D365 ●) | ◐ (Finale ●) | ○ | ● | ○ | **v2** (`E-066`) — **the row that decides the DMS fight** |
 | **Lost-sale capture** | ○ | ○ | ○ | ○ | ● | ○ | **v1.1** (`E-067`, `S-063`) — upstream of the entire KPI set |
 | Reason codes that exclude adjustments / warranty from demand history | – | – | – | – | – | – | **v1 column** `affects_demand_history` (`E-033`) — without it a write-off inflates the reorder point |
@@ -399,6 +411,7 @@ ladder — all sixteen are consolidated in [§9](#9--where-the-audits-disagree).
 | Billing run with a frozen approved state; dispute and credit | ● | ○ | ○ | ◐ | ○ | ● (dispute: EXT ◐, LGW ○) | **v2** (`F-019`, `F-020`) |
 | **Invoice handed to accounting AR — the WMS prints none** | ● | – | – | ● | – | ● | **v2** AR envelope (`F-021`) — refusal #16 |
 | Client portal — stock, order entry, ASN, returns, reports, document vault | ● (EWM ○) | ◐ | ○ | ● | ○ | ● | **v2** (`F-008`) on the platform public/no-login foundation |
+| **B2B trade-customer portal** — an independent garage checks availability and orders | ? (BY ◐) | ◐ (Odoo ●, B1 ?) | ◐ (Cin7 ●, Fishbowl ?) | ◐ (UNI ?, INC ?, Tally ○) | – | ◐ (SHH ○) | **v2** (`FR-464`, `P5-08`, `WS-240`) — availability as a flag, `DRAFT` orders, no pricing engine, no payment. R25 row 20, `RK-006` |
 | Per-owner numbering series | ● | ◐ | ○ | ● | ○ | ● (SHH ○) | **v2** (`F-007`) |
 | **Mixed-owner movement balancing per `(owner, item)`**, not per movement | ? | ? | ○ | ○ | ○ | ◐ (LGW ○, SHH ○, FUL ○) | **v1** (`F-059`) — **ahead of the segment.** A 3PL's own packaging consumed against a client's order is one atomic event |
 | Client SLA definition, measurement, breach record, service credit | ● | ○ | ○ | ● | ○ | ● / ◐ (penalties mostly ○) | **v2** SLA · **v3** penalties (`F-075`, `F-078`) |
@@ -467,6 +480,7 @@ ladder — all sixteen are consolidated in [§9](#9--where-the-audits-disagree).
 | **The auditor's five artefacts** — as-at ledger · movement export · adjustment analysis by reason/user/value · count history · immutability evidence | – | – | – | – | – | – | **v1.1** (`S-083`) |
 | Configurable dashboards / control tower | ● | ● | ◐ | ◐ | ◐ | ● | **PLATFORM** + **v2** |
 | **A metric explainer stating each KPI's definition** | – | – | – | – | – | – | **v1.1** (R3 §4.7) — a KPI a manager cannot reproduce by hand is a KPI they will not trust |
+| **Multi-level approvals** by value band | ? (EWM ◐) | ● (Odoo ◐, B1 ?) | ◐ (Zoho ●) | ? (UNI ◐, EEC ◐) | – | ? | **v1** single step (`FR-408`) · **v2** ordered, value-banded levels — a bounded table, not a workflow engine (`FR-466`, `P2-23`'s v2 increment, `WS-241`). R25 row 25, `RK-008` |
 
 ### 2.18 Integration, extensibility and non-functional
 
@@ -852,7 +866,8 @@ Restated from R4 §5.3 because it is the thing that fails first:
 
 ## §7 · Deliberate refusals
 
-**27 source rows → 23 distinct topics.** R2 §4 contributes 15, R4 §5.5 contributes 12, and four pairs
+**31 source rows → 27 distinct topics.** R2 §4 contributes 15, R4 §5.5 contributes 12, R25 §4.2
+contributes 4 (rows 24–27, added 2026-09-10; none merges), and four pairs
 merge: R2#3+R2#7 with R4#5 (labour standards and slotting), R2#5 with R4#6 (automation control),
 R2#8 with R4#8 (forecasting), R2#10 with R4#10 (rules engine / expression language). The merge list
 *is* the method — see [§10](#10--counts-and-how-they-were-computed).
@@ -890,6 +905,10 @@ proposal for the product owner, not a finding of either audit.
 | 21 | **A second grid-preferences or filter mechanism for the client portal** | R4#9 | — (a standing hazard, not a competitor gap) | The portal is a permission surface over the existing grids. Two mechanisms is how 40 grid identifiers become 80 | — |
 | 22 | **Offline-*writing* thick-client operation** (offline authority) | R4#11 | some legacy WMS | The port's idempotency and batch endpoints already give a scan gun offline **capture** with deferred sync, which is the actual requirement. Offline *authority* would falsify the append-only sequence and the hash chain simultaneously | **None.** The honest answer to offline authority is *"not this product"*. Offline capture is v1.1 (`S-086`, `F-092`) |
 | 23 | **Yard and trailer management** | R4#12 | Made4net · Deposco `◐` · CartonCloud `◐` · Manhattan · Blue Yonder · SAP EWM YM · Infor | The dock door is ours; the yard beyond it is transport | The future `logistics` module. `wh_dock_appointments` is the join and it exists in v2 (`F-080`, R7 §2.3) |
+| 24 | **A vendor / supplier portal** — suppliers acknowledge POs, post ASNs, see payments | R25 §4.2 a | D365 vendor collaboration · Vinculum · NetSuite (view-only) · Increff | A dealer's dominant supplier is the OEM, which runs its own portal and will not log into ours; the long tail sends a WhatsApp and an invoice PDF. A public attack surface with no user | `J-005`'s document capture over `doc-ocr-ai` reads the supplier's paper instead. ASN ingestion stays an API |
+| 25 | **Per-channel marketplace catalogue management** — listing, content and price sync per marketplace | R25 §4.2 b | Unicommerce · EasyEcom · Vinculum · Increff | §4.3 already concedes connector breadth; this is the catalogue half of the same thing, and it belongs to the seller's channel tool | `FR-209` publishes *stock*; the channel tool owns the listing |
+| 26 | **A generic workflow designer** — draw any approval graph | R25 §4.2 c | D365 workflow editor · NetSuite SuiteFlow · SAP flexible workflow | Refusal #10 in a workflow costume. `RK-008`'s bounded level table covers what a dealer asks for | A new **bounded** column on `wh_approval_levels` (`P2-23`), reviewed once |
+| 27 | **Sale-or-return consignment *to* customers with automatic invoicing on non-return** | R25 §4.2 d | Vinculum `◐` · several Indian distribution ERPs | Stock at a customer is already modelled (`FR-113`, consignment out). *Converting* it to a sale on a date is a receivable decision, which refusal #18 / `FR-274` keep out of warehouse | Emit the aged consignment-out position; accounting or the channel invoices |
 
 ---
 
@@ -1045,9 +1064,10 @@ Run from `/Users/bbhushan/work/git/workspace/warehouse-issues/docs/reviews`.
 | R3 costs of the `accessories` separation | **11** (C1–C11) | `awk '/^### 5.2 What the buyer actually loses/,/^### 5.3/' R3-erp-midmarket-audit.md \| grep -cE '^\| C[0-9]+ \|'` |
 | Refusal rows in R2 §4 | **15** | `awk '/^# §4 — WHAT WE SHOULD DELIBERATELY NOT BUILD/,/^# §5/' R2-tier1-wms-audit.md \| grep -cE '^\| [0-9]+ \|'` |
 | Refusal rows in R4 §5.5 | **12** | `awk '/^## 5.5 What we should deliberately NOT build/,/^## 5.6/' R4-fulfilment-3pl-audit.md \| grep -cE '^\| [0-9]+ \|'` |
-| **Distinct refusal topics** | **23** from 27 rows | Hand-merge of four pairs, listed at the head of §7: R2#3+R2#7↔R4#5, R2#5↔R4#6, R2#8↔R4#8, R2#10↔R4#10. 15 + 12 − 4 = 23 |
+| Refusal rows in R25 §4.2 | **4** | `awk '/^### 4.2/,/^## §5/' R25-competitor-gap-r3.md \| grep -cE '^\| [a-d] \|'` |
+| **Distinct refusal topics** | **27** from 31 rows | Hand-merge of four pairs, listed at the head of §7: R2#3+R2#7↔R4#5, R2#5↔R4#6, R2#8↔R4#8, R2#10↔R4#10; R25's four merge with nothing. 15 + 12 + 4 − 4 = 27 |
 | Named competitor products in the six segment columns | **68** | Enumerated in §0.2: 8 tier-1 + 8 ERP + 10 SMB + 12 India + 7 DMS + 18 3PL/eComm + 4 Indian carriers + 1 cautionary (QuickBooks Commerce/TradeGecko) |
-| Rows in this document's consolidated matrix (§2, 18 areas) | **236** | `sed -n '148,492p' ../COMPETITOR-BENCHMARK.md \| grep -E '^\|' \| grep -vE '^\|-' \| grep -vcE '^\| Capability \|'` — lines 148–492 are §2.1 to the start of §3; 272 table lines less 18 header rows and 18 separator rows |
+| Rows in this document's consolidated matrix (§2, 18 areas) | **244** | `sed -n '148,507p' ../COMPETITOR-BENCHMARK.md \| grep -E '^\|' \| grep -vE '^\|-' \| grep -vcE '^\| Capability \|'` — lines 148–507 are §2.1 to the start of §3; 280 table lines less 18 header rows and 18 separator rows. 236 until 2026-09-10, when `RK-009` added eight |
 | Disagreements between audits or with the ladder | **16** | §9 table, hand-compiled; each is marked `‡` at its point of use |
 
 <!-- check-design-set: finding-citations end -->

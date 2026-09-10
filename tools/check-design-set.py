@@ -23,8 +23,8 @@ Checks
    4  every Flyway version is claimed by exactly one task, inside its module's declared band
    5  every #NN issue cross-reference resolves to a row in issues/CREATED.md
    6  every task file carries the six required sections
-   7  every finding id cited (round 1 C/T/E/F/S/P/G, round 2 Q/H/U/Y/Z/K/O/J) resolves to a
-      real finding in its owning review
+   7  every finding id cited (round 1 C/T/E/F/S/P/G, round 2 Q/H/U/Y/Z/K/O/J, round 3 RA-RF,
+      round 4 RG/RH/RJ/RK/RL) resolves to a real finding in its owning review
    8  every task in IMPLEMENTATION-PLAN.md §2 has a file, and every file is in the plan
    9  every task appears in exactly one phase epic's __TASKS__ / checklist region
   10  every FR-nnn is owned by exactly one task
@@ -104,6 +104,26 @@ REVIEWS = {
     "K": "docs/reviews/R13-non-functional-and-operability.md",
     "O": "docs/reviews/R14-codebase-and-sibling-set-reverification.md",
     "J": "docs/reviews/R15-competitor-benchmark-r2.md",
+    # round 3 — six orthogonal lenses. The single-letter space was exhausted at allocation time:
+    # `M` alone was free (`R-1`…`R-5` are DATA-MODEL.md rounding rules, `V-3` and `W-n` are live
+    # registers, `B-04` is a rack label in R2 and `N-045` a citation into the accounting set), so
+    # round 3 takes a two-letter register. `RA`…`RF` were grep-verified free of the whole tree
+    # before allocation and stay unambiguous under the same letter-then-hyphen rule that separates
+    # `O-` from `OD-`.
+    "RA": "docs/reviews/R16-role-and-persona-completeness.md",
+    "RB": "docs/reviews/R17-screen-and-field-buildability.md",
+    "RC": "docs/reviews/R18-reporting-and-analytics-completeness.md",
+    "RD": "docs/reviews/R19-integration-device-and-channel-surface.md",
+    "RE": "docs/reviews/R20-configuration-and-day-one-setup.md",
+    "RF": "docs/reviews/R21-money-costing-and-billing.md",
+    # round 4 — five lenses. `RG` `RH` `RJ` `RK` `RL` continue the two-letter series; `RI` is skipped
+    # because `I` beside `1` is the `I-`/`IRR-` hazard DECISIONS.md §6 records. All five were
+    # grep-verified free of the tree before allocation (each lens prints its own check).
+    "RG": "docs/reviews/R22-cardinality-and-junctions.md",
+    "RH": "docs/reviews/R23-platform-alignment.md",
+    "RJ": "docs/reviews/R24-workflow-contract-completeness.md",
+    "RK": "docs/reviews/R25-competitor-gap-r3.md",
+    "RL": "docs/reviews/R26-extensibility-and-future-proofing.md",
 }
 
 # Each review anchors its findings differently. These are the *definition* anchors, not citations:
@@ -125,6 +145,19 @@ FINDING_DEF_RE = {
     "K": re.compile(r"^###\s+`K-(\d{3})`"),
     "O": re.compile(r"^###\s+`O-(\d{3})`"),
     "J": re.compile(r"^###\s+`J-(\d{3})`"),
+    # The six round-3 lenses share one anchor, as round 2's eight do.
+    "RA": re.compile(r"^###\s+`RA-(\d{3})`"),
+    "RB": re.compile(r"^###\s+`RB-(\d{3})`"),
+    "RC": re.compile(r"^###\s+`RC-(\d{3})`"),
+    "RD": re.compile(r"^###\s+`RD-(\d{3})`"),
+    "RE": re.compile(r"^###\s+`RE-(\d{3})`"),
+    "RF": re.compile(r"^###\s+`RF-(\d{3})`"),
+    # The five round-4 lenses share the same anchor.
+    "RG": re.compile(r"^###\s+`RG-(\d{3})`"),
+    "RH": re.compile(r"^###\s+`RH-(\d{3})`"),
+    "RJ": re.compile(r"^###\s+`RJ-(\d{3})`"),
+    "RK": re.compile(r"^###\s+`RK-(\d{3})`"),
+    "RL": re.compile(r"^###\s+`RL-(\d{3})`"),
 }
 REVIEW_LABEL = {
     "C": "R1 codebase reality", "T": "R2 tier-1 WMS", "E": "R3 ERP / mid-market",
@@ -134,6 +167,12 @@ REVIEW_LABEL = {
     "U": "R10 operational walkthrough", "Y": "R11 exception paths",
     "Z": "R12 lifecycle / data migration", "K": "R13 non-functional",
     "O": "R14 codebase / sibling re-verify", "J": "R15 competitor round 2",
+    "RA": "R16 role & persona", "RB": "R17 screen & field buildability",
+    "RC": "R18 reporting & analytics", "RD": "R19 integration, device & channel",
+    "RE": "R20 configuration & day-1 setup", "RF": "R21 money, costing & billing",
+    "RG": "R22 cardinality & junctions", "RH": "R23 platform alignment",
+    "RJ": "R24 workflow contract completeness", "RK": "R25 competitor gap round 3",
+    "RL": "R26 extensibility & future-proofing",
 }
 
 # R1 §8's traps are a *second* register under the same `T-` prefix, separated from R2's findings
@@ -175,7 +214,7 @@ SC_DEF_RE = re.compile(r"^\|\s*\*\*WH-SC-(\d{3})\*\*")
 WS_CITE_RE = re.compile(r"\bWS-(\d+)\b")
 WS_DEF_RE = re.compile(r"^\|\s*WS-(\d{3})\s*\|")
 TABLE_RE = re.compile(r"\b(?:whb|wh3|whin|wha[a-z]|wh)_[a-z0-9_]+\b")
-FINDING_CITE_RE = re.compile(r"\b([CTEFSPGQHUYZKOJ])-(\d{1,3}[a-z]?)\b(?!-\d)")
+FINDING_CITE_RE = re.compile(r"\b(R[A-HJ-L]|[CTEFSPGQHUYZKOJ])-(\d{1,3}[a-z]?)\b(?!-\d)")
 ISSUE_CITE_RE = re.compile(r"(?<![\w/#])#(\d{1,4})\b")
 PR_REF_RE = re.compile(r"(?:\bPR|\bpull request)\s*#\d{1,4}\b", re.IGNORECASE)
 ISSUE_MAP_ROW_RE = re.compile(r"^\|\s*#(\d+)\s*\|\s*`([^`]+)`")
@@ -212,6 +251,7 @@ EXEMPT_RULES = {
     "scenario-citations": 2,
     "table-names": 3,
     "flyway-band": 4,
+    "issue-citations": 5,
     "finding-citations": 7,
     "id-collision": 11,
     "screen-citations": 12,
@@ -222,7 +262,8 @@ RULE_TOKEN_RE = {
     "scenario-citations": re.compile(r"\bWH-SC-\d+\b"),
     "table-names": TABLE_RE,
     "flyway-band": re.compile(r"\bV\d{6}\b"),
-    "finding-citations": re.compile(r"\b[CTEFSPGQHUYZKOJ]-\d{1,3}[a-z]?\b"),
+    "issue-citations": ISSUE_CITE_RE,
+    "finding-citations": re.compile(r"\b(?:R[A-HJ-L]|[CTEFSPGQHUYZKOJ])-\d{1,3}[a-z]?\b"),
     "id-collision": re.compile(r"\b[A-Z][A-Z-]*-\d+[a-z]?\b"),
     "screen-citations": re.compile(r"\bWS-\d+\b"),
 }
@@ -804,8 +845,15 @@ def issue_map(root):
     return mapping
 
 
-def check_issue_refs(root, files):
-    """Skips cleanly, with a count, until the backlog is filed and CREATED.md exists."""
+def check_issue_refs(root, files, ledger, directives):
+    """Skips cleanly, with a count, until the backlog is filed and CREATED.md exists.
+
+    `#NN` is also how English writes an ordinal — *Refusal #2*, *Adapter #2*, *ship-blocker #2*,
+    *the most important row in this table is #263* — and how markdown writes an in-page anchor
+    (`[§9](#9--…)`). A design set that argues in prose therefore carries far more `#NN` tokens than
+    it carries issue references, which is why this check answers to the `issue-citations` rule like
+    every other check answers to its own: a document exempts itself, in the open, naming the ids.
+    """
     if not exists(root, ISSUE_MAP):
         pending = 0
         for path in files:
@@ -819,19 +867,31 @@ def check_issue_refs(root, files):
                     "numbers, not issues. See tools/README.md."
                     % (ISSUE_MAP, pending, "" if pending == 1 else "s"))
     mapping = issue_map(root)
+    scanner = Scanner(root, files, ledger, directives)
     out = []
     for path in files:
+        fe = scanner.exemptions(path)
         for lineno, text, in_code in iter_lines(read_lines(root, path)):
-            if in_code:
-                continue
+            if lineno in fe.declaration_lines:
+                continue  # an id named on a fence is the fence's scope, not a citation
             scan = PR_REF_RE.sub(" ", strip_code(text))
             for m in ISSUE_CITE_RE.finditer(scan):
                 num = int(m.group(1))
-                if num not in mapping:
-                    out.append(Violation(
-                        5, path, lineno,
-                        "#%d is referenced but has no row in %s "
-                        "(a cross-repo issue must be written owner/repo#%d)" % (num, ISSUE_MAP, num)))
+                if num in mapping:
+                    continue
+                token = "#%d" % num
+                if in_code:
+                    ledger.record(path, lineno, token, "code-block/5", 0,
+                                  "inside a fenced code block")
+                    continue
+                cover = fe.cover("issue-citations", lineno, token)
+                if cover is not None:
+                    ledger.record(path, lineno, token, "issue-citations", cover[0], cover[1])
+                    continue
+                out.append(Violation(
+                    5, path, lineno,
+                    "#%d is referenced but has no row in %s "
+                    "(a cross-repo issue must be written owner/repo#%d)" % (num, ISSUE_MAP, num)))
     return sorted(out, key=lambda v: v.key()), None
 
 
@@ -1231,6 +1291,17 @@ AUTHORITY_STEM = {
     "docs/reviews/R13-non-functional-and-operability.md": "R13",
     "docs/reviews/R14-codebase-and-sibling-set-reverification.md": "R14",
     "docs/reviews/R15-competitor-benchmark-r2.md": "R15",
+    "docs/reviews/R16-role-and-persona-completeness.md": "R16",
+    "docs/reviews/R17-screen-and-field-buildability.md": "R17",
+    "docs/reviews/R18-reporting-and-analytics-completeness.md": "R18",
+    "docs/reviews/R19-integration-device-and-channel-surface.md": "R19",
+    "docs/reviews/R20-configuration-and-day-one-setup.md": "R20",
+    "docs/reviews/R21-money-costing-and-billing.md": "R21",
+    "docs/reviews/R22-cardinality-and-junctions.md": "R22",
+    "docs/reviews/R23-platform-alignment.md": "R23",
+    "docs/reviews/R24-workflow-contract-completeness.md": "R24",
+    "docs/reviews/R25-competitor-gap-r3.md": "R25",
+    "docs/reviews/R26-extensibility-and-future-proofing.md": "R26",
 }
 
 
@@ -1329,7 +1400,7 @@ def run(root, selected):
     if 4 in selected:
         results[4] = check_flyway(root, ledger, directives)
     if 5 in selected:
-        results[5], note = check_issue_refs(root, files)
+        results[5], note = check_issue_refs(root, files, ledger, directives)
         if note:
             notes[5] = note
     if 6 in selected:

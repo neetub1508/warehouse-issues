@@ -1,6 +1,7 @@
 # DESIGN-SET-DEFECTS — the merged defect log
 
-<!-- check-design-set: scenario-citations file WH-SC-306 — the allocation marker from SCENARIO-CATALOGUE.md §5 rule 3, not a scenario. X-006 established it and X-040 reports the checker's false positives on it. Round 2 took WH-SC-301-WH-SC-305 for SCENARIO-CATALOGUE.md 3.21, so the marker — and this declaration with it — moved to WH-SC-306 -->
+<!-- check-design-set: issue-citations file #2 — `#2` and `#9` are ordinals in prose, not issue references — *Refusal #2*, *Adapter #2 (services)*, *ship-blocker #2*, *logistics needs #1, #2, #3, #5, #6, #10* — and at COMPETITOR-BENCHMARK.md:70/:146 `#9` is the markdown in-page anchor `[§9](#9--where-the-audits-disagree)`. In this repository `#2` and `#9` are in fact the two **pull requests** opened while the backlog was being filed, so no issue row can ever exist for either: see issues/CREATED.md -->
+<!-- check-design-set: scenario-citations file WH-SC-306 WH-SC-328 — the allocation marker from SCENARIO-CATALOGUE.md §5 rule 3, not a scenario. X-006 established it and X-040 reports the checker's false positives on it. Round 2 took WH-SC-301-WH-SC-305 for SCENARIO-CATALOGUE.md 3.21, so the marker — and this declaration with it — moved to WH-SC-306. Round 4 took WH-SC-306-WH-SC-327 for SCENARIO-CATALOGUE.md 3.22 and the marker moved to WH-SC-328, which §5.3 cites; WH-SC-306 is now a real scenario and resolves normally -->
 <!-- check-design-set: finding-citations file T-244 T-264 T-325 T-326 T-337 E-754 E-1 E-8 — the eight dangling citations X-045 reports and §4.2 gives the citation rule for. Quoted as evidence, never used as references -->
 <!-- check-design-set: screen-citations file WS-238 — the screen id X-001's fix allocates; BUILD-SPEC-SCREENS.md §1 has not yet carried the row -->
 
@@ -1765,6 +1766,19 @@ that are done say so and name the file.** Items are keyed to the table above.
 
 - **`OD-9`'s deadline conflict** (round-2 finding `U-003`) — it must be answered **before `V520100`**, which is earlier than the date `DECISIONS.md` §3 records against it.
 - **The accounting-side edit `OD-1` implies** (round-2 finding `O-001`) — due at the *accounting* set's P1, `V600136`–`V600137`, in a different repository. Nobody on this side can make it, and nobody on that side has been told.
+
+### 5.3 Round-4 status of item 11, 2026-09-10
+
+Appended by the round-4 fold (`GAP-REGISTER-R4.md` §4.2, §7). Item 11's row above is not rewritten.
+
+| # | Round-4 status |
+|---:|---|
+| **11** | **STILL PARTLY — check-13 is still not written** (`python3 tools/check-design-set.py` runs 12 checks), **and its rule now has four clauses.** Every finding in `reviews/R1`–`R7` has a disposition row in `GAP-REGISTER.md` §2.5; every finding in `reviews/R8`–`R15` has one in `GAP-REGISTER-R2.md` §2.1; every finding in `reviews/R16`–`R21` has one in `GAP-REGISTER-R3.md` §2.1–§2.6; **and every finding in `reviews/R22`–`R26` has a disposition row in `GAP-REGISTER-R4.md` §2.1–§2.5.** The fourth register's §2 was generated from the lens headings and holds 83 rows, so it is complete by construction today; check-13 is what keeps it complete tomorrow. The scenario allocation marker has moved again, to `WH-SC-328` (`SCENARIO-CATALOGUE.md` §3.22 took `WH-SC-306`…`WH-SC-327`). |
+
+**The round-3 hazard that two-letter registers were invisible to check 7 is discharged 2026-09-10.** It was
+recorded in `DECISIONS.md` §6, not as an `X-` entry in this log, so no row here changes status.
+`FINDING_CITE_RE` now admits `R[A-HJ-L]`, and a round-3 or round-4 citation resolves against its own
+review or fails (`DECISIONS.md` §6, `GAP-REGISTER-R4.md` §7).
 
 ---
 

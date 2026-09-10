@@ -1,5 +1,6 @@
 TITLE: [Warehouse] EPIC: P0 — Ledger foundation
 LABELS: epic,warehouse,phase-p0
+issue: 3
 ---
 Part of __MASTER__ · Modules `warehouse-base` + the CI-only `warehouse-adapter-example` · Migrations — **16 blocks, enumerated below** · Ships in **v1**
 
@@ -93,7 +94,7 @@ tenth.**
 
 ## Migration blocks
 
-**16 blocks**, re-derived from the `Migrations` field of every P0 task header, not transcribed from
+**19 blocks** (16 v1, and three v2 increments folded in on 2026-09-10), re-derived from the `Migrations` field of every P0 task header, not transcribed from
 an earlier table:
 
 ```bash
@@ -106,13 +107,16 @@ That command is the authority; re-run it after any header change.
 - `V500000` `V500200` — `P0-01` module bootstrap · the platform `CHECK` widening
 - `V500001` `V500019` — `P0-07` companies · stock periods ★ *both before `V500030`*
 - `V500002`–`V500004` — `P0-04` source systems, document types, movement types, reason codes ★
+- `V500072` — `P0-04` **v2 increment**: `whb_reason_code_tax_treatments` (`RG-020`, folded from former `P5-24`)
 - `V500005` `V500006` `V500008` `V500010` — `P0-05` stock statuses, condition codes, location types, item types, task types, dispositions, attribute keys ★
 - `V500007` `V500044` — `P0-06` owner types and owners ★ · owner grants
+- `V500073` — `P0-06` **v2 increment**: `whb_owner_companies` (`RG-013`, folded from former `P5-24`)
 - `V500021` — `P0-17` cost-layer schema, DDL only ★
-- **`V500030`–`V500032`, `V500036` — `P0-02` ★★ THE LEDGER · `PNR-1` + `PNR-2` in one file ★★** · positions · the period trigger · the base-UoM trigger
+- **`V500030`–`V500032`, `V500036`, `V500037` — `P0-02` ★★ THE LEDGER · `PNR-1` + `PNR-2` in one file ★★** · positions · the period trigger · the base-UoM trigger · **`V500037`: `I-23`**, the `REGISTERED`-history guard (exclusion, deferred at-least-one, append-only once a movement stands in range). It reads the ledger, so it cannot sit in `P1-05`'s `V500012`; `I-22` rides `V500030` (`RG-001`, `D-14`)
 - `V500033` — `P0-09` reservations, allocation strategies and rules
 - `V500034` — `P0-10` tasks
 - `V500040` — `P0-11` the outbox, subscriptions, deliveries and the cursor
+- `V500074` — `P0-11` **v2 increment**: `whb_outbox_subscription_owners` (`RG-018`, folded from former `P5-24`)
 - `V500041` — `P0-08` inbound messages, movement batches and results
 - `V500042` — `P0-12` accounting handovers and GL posting rules
 - `V500043` — `P0-13` audit events, change rows and job runs

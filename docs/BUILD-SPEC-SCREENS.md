@@ -270,7 +270,7 @@ to their own task, and the list is at the end of this section.
 | `whb_stock_periods` | — | `OPEN` | period generation | `whb_stock_periods:create` | the previous period exists | no |
 | `whb_stock_periods` | `OPEN` | `SOFT_CLOSED` | Soft close | `whb_stock_periods:close` | none — soft close is reversible by design | no |
 | `whb_stock_periods` | `SOFT_CLOSED` | `OPEN` | Reopen | `whb_stock_periods:reopen` | reason code recorded | no |
-| `whb_stock_periods` | `SOFT_CLOSED` | `CLOSED` | Close | `whb_stock_periods:close` | no unposted movement, no open handover, `L-4` drift check clean | **yes** |
+| `whb_stock_periods` | `SOFT_CLOSED` | `CLOSED` | Close | `whb_stock_periods:close` | no unposted movement, no open handover (a `VOIDED` handover is not open, `RJ-011`), `L-4` drift check clean | **yes** |
 | `whb_stock_periods` | `SOFT_CLOSED` | `SOFT_CLOSED` | Override (post into a soft-closed period) | `whb_stock_periods:override` | approved and recorded per `L-8`; the session GUC is set by the service, never by a support script | no |
 
 **`CLOSED` is terminal, including for a reversal** (`L-8`). A correction to a closed period is a
@@ -302,7 +302,8 @@ status would then disagree with the ledger, which is the only thing that actuall
 | `whb_accounting_handovers` | `SENT` | `POSTED` | *(acknowledgement)* | — | external document ref recorded | **yes** |
 | `whb_accounting_handovers` | `SENT` | `REJECTED` | *(negative acknowledgement)* | — | rejection code and message recorded | no |
 | `whb_accounting_handovers` | `REJECTED` | `PENDING` | Retry | `whb_accounting_handovers:retry` | the **same** idempotency key is reused — a retry that mints a new key double-posts | no |
-| `wh3_ar_handovers` | *(identical ladder)* | | Retry | `wh3_ar_handovers:retry` | **added in round 2** — §10.2 carried the base string and not this one, which is how the asymmetry was found (`H-001`) | |
+| `whb_accounting_handovers` | `REJECTED` | `VOIDED` | Void | `whb_accounting_handovers:void` | **added in round 4 (`RJ-011`)** — **approver ≠ requester** (`FR-408`); only when the movement is reversed or reclassified `NOT_APPLICABLE`; reversing a movement whose envelope never posted voids **both** envelopes. `VOIDED` is outside the period-close guard | **yes** |
+| `wh3_ar_handovers` | *(identical ladder, including `REJECTED → VOIDED`)* | | Retry · Void | `wh3_ar_handovers:retry` · the void verb `P5-05` seeds | Retry **added in round 2** — §10.2 carried the base string and not this one, which is how the asymmetry was found (`H-001`). `VOIDED` added in round 4 (`RJ-011`) | |
 
 #### `wh3_billing_runs` — and the `INVOICED → CANCELLED` question, now answered
 
@@ -314,7 +315,7 @@ status would then disagree with the ledger, which is the only thing that actuall
 | `wh3_billing_runs` | `RATED` | `APPROVED` | Approve | `wh3_billing_runs:approve` | **approver ≠ the user who rated** above the threshold (`FR-408`); the state freezes here | no |
 | `wh3_billing_runs` | `APPROVED` | `INVOICED` | Emit AR handover | `wh3_billing_runs:emit_ar_handover` | a `wh3_ar_handovers` row reaches `POSTED` | **yes** |
 | `wh3_billing_runs` | `DRAFT` · `RATED` | `CANCELLED` | Cancel | `wh3_billing_runs:cancel` | — | **yes** |
-| `wh3_billing_runs` | `APPROVED` | `CANCELLED` | Cancel | `wh3_billing_runs:cancel` | **only while no AR handover has left `PENDING`** | **yes** |
+| `wh3_billing_runs` | `APPROVED` | `CANCELLED` | Cancel | `wh3_billing_runs:cancel` | **only while no AR handover has left `PENDING`, or once it is `VOIDED`** (`RJ-011` — otherwise an approved run whose AR handover is `REJECTED` can neither invoice nor cancel) | **yes** |
 | `wh3_billing_runs` | `INVOICED` | *(nothing)* | — | — | — | **terminal** |
 
 > **`INVOICED → CANCELLED` is illegal.** This is the question `H-004` found two P5 tasks about to
@@ -360,6 +361,96 @@ status would then disagree with the ledger, which is the only thing that actuall
 | `wh3_client_onboarding_tasks` | `ASSIGNED` | `COMPLETED` | Complete | `wh3_client_onboarding_tasks:complete` | evidence note required where the template says so | no |
 | `wh3_client_onboarding_tasks` | `COMPLETED` | `ASSIGNED` | Reopen | `wh3_client_onboarding_tasks:reopen` | **refused once the client is `ACTIVE`** — reopening a mandatory task behind an onboarded client makes the onboarding guard a lie | no |
 
+#### Round 4 — the v1 ladders of R24 Appendix A, adopted (`RJ-004`)
+
+`GAP-REGISTER-R4.md` §2.3 adopts R24 Appendix A as the ladder text. Three amendments apply: `RK-001`'s
+request on transfers (register §3.3), `RJ-011`'s `VOIDED` on handovers (above), and the location ladder
+written out in full (`RJ-006`). Each creating task carries its rows in this format, plus the acceptance line
+*"no state without an inbound transition; no non-terminal state without an outbound one"*:
+`P1-12` `P1-13` `P1-16` `P1-17` `P2-01` `P2-02` `P2-04` `P2-06` `P2-08` `P2-10` `P2-12` `P2-13` `P2-15`
+`P2-17` `P2-25` `P2-26`. **Ratify each block with `/functional-contract` before building from it**, as
+Appendix A itself says. A guard is inferred from the cited source, and the task confirms it.
+
+| Table | From | To | Verb | Actor (permission) | Guard | Terminal? |
+|---|---|---|---|---|---|---|
+| `wh_goods_receipts` | — | `DRAFT` | Create | `wh_goods_receipts:create` | — | no |
+| `wh_goods_receipts` | `DRAFT` | `POSTED` | Post | `wh_goods_receipts:post` | at least one line; the UoM convertibility guard (`FR-143`) | no |
+| `wh_goods_receipts` | `DRAFT` | `CANCELLED` | Cancel | `wh_goods_receipts:cancel` | nothing posted | **yes** |
+| `wh_goods_receipts` | `POSTED` | `REVERSED` | *(effect of a `wh_receipt_reversals` row reaching `POSTED`)* | `wh_receipt_reversals:post` | `FR-131` — the stock has not moved on. Never set directly | **yes** |
+| `wh_receipt_reversals` | — | `REQUESTED` | Request | `wh_receipt_reversals:create` | the GRN is `POSTED` | no |
+| `wh_receipt_reversals` | `REQUESTED` | `APPROVED` | Approve | `wh_receipt_reversals:approve` | **approver ≠ requester** (`FR-408`) | no |
+| `wh_receipt_reversals` | `REQUESTED` | `REJECTED` | Reject | `wh_receipt_reversals:approve` | reason recorded | **yes** |
+| `wh_receipt_reversals` | `APPROVED` | `POSTED` | Post | `wh_receipt_reversals:post` | generates the `REVERSAL` movement | **yes** |
+| `wh_stock_adjustments` | — | `DRAFT` | Create | `wh_stock_adjustments:create` | — | no |
+| `wh_stock_adjustments` | `DRAFT` | `SUBMITTED` | Submit | `wh_stock_adjustments:submit` | at least one line; mandatory reason code | no |
+| `wh_stock_adjustments` | `SUBMITTED` | `APPROVED` | Approve · *(auto-approve below the threshold, `RA-008`)* | `wh_stock_adjustments:approve` | **approver ≠ actor**; the threshold is by value as well as by quantity | no |
+| `wh_stock_adjustments` | `SUBMITTED` | `REJECTED` | Reject | `wh_stock_adjustments:reject` | **approver ≠ actor**; reason recorded | **yes** |
+| `wh_stock_adjustments` | `APPROVED` | `POSTED` | Post | `wh_stock_adjustments:post` | period `OPEN` (`L-8`) | **yes** |
+| `wh_stock_adjustments` | `DRAFT` · `SUBMITTED` | `CANCELLED` | Cancel | `wh_stock_adjustments:cancel` | — | **yes** |
+| `wh_transfer_orders` | — | `REQUESTED` | Request | `wh_transfer_orders:request` | **the creator is scoped to the destination site** (`FR-462`); both sites in one company, else `422 CROSS_COMPANY_TRANSFER` (`RK-007`) | no |
+| `wh_transfer_orders` | — | `DRAFT` | Create | `wh_transfer_orders:create` | the same-company guard | no |
+| `wh_transfer_orders` | `REQUESTED` | `APPROVED` | Approve · part-approve | `wh_transfer_orders:approve` | **the approver is scoped to the source site**, and approver ≠ requester (`FR-408`). **Part-approval is a line quantity, not a state**: `approved_quantity` below the requested quantity on an `APPROVED` header. The refused remainder writes `wh_insufficient_stock_log` with `source_type = TRANSFER_REQUEST`. Approval creates the `TRANSFER` demand order | no |
+| `wh_transfer_orders` | `REQUESTED` | `REJECTED` | Reject | `wh_transfer_orders:reject` | source-scoped; reason recorded | **yes** |
+| `wh_transfer_orders` | `DRAFT` | `APPROVED` | Approve | `wh_transfer_orders:approve` | **only where `requires_approval`**; `FR-408` | no |
+| `wh_transfer_orders` | `DRAFT` · `APPROVED` | `ALLOCATED` | *(effect of the `TRANSFER` demand order allocating, `RJ-003`)* | `wh_demand_orders:allocate` | from `DRAFT` only where `requires_approval = false`. There is exactly one reservation path. Never set directly | no |
+| `wh_transfer_orders` | `ALLOCATED` | `IN_TRANSIT` | Dispatch | `wh_shipments:dispatch` | the transfer's shipment dispatches, posting `TRANSFER_DEPART` into the per-transfer `IN_TRANSIT` location **at the source site** (`FR-189`: the relief is into transit) | no |
+| `wh_transfer_orders` | `IN_TRANSIT` | `PARTIALLY_RECEIVED` | Receive | `wh_transfer_orders:receive` | authorised against **that transfer's** transit location regardless of site scope, and nothing else at the source (`P1-18`) | no |
+| `wh_transfer_orders` | `IN_TRANSIT` · `PARTIALLY_RECEIVED` | `RECEIVED` | Receive | `wh_transfer_orders:receive` | received = dispatched | no |
+| `wh_transfer_orders` | `PARTIALLY_RECEIVED` · `RECEIVED` | `CLOSED` | Report variance | `wh_transfer_orders:report_variance` | the transit location's balance is 0 once the residue is posted | **yes** |
+| `wh_transfer_orders` | `REQUESTED` · `DRAFT` · `APPROVED` · `ALLOCATED` | `CANCELLED` | Cancel | `wh_transfer_orders:cancel` | the demand order's reservations are released | **yes** |
+| `wh_transfer_orders` | `IN_TRANSIT` | `CANCELLED` | Cancel | `wh_transfer_orders:cancel` | **posts `TRANSFER_RETURN`** from the transit location back to the source, with a mandatory reason code (`RJ-006`) | **yes** |
+| `wh_counts` | — | `GENERATED` | Generate | `wh_counts:generate` | programme or ad hoc; with no programme the install tolerance applies (`RJ-016`) | no |
+| `wh_counts` | `GENERATED` | `FROZEN` | Freeze | `wh_counts:freeze` | the book snapshot is taken; the counted locations go to `COUNTING` | no |
+| `wh_counts` | `FROZEN` | `COUNTING` | Enter counts | `wh_counts:edit` | the first line counted | no |
+| `wh_counts` | `COUNTING` | `PENDING_APPROVAL` | Submit | `wh_counts:edit` | every line counted; lines inside tolerance need no approval | no |
+| `wh_counts` | `PENDING_APPROVAL` | `COUNTING` | Recount | `wh_counts:recount` | **not after `APPROVED`** — §0.11's open question, answered | no |
+| `wh_counts` | `PENDING_APPROVAL` | `APPROVED` | Approve | `wh_counts:approve` | **the counter may not approve their own count** (`FR-408`) | no |
+| `wh_counts` | `APPROVED` | `POSTED` | Post | `wh_counts:post` | one movement per non-zero variance line; the locations return to their prior status | **yes** |
+| `wh_counts` | `GENERATED` · `FROZEN` · `COUNTING` · `PENDING_APPROVAL` | `CANCELLED` | Cancel | `wh_counts:cancel` | **restores each location's prior status** — a cancelled count must not leave bins unpickable (`RJ-006`) | **yes** |
+| `whb_locations.status` | — | `AVAILABLE` | Create | `whb_locations:create` | — | no |
+| `whb_locations.status` | `AVAILABLE` | `BLOCKED` | Block | `whb_locations:block` | mandatory reason code | no |
+| `whb_locations.status` | `AVAILABLE` | `DAMAGED` | Block (damage reason) | `whb_locations:block` | a reason code in the damage context | no |
+| `whb_locations.status` | `BLOCKED` · `DAMAGED` | `AVAILABLE` | Unblock | `whb_locations:block` | reason recorded | no |
+| `whb_locations.status` | `AVAILABLE` · `BLOCKED` · `DAMAGED` | `COUNTING` | *(effect of a count's Freeze)* | `wh_counts:freeze` | the prior status is stored on the count line. Never set directly | no |
+| `whb_locations.status` | `COUNTING` | *(the stored prior status)* | *(effect of the count's Post or Cancel)* | `wh_counts:post` · `wh_counts:cancel` | — | no |
+| `whb_locations.status` | `AVAILABLE` · `BLOCKED` · `DAMAGED` | `FROZEN` | *(the stocktake window opens, `FR-157`)* | `wh_counts:freeze` on a `FULL_PHYSICAL` count | **`FROZEN`'s only setter** — before round 4 it had none and was unreachable | no |
+| `whb_locations.status` | `FROZEN` | *(the stored prior status)* | *(the stocktake window closes)* | `wh_counts:post` · `wh_counts:cancel` | — | no |
+| `wh_demand_orders` | — | `OPEN` | Create | `wh_demand_orders:create` | — | no |
+| `wh_demand_orders` | `OPEN` | `ALLOCATED` | Allocate | `wh_demand_orders:allocate` | — | no |
+| `wh_demand_orders` | `ALLOCATED` | `RELEASED` | Release | `wh_demand_orders:release` | **zero open holds** that block pick | no |
+| `wh_demand_orders` | `RELEASED` | `PICKING` | *(effect of the first pick task starting)* | the task API | never set directly | no |
+| `wh_demand_orders` | `PICKING` | `PICKING` | Short pick | `wh_demand_orders:short_pick` | **stays `PICKING`, with a backorder line** and an exception code — §0.11's open question, answered | no |
+| `wh_demand_orders` | `PICKING` | `PACKED` | *(effect of the last carton closing)* | `wh_cartons` close | never set directly | no |
+| `wh_demand_orders` | `PACKED` | `SHIPPED` | *(effect of the shipment's dispatch)* | `wh_shipments:dispatch` | the only relief event (`FR-189`) | no |
+| `wh_demand_orders` | `SHIPPED` | `DELIVERED` | Confirm delivery | `wh_shipments:confirm_delivery` | — | **yes** |
+| `wh_demand_orders` | `OPEN` · `ALLOCATED` · `RELEASED` · `PICKING` · `PACKED` | `CANCELLED` | Cancel | `wh_demand_orders:cancel` | de-allocation is deterministic and reason-coded; staged stock is de-staged first (`FR-449`) | **yes** |
+| `wh_shipments` | — | `OPEN` | Add | `wh_shipments:create` | — | no |
+| `wh_shipments` | `OPEN` | `LOADED` | Load | `wh_shipments:edit` | every carton closed and scanned to the door | no |
+| `wh_shipments` | `OPEN` · `LOADED` | `DISPATCHED` | Dispatch | `wh_shipments:dispatch` | **the inventory-relief event** | no |
+| `wh_shipments` | `DISPATCHED` | `DELIVERED` | Confirm delivery | `wh_shipments:confirm_delivery` | — | **yes** |
+| `wh_shipments` | `OPEN` · `LOADED` | `CANCELLED` | Cancel | `wh_shipments:cancel` | **only before `DISPATCHED`** (`RJ-006`) | **yes** |
+| `wh_return_receipts` | — | `RECEIVED` | Receive | `wh_return_receipts:create` | — | no |
+| `wh_return_receipts` | `RECEIVED` | `POSTED` | Post | `wh_return_receipts:post` | cost per `RJ-010`: a matched return reverses the consumption; an unmatched one takes the site's current method cost with `cost_basis = RETURN_UNMATCHED` | no |
+| `wh_return_receipts` | `POSTED` | `DISPOSITIONED` | Disposition | `wh_return_receipts:disposition` | **scrap needs an approver ≠ actor** (`FR-273`, `FR-408`) | **yes** |
+| `wh_return_receipts` | `POSTED` | `REVERSED` | Reverse | `wh_return_receipts:reverse` | **only before disposition**; an `L-3` mirror movement (`RJ-006`) | **yes** |
+| `wh_rmas` | — | `OPEN` | Add | `wh_rmas:create` | — | no |
+| `wh_rmas` | `OPEN` | `APPROVED` | Approve | `wh_rmas:approve` | — | no |
+| `wh_rmas` | `APPROVED` | `MATCHED` | Match to receipt | `wh_rmas:match` | a return receipt exists | **yes** |
+| `wh_rmas` | `OPEN` · `APPROVED` | `EXPIRED` | Expire · *(the `expiry_date` job, `RJ-012`)* | `wh_rmas:expire` | `expiry_date` passed | **yes** |
+| `wh_rmas` | `OPEN` · `APPROVED` | `CANCELLED` | Cancel | `wh_rmas:cancel` | — | **yes** |
+| `wh_replenishment_suggestions` | — | `PROPOSED` | *(written by a replenishment run)* | — | — | no |
+| `wh_replenishment_suggestions` | `PROPOSED` | `ACCEPTED` | Accept | `wh_replenishment_suggestions:accept` | — | no |
+| `wh_replenishment_suggestions` | `ACCEPTED` | `CONVERTED` | *(effect of creating the PO or transfer)* | `wh_replenishment_suggestions:accept` | `resulting_document_*` set | **yes** |
+| `wh_replenishment_suggestions` | `PROPOSED` | `REJECTED` | Reject | `wh_replenishment_suggestions:reject` | reason recorded | **yes** |
+
+**`whb_warehouse_branches` is not a status column, and it has no ladder.** Its rule is written here so it
+is not mistaken for one (`D-14`, `RG-001`). A link is opened and ended (`whb_warehouses:edit`). A
+**`REGISTERED` change is an end-date plus an insert at the same instant, never an update**. It is
+*Change registration* on WS-016, gated on `warehouse:warehouses:change_registration` and maker–checker
+(`FR-408`). The service refuses an `effective_from` in a `CLOSED` period or before the site's latest posted
+`occurred_at`. It also refuses while the site holds non-zero on-hand if the old and new GSTINs differ
+(`OD-19`).
+
 #### Still owed, and by whom
 
 The blocks above cover the tables whose ladders were already being answered two ways. The remaining
@@ -370,9 +461,9 @@ above. The ones with a **named open question** are listed here so they are not r
 |---|---|---|
 | `wh_recalls` | is `CLOSED` terminal, or may a recall reopen when a second lot is implicated? | `P5`'s recall task |
 | `wh_shipment_ndrs` | `WS-120` is *"a workflow with a response clock"* and the actions live in `wh_ndr_actions` — how many attempts, and what closes it? | `P5`'s NDR task |
-| `wh_counts` | freeze → count → recount → approve → post: is a second recount legal after approval? | `P2`'s count task |
+| `wh_counts` | ~~freeze → count → recount → approve → post: is a second recount legal after approval?~~ **Answered in round 4**: no recount after `APPROVED` (the round-4 block above) | `P2-04` |
 | `wh_quality_inspections` | is a disposition reversible before the putaway posts? | `P1`'s QC task |
-| `wh_demand_orders` | `:short_pick` is a verb with no stated destination state | `P2`'s outbound task |
+| `wh_demand_orders` | ~~`:short_pick` is a verb with no stated destination state~~ **Answered in round 4**: the order stays `PICKING` with a backorder line (the round-4 block above) | `P2-08` |
 | `wh3_sla_breaches` | `:confirm`, `:post_penalty` and `:waive` are three verbs over a table with no vocabulary at all | `P5`'s SLA task |
 
 ---
@@ -414,7 +505,7 @@ bypassed by the importer, the port and the next module that writes the table dir
 | `whb_items.lot_control_mode` | WS-023 | `once stock is on hand` | **yes — new** | `NONE → REQUIRED` with units on hand strands every pre-existing position, whose `lot_id IS NULL`, as unpickable under the `L-5` grain |
 | `whb_items.serial_control_mode` | WS-023 | `once stock is on hand` | **yes — new** | same, and `IRR-14` records that the rows the wrong rule rejected were never written — so retro-serialising has nothing to derive from |
 | `whb_items.code` | WS-023 | `once a ledger row exists` | no — service | `uk(code)` is the stable string key every FK and every printed bin label uses (`DATA-MODEL.md:2795`) |
-| `whb_items.category_id` | WS-023 | `once a movement in the current period exists` | no — service | `whb_valuation_policies` is keyed on `category_id`; re-categorising mid-period silently changes the item's valuation method |
+| the item's `STOCKING` row in `whb_item_category_assignments` — which replaces `whb_items.category_id` (`RG-005`) | WS-023 | `once a movement in the current period exists` — a new assignment may not take effect inside a period with movements for the item | no — service | `whb_valuation_policies` is keyed on the category, and every resolver reads the `STOCKING` assignment at `occurred_at`; re-categorising mid-period silently changes the item's valuation method |
 | `whb_locations.code` | WS-017 | `once a movement in the current period exists` | no — service | `FR-034`'s trap is *"a scan gun syncing 400 movements after a shift must not lose 399 because one bin was renamed"* — the design assumes renames happen and must say what one does |
 | `whb_locations.location_type_code`, capacity block | WS-017 | `once stock is on hand` | no — service | lowering capacity below current contents, or changing `is_stock_holding` under stock, has no defined outcome otherwise |
 | `whb_valuation_policies.method` | WS-050 | `once a movement in the current period exists` | no — service | the row is effective-dated, which is the right shape, but nothing guards an `effective_from` inside a closed period — `L-8` guards movements, not policy rows — or says what happens to existing `whb_cost_layers` on `AVCO → FIFO` |
@@ -427,6 +518,27 @@ bypassed by the importer, the port and the next module that writes the table dir
 same completion rule §0.11 applies to state ladders. `never` is the default and the common answer;
 writing it is not required, but a field whose freeze is anything else and is not written is an
 incomplete screen block.
+
+### 0.13 The error register — codes a screen must render as a field-level or banner message
+
+Before round 4, error codes lived only in the blocks that raise them (`REGISTRY_ROW_IN_USE`,
+`ITEM_HAS_STOCK`, `OWNER_HAS_STOCK`, `CONVERSION_IN_USE`, the §0.12 freeze codes, …), and they stay
+there. This register lists the codes round 4 introduces (`GAP-REGISTER-R4.md` §4.2), because each is
+raised in one place and rendered on several screens. Every one travels in the house error shape
+`{ "error", "details": { "errors": { field: msg } } }`. A screen that receives one renders the message
+next to the field it names, or as a banner where it names none. **It never renders a generic *"save
+failed"***.
+
+| Code | HTTP | Raised by | Rendered on | Source |
+|---|---|---|---|---|
+| `CROSS_GSTIN_COUNTER_SALE` | 422 | the counter-sale service. A `SERVING` branch under a different GSTIN may not sell directly from the site | WS-194, WS-200 (a job issue follows the same rule), and the mobile counter screen. The message offers *Raise request* (WS-090 in `REQUESTED`) | `FR-461` · `D-14` item 3 · `RK-002` |
+| `CROSS_COMPANY_TRANSFER` | 422 | the transfer service. Source and destination sites belong to different companies | WS-090. The destination picker never offers such a site, so the code is reached only by the API or an import | `RK-007` · `WH-SC-319` |
+| `WAREHOUSE_BRANCH_COMPANY_MISMATCH` | 422 | the warehouse service. The `REGISTERED` branch is not in `whb_company_branches` for the site's `company_id` | WS-016 *Branches* tab and *Change registration* modal | `RH-004` |
+| `AMBIGUOUS_LOCATION` | 409 | the scan resolver. A location code matches at more than one site and no session or device site disambiguates it | WS-071, every RF screen (WS-229 … WS-237), WS-017 mobile scan | `RL-004` |
+| `AMBIGUOUS_IDENTIFIER` | 409 | the scan resolver. An identifier matches several items after the session-owner and counterparty context are applied. **The response lists the candidates** | WS-071, WS-024, WS-194, every RF screen | `RL-005` |
+| `STAGED_STOCK` | 409 | a cancel on a document whose stock is still staged (a supplier return after `PICKED`, `RJ-006`, and a demand order under `FR-449`) | WS-084, WS-099 — the message names the staging location and the quantity to de-stage | `RJ-006` · `FR-449` |
+| `UNREGISTERED_INSTANT` | 422 | the ledger. `I-22`'s trigger finds no `REGISTERED` link covering the movement's `occurred_at` at its warehouse; the service translates the SQLSTATE into this code | WS-040 *Simulate*, every posting screen, the port's per-message result (WS-053, WS-055) | `I-22` · `WH-SC-312` |
+| `CLIENT_UPGRADE_REQUIRED` | 426 | **v1.1** — login and sync, when the handheld's app version is below `warehouse.mobile.min_app_version` | every mobile screen and RF screen; the handheld shows an update prompt, never a broken list | `RL-017` · `P3-04` |
 
 ---
 
@@ -441,8 +553,8 @@ incomplete screen block.
 
 ```bash
 f=docs/BUILD-SPEC-SCREENS.md
-grep -cE '^\| WS-[0-9]{3} \|' $f                       # screens        → 237
-awk -F'|' '/^\| WS-[0-9]{3} \|/ && $7 ~ /Y/' $f | wc -l # configured grids → 214
+grep -cE '^\| WS-[0-9]{3} \|' $f                       # screens        → 239 (237 + WS-240, WS-241, round 4)
+awk -F'|' '/^\| WS-[0-9]{3} \|/ && $7 ~ /Y/' $f | wc -l # configured grids → 216 (214 + WS-240, WS-241)
 ```
 
 | id | Screen | Module | Route | Ref | G | Ver · Ph |
@@ -684,6 +796,16 @@ awk -F'|' '/^\| WS-[0-9]{3} \|/ && $7 ~ /Y/' $f | wc -l # configured grids → 2
 | WS-235 | RF Cycle Count | mobile | `screens/whRfCycleCount` | — | N | v1.1 · P3 |
 | WS-236 | RF Stock Enquiry | mobile | `screens/whRfStockEnquiry` | — | N | v1.1 · P3 |
 | WS-237 | RF Task List | mobile | `screens/whRfTaskList` | — | N | v1.1 · P3 |
+| WS-240 | Trade Portal | app | `/warehouse/outbound/trade-portal` | C | Y | v2 · P5 |
+| WS-241 | Approval Levels | app | `/warehouse/inventory/approval-levels` | D | Y | v2 · P5 |
+
+<!-- check-design-set: screen-citations begin WS-238 WS-239 WS-242 — the §1 allocation marker: WS-238/WS-239 are reserved for round 3's RA-001/RA-002 (GAP-REGISTER-R3.md §4.4) and have no row yet; WS-242 is the next free id -->
+**The allocation marker.** `WS-238` and `WS-239` are **reserved** for round 3's `RA-001` (*Warehouse
+Grants*) and `RA-002` (*Item Prices*), as `GAP-REGISTER-R3.md` §4.4 recommends, and have no row until that
+fold lands. `WS-240` and `WS-241` were allocated by `GAP-REGISTER-R4.md` §4.0. **The next free id is
+`WS-242`.** No other round-4 change takes a screen id. The round-4 junctions are sub-grids on existing
+screens: WS-015, WS-016, WS-017, WS-021, WS-023 and WS-173.
+<!-- check-design-set: screen-citations end -->
 
 ---
 
@@ -739,6 +861,11 @@ because the grid shows it.
 field groups): *Identity* (`code`, `name`, `description`) · *Behaviour* (the flags) · *Ownership*
 (`owning_module`, `is_system` read-only) · *Status* (`is_active`). View = `ViewModalBase` with
 `InfoSection` per group and a `StatusCard` for `is_active`.
+**v2 — a *Translations* tab** (`P1-19`'s v2 increment, folded from `P5-28`; `FR-469`): per-locale names over `whb_registry_translations`
+(`registry_table`, `code`, `locale`, `name`), which are read before the row's own `name`. It lands on
+every registry screen built from this block, WS-091 and WS-158 included. It matters most for an
+install-created row (`owning_module = 'INSTALL'`), which has no i18n key. **v1 has no tab** and renders the
+row's `name` through `PC-69`'s fallback.
 `code` is **immutable after create** and rendered read-only on edit — every ledger row FKs to it by
 code (`whb_stock_movements.movement_type_code`, `…_lines.stock_status_code`).
 
@@ -770,7 +897,7 @@ backend opened but the schema closed fails the save with no message.
 | WS-010 | Item Types | `whb_item_types` | `WAREHOUSE_ITEM_TYPE` | `is_stocked`, `is_serial_default`, `is_lot_default`, `is_returnable_equipment`, `is_asset_shaped`, `is_value_only` | `is_stocked` |
 | WS-011 | Counterparty Roles | `whb_counterparty_roles` | `WAREHOUSE_COUNTERPARTY_ROLE` | `is_supply_side`, `is_demand_side` | `is_supply_side`, `is_demand_side` |
 | WS-012 | Dispositions | `whb_dispositions` | `WAREHOUSE_DISPOSITION` | `movement_type_code`, `target_stock_status_code`, `requires_inspection`, `emits_credit_signal` | `requires_inspection` |
-| WS-013 | Attribute Keys | `whb_attribute_keys` | `WAREHOUSE_ATTRIBUTE_KEY` | `value_type`, `applies_to`, `is_filterable`, `is_exportable` | `value_type` (select), `applies_to` (select) |
+| WS-013 | Attribute Keys | `whb_attribute_keys` | `WAREHOUSE_ATTRIBUTE_KEY` | `value_type`, `applies_to` — the `ATTRIBUTE_SUBJECT` code list (`RL-007`): `ITEM`, `MOVEMENT_LINE`, `LOT`, `SERIAL`, `LPN`, `LOCATION`, `COUNTERPARTY`, `DOCUMENT`, and **no `EVENT`** (register §3.7 e); `is_filterable`, `is_exportable`. **An install-created key (`owning_module = 'INSTALL'`) is the product's custom-field answer.** `LOT`-kind keys are captured on the GRN line in v1 (`P1-13`) | `value_type` (select), `applies_to` (select — options **fetched** from the code list, never enumerated) |
 | WS-014 | Condition Codes | `whb_condition_codes` | `WAREHOUSE_CONDITION_CODE` | `is_sellable`, `is_repairable`, `grade_rank`, `default_disposition_code` | `is_sellable` |
 
 > **`OD-5` applies to every one of these fourteen and is the single most likely way this product gets
@@ -796,8 +923,16 @@ FK ↓platform `currencies.currency_code`) · `countryCode` · `isDefault` (`is_
 **Filters:** `code` text · `name` text · `countryCode` select (platform country source) ·
 `baseCurrencyCode` select (the shared currency source — never a hand-built list) · `isActive` boolean.
 **Export:** visible set + `legalName`, `isDefault`, both audit-name columns. **Modals:** single-tab
-add/edit; `ViewModalBase` view with a child `DataTable` of `whb_company_external_refs`
-(`source_module`, `external_id`, `external_label`) — that table has **no grid of its own**.
+add/edit plus the *Company branches* sub-grid below; `ViewModalBase` view with a child `DataTable` of
+`whb_company_external_refs` (`source_module`, `external_id`, `external_label`) — that table has **no
+grid of its own**.
+**Company branches** (`RH-004`, `D-14`) — a sub-grid on the modal and the view over
+`whb_company_branches`: branch (`branches.branch_name`), `effectiveFrom`, `effectiveTo`. *Add link*
+opens a row. *End link* sets `effective_to` and never deletes, and there is no `is_active` on this dated
+junction. **This is the warehouse-owned company axis**, because platform `branches` carry no company and
+`company_branches` is automotive's. WS-016's branch options and `422 WAREHOUSE_BRANCH_COMPANY_MISMATCH`
+both read it. `warehouse-adapter-dealer` may seed it from automotive through
+`whb_company_external_refs`; **base never reads automotive**. The junction has no grid of its own.
 **Actions:** row View / Edit / Set-default (`:edit`; a partial unique index enforces one default) /
 Deactivate. Toolbar Add / Export / Grid config.
 **Mobile:** `none` — install-time configuration; no operator flow reads or writes it.
@@ -806,42 +941,77 @@ Deactivate. Toolbar Add / Export / Grid config.
 
 `/warehouse/masters/warehouses` · **Customer** (branch relation + cascading company→branch) ·
 `whb_warehouses` · `WAREHOUSE_WAREHOUSE` · `whb_warehouses:*` · v1 · P1 ·
-`FR-079` `FR-080` `FR-081` `FR-439` · table `V500012` · caches `dropdown.whbWarehouse`.
+`FR-079` `FR-080` `FR-081` `FR-439` `FR-460` · tables `V500012` (`whb_warehouses`,
+`whb_warehouse_branch_roles`, `whb_warehouse_branches` — `D-14`) · caches `dropdown.whbWarehouse`.
+
+**A site is linked to platform branches, never mirrored as one** (`D-14`, `RG-001`). Its links are dated
+rows in `whb_warehouse_branches`, and **exactly one is `REGISTERED` at every instant**. That branch supplies
+the GSTIN, the branch-scoped series and the statutory attribution. `SERVING`, `FULFILMENT` and `RETURNS`
+links grant visibility and let a branch draw stock. `whb_warehouses` no longer has `branch_id`,
+`tax_registration_id` or `legal_entity_id`.
 
 | key | label | type | sort | vis | source |
 |---|---|---|---|---|---|
-| `code` | Code | string | Y | Y | `whb_warehouses.code` |
+| `code` | Code | string | Y | Y | `whb_warehouses.code` — unique per company, `uk(company_id, code)` (`RL-004`) |
 | `name` | Name | string | Y | Y | `name` |
 | `companyName` | Company | string | Y | Y | `whb_companies.name` via `company_id` |
-| `branchName` | Branch | string | Y | Y | **`branches.branch_name`** via `branch_id` — the platform column is `branch_name`, not `name` |
+| `registeredBranchName` | Registered branch | string | Y | Y | **`branches.branch_name`** of the **current `REGISTERED` link** in `whb_warehouse_branches` — the platform column is `branch_name`, not `name` |
+| `linkedBranchCount` | Linked branches | number | Y | Y | count of today's links of a visibility role — backend-computed. The column is labelled *Linked branches* |
 | `warehouseType` | Type | string | Y | Y | `warehouse_type` |
 | `isPhysical` | Physical | boolean | Y | Y | `is_physical` — `FR-081`, the logistics seam column |
 | `city` | City | string | Y | Y | `city` |
 | `stateCode` | State | string | Y | Y | `state_code` |
-| `gstin` | GSTIN | string | N | Y | **read through `branches`** — never duplicated onto the warehouse (`FR-079`) |
-| `timezone` | Timezone | string | Y | N | `timezone` — `FR-439`, local-day bucketing |
+| `gstin` | GSTIN | string | N | Y | **read through the current `REGISTERED` link's `branches.gst_number`** — never duplicated onto the warehouse (`FR-079`, `D-14`) |
+| `timezone` | Timezone | string | Y | N | `timezone` — `FR-439`, local-day bucketing; **a select validated against platform `timezones`**, never a free string (`RH-011`) |
 | `gln` | GLN | string | N | N | `gln` |
 | `orderCutoffTime` | Cut-off | string | N | N | `order_cutoff_time` |
 | `hasPicking` | Picking | boolean | Y | N | `has_picking` |
 | `isActive` | Status | boolean | Y | Y | `is_active` |
 | `createdByName` / `updatedByName` / `createdAt` / `updatedAt` | audit | — | Y | N | audit quartet |
 
-**Filters:** `companyId` select → **cascades to** `branchId` select (`useUserBranches` from
-`@platform/hooks/useUserBranches` — never an ad-hoc branch fetch) → cascades to `warehouseType` ·
-`isPhysical` boolean · `stateCode` select · `isActive` boolean · `code`/`name` text.
-**Export:** every visible column + `gln`, `legal_entity_id` label, `tax_registration_id` label,
-`latitude`, `longitude`, address lines 1/2, `postal_code`, `country_code`, both audit names.
-**Modals:** Add/Edit is **multi-tab** (7 field groups > 6): *Identity* · *Company & branch* ·
-*Address* · *Geo* (`latitude`, `longitude`) · *Tax identity* (`legal_entity_id`,
-`tax_registration_id`, GSTIN read-only from the branch) · *Operations* (`timezone`,
-`order_cutoff_time`, `default_putaway_strategy_code`, `has_picking`) · *Status*.
-View = `ViewModalBase` with an `InfoGrid` per tab plus a `StatusCard`.
+**Filters:** `companyId` select → **cascades to** `branchId` select → cascades to `warehouseType` ·
+`relationshipRoleCode` select (options from `whb_warehouse_branch_roles`, fetched) · `isPhysical`
+boolean · `stateCode` select · `isActive` boolean · `code`/`name` text. **`branchId` means *"linked
+to"*** — the site holds a current link of any visibility role to the branch. With
+`relationshipRoleCode = REGISTERED` it narrows to *"registered under"*. **The branch options come from a
+warehouse endpoint** that returns *my-branches ∩ the company's branches* (`whb_company_branches`, WS-015),
+intersected in the backend (`RH-004`). Platform `/branches/my-branches` has no company parameter, and a
+frontend `.filter()` is forbidden. `relationshipRoleCode` goes into the `WAREHOUSE_WAREHOUSE` scope of
+`COMMON_FILTER_CONFIGS` with the rest (§0.5).
+**Export:** every visible column + `linkedBranchNames` (each current link as *branch (role)*,
+comma-joined), `gln`, `latitude`, `longitude`, address lines 1/2, `postal_code`, `country_code`, both
+audit names. `registeredBranchName` is a visible column and is therefore exported too. The
+`legal_entity_id` and `tax_registration_id` labels are gone with their columns.
+**Modals:** Add/Edit is **multi-tab** (8 field groups > 6): *Identity* · *Company* · *Address* ·
+*Geo* (`latitude`, `longitude`) · *Tax identity* (the GSTIN, read-only through the `REGISTERED` link) ·
+*Operations* (`timezone` select, `order_cutoff_time`, `default_putaway_strategy_code`, `has_picking`) ·
+*Status* · **Branches**.
+**Branches tab** — a sub-grid over `whb_warehouse_branches`: branch (`branches.branch_name`), role,
+`effectiveFrom`, `effectiveTo`, `isPrimary`. *Add link* opens a non-`REGISTERED` row. *End link* sets
+`effective_to` on a non-`REGISTERED` row and never deletes. **A site cannot be saved without a
+`REGISTERED` link**: create writes the site and its link in one transaction (R22 §1.2.2 guard 1). A second
+current `REGISTERED` link is refused, and `SERVING` is offered instead (`WH-SC-045`). A `REGISTERED` branch
+missing from `whb_company_branches` for the site's company is refused with
+`422 WAREHOUSE_BRANCH_COMPANY_MISMATCH`, and `warehouse-india`'s validators refuse a GSTIN state that
+differs from `state_code`.
+**Change registration** — its own modal, gated on `warehouse:warehouses:change_registration` and
+maker–checker (`FR-408`); the checker is not the maker. It is refused for an `effective_from` in a
+`CLOSED` period or before the site's latest posted `occurred_at`. It is also refused **while the site
+holds non-zero on-hand and the old and new GSTINs differ**, and the modal states the on-hand quantity to
+move out first (`OD-19`). It closes the current row and opens the next at the same instant, writes a
+`whb_audit_events` row, and prompts for the new branch-scoped series (WS-061).
+View = `ViewModalBase` with an `InfoGrid` per tab, a `StatusCard`, and a `DataTable` of the link
+history, including closed rows.
 **Actions:** row View / Edit / Deactivate (refused while any `whb_stock_positions` row for the site is
-non-zero) / **Generate locations** (`whb_locations:create`, opens WS-018).
+non-zero) / **Change registration** / **Generate locations** (`whb_locations:create`, opens WS-018).
 Toolbar Add / Export / Grid config / Help.
 **Mobile:** `mobile/src/screens/whbWarehouse/` — **read-only list + detail.** Site creation is a desk
 task; the mobile screen exists because every RF screen needs a site picker and the picker reads this
-list. `additionalFilters`: `companyId` and `branchId` dropdowns, `code` text. No date filter is needed.
+list. **The picker follows R22 §1.2.4 row 15**: `useScopedBranchOptions` → branch →
+`GET /warehouses/dropdown?branchId=`. The call returns the sites with a current link of a visibility role,
+`REGISTERED` sites first, and each row carries a role badge. `additionalFilters`: `companyId`, `branchId`
+(*"linked to"*, as on web) and `relationshipRoleCode` dropdowns, and `code` text. No date filter is
+needed.
 
 #### WS-017 · Locations
 
@@ -851,7 +1021,7 @@ table `V500013` (★ must precede `V500030`) · caches `dropdown.whbLocation`.
 
 | key | label | type | sort | vis | source |
 |---|---|---|---|---|---|
-| `code` | Code | string | Y | Y | `code` — **frozen once a movement in the current period exists** (§0.12); it is printed on the bin label and carried by every queued scan |
+| `code` | Code | string | Y | Y | `code` — **unique per site**: `uk(warehouse_id, code)` only (`RL-004`). A scanned code resolves within the session's or device's site, and a cross-site match is `409 AMBIGUOUS_LOCATION` (§0.13). **Frozen once a movement in the current period exists** (§0.12); it is printed on the bin label and carried by every queued scan |
 | `name` | Name | string | Y | Y | `name` |
 | `warehouseName` | Site | string | Y | Y | `whb_warehouses.name` |
 | `locationLevel` | Level | string | Y | Y | `location_level` — SITE/BUILDING/ZONE/AISLE/RACK/LEVEL/POSITION |
@@ -861,7 +1031,7 @@ table `V500013` (★ must precede `V500030`) · caches `dropdown.whbLocation`.
 | `blockReason` | Block reason | string | N | N | `whb_reason_codes.name` via `block_reason_code_id` |
 | `commingePolicy` | Commingle | string | Y | N | `commingle_policy` |
 | `dedicatedOwnerName` | Dedicated owner | string | N | N | `whb_owners.name` via `dedicated_owner_id` |
-| `assignedUserName` | Assigned to | string | N | N | platform user via `assigned_user_id`, rendered `{firstName} {lastName} [{employee_id}] {primary_phone}` through the shared helper |
+| `assignedUserName` | Custodian | string | N | N | the current `CUSTODIAN` row in `whb_location_user_assignments` (`RG-004`; `assigned_user_id` is dropped), rendered `{firstName} {lastName} [{employee_id}] {primary_phone}` through the shared helper |
 | `pickSequence` | Pick seq | number | Y | N | `pick_sequence` |
 | `barcode` | Barcode | string | N | N | `barcode` |
 | `temperatureZone` | Temp zone | string | Y | N | capacity block |
@@ -880,6 +1050,12 @@ table `V500013` (★ must precede `V500030`) · caches `dropdown.whbLocation`.
 *Status & blocking*. View = `ViewModalBase` + a child `DataTable` of
 `whb_location_external_refs` (no grid of its own) and a live on-hand summary read from
 `whb_stock_positions`.
+**Custody** (`RG-004`, `D-14`) — a sub-grid on the modal and the view over
+`whb_location_user_assignments`: user (shared display helper), `assignment_role` from the `CUSTODY_ROLE`
+code list (`CUSTODIAN` / `DRIVER` / `HELPER`), `effectiveFrom`, `effectiveTo`. A location has one current
+`CUSTODIAN`. *Change custodian* ends one row and opens the next, so *"who held the van's stock at last
+Tuesday's shortage"* is a query and never an overwrite. The sub-grid has no grid of its own.
+`whaf_van_stock_assignments` (WS-203) references these rows.
 **Actions:** row View / Edit / **Block** and **Unblock** (own modals, mandatory reason code,
 `whb_locations:block`) / **Print location label** (`wh_print_jobs:create`, template kind
 `LOCATION_LABEL`). Toolbar Add / **Generate** (WS-018) / Import (CSV fallback of `FR-089`) /
@@ -895,8 +1071,10 @@ v1 · P1 · `FR-089`.
 
 A three-step wizard, not a management page: **(1)** parameters — site, parent zone, aisle range, rack
 range, level range, position range, a format mask, `location_type_code`, default capacities,
-`pick_sequence` seed and step; **(2)** **preview** — the computed count and the **first and last
-generated codes**, rendered before anything is written, because *"a modest warehouse has 3,000–20,000
+`pick_sequence` seed and step; **(2)** **preview** — the computed count, the **first and last
+generated codes**, and a **uniqueness check within the site**. Location codes are unique per site only
+(`uk(warehouse_id, code)`, `RL-004`), so the preview lists every generated code that collides with the
+**same site's** existing codes, and never another site's. All of it is rendered before anything is written, because *"a modest warehouse has 3,000–20,000
 locations and the barcodes must agree with the labels already on the racking"*; **(3)** commit, which
 writes through the import framework (`whb_import_batches`, `import_kind = LOCATION_GENERATE`) so it
 has a reversal path (`FR-416`).
@@ -976,16 +1154,28 @@ caches `dropdown.whbCounterparty`.
 
 **Columns:** `code` · `name` · `legalName` · `roles` (comma-joined from
 `whb_counterparty_role_links` — SUPPLIER/CUSTOMER/CARRIER/CLIENT_3PL/TRANSPORTER/JOB_WORKER/INTERNAL) ·
-`primaryRole` · `nationalTaxId` · `countryCode` · `city` · `gln` · `isActive` · audit quartet + names.
+`primaryRole` · `nationalTaxId` (the legal-entity id; a GSTIN is a tax-registration row) ·
+`countryCode` · `city` · `gln` (these two now come from the primary address row, `RG-003`/`RG-020`) ·
+`isActive` · audit quartet + names.
 **Filters:** `roleCode` **multiselect** (a party is routinely two roles at once — a single-select here
 is the `partner_type`-enum mistake in a filter) · `countryCode` select · `nationalTaxId` text ·
-`code`/`name` text · `isActive` boolean · `sourceModule` select (drives the external-ref join).
-**Export:** visible + the default address block, `valid_from`/`valid_to` per role, both audit names.
+`taxRegistrationNumber` text (matches any current tax-registration row) · `code`/`name` text ·
+`isActive` boolean · `sourceModule` select (drives the external-ref join).
+**Export:** visible + the primary address block, the current tax registrations, `min_shelf_life_ship_pct`,
+`valid_from`/`valid_to` per role, both audit names.
 **Modals:** Add/Edit multi-tab — *Identity* · *Roles* (a child editor over
-`whb_counterparty_role_links` with `is_primary`, `valid_from`, `valid_to`) · *Address* · *Status*.
-View = `ViewModalBase` + `DataTable` of roles and of `whb_counterparty_external_refs`.
+`whb_counterparty_role_links` with `is_primary`, `valid_from`, `valid_to`) · **Addresses** (a child
+editor over `whb_counterparty_addresses`: role from the `ADDRESS_ROLE` code list, `is_primary`, the
+address block, `gln`, dated) · **Tax registrations** (a child editor over
+`whb_counterparty_tax_registrations`: scheme, registration number, state, dated). A counterparty's GSTIN
+depends on the ship-to state, so the challan and e-way bill freeze the registration row and address row
+they used (WS-178, WS-179) · *Shipping* (`min_shelf_life_ship_pct`, nullable: the shelf-life-at-ship
+guard resolves counterparty → channel → item, `RJ-009`) · *Status*.
+View = `ViewModalBase` + `DataTable`s of roles, addresses, tax registrations and
+`whb_counterparty_external_refs`.
 **The modal carries no payment terms, credit limit, bank details, contacts or scorecard** (`FR-119`)
-— if a builder adds them, the seam has leaked and the field must be removed, not moved.
+— if a builder adds them, the seam has leaked and the field must be removed, not moved. **Round 4
+reverses `FR-119`'s exclusion for addresses and tax registrations only** (`RG-003`).
 **Actions:** row View / Edit / Add role / End role / Deactivate. Toolbar Add / Import / Export.
 **Mobile:** `mobile/src/screens/whbCounterparty/` — read-only list + detail, used by RF Receive to
 confirm who shipped. `additionalFilters`: `roleCode` dropdown, `name` text.
@@ -1008,7 +1198,7 @@ caches `dropdown.whbItem`.
 | `ownerName` | Owner | string | Y | Y | `whb_owners.name` via `owner_id` |
 | `name` | Description | string | Y | Y | `name` |
 | `itemTypeCode` | Type | string | Y | Y | `item_type_code` → `whb_item_types` |
-| `categoryName` | Category | string | Y | Y | `whb_item_categories.name` — `category_id` is **frozen once a movement in the current period exists** (§0.12); it keys `whb_valuation_policies` |
+| `categoryName` | Category | string | Y | Y | `whb_item_categories.name` of the item's **current `STOCKING` row in `whb_item_category_assignments`** (`RG-005`; `whb_items.category_id` is dropped). `STOCKING` is the seeded system scheme. It is mandatory for a stocked item, and it is **the only scheme any resolver reads, at `occurred_at`**. A new assignment is frozen per §0.12; the category keys `whb_valuation_policies` |
 | `baseUomCode` | Base UoM | string | Y | Y | `base_uom_code` — **immutable once a ledger row exists** (trigger `I-9`, `V500036`) |
 | `lotControlMode` | Lot control | string | Y | Y | `lot_control_mode` NONE/OPTIONAL/REQUIRED — **frozen once stock is on hand**, by trigger (§0.12) |
 | `serialControlMode` | Serial control | string | Y | Y | `serial_control_mode` NONE/RECEIPT/SHIP/FULL — **frozen once stock is on hand**, by trigger (§0.12) |
@@ -1041,14 +1231,20 @@ filter lives on WS-036 and WS-221.
 `updatedByName`, `createdAt`, `updatedAt`. `FR-400`: strict superset, ≤ 100,000 rows, and the export
 must not hold a transaction open.
 **Modals:** Add/Edit **multi-tab** (far more than six groups) — *Identity* (`owner`, `sku`, `code`,
-`name`, `description`) · *Classification* (`item_type_code`, `category_id`, `lifecycle_status`) ·
+`name`, `description`) · *Classification* (`item_type_code`, `lifecycle_status`, and a **category-per-scheme** child editor over
+`whb_item_category_assignments`, `RG-005`: one current row per item × scheme, dated, the scheme being the
+root of the category tree, and the `STOCKING` row mandatory for a stocked item) ·
 *Units* (`base_uom_code`, `purchase_uom_code`, `sale_uom_code`; base UoM read-only once any ledger row
 exists) · *Control* (lot / serial / expiry modes, shelf-life columns) · *Status facts* (the four
 booleans) · *Tax & compliance* (`tax_classification_code`, hazmat block, temperature class) ·
 *Attributes* (typed rows from `whb_item_attribute_values` against `whb_attribute_keys` — **never a
-JSONB bag, and only registered keys are accepted**, `FR-076`/`FR-078`).
+JSONB bag, and only registered keys are accepted**, `FR-076`/`FR-078`) · **Variant values** (a child
+editor over `whb_item_variant_values`, one value per axis of the style's `whb_style_variant_axes`, in the
+style's own axis order. Any number of axes is allowed, and the rows are deliberately undated. They replace
+the three fixed slots, `RG-009`).
 View = `ViewModalBase` with an `InfoSection` per tab plus `DataTable`s for identifiers, packaging
-levels, UoM conversions, supersessions and on-hand-by-site.
+levels, UoM conversions, supersessions, category assignments (every scheme, with history), variant values
+and on-hand-by-site.
 **There is no cost field anywhere on this modal** (`FR-052`) — cost is a property of a receipt layer.
 **Actions.** Row: View · Edit · **Block for receipt** / **Block for issue** (own modals, they set the
 `FR-050` booleans and are the offered alternative when deactivation is refused) · Deactivate
@@ -1159,7 +1355,8 @@ All three masters are **Customer** shape, v1 · P1, table `V500018`, export = vi
 
 `whb_lots` · `WAREHOUSE_LOT` · `whb_lots:*` · `FR-094` `FR-095` `FR-096` `FR-320` ·
 caches `dropdown.whbLot`.
-**Columns:** `lotCode`, `itemCode`, `itemName`, `ownerName`, `supplierLot`, `counterpartyName`,
+**Columns:** `lotCode`, `itemCode`, `itemName`, `ownerName`, `supplierLot`, `partyNames` (each
+`whb_lot_counterparties` row as *name (role)* — `RG-006`; `whb_lots.counterparty_id` is dropped),
 `manufactureDate`, **`expiryDate`**, **`bestBeforeDate`**, **`useByDate`** (three separate columns
 with different despatch rules — never one "expiry"), `retestDate`, `receiptDate`, `countryOfOrigin`,
 `mrp`, `netContent` + `netContentUomCode`, `packMonthYear`, `parentLotCode`, `lotStatus`,
@@ -1169,8 +1366,12 @@ with different despatch rules — never one "expiry"), `retestDate`, `receiptDat
 `manufactureFrom` / `manufactureTo` (`dateOnly` pair) · `lotStatus` select · `countryOfOrigin` select ·
 `expiringWithinDays` select (30/60/90 — a **dropdown**, so the mobile screen can carry the same
 filter within `ListHeader`'s dropdown-only constraint).
-**Actions:** View · **Hold lot** / **Release lot** (own modals, mandatory reason code; a lot has its
-own status so a whole lot is held everywhere at once **without moving anything**, `FR-096`) ·
+**Actions:** View · **Hold lot** / **Release lot** (own modals, mandatory reason code). A lot hold is
+**a `wh_holds` row with `hold_scope = LOT`** (`RJ-008`), and it holds the whole lot everywhere at once
+**without moving anything** (`FR-096`). `lotStatus` carries lifecycle states set by jobs, such as
+`EXPIRED`, and is never a hold · **Parties** (a child editor over `whb_lot_counterparties`: supplier,
+`MANUFACTURER`, `PACKER`, `IMPORTER` and the other roles of registry 11 — the parties a Legal Metrology
+declaration and a recall name) ·
 Split / Merge (posts a `whb_transformations` row — genealogy is recorded **at the moment of
 transformation**, never reconstructed, `FR-105`) · Print lot label · Trace (routes to WS-218).
 **Mobile:** `screens/whbLot` — list, detail, hold/release. `expiringWithinDays` is the dropdown that
@@ -1179,14 +1380,18 @@ replaces the date range.
 #### WS-037 · Serials
 
 `whb_serials` · `WAREHOUSE_SERIAL` · `FR-097` `FR-098` `FR-099` `FR-106`.
-**Columns:** `serialNumber`, `secondarySerial`, `itemCode`, `ownerName`, `lotCode`,
+**Columns:** `serialNumber`, `identifiers` (every `whb_serial_identifiers` row as *type: value*. A
+dual-SIM handset carries two IMEIs. `RG-007`; `secondary_serial` is dropped), `itemCode`, `ownerName`, `lotCode`,
 `currentLocationCode`, `currentStatusCode`, `currentLpnCode`, `soldToCounterpartyName`,
 `warrantyStartDate`/`warrantyEndDate` (`dateOnly`), `lastMovementAt`, `linkedCoreSerial`.
 **Filters:** `itemId` typeahead → `ownerId` → `warehouseId` → `currentLocationId` ·
 `serialNumber` text · `currentStatusCode` select · `soldToCounterpartyId` typeahead ·
 `warrantyEndFrom`/`warrantyEndTo` `dateOnly` pair · `inWarranty` boolean (backend-computed).
 The three post-sale questions — **where is it now, who did we sell it to, is it in warranty** — are
-answered by the view modal, which also lists the shipment that carried it.
+answered by the view modal, which also lists the shipment that carried it. The view carries an
+*Identifiers* child editor (`identifier_type` open, `uk(owner_id, identifier_type, identifier_value)`,
+never global). The scan resolver reads it, so either IMEI finds the handset (`P1-02`), and the
+`serialNumber` filter matches the serial **or any of its identifiers**.
 `uk(owner_id, item_id, serial_number)` — **never globally unique**; the modal's duplicate check must
 be scoped, and a site-level duplicate warning is shown where the scope permits the duplicate
 (`FR-106`).
@@ -1404,11 +1609,11 @@ reconciliation report open.
 | id | Screen | Table · Scope | Ref | Key columns | Filters | Actions | FR |
 |---|---|---|---|---|---|---|---|
 | WS-047 | Reservations | `whb_reservations` · `WAREHOUSE_RESERVATION` | SV | `ownerName`, `itemCode`, `locationCode`, `lotCode`, `serialNumber`, `lpnCode`, `stockStatusCode`, `quantity`, `baseQuantity`, **`holderSystem`**, **`holderDocumentType`**, **`holderDocumentId`**, **`holderLineNo`**, `reservationType` (SOFT/HARD), `priority`, **`expiresAt`**, `status`, `strategyCode`, `ruleSequence` | `warehouseId` → `itemId` · `ownerId` · `holderSystem` select → `holderDocumentType` select · `holderDocumentId` text · `reservationType` select · `status` select · `expiresFrom`/`expiresTo` `date` pair · `expiredOnly` boolean | **Release** (own modal, reason-coded — release exists in v1 even though the wave does not, `FR-169`) · **Extend expiry** · View holder document (through the display resolver) | `FR-166` `FR-167` `FR-169` `FR-170` `FR-171` `FR-173` |
-| WS-048 | Allocation Strategies | `whb_allocation_strategies` · `WAREHOUSE_ALLOCATION_STRATEGY` | D | `code`, `name`, `owningModule`, `scopeType` (GLOBAL/WAREHOUSE/ITEM_CATEGORY/OWNER/CHANNEL), `scopeRef`, `priority`, `ruleCount`, `isActive` | `scopeType` select → `scopeRef` select · `isActive` | Edit opens a **rule editor** over `whb_allocation_strategy_rules`: `sequence`, `ordering_key` (**whitelisted**: FIFO/FEFO/LIFO/LOT_SPECIFIED/NEAREST_LOCATION/FEWEST_PICKS/ZONE_PRIORITY/HIGHEST_QUANTITY), `direction`, `filter_column`/`filter_operator`/`filter_value` — **all whitelisted, never a free expression language** | `FR-172` `FR-173` |
+| WS-048 | Allocation Strategies | `whb_allocation_strategies` · `WAREHOUSE_ALLOCATION_STRATEGY` | D | `code`, `name`, `owningModule`, `scopeType` (GLOBAL/WAREHOUSE/ITEM_CATEGORY/OWNER/CHANNEL), `scopeRef`, `priority`, `ruleCount`, `isActive` | `scopeType` select → `scopeRef` select · `isActive` | Edit opens a **rule editor** over `whb_allocation_strategy_rules`: `sequence`, `ordering_key` (**whitelisted**: FIFO/FEFO/LIFO/LOT_SPECIFIED/NEAREST_LOCATION/FEWEST_PICKS/ZONE_PRIORITY/HIGHEST_QUANTITY), `direction`, `filter_column`/`filter_operator`/`filter_value` — **all whitelisted, never a free expression language**. **Version history** (`RL-010`): a rule row referenced by any reservation is immutable (`I-24`), and an edit is copy-on-write with `version_no` + `supersedes_id`. The editor lists every version, so a reservation's recorded strategy and rule ids always resolve to the rules that actually ran | `FR-172` `FR-173` |
 | WS-049 | Cost Layers | `whb_cost_layers` · `WAREHOUSE_COST_LAYER` | C | `itemCode`, `ownerName`, `warehouseName`, `lotCode`, `serialNumber`, `dutyStatus`, `layerDate` (`dateOnly`), `quantityIn`, **`quantityRemaining`**, `unitCost`, `layerValue`, `currencyCode`, `exchangeRate`, `receiptOccurredAt` | `warehouseId` → `itemId` · `ownerId` · `layerDateFrom`/`To` `dateOnly` pair · `hasRemaining` boolean (default true) · `currencyCode` select | View → drill-down `DataTable` of `whb_cost_layer_consumptions` (**which layer fed which issue** — what a credit note needs to restore the original layer). Read-only: a layer is created and consumed by the ledger, never edited | `FR-234` `FR-245` `OD-6` |
 | WS-050 | Valuation Policies | `whb_valuation_policies` · `WAREHOUSE_VALUATION_POLICY` | D | `companyName`, `categoryName` (null = all), `warehouseName` (null = all), `method` (**AVCO/FIFO in v1; STANDARD v1.1; LIFO never**), `valuationGrain`, `effectiveFrom`/`effectiveTo` (`dateOnly`) | `companyId` → `categoryId` → `warehouseId` · `method` select · `effectiveFromFrom`/`To` | Add/Edit/End-date. The modal's method dropdown **must not offer LIFO** — prohibited under Ind AS 2 / IAS 2 (`OD-6`) | `FR-235` `FR-236` |
 | WS-051 | GL Posting Rules | `whb_gl_posting_rules` · `WAREHOUSE_GL_POSTING_RULE` | D | `companyName`, `movementTypeCode`, `reasonCodeName`, `itemCategoryName`, `warehouseName`, `ownerTypeCode`, `specificity`, `debitAccountRef`, `creditAccountRef`, `effectiveFrom`/`effectiveTo` | each wildcard dimension as its own select · `effectiveFromFrom`/`To` | Add/Edit/End-date · **Test resolution** (a modal that takes a movement type + reason + category + site + owner type and shows which rule wins, most-specific-first) | `FR-246` |
-| WS-052 | Accounting Handover Queue | `whb_accounting_handovers` · `WAREHOUSE_ACCOUNTING_HANDOVER` | SV | `movementSequenceNo`, `occurredAt`, `companyName`, `envelopeKind`, `idempotencyKey`, `status` (PENDING/SENT/POSTED/REJECTED), `attemptCount`, `lastAttemptAt`, `rejectionCode`, `rejectionMessage`, `externalDocumentRef` | `status` **multiselect** (default PENDING+REJECTED) · `companyId` · `envelopeKind` select · `occurredFrom`/`To` `date` pair · `rejectionCode` select | **Retry** (idempotent by construction) · **View payload** (read-only `TEXT`, never JSONB) · View movement (WS-041). **No edit.** `FR-232`: the rejected-handover queue is the answer to *"does the stock ledger tie to the GL"* | `FR-231` `FR-232` `FR-233` `FR-248` |
+| WS-052 | Accounting Handover Queue | `whb_accounting_handovers` · `WAREHOUSE_ACCOUNTING_HANDOVER` | SV | `movementSequenceNo`, `occurredAt`, `companyName`, `envelopeKind`, `idempotencyKey`, `status` (PENDING/SENT/POSTED/REJECTED), `attemptCount`, `lastAttemptAt`, `rejectionCode`, `rejectionMessage`, `externalDocumentRef` | `status` **multiselect** (default PENDING+REJECTED) · `companyId` · `envelopeKind` select · `occurredFrom`/`To` `date` pair · `rejectionCode` select | **Retry** (idempotent by construction) · **Void** (`whb_accounting_handovers:void`, own modal, approver ≠ requester, only for a reversed or `NOT_APPLICABLE` movement — `RJ-011`, §0.11) · **View payload** (read-only `TEXT`, never JSONB) · View movement (WS-041). **No edit.** `FR-232`: the rejected-handover queue is the answer to *"does the stock ledger tie to the GL"* | `FR-231` `FR-232` `FR-233` `FR-248` |
 
 All six are `whb_<table>:view|create|edit|delete|export` except WS-049 and WS-052, which are
 `:view|export` plus verb permissions (`whb_accounting_handovers:retry`). All are
@@ -1446,7 +1651,7 @@ operator has no action on them and a handheld cannot render a payload.
 |---|---|---|---|---|---|---|---|
 | WS-059 | Tasks | `whb_tasks` · `WAREHOUSE_TASK` | SV | `taskTypeCode`, `warehouseName`, `zoneLocationCode`, `ownerName`, `priority`, `status` (CREATED/ASSIGNED/STARTED/PAUSED/COMPLETED/CANCELLED/EXCEPTION), `assignedToName`, `assignedAt`, `startedAt`, `completedAt`, `pausedSeconds`, `deviceId`, `travelDistance`, `exceptionCode` | `warehouseId` → `zoneLocationId` → `taskTypeCode` · `status` **multiselect** · `assignedTo` typeahead · `priority` select · `createdFrom`/`To` `date` pair · `openOnly` boolean | Assign · Reassign · Cancel (reason-coded) · Complete-with-exception. **Tasks exist in v1 even though v1 has no RF gun** (`FR-212`): v1 creates one task per receipt line and per pick line and completes it in the same request, so `assigned_at`/`started_at`/`completed_at`/`paused_seconds` are populated from day one and labour reporting has a year of honest data before any standard is set (`FR-213`) | `FR-212` `FR-213` `FR-215` |
 | WS-060 | Devices | `whb_devices` · `WAREHOUSE_DEVICE` | D | `deviceCode`, `deviceType`, `warehouseName`, `assignedToName`, `lastSeenAt`, `appVersion`, `isActive` | `warehouseId` · `deviceType` select · `isActive` · `lastSeenBefore` select (dropdown of ages, so mobile can carry it) | Add/Edit/Deactivate · Force sign-out | `FR-222` (v1.1) |
-| WS-061 | Number Series | `whb_number_series` · `WAREHOUSE_NUMBER_SERIES` | D | `owningModule`, `seriesCode`, `companyName`, `warehouseName`, `branchName` (**`branches.branch_name`**), `prefix`, `suffix`, `padLength`, `currentValue`, `resetPolicy`, `lastResetAt`, `isGapless` | `owningModule` select → `seriesCode` select · `companyId` → `warehouseId` → `branchId` · `isGapless` | Add/Edit · **Preview next number** (reads, never issues). `current_value` is **read-only in the modal** — editing a gapless counter by hand is how a duplicate document number is created | `FR-426` |
+| WS-061 | Number Series | `whb_number_series` · `WAREHOUSE_NUMBER_SERIES` | D | `owningModule`, `seriesCode`, `companyName`, `warehouseName`, `branchName` (**`branches.branch_name`**), `prefix`, `suffix`, `padLength`, `currentValue`, `resetPolicy`, `lastResetAt`, `isGapless` | `owningModule` select → `seriesCode` select · `companyId` → `warehouseId` → `branchId` · `isGapless` | Add/Edit · **Preview next number** (reads, never issues). **A branch-scoped series (challan, transfer invoice) resolves `branch_id` to the issuing site's `REGISTERED` branch at the document date** (`D-14`, R22 §1.2.4 row 2). Warehouse-scoped series (GRN, pick, ship) are unaffected. A re-registration switches series from that instant and renumbers nothing (`FR-307`). `current_value` is **read-only in the modal** — editing a gapless counter by hand is how a duplicate document number is created | `FR-426` |
 | WS-062 | Numbers Issued | `whb_number_series_issued` · `WAREHOUSE_NUMBER_ISSUED` | C | `seriesCode`, `issuedValue`, `formattedNumber`, `issuedToType`, `issuedToId`, `issuedAt`, `issuedByName` | `seriesId` select · `formattedNumber` text · `issuedFrom`/`To` `date` pair | View only — the table is append-only and has **no `updated_*` columns at all** | `FR-426` |
 | WS-063 | Warehouse Audit Events | `whb_audit_events` · `WAREHOUSE_AUDIT_EVENT` | C | `sequenceNo`, `entityType`, `entityId`, `action`, `actorUserName`, `onBehalfOfActorName`, `occurredAt`, `summary`, `prevHash`, `payloadHash` | `entityType` select → `action` select · `actorUserId` typeahead · `occurredFrom`/`To` `date` pair · `entityId` text | View → expansion row of `whb_audit_event_changes` (field, old, new). **Append-only, hash-chained; ledger-style, no audit-name columns** — the actor *is* the content. `on_behalf_of_actor_id` lands in the **first** audit migration (`FR-409`) even though impersonation ships in v1.1, because sessions recorded before the column exists are indistinguishable from the customer's own actions | `FR-427` `FR-409` |
 | WS-064 | Job Runs | `whb_job_runs` · `WAREHOUSE_JOB_RUN` | C | `jobCode`, `startedAt`, `finishedAt`, `status`, `recordsRead`, `recordsWritten`, `errorDetail`, `durationSeconds` | `jobCode` select · `status` select · `startedFrom`/`To` `date` pair · `failedOnly` boolean | View · **Run now** (`whb_job_runs:trigger`). **This grid is `FR-165`'s enforcement surface**: every dated obligation in the product ships with its job, and a job with no run record cannot be proved to have run. The expiry, snapshot, reservation-expiry, drift-rebuild, outbox-publish and alert jobs all appear here | `FR-165` |
@@ -1568,7 +1773,7 @@ text; `receivedFrom`/`To` become a `receivedWithin` dropdown.
 | WS-081 | `wh_putaway_rules` · `WAREHOUSE_PUTAWAY_RULE` | C | `code`, `name`, `warehouseName`, `sequence`, `scopeCategoryName`, `scopeItemCode`, `scopeStatusCode`, `strategy` (**whitelisted**: FIXED_LOCATION/NEAREST_EMPTY/ZONE_BY_VELOCITY/…), `isActive` | `warehouseId` → `strategy` select · `isActive` | Add/Edit/Reorder · **Test** (a modal: given item + quantity + status, which location does the rule chain suggest, and why). **Rules are data, evaluated in sequence** | `FR-135` |
 | WS-082 | `wh_putaway_tasks` · `WAREHOUSE_PUTAWAY_TASK` | SV | `taskNumber` (from `whb_tasks`), `grnNumber`, `itemCode`, `quantity`, `lotCode`, `lpnCode`, `suggestedLocationCode`, `actualLocationCode`, `overrideReasonName`, `stagingLocationCode`, `ruleName`, `status`, `assignedToName` | `warehouseId` → `status` **multiselect** → `assignedTo` typeahead · `grnNumber` text · `itemId` typeahead · `hasOverride` boolean | Assign · Complete (own modal: scan location, capture override reason when the operator overrides the suggestion — **the reason is captured, never silently discarded**) · Cancel | `FR-135` |
 | WS-083 | `wh_reconciliation_cases` · `WAREHOUSE_RECONCILIATION_CASE` | SV | `caseNumber`, `caseType` (QUANTITY/OVER_RECEIPT/INVOICE/ASN/INVENTORY), `warehouseName`, `subjectType`, `subjectId`, `status`, `ownerUserName`, `openedAt`, `resolvedAt`, `resolutionAction`, `resultingDocumentType`, `ageDays` | `warehouseId` → `caseType` select → `status` **multiselect** · `ownerUserId` typeahead · `openedFrom`/`To` · `openOnly` boolean (default true) | Assign · Add event (child `wh_reconciliation_case_events` timeline) · **Resolve** (the modal names the resulting document; **the case never moves stock itself**, `FR-138`) | `FR-138` |
-| WS-084 | `wh_supplier_returns` · `WAREHOUSE_SUPPLIER_RETURN` | SV | `returnNumber`, `supplierName`, `warehouseName`, `ownerName`, `originGrnNumber`, `originLotCode`, `reasonCodeName`, `status` (DRAFT/APPROVED/PICKED/DISPATCHED/CLOSED/CANCELLED), `lineCount`, `totalValue`, `dispatchedAt`, audit | `warehouseId` → `supplierCounterpartyId` → `status` **multiselect** · `reasonCodeId` · `returnNumber` text · `createdFrom`/`To` | Approve · Pick · **Dispatch** (**inventory is reduced only at dispatch**, `FR-139` — a supplier return is not an RMA and does not share its ladder) · Close · Cancel · Print | `FR-139` `FR-275` |
+| WS-084 | `wh_supplier_returns` · `WAREHOUSE_SUPPLIER_RETURN` | SV | `returnNumber`, `supplierName`, `warehouseName`, `ownerName`, `originGrnNumber`, `originLotCode`, `reasonCodeName`, `status` (DRAFT/APPROVED/PICKED/DISPATCHED/CLOSED/CANCELLED), `lineCount`, `totalValue`, `dispatchedAt`, audit | `warehouseId` → `supplierCounterpartyId` → `status` **multiselect** · `reasonCodeId` · `returnNumber` text · `createdFrom`/`To` | Approve · Close · Cancel · Print. **It runs through a demand order** (`RJ-003`). Approval creates a `VENDOR_RETURN` demand order, which reserves. Pick and staging follow the demand path (WS-099, WS-102), and dispatch is the shipment's `wh_shipments:dispatch` — **inventory is reduced only at dispatch** (`FR-139`). There is no supplier-return Pick or Dispatch of its own. A supplier return is not an RMA and does not share its ladder. **Cancel after `PICKED` is refused with `409 STAGED_STOCK`** until the stock is de-staged (`RJ-006`, §0.13). A return with `origin_grn_id` relieves that receipt's layer (`RJ-010`) | `FR-139` `FR-275` |
 | WS-085 | `wh_dock_doors` · `WAREHOUSE_DOCK_DOOR` | C | `code`, `warehouseName`, `doorType` (INBOUND/OUTBOUND/BOTH), `locationCode`, `hasLeveler`, `hasShelter`, `hasTemperatureControl`, `status` | `warehouseId` → `doorType` select · `status` select | Add/Edit/Block. Child editor `wh_dock_door_vehicle_types` — **rows replacing `compatible_vehicles JSONB`** | `FR-092` `FR-383` |
 | WS-086 | `wh_dock_appointments` · `WAREHOUSE_DOCK_APPOINTMENT` | SV | `appointmentNumber`, `dockDoorCode`, `appointmentType`, `scheduledStartAt`, `scheduledEndAt`, `slotDurationMinutes`, `referenceType`, `referenceId`, **`arrivedAt`**, **`dockedAt`**, **`departedAt`**, `noShow`, **`detentionMinutes`**, `status` | `warehouseId` → `dockDoorId` → `appointmentType` select · `status` **multiselect** · `scheduledFrom`/`To` `date` pair · `noShow` boolean | Book · Reschedule · **Check in** (`arrived_at` — the dock-to-stock clock starts here and cannot be backfilled) · Dock · Depart · Mark no-show. **Schema is v1 (`V510010`); the scheduling screen is v1.1** | `FR-092` `FR-392` |
 | WS-087 | `wh_cross_dock_plans` · `WAREHOUSE_CROSS_DOCK_PLAN` | C | `grnNumber`, `grnLineNo`, `asnNumber`, `demandOrderNumber`, `itemCode`, `quantity`, `crossDockType` | `warehouseId` · `crossDockType` select · `grnNumber`/`orderNumber` text | v2. The **`cross_dock_reference` column is nullable on the v1 receipt line** so "which receipts were cross-docked" is answerable for the period before the feature shipped | `FR-137` |
@@ -1605,26 +1810,44 @@ screen says so rather than hiding the button.
 #### WS-090 · Transfer Orders
 
 `/warehouse/inventory/transfers` · **Service Vehicle** · `wh_transfer_orders` ·
-`WAREHOUSE_TRANSFER_ORDER` · v1 · P2 · `FR-147` `FR-148` `FR-149` `FR-244` `FR-305` `FR-306` `FR-344`.
+`WAREHOUSE_TRANSFER_ORDER` · v1 · P2 · `FR-147` `FR-148` `FR-149` `FR-244` `FR-305` `FR-306` `FR-344`
+`FR-462`. Ladder: §0.11, round 4.
 **Three legs, not two** — depart from the source location into a **per-transfer** in-transit location
 **at the sending site**, arrive from it at the destination. `FR-085`: the transit location is per
 reference, never one global `IN_TRANSIT` bucket, so two consignments on the road are separately
 countable and separately ageable.
 **Columns:** `transferNumber`, `transferType` (BIN_TO_BIN/INTRA_SITE/INTER_SITE), `companyName`,
 `sourceWarehouseName`, `destinationWarehouseName`, `sourceBranchName` / `destinationBranchName`
-(**`branches.branch_name`**), **`isTaxableSupply`**, `transferPrice`, `valuationMethod`,
-`ownershipTransferPoint`, `status`, `dispatchedAt`, `receivedAt`, `inTransitDays`, `lineCount`, audit.
-**Filters:** `companyId` → `sourceWarehouseId` → `destinationWarehouseId` · `transferType` select ·
-`status` **multiselect** · `isTaxableSupply` boolean · `dispatchedFrom`/`To` `date` pair ·
-`inTransitOverDays` select (dropdown — it is also the mobile filter) · `transferNumber` text.
-**Actions:** Add · Pick · **Dispatch** (posts the depart movement) · **Receive** (posts the arrive
-movement) · **Report variance** (the in-transit residue) · Cancel · **Generate delivery challan**
+(**`branches.branch_name`** — frozen at creation from each site's `REGISTERED` link, or the `SERVING`
+branch for an issue to it, `FR-305`), **`isTaxableSupply`**, `transferPrice`, `valuationMethod`,
+`ownershipTransferPoint`, `status`, `requestedByName`, `approvedByName`, `demandOrderNumber`,
+`dispatchedAt`, `receivedAt`, `inTransitDays`, `lineCount`, audit. Lines carry `requestedQuantity` and
+**`approvedQuantity`**, because part-approval is a line quantity, not a state.
+**Filters:** `companyId` → `sourceWarehouseId` → `destinationWarehouseId` (**offered only within the
+source's company** — a cross-company site is never listed, `RK-007`) · `transferType` select ·
+`status` **multiselect** (the §0.11 vocabulary, `REQUESTED` included) · `isTaxableSupply` boolean ·
+`dispatchedFrom`/`To` `date` pair · `inTransitOverDays` select (dropdown — it is also the mobile filter) ·
+`transferNumber` text.
+**Actions:** Add · **Request** (`wh_transfer_orders:request` creates the transfer in `REQUESTED`, and
+**only a user scoped to the destination site** may do it, `FR-462`) · **Approve** / **Reject**
+(`:approve` / `:reject`, own modals). **The approver is scoped to the source site** and is not the
+requester (`FR-408`). Approve may part-approve per line, and the refused remainder is written to WS-096 as
+`TRANSFER_REQUEST`. Approval creates the `TRANSFER` demand order, which reserves (`RJ-003`) ·
+**Dispatch** (the transfer's shipment, `wh_shipments:dispatch` on WS-105, posts `TRANSFER_DEPART` into
+the transit location) · **Receive** (`:receive` posts the arrive movement. It is authorised against that
+transfer's transit location regardless of site scope) · **Report variance** (`:report_variance`, the
+in-transit residue) · **Cancel** (`:cancel`; **in transit it posts `TRANSFER_RETURN`** from the transit
+location back to the source, with a mandatory reason code) · **Generate delivery challan**
 (`whin_delivery_challans:create`, only when `warehouse-india` is installed — the button is registered
 by the India module, not by `warehouse`) · Print.
+**There is no Pick action.** Reservation, pick and staging are the demand path (WS-099, WS-102), because
+there is exactly one reservation path (`RJ-003`). A cross-company transfer reaching the API is
+`422 CROSS_COMPANY_TRANSFER` (§0.13).
 **The transfer carries two numbers** (`FR-244`): a **transfer price** (the tax document) and a
 **cost** (what follows the goods).
 **Mobile:** `screens/whTransferOrder` — dispatch and receive are genuine floor tasks and both are on
-the handheld; creation is available; the challan action is not.
+the handheld; creation is available, and so is **Request**, because the counter clerk at the destination
+raises it (`RK-001`). Approve / Reject and the challan action are not.
 
 #### WS-091 … WS-098 · Holds, counting and the exception queues
 
@@ -1632,7 +1855,7 @@ the handheld; creation is available; the challan action is not.
 |---|---|---|---|---|---|---|
 | WS-091 | `wh_hold_types` · `WAREHOUSE_HOLD_TYPE` | D | `code`, `name`, `owningModule`, `holdScope` (ORDER/LOT/LOCATION/ITEM/SHIPMENT), `blocksAllocation`, `blocksPick`, `blocksShip`, `requiresReason`, `releasePermission`, `isActive` | `holdScope` select · `blocksAllocation`/`blocksPick`/`blocksShip` booleans · `isActive` | `D-10`'s twelfth registry, **living in the application** because holds are an application concern. Same catalogue block as §2.1 | `FR-151` |
 | WS-092 | `wh_holds` · `WAREHOUSE_HOLD` | SV | `holdNumber`, `holdTypeCode`, `subjectType`, `subjectId`, `subjectLabel` (through the display resolver), `reasonCodeName`, `placedByName`, `placedAt`, `releasedByName`, `releasedAt`, `releaseReasonName`, `note` | `holdTypeCode` select → `subjectType` select · `activeOnly` boolean (default true) · `placedBy` typeahead · `placedFrom`/`To` `date` pair | Place · **Release** (gated on the hold type's `release_permission`) · **Mass hold / release** by lot, LPN, location, supplier, item or date range — its own modal, and **each posts a balanced status-change movement** (`FR-152`). **Two holds at once is the normal case**, so this is a record with a release audit, never a status column | `FR-151` `FR-152` |
-| WS-093 | `wh_count_programs` · `WAREHOUSE_COUNT_PROGRAM` | C | `code`, `name`, `warehouseName`, `programType` (ABC/RANDOM/FULL/ZONE/ITEM/DISCREPANCY_TRIGGERED), `frequencyDays`, `scheduleCron`, `nextScheduledDate` (`dateOnly`), `isBlindCount`, `recountThresholdPct`, `approvalThresholdPct`, `scopeCount`, `isActive` | `warehouseId` → `programType` select · `isBlindCount` boolean · `nextScheduledFrom`/`To` `dateOnly` pair · `isActive` | Add/Edit with a child editor over `wh_count_program_scopes` — **rows replacing `scope_*_ids JSONB`** · **Generate counts now** | `FR-156` `FR-383` |
+| WS-093 | `wh_count_programs` · `WAREHOUSE_COUNT_PROGRAM` | C | `code`, `name`, `warehouseName`, `programType` (ABC/RANDOM/FULL/ZONE/ITEM/DISCREPANCY_TRIGGERED), `frequencyDays`, `scheduleCron`, `nextScheduledDate` (`dateOnly`), `isBlindCount`, `recountThresholdPct`, `approvalThresholdPct`, `scopeCount`, `isActive` | `warehouseId` → `programType` select · `isBlindCount` boolean · `nextScheduledFrom`/`To` `dateOnly` pair · `isActive` | Add/Edit with a child editor over `wh_count_program_scopes` — **rows replacing `scope_*_ids JSONB`** · **Generate counts now**. **`programType = ABC` is labelled *"uses manually maintained classes"* until v1.1**, when `P1-03`'s v1.1 increment, the simple recompute (`FR-463`), fills the class. A v1 screen must not imply a computation that does not exist (`RK-003`) | `FR-156` `FR-383` |
 | WS-094 | `wh_counts` · `WAREHOUSE_COUNT` | SV | `countNumber`, `programName`, `warehouseName`, `countType` (CYCLE/FULL_PHYSICAL/ZERO_STOCK/SPOT), `status`, `isBlind`, `freezeStartedAt`, `freezeEndedAt`, `bookSnapshotTakenAt`, `lineCount`, `countedLines`, `varianceLines`, `varianceValue`, `approvedByName`, `approvedAt`, `postedAt`, audit | `warehouseId` → `programId` → `countType` select · `status` **multiselect** · `isBlind` boolean · `hasVariance` boolean · `createdFrom`/`To` `date` pair | Generate · **Freeze** · Assign zones (child `wh_count_zone_assignments`) · Enter counts (WS-095) · Recount · **Approve** (`wh_counts:approve`; **the counter may not approve their own count**, `FR-408`) · **Post** · Cancel · Print count sheet. **A count is a document that proposes an adjustment and never writes on-hand**; the book quantity is frozen at count start and stored even when the count is blind | `FR-153` `FR-154` `FR-155` `FR-157` `FR-159` |
 | WS-095 | count entry route (no grid) | — | the `wh_count_lines` editor: `itemCode`, `locationCode`, `lotCode`, `serialNumber`, `lpnCode`, `ownerName`, `stockStatusCode`, `dutyStatus`, **`countSnapshotQuantity`** (hidden when `is_blind`), `countedQuantity`, `varianceQuantity`, `variancePct`, `unitCost`, `varianceValue`, `isWithinTolerance`, `recountSequence`, `countedByName` | — | **Tolerance gates posting** by quantity percentage **and** by value: lines inside tolerance post automatically, lines outside route to approval. Posting emits **one movement per non-zero variance line**, carrying the count's reason code | `FR-155` `FR-159` |
 | WS-096 | `wh_insufficient_stock_log` · `WAREHOUSE_INSUFFICIENT_STOCK` | C | `warehouseName`, `itemCode`, `ownerName`, `requestedQuantity`, `availableQuantity`, `sourceType`, `sourceId`, `actorUserName`, `occurredAt`, `policyApplied` (BLOCK/WARN/ALLOW), `isLostSale` | `warehouseId` → `itemId` · `policyApplied` select · `sourceType` select · `isLostSale` boolean · `occurredFrom`/`To` `date` pair | Read-only + Export. **One table because they are the same event seen twice**: every `WARN`/`ALLOW` breach and every lost sale captured at the counter or the job-issue screen. Ledger-style, no audit columns | `FR-015` `FR-257` |
@@ -1644,6 +1867,28 @@ Cycle Count** is the entry surface and the web grid is the controller's; WS-097
 `screens/whBlockedMovement` — the operator who was refused must be able to see why and raise the
 force request. `none` for WS-091 (registry), WS-093 (programme configuration), WS-096 and WS-098
 (controller reports).
+
+#### WS-241 · Approval Levels — v2 · P5
+
+`/warehouse/inventory/approval-levels` · **Department** · `wh_approval_levels` · `WAREHOUSE_APPROVAL_LEVEL` ·
+`wh_approval_levels:*` · v2 · P5 · `FR-466` · table `V510222`, grid config `V511180`, permissions,
+dependencies and menu `V511210` + `V511240` · caches: statistics `—` (filter-aware, `FR-395`), no dropdown.
+
+**Ordered, typed rows, not a workflow engine** (`RK-008`). A level is keyed by document kind × value
+band × sequence and names the permission its approver must hold. The existing approve actions read it:
+`wh_purchase_orders:approve` (WS-072), `wh_stock_adjustments:approve` (WS-089), `wh_transfer_orders:approve`
+(WS-090) and the other approve verbs of §10.2. A document in a band needs every level of that band, in
+sequence. **`FR-408` applies at every level, and no user approves one document twice.** The single-step
+`approved_by` columns stay, holding the last approver.
+**Columns:** `documentKind` · `valueBandFrom` · `valueBandTo` (null = no upper bound) · `sequence` ·
+`permissionName` (the permission an approver at this level must hold) · `isActive` · audit quartet + names.
+**Filters:** `documentKind` select · `permissionName` select · `isActive` boolean.
+**Export:** visible + both audit names.
+**Modals:** single-tab add/edit; view = `ViewModalBase` with a `StatusCard` and a `DataTable` of the
+document kind's whole ladder, in band and sequence order.
+**Actions:** row View / Edit / Deactivate. Toolbar Add / Export / Grid config / Help.
+**Mobile:** `none` — approval configuration is a desk task. Approving a document from a handheld is
+governed by that document's own mobile block. Stated per `FR-218`.
 
 ---
 
@@ -1751,6 +1996,43 @@ configuration), WS-110/112/113 (dispatch-office documents), WS-115/117/119/121/1
 and integration), WS-120 (a call-centre workflow, not a warehouse one), WS-129/130 (v2, and the
 instrument is at a fixed station with its own terminal).
 
+#### WS-240 · Trade Portal — v2 · P5
+
+`/warehouse/outbound/trade-portal` · **Customer** · `wh_trade_portal_users` ·
+`WAREHOUSE_TRADE_PORTAL_USER` · `wh_trade_portal_users:*` · v2 · P5 · `FR-464` · table `V510221` ·
+permissions, dependencies and menu `V511209` + `V511239` · caches: statistics `—` (filter-aware,
+`FR-395`), no dropdown.
+
+**A second persona on `FR-284`'s surface, not a second application** (`RK-006`). The 3PL client portal
+(WS-172) is scoped by owner. This one is scoped by **customer counterparty**, through the same single
+server-side resolver (`FR-406`). Its user is the independent garage, fleet operator or sub-dealer that buys
+parts from the dealer's wholesale counter. It ships in its own task so that the 3PL portal (`P5-08`)
+ships alone.
+**The management grid** administers who may use the portal. Its rows are dated, in `wh_trade_portal_users`:
+a platform user × a customer counterparty.
+**Columns:** `userName` (the shared user-display helper) · `customerName` (`whb_counterparties.name`) ·
+`effectiveFrom` · `effectiveTo` · `isCurrent` (backend-computed) · audit quartet + names.
+**Filters:** `customerCounterpartyId` async typeahead (**scope before cap**) → cascades `userId`
+typeahead · `currentOnly` boolean (default true).
+**Export:** visible + both audit names.
+**Modals:** single-tab add/edit (user, customer, `effective_from`); view = `ViewModalBase` with a
+`StatusCard` and the user's access history.
+**Actions:** row View / Edit / **End access** (sets `effective_to` and never deletes — a dated junction
+has no `is_active`, `D-14`). Toolbar Add / Export / Grid config.
+**The portal surface** has no grid of its own, as WS-172 has none. It is tabs over the existing screens,
+each scoped to the caller's customer counterparty:
+- **Availability** — a **flag** per item: in stock / on order / not stocked. **Never a quantity, and
+  never another customer's.**
+- **Orders** — the customer creates a `SALES` demand order in **`DRAFT`** for the counter to confirm
+  (WS-099), and follows order and shipment status (WS-099, WS-105).
+- **Documents** — challan and shipment document download.
+
+There is **no pricing engine and no payment**.
+**Scope is enforced at the row level in the query layer, with a negative test per endpoint** — `FR-300`'s
+rule, applied to the customer key. Another customer's order is a `403`, never an empty grid.
+**Mobile:** `none` — the portal is a browser product for the trade customer's own staff, and access
+administration is a desk task. Stated per `FR-218`.
+
 ### 3.4 Printing — v1, because a warehouse that cannot print cannot be operated
 
 `A-2` moved printing into v1 after `grep -rli "zpl\|escpos\|dymo"` across all Java and TypeScript
@@ -1776,13 +2058,13 @@ WS-134 (v1.1 configuration).
 
 | id | Table · Scope | Ref | Key columns | Filters | Actions & notes | FR |
 |---|---|---|---|---|---|---|
-| WS-135 | `wh_return_receipts` · `WAREHOUSE_RETURN_RECEIPT` | SV | `returnNumber`, **`returnType`** (CUSTOMER/RTO/REFUSED_DELIVERY/CANCELLED_IN_TRANSIT/VENDOR/RECALL/CLIENT_WITHDRAWAL/MARKETPLACE), `warehouseName`, `ownerName`, `customerName`, `rmaNumber` (**nullable**), `receivedAt`, `status`, `lineCount`, audit | `warehouseId` → `ownerId` → `returnType` select · `status` **multiselect** · `customerCounterpartyId` typeahead · `hasRma` boolean · `receivedFrom`/`To` `date` pair | **The return receipt is the primary object and the RMA is optional**, matched to it later on a screen rather than by re-receiving. Actions: Receive · **Match RMA** · **Disposition** (v1 ships the three that close the loop: restock · quarantine · scrap) · Post. **Returns land in a dedicated stock status, never straight to available** | `FR-269` `FR-271` `FR-273` `FR-274` |
+| WS-135 | `wh_return_receipts` · `WAREHOUSE_RETURN_RECEIPT` | SV | `returnNumber`, **`returnType`** (CUSTOMER/RTO/REFUSED_DELIVERY/CANCELLED_IN_TRANSIT/VENDOR/RECALL/CLIENT_WITHDRAWAL/MARKETPLACE), `warehouseName`, `ownerName`, `customerName`, `rmaNumber` (**nullable**), `receivedAt`, `status`, `lineCount`, audit | `warehouseId` → `ownerId` → `returnType` select · `status` **multiselect** · `customerCounterpartyId` typeahead · `hasRma` boolean · `receivedFrom`/`To` `date` pair | **The return receipt is the primary object and the RMA is optional**, matched to it later on a screen rather than by re-receiving. Actions: Receive · **Match RMA** · Post · **Disposition** (v1 ships the three that close the loop: restock · quarantine · scrap; scrap needs an approver ≠ actor) · **Reverse** (`wh_return_receipts:reverse`: `POSTED → REVERSED` by an `L-3` mirror, **only before disposition**, `RJ-006`, §0.11). **Returns land in a dedicated stock status, never straight to available** | `FR-269` `FR-271` `FR-273` `FR-274` |
 | WS-136 | `wh_rmas` · `WAREHOUSE_RMA` | SV | `rmaNumber`, `customerName`, `originalOrderNumber`, `rmaReasonName`, `expectedConditionCode`, `rmaDate`, `expiryDate`, `status`, `externalRef` | `customerCounterpartyId` → `status` · `rmaDateFrom`/`To` `dateOnly` pair · `expiredOnly` boolean | Add · Approve · Expire · Match to receipt. **The warehouse emits the disposition; it never decides a refund** — there is no refund screen, no refund amount and no payment path anywhere in this product | `FR-269` `FR-274` |
 | WS-137 | `wh_return_gradings` · `WAREHOUSE_RETURN_GRADING` | C | `returnNumber`, `lineNo`, `conditionCode`, `gradeNote`, `gradedByName`, `gradedAt`, `photoDocumentId`, `dispositionCode` | `conditionCode` select · `dispositionCode` select · `gradedFrom`/`To` | v2. Grading **at the point of receipt**, with photographs through the platform `documents` table | `FR-272` |
 | WS-138 | `wh_obsolescence_returns` · `WAREHOUSE_OBSOLESCENCE_RETURN` | SV | `claimNumber`, `supplierName`, `authorisationRef`, `windowFrom`/`windowTo`, `allowanceAmount`, `claimedAmount`, `settledAmount`, `status` | `supplierCounterpartyId` → `status` · `windowFromFrom`/`To` `dateOnly` pair | v2 | `FR-276` |
 | WS-139 | `wh_recalls` · `WAREHOUSE_RECALL` | SV | `recallNumber`, `itemCode`, `lotCode`, `recallClass`, `initiatedAt`, `initiatedByName`, `regulatorReference`, `status`, `affectedShipmentCount`, `notifiedCount` | `itemId` typeahead → `lotId` typeahead · `recallClass` select · `status` · `initiatedFrom`/`To` | v2. **Quarantine all matching on-hand stock in place** with a status-change movement, then list every shipment that carried the lot (`wh_recall_lines`) and track the notification state | `FR-280` |
 | WS-140 | `wh_replenishment_runs` · `WAREHOUSE_REPLENISHMENT_RUN` | SV | `runNumber`, `warehouseName`, `runType`, `runAt`, `runByName`, `status`, `totalSuggestions`, `totalValue` | `warehouseId` → `runType` select → `status` · `runFrom`/`To` `date` pair | **The run produces a document, not a grid** — a run row with suggestions under it, so "why did we order that" is answerable months later | `FR-253` |
-| WS-141 | `wh_replenishment_suggestions` · `WAREHOUSE_REPLENISHMENT_SUGGESTION` | C | `runNumber`, `itemCode`, `warehouseName`, `onHand`, `allocated`, `onOrder`, `reorderPoint`, `suggestedQuantity`, **`suggestedSource`** (PURCHASE/SISTER_BRANCH_TRANSFER), `sourceWarehouseName`, `reasonText`, `status` | `runId` select → `suggestedSource` select · `warehouseId` → `itemId` · `status` | Accept → creates a PO or a transfer · Reject (reason) · Bulk accept. `FR-254`: the run **proposes a sister-branch transfer before a purchase** where another branch holds stock above its own minimum | `FR-253` `FR-254` |
+| WS-141 | `wh_replenishment_suggestions` · `WAREHOUSE_REPLENISHMENT_SUGGESTION` | C | `runNumber`, `itemCode`, `warehouseName`, `onHand`, `allocated`, `onOrder`, `reorderPoint`, `suggestedQuantity`, **`suggestedSource`** (PURCHASE/TRANSFER — one spelling everywhere, `RJ-014` b), `sourceWarehouseName`, `reasonText`, `status` | `runId` select → `suggestedSource` select · `warehouseId` → `itemId` · `status` | Accept → creates a PO or a transfer · Reject (reason) · Bulk accept. **The sister-branch-first proposal is v2** (`P5-18`) and is not on this v1 screen. A v1 `TRANSFER` suggestion is a source the buyer picks. A scheduled run notifies the site's buyer role (`RK-004`) | `FR-253` |
 | WS-142 | `wh_replenishment_tasks` · `WAREHOUSE_REPLENISHMENT_TASK` | SV | `taskNumber`, `itemCode`, `fromLocationCode`, `toLocationCode`, `quantity`, **`trigger`** (MIN_MAX/SHORT_PICK/OPPORTUNISTIC/BREAK_CASE), `status`, `assignedToName` | `warehouseId` → `trigger` select → `status` · `assignedTo` typeahead | v1.1. Pick-face replenishment, prioritised against pick starvation | `FR-255` `FR-259` |
 | WS-143 | `wh_demand_history` · `WAREHOUSE_DEMAND_HISTORY` | C | `itemCode`, `warehouseName`, `periodYearMonth`, `hitCount`, `quantity`, `lostSaleCount`, `lostSaleQuantity`, `isMigrated` | `warehouseId` → `itemId` · `periodFrom`/`periodTo` text pair (YYYYMM) · `isMigrated` boolean | **Maintained by movement posting**, with adjustments and warranty issues excluded by the reason code's `affects_demand_history`. Log-style: no audit columns | `FR-256` `FR-415` |
 | WS-144 | `wh_work_orders` · `WAREHOUSE_WORK_ORDER` | SV | `workOrderNumber`, `workOrderType` (ASSEMBLE/DISASSEMBLE/REPACK/DECANT/VAS), `kitName`, `outputItemCode`, `warehouseName`, `ownerName`, `plannedQuantity`, `producedQuantity`, `scrappedQuantity`, `vasServiceTypeCode`, `status` | `warehouseId` → `workOrderType` select → `status` · `outputItemId` typeahead · `createdFrom`/`To` | v1.1. Release · Issue components · **Complete** (posts **one balanced movement that balances by value, not by quantity** — components in, kit out) · Cancel. Genealogy is written at completion | `FR-261` `FR-262` `FR-263` `FR-266` |
@@ -1856,13 +2138,13 @@ place of supply, `is_taxable_supply` frozen at creation, taxable value — and h
 
 | id | Screen · Table · Scope | Ref | Key columns | Filters | Actions & notes | FR |
 |---|---|---|---|---|---|---|
-| WS-173 | GSTIN Profiles · `whin_gstin_profiles` · `WAREHOUSE_INDIA_GSTIN_PROFILE` | C | `gstin`, `companyName`, `branchName` (**`branches.branch_name`**), `stateCode`, `registrationType`, `legalName`, `tradeName`, `effectiveFrom`/`effectiveTo` (`dateOnly`), `isActive` | `companyId` → `branchId` · `stateCode` select · `registrationType` select · `isActive` | Add/Edit/End-date. The GSTIN is read from the branch (`FR-079`) and profiled here — it is **never duplicated onto the warehouse** | `FR-305` |
+| WS-173 | GSTIN Profiles · `whin_gstin_profiles` · `WAREHOUSE_INDIA_GSTIN_PROFILE` | C | `gstin`, `companyName`, `placeOfBusinessCount` (current `whin_gstin_profile_branches` rows), `stateCode`, `registrationType`, `legalName`, `tradeName`, `effectiveFrom`/`effectiveTo` (`dateOnly`), `isActive` | `companyId` → `branchId` (a current place of business) · `stateCode` select · `registrationType` select · `isActive` | Add/Edit/End-date · **Places of business** (a tab and sub-grid over `whin_gstin_profile_branches`: branch (`branches.branch_name`), `place_role` `PRINCIPAL`/`ADDITIONAL` — a closed statutory `CHECK` under `OD-5` — and dates). One registration covers every branch in its state, so the second Delhi branch resolves the same profile (`RG-002`, `WH-SC-313`). `whin_gstin_profiles.branch_id` is dropped. `gstin` stays unique, and it is checked equal to each place's `branches.gst_number` on save, with a nightly drift row (`RH-005`). The GSTIN is **never duplicated onto the warehouse** — a site reaches it through its `REGISTERED` link | `FR-305` |
 | WS-174 | Compliance Providers · `whin_compliance_providers` (+ `_provider_environments`, `_credential_specs`) · `WAREHOUSE_INDIA_COMPLIANCE_PROVIDER` | C | `code`, `name`, `providerKind` (EWAYBILL/EINVOICE/BOTH), `baseUrlTemplate`, `environmentCount`, `isActive` | `providerKind` select · `isActive` | Add/Edit with two child editors — environments (SANDBOX/PRODUCTION) and **credential specs as rows, so a new provider is data, not a release** | `FR-326` |
 | WS-175 | Compliance Registrations · `whin_compliance_registrations` (+ `_credentials`, `_auth_sessions`) · `WAREHOUSE_INDIA_COMPLIANCE_REGISTRATION` | C | `gstinProfileGstin`, `providerName`, `environment`, `documentKinds`, `registeredAt`, `status`, `tokenExpiresAt` | `gstinProfileId` → `providerId` → `environment` select · `status` | Register · Rotate credentials · Test connection. **Credential values are encrypted and masked at the edge** per the platform admin-settings idiom: the response carries `hasValue` (**`null`, not `undefined`**, when unset), never the value | `FR-326` |
 | WS-176 | Compliance Documents · `whin_compliance_documents` · `WAREHOUSE_INDIA_COMPLIANCE_DOCUMENT` | C | `documentKind`, `subjectType`, `subjectId`, `registrationGstin`, `status`, `providerReference`, `sentAt`, `respondedAt`, `errorCode` | `documentKind` select → `status` select · `registrationId` · `sentFrom`/`To` `date` pair | View request/response payload (`TEXT`) · Retry. **The e-way bill adapter reads only this table and the v1 base columns; it never reaches into an operational table for a field it forgot to copy** | `FR-310` `FR-326` |
 | WS-177 | Compliance API Logs · `whin_compliance_api_logs` · `WAREHOUSE_INDIA_COMPLIANCE_API_LOG` | C | `registrationGstin`, `endpoint`, `httpStatus`, `latencyMs`, `calledAt`, `correlationRef` | `registrationId` · `httpStatus` number · `calledFrom`/`To` `date` pair · `slowerThanMs` number | Read-only + Export. Log-style, no audit columns. It exists so a provider dispute is answerable with latency evidence | `FR-326` |
-| WS-178 | Delivery Challans · `whin_delivery_challans` · `WAREHOUSE_INDIA_DELIVERY_CHALLAN` | SV | `challanNumber`, **`challanPurpose`** (BRANCH_TRANSFER/JOB_WORK/APPROVAL/LINE_SALE/EXHIBITION/REPAIR), `gstinProfileGstin`, `transferNumber`, `consigneeName`, `challanDate` (`dateOnly`), `taxableValue`, `status`, `ewayBillNo`, audit | `gstinProfileId` → `challanPurpose` select → `status` · `challanDateFrom`/`To` `dateOnly` pair · `challanNumber` text · `hasEwayBill` boolean | Generate (from a transfer, a job-work dispatch or an approval dispatch) · Print · Cancel · **Generate e-way bill** (WS-179). **There is one challan table** — warehouse's delivery challan *is* the challan, with **its own per-branch series** from `whb_number_series`; the accounting set's parallel job-work challan is retired | `FR-307` `FR-313` |
-| WS-179 | E-way Bills · `whin_eway_bills` · `WAREHOUSE_INDIA_EWAY_BILL` | SV | `ewayBillNo`, `challanNumber`, `shipmentNumber`, `transferNumber`, `gstinProfileGstin`, `generatedAt`, **`validUntil`**, `distanceKm`, **`partBFilledAt`**, `vehicleNumber`, `status` | `gstinProfileId` → `status` select · `validUntilBefore` (`date`) · `partBPending` boolean · `generatedFrom`/`To` `date` pair · `ewayBillNo` text | **Generate Part-A** · **Fill Part-B** (required before movement) · **Extend validity** · **Update vehicle** · **Cancel** (within the statutory window) — five transitions, five modals. Transport fields come from `whb_transport_details`, which attaches **polymorphically** to a transfer, a challan or an issue and is rendered as a panel, not as a grid | `FR-308` `FR-309` |
+| WS-178 | Delivery Challans · `whin_delivery_challans` · `WAREHOUSE_INDIA_DELIVERY_CHALLAN` | SV | `challanNumber`, **`challanPurpose`** (BRANCH_TRANSFER/JOB_WORK/APPROVAL/LINE_SALE/EXHIBITION/REPAIR), `gstinProfileGstin`, `transferNumber`, `consigneeName`, `recipientGstin` (the frozen `to_counterparty_tax_registration_id`), `challanDate` (`dateOnly`), `taxableValue`, `status`, `ewayBillNo`, audit | `gstinProfileId` → `challanPurpose` select → `status` · `challanDateFrom`/`To` `dateOnly` pair · `challanNumber` text · `hasEwayBill` boolean | Generate (from a transfer, a job-work dispatch or an approval dispatch) · Print · Cancel · **Generate e-way bill** (WS-179). **There is one challan table** — warehouse's delivery challan *is* the challan, with **its own series** from `whb_number_series`, keyed by the issuing site's **`REGISTERED` branch** at the challan date (WS-061); the accounting set's parallel job-work challan is retired. **The recipient registration and address are frozen at generation**: `to_counterparty_tax_registration_id` and `to_counterparty_address_id` (WS-021, `RG-003`), the recipient's registration for the ship-to state, read-only afterwards | `FR-307` `FR-313` |
+| WS-179 | E-way Bills · `whin_eway_bills` · `WAREHOUSE_INDIA_EWAY_BILL` | SV | `ewayBillNo`, `challanNumber`, `shipmentNumber`, `transferNumber`, `gstinProfileGstin`, `recipientGstin`, `generatedAt`, **`validUntil`**, `distanceKm`, **`partBFilledAt`**, `vehicleNumber`, `status` | `gstinProfileId` → `status` select · `validUntilBefore` (`date`) · `partBPending` boolean · `generatedFrom`/`To` `date` pair · `ewayBillNo` text | **Generate Part-A** · **Fill Part-B** (required before movement) · **Extend validity** · **Update vehicle** · **Cancel** (within the statutory window) — five transitions, five modals. Transport fields come from `whb_transport_details`, which attaches **polymorphically** to a transfer, a challan or an issue and is rendered as a panel, not as a grid. **The recipient registration and address** are the frozen `to_counterparty_tax_registration_id` / `to_counterparty_address_id` (`RG-003`). The from-GSTIN is the dispatching site's `REGISTERED` branch at the document date, and the dispatch-from address is the warehouse's (R22 §1.2.4 row 1) | `FR-308` `FR-309` |
 
 **`FR-195`: the gate pass is e-way-bill-conditional** — it issues freely where no e-way bill is
 required and blocks only where one is legally required and absent. That gate lives on WS-111
@@ -1876,7 +2158,7 @@ required and blocks only where one is legally required and absent. That gate liv
 | WS-180 | `whin_eway_bills_consolidated` (+ `_consolidated_items`) · `WAREHOUSE_INDIA_EWAY_BILL_CONSOLIDATED` | SV | The consolidated e-way bill for one vehicle carrying many. Child grid of member bills | `FR-309` |
 | WS-181 | `whin_job_work_registrations` (+ `_dispatch_lines`) · `WAREHOUSE_INDIA_JOB_WORK_REGISTRATION` | SV | Goods leave under a job-work challan to a location **at the job worker's premises with the owner unchanged**, carrying an expected-return clock. Columns: sent, expected return, actual return, shortfall | `FR-312` |
 | WS-182 | `whin_itc04_returns` (+ `_lines`) · `WAREHOUSE_INDIA_ITC04_RETURN` | SV | The ITC-04 filing period and its lines. Generate · Review · Mark filed · Export | `FR-312` |
-| WS-183 | `whin_stock_account_periods` (+ `_lines`) · `WAREHOUSE_INDIA_STOCK_ACCOUNT_PERIOD` | C | The **Rule 56 statutory stock account**, per registration and per period, in the mandated categories — opening, receipts, supplies, losses, closing. Ledger-style, no audit columns | `FR-314` |
+| WS-183 | `whin_stock_account_periods` (+ `_lines`) · `WAREHOUSE_INDIA_STOCK_ACCOUNT_PERIOD` | C | The **Rule 56 statutory stock account**, per registration and per period, in the mandated categories — opening, receipts, supplies, losses, closing. Ledger-style, no audit columns. **A movement is attributed movement → site → the `REGISTERED` link at its `occurred_at` → branch → profile** (`D-14`), so a site re-registered mid-period is split at the switch instant. Each GSTIN's account covers only its own range (`WH-SC-307`), and R22 §1.2.6 ensures no stock is on hand at the switch | `FR-314` |
 | WS-184 | `whin_itc_reversals` · `WAREHOUSE_INDIA_ITC_REVERSAL` | C | The reversal on a write-off, which needs the **original credit** — so the write-off movement must be able to reach the receipt that brought the lot in, through `whb_cost_layer_consumptions` | `FR-315` `FR-316` |
 | WS-185 | `whin_bonded_licences` · `WAREHOUSE_INDIA_BONDED_LICENCE` | C | The site as a licensed object with a validity. Expiry filter is `expiringWithinDays`, a dropdown | `FR-323` |
 | WS-186 | `whin_warehousing_bonds` (+ `_bond_utilisations`) · `WAREHOUSE_INDIA_WAREHOUSING_BOND` | SV | A bond with a **running utilisation balance** and its utilisation ledger | `FR-323` |
@@ -1907,7 +2189,7 @@ one document type, one document kind, and a CI build. That is the point of it.
 
 | id | Screen · Table · Scope | Ref | Key columns | Filters | Actions & notes | FR |
 |---|---|---|---|---|---|---|
-| WS-194 | Counter Sale · `whad_counter_sales` (+ `_lines`) · `WAREHOUSE_DEALER_COUNTER_SALE` | **— (keyboard-first single-screen flow, not a management grid page; the *list* below it is the Service Vehicle shape)** | `saleNumber`, `branchName` (**`branches.branch_name`**), `warehouseName`, `customerName`, `priceLevel`, `subtotal`, `taxAmount`, `totalAmount`, `paymentMode`, `demandOrderNumber`, `status` | `branchId` → `warehouseId` · `customerCounterpartyId` typeahead · `paymentMode` select · `saleDateFrom`/`To` `date` pair | **Scan or part number → quantity → price level → print → next: a sub-ten-second bill.** One focused input, no mouse. Trade-counter behaviours: supersession substitution (`is_superseded_substitute`, `original_item_id`), interchange offer *"not in stock — 2 available as `<interchange>`"* with availability **across every branch**, and lost-sale capture straight into `wh_insufficient_stock_log` when the guard refuses | `FR-358` `FR-359` `FR-073` `FR-257` |
+| WS-194 | Counter Sale · `whad_counter_sales` (+ `_lines`) · `WAREHOUSE_DEALER_COUNTER_SALE` | **— (keyboard-first single-screen flow, not a management grid page; the *list* below it is the Service Vehicle shape)** | `saleNumber`, `branchName` (**`branches.branch_name`**), `warehouseName`, `customerName`, `priceLevel`, `subtotal`, `taxAmount`, `totalAmount`, `paymentMode`, `demandOrderNumber`, `status` | `branchId` → `warehouseId` (**the picker lists only sites with a current `REGISTERED` or `SERVING` link to the selling branch**, `D-14`) · `customerCounterpartyId` typeahead · `paymentMode` select · `saleDateFrom`/`To` `date` pair | **Scan or part number → quantity → price level → print → next: a sub-ten-second bill.** One focused input, no mouse. Trade-counter behaviours: supersession substitution (`is_superseded_substitute`, `original_item_id`), interchange offer *"not in stock — 2 available as `<interchange>`"* with availability **across every branch**, and lost-sale capture straight into `wh_insufficient_stock_log` when the guard refuses. **A sale from a `SERVING` site under a different GSTIN is refused with `422 CROSS_GSTIN_COUNTER_SALE`** (§0.13, `FR-461`). The screen states why and offers *Raise request* (WS-090 in `REQUESTED`), because a counter sale never silently becomes a cross-GSTIN supply | `FR-358` `FR-359` `FR-073` `FR-257` `FR-461` |
 | WS-195 | Vehicle Fitments · `whad_vehicle_fitments` · `WAREHOUSE_DEALER_VEHICLE_FITMENT` | C | `itemCode`, `modelName`, `variantName`, `yearFrom`, `yearTo`, `position`, `notes` | `modelId` → `variantId` → `itemId` typeahead · `yearFrom`/`yearTo` number pair | **Fitment lives here and never in `warehouse-base`** — if base learns about vehicle models it can no longer serve assets, field-service or logistics. References the automotive model master sideways | `FR-074` |
 | WS-196 | OEM Orders · `whad_oem_orders` (+ `_lines`) · `WAREHOUSE_DEALER_OEM_ORDER` | SV | `oemOrderNumber`, `oemName`, `warehouseName`, `orderSource`, `transmittedAt`, `acknowledgedAt`, `status`, `poNumber`, `lineCount`, `backorderedLines` | `warehouseId` → `oemCounterpartyId` → `status` · `transmittedFrom`/`To` | v1.1. Transmit · Consume acknowledgement (allocated and back-ordered quantities and an ETA per line) · Match receipt against the OEM invoice file · Raise discrepancy. **Format-pluggable per OEM; no single OEM's layout is hard-coded** | `FR-420` |
 | WS-197 | OEM Price Files · `whad_price_files` (+ `_lines`) · `WAREHOUSE_DEALER_PRICE_FILE` | SV | `fileReference`, `oemName`, `effectiveDate` (`dateOnly`), `importBatchNumber`, `status`, `appliedAt`, `appliedByName`, `lineCount`, `newCount`, `priceChangeCount`, `supersessionCount` | `oemCounterpartyId` → `status` · `effectiveFrom`/`To` `dateOnly` pair | v1.1. Upload · **Dry-run diff** (before apply, always) · Apply — writing item and price rows, supersessions and, where the direction warrants it, a **revaluation movement** for the on-hand quantity and a price-protection claim | `FR-419` |
@@ -1972,6 +2254,14 @@ special-cased screens. What differs is three things:
 3. **Several take *parameters* as well as filters** — an as-at date, a bucket set, a period — and a
    parameter is still a `filter_definitions` row and still needs a scope entry, or it is silently
    dropped like any other field.
+4. **The branch rollup rule is stated on every branch-grouped report header** (`RH-006`, R22 §1.2.4
+   row 11). **Stock and value** roll up to the **`REGISTERED`** branch only, so each site is counted once.
+   An as-at report (WS-208, WS-211, WS-212) uses the link at the report date. A period report (WS-210)
+   uses the link at each movement's `occurred_at`. **Flows and demand** roll up to the document's own
+   branch (the counter sale's `branch_id`, the transfer's two ends). A **branch-filtered** view of a
+   shared site shows its whole stock under each linked branch, and the header says *"shared by N
+   branches"*. **A total row over a branch-filtered set is refused.** A *linked branches* grouping is a
+   separate view, and it is not additive across roles.
 
 **Export follows the visible columns and is a superset of them; a 100,000-row export does not hold a
 transaction open** (`FR-400`, `FR-422`). CSV needs a UTF-8 BOM; phone-shaped and code-shaped columns
@@ -1979,11 +2269,11 @@ are text-pinned so Excel does not mangle them.
 
 | id | Report | `gridIdentifier` · Scope | Reads | Columns | Filters and parameters | Exportable | FR |
 |---|---|---|---|---|---|---|---|
-| WS-208 | Stock on Hand | `wh_rpt_stock_on_hand` · `WAREHOUSE_RPT_STOCK_ON_HAND` | `whb_stock_positions` + masters | **two tabs.** *By item*: `itemCode`, `itemName`, `categoryName`, `ownerName`, `warehouseName`, `onHand`, `reserved`, `available`, `inTransit`, `onOrder`, `baseUomCode`, `value`. *By location*: the full nine-member grain plus quantities | `warehouseId` → `locationId` → `itemId` · `ownerId` · `itemCategoryId` · `stockStatusCode` multiselect · `dutyStatus` select · `lotId` · `nonZeroOnly` boolean (default true) · `expiringWithinDays` select | Yes | `FR-384` |
+| WS-208 | Stock on Hand | `wh_rpt_stock_on_hand` · `WAREHOUSE_RPT_STOCK_ON_HAND` | `whb_stock_positions` + masters | **two tabs.** *By item*: `itemCode`, `itemName`, `categoryName`, `ownerName`, `warehouseName`, `onHand`, `reserved`, `available`, `inTransit`, `onOrder`, `baseUomCode`, `value`. *By location*: the full nine-member grain plus quantities | `warehouseId` → `locationId` → `itemId` · `ownerId` · `itemCategoryId` · `stockStatusCode` multiselect · `dutyStatus` select · `lotId` · `nonZeroOnly` boolean (default true) · `expiringWithinDays` select. Branch grouping follows rule 4 (`REGISTERED` at the report date) | Yes | `FR-384` |
 | WS-209 | Stock Movement Register | `wh_rpt_movement_register` · `WAREHOUSE_RPT_MOVEMENT_REGISTER` | movement + line | line grain: `occurredAt`, `postingDate`, `movementTypeCode`, `sequenceNo`, `sourceSystem`, `sourceDocumentType`, `sourceDocumentNo`, `reasonCodeName`, `itemCode`, `ownerName`, `locationCode`, `lotCode`, `serialNumber`, `stockStatusCode`, `quantity`, `baseQuantity`, `uomCode`, `unitCost`, `extendedCost`, `actorUserName` | `warehouseId` → `movementTypeCode` → `reasonCodeId` · `itemId` · `lotId` · `serialNumber` text · `locationId` · `ownerId` · `sourceSystem` → `sourceDocumentType` · **`occurredFrom`/`occurredTo` (`date`)** · **`postingDateFrom`/`To` (`dateOnly`)** | Yes | `FR-385` |
-| WS-210 | Godown-wise Stock Statement | `wh_rpt_godown_statement` · `WAREHOUSE_RPT_GODOWN_STATEMENT` | movements aggregated per period | `warehouseName`, `itemCategoryName`, `itemCode`, `itemName`, `openingQuantity`, `openingValue`, `inwardQuantity`, `inwardValue`, `outwardQuantity`, `outwardValue`, `closingQuantity`, `closingValue` | **parameters:** `periodId` **or** `fromDate`/`toDate` (`dateOnly` pair) · `companyId` → `branchId` → `warehouseId` · `itemCategoryId` · `ownerId` | Yes | `FR-386` |
-| WS-211 | Stock Valuation (as-at) | `wh_rpt_valuation` · `WAREHOUSE_RPT_VALUATION` | ledger + `whb_cost_layers` | `itemCode`, `ownerName`, `warehouseName`, `lotCode`, `quantity`, `unitCost`, `value`, `method`, `currencyCode` | **parameter `asAtDate` (`dateOnly`, required)** · `companyId` → `warehouseId` → `itemCategoryId` · `ownerId` · `method` select · `valuedOnly` boolean | Yes | `FR-387` `FR-328` |
-| WS-212 | Stock Ageing | `wh_rpt_ageing` · `WAREHOUSE_RPT_AGEING` | `whb_stock_positions` + snapshots | `itemCode`, `warehouseName`, `ownerName`, `bucket0_30`, `bucket31_60`, `bucket61_90`, `bucket91_180`, `bucket181_365`, `bucketOver365`, each with a quantity **and a value**, `lastOutwardMovementAt` | **parameter `asAtDate`** · `warehouseId` → `itemCategoryId` → `itemId` · `ownerId` · `bucketSetCode` select | Yes | `FR-388` `FR-162` |
+| WS-210 | Godown-wise Stock Statement | `wh_rpt_godown_statement` · `WAREHOUSE_RPT_GODOWN_STATEMENT` | movements aggregated per period | `warehouseName`, `itemCategoryName`, `itemCode`, `itemName`, `openingQuantity`, `openingValue`, `inwardQuantity`, `inwardValue`, `outwardQuantity`, `outwardValue`, `closingQuantity`, `closingValue` | **parameters:** `periodId` **or** `fromDate`/`toDate` (`dateOnly` pair) · `companyId` → `branchId` → `warehouseId` · `itemCategoryId` · `ownerId`. `branchId` groups by rule 4 — the `REGISTERED` branch at each movement's `occurred_at` | Yes | `FR-386` |
+| WS-211 | Stock Valuation (as-at) | `wh_rpt_valuation` · `WAREHOUSE_RPT_VALUATION` | ledger + `whb_cost_layers` | `itemCode`, `ownerName`, `warehouseName`, `lotCode`, `quantity`, `unitCost`, `value`, `method`, `currencyCode` | **parameter `asAtDate` (`dateOnly`, required)** · `companyId` → `warehouseId` → `itemCategoryId` · `ownerId` · `method` select · `valuedOnly` boolean. Branch grouping follows rule 4 (`REGISTERED` at `asAtDate`) | Yes | `FR-387` `FR-328` |
+| WS-212 | Stock Ageing | `wh_rpt_ageing` · `WAREHOUSE_RPT_AGEING` | `whb_stock_positions` + snapshots | `itemCode`, `warehouseName`, `ownerName`, `bucket0_30`, `bucket31_60`, `bucket61_90`, `bucket91_180`, `bucket181_365`, `bucketOver365`, each with a quantity **and a value**, `lastOutwardMovementAt` | **parameter `asAtDate`** · `warehouseId` → `itemCategoryId` → `itemId` · `ownerId` · `bucketSetCode` select. Branch grouping follows rule 4 (`REGISTERED` at `asAtDate`) | Yes | `FR-388` `FR-162` |
 | WS-213 | Adjustment Register | `wh_rpt_adjustment_register` · `WAREHOUSE_RPT_ADJUSTMENT_REGISTER` | movements with adjustment types | `postingDate`, `adjustmentNumber`, `reasonCodeName`, `warehouseName`, `itemCode`, `quantity`, `valueImpact`, `actorUserName`, `approvedByName` | `warehouseId` → `reasonCodeId` · `actorUserId` typeahead · `approvedBy` typeahead · `postingDateFrom`/`To` (`dateOnly`) · `valueImpactMin`/`Max` | Yes | `FR-389` |
 | WS-214 | Count History & Variance | `wh_rpt_count_variance` · `WAREHOUSE_RPT_COUNT_VARIANCE` | `wh_counts` + `wh_count_lines` | `countNumber`, `countType`, `warehouseName`, `zoneLocationCode`, `countedByName`, `countedAt`, `itemCode`, `bookQuantity`, `countedQuantity`, `varianceQuantity`, `variancePct`, `varianceValue`, `recountSequence`, `isWithinTolerance` | `warehouseId` → `programId` → `countedBy` typeahead · `countType` select · `hasVariance` boolean · `countedFrom`/`To` (`date`) · `includeRecounts` boolean | Yes | `FR-390` |
 | WS-215 | Low & Insufficient Stock | `wh_rpt_low_stock` · `WAREHOUSE_RPT_LOW_STOCK` | positions + `whb_item_site_settings` + `wh_insufficient_stock_log` | **three tabs:** *Low stock* (`itemCode`, `warehouseName`, `onHand`, `available`, `reorderPoint`, `safetyStock`, `shortfall`, `suggestedQuantity`) · *Insufficient-stock breaches* · *Replenishment suggestions* | `warehouseId` → `itemCategoryId` → `itemId` · `ownerId` · `belowSafetyOnly` boolean · `occurredFrom`/`To` (breaches tab) | Yes | `FR-391` `FR-015` |
@@ -2225,7 +2515,7 @@ a transition anybody with `:edit` can perform**, which is the failure `FR-408` n
 | `wh_goods_receipts:post` · `wh_receipt_reversals:approve` | receipt posting and reversal approval | WS-076, WS-078 |
 | `wh_quality_inspections:disposition` | release / reject / RTV / scrap — **QA-role gated** | WS-080 |
 | `wh_stock_adjustments:approve` | value- and quantity-thresholded approval | WS-089 |
-| `wh_transfer_orders:dispatch` · `:receive` | the two legs that post movements | WS-090 |
+| `wh_transfer_orders:dispatch` · `:receive` | the two legs that post movements. **Round 4:** the depart leg posts through the transfer's shipment (`wh_shipments:dispatch`, `RJ-003`); `:dispatch` stays seeded (`GAP-REGISTER-R4.md` §3.3). The transfer's other verbs are in the round-4 table below | WS-090 |
 | `wh_holds:place` · `:release` · `:mass` | plus the per-hold-type `release_permission` | WS-092 |
 | `wh_counts:freeze` · `:approve` · `:post` | count lifecycle | WS-094 |
 | `wh_blocked_movements:force` | force a rejected physical move, with approval | WS-097 |
@@ -2270,6 +2560,32 @@ returns grading, obsolescence, recalls, NRV, replenishment, three-way match, cro
 labour — so for those the **verb itself** is not yet enumerated, only described in prose. Each owning
 task enumerates its verbs before its controller is written; that is the same work, one step earlier.
 `X-014` records the P3/P4 half of this.
+
+**Round-4 addition — `RJ-005`, `RK-001`, `RJ-011`, `RG-001`, `RH-002` and the two new resources**
+(`GAP-REGISTER-R4.md` §2, §3.3, §4.0). The §0.11 round-4 ladders name every verb below, and this table is
+the same list read from the other side. The seed column comes from the register: **P1 verbs ride
+`P1-20`'s `V511000`/`V511001`**, **P2+ verbs each claim one `WH-206` pair**, adapter verbs ride their own
+bands, and **base verbs ride `P0-15`'s `V501000`**. Each verb gets its `→ :view` dependency row (§10.3).
+
+| Permission | Gates | Screen | Seeded by |
+|---|---|---|---|
+| `wh_transfer_orders:request` · `:approve` · `:reject` · `:report_variance` · `:cancel` | **request** (destination-scoped) · approve and part-approve, reject (source-scoped, `FR-408`) · the variance close · cancel, which posts `TRANSFER_RETURN` in transit. Seeded beside the existing `:dispatch` and `:receive` | WS-090 | `P2-02` · `V511202` + `V511232` |
+| `wh_receiving_sessions:complete` · `:cancel` | session close | WS-075 | `P1-20` · `V511000` + `V511001` |
+| `wh_goods_receipts:cancel` · `wh_receipt_reversals:post` | a draft GRN's cancel; the reversal's post leg beside the existing `:approve` | WS-076, WS-078 | `P1-20` |
+| `wh_quality_inspections:approve` | **scrap-disposition approval**, with `:approve` semantics and approver ≠ actor (`FR-164`, `FR-408`) | WS-080 | `P1-20` |
+| `wh_stock_adjustments:submit` · `:reject` · `:post` · `:cancel` | beside the existing `:approve` | WS-089 | `P2-01` · `V511201` + `V511231` |
+| `wh_counts:generate` · `:recount` · `:cancel` | beside the existing `:freeze` · `:approve` · `:post`; cancel restores location status | WS-094 | `P2-04` · `V511203` + `V511233` |
+| `wh_shipments:cancel` · `:confirm_delivery` | cancel **only before `DISPATCHED`**; delivery confirmation (`FR-447`) | WS-105 | `P2-10` · `V511204` + `V511234` |
+| `wh_return_receipts:post` · `:reverse` · `:approve` · `wh_rmas:approve` · `:match` · `:expire` · `:cancel` | return posting, the pre-disposition reversal, **scrap approval** (approver ≠ actor, `FR-273`), the RMA lifecycle | WS-135, WS-136 | `P2-12` · `V511205` + `V511235` |
+| `wh_supplier_returns:approve` · `:close` · `:cancel` · `wh_reconciliation_cases:resolve` | supplier-return transitions — pick and dispatch are the demand path's (`RJ-003`), so there is no supplier-return pick or dispatch verb — and the case resolution | WS-084, WS-083 | `P2-13` · `V511206` + `V511236` |
+| `wh_replenishment_suggestions:accept` · `:reject` | suggestion lifecycle | WS-141 | `P2-15` · `V511207` + `V511237` |
+| `wh_work_orders:release` · `:issue` · `:complete` · `:cancel` | v1.1 | WS-144 | `P3-11` · `V511208` + `V511238` |
+| `whas_material_requests:reserve` · `:return_unused` · `:cancel` | beside the existing `:issue` | WS-199 | `P2-26` · `V521100`+ |
+| `whb_accounting_handovers:void` | `REJECTED → VOIDED`, approver ≠ requester (`RJ-011`) | WS-052 | `P0-15` · `V501000` |
+| `warehouse:warehouses:change_registration` | *Change registration*, maker–checker (`FR-408`, `D-14` item 4) | WS-016 | `P0-15` · `V501000` |
+| `<resource>:view:all` · `<resource>:view:branch` | **the tier pair on every management resource** (`RH-002`). ADMIN and AUDITOR hold `:all`; Branch Admin holds `:branch` and never `:all`; operational bundles hold `:branch`. It is resolved through platform's `BranchScopeService` to the allowed warehouse set (§10.4) | every management screen | `P0-15` · `V501000`/`V501001`; `P1-20` · `V511000`/`V511001` |
+| `wh_trade_portal_users:view` · `:create` · `:edit` · `:delete` · `:export` | the new resource | WS-240 | `P5-08` · `V511209` + `V511239` |
+| `wh_approval_levels:view` · `:create` · `:edit` · `:delete` · `:export` | the new resource | WS-241 | `P2-23` · `V511210` + `V511240` |
 
 ### 10.3 `permission_dependencies` — **inserted, never created**
 
@@ -2361,4 +2677,6 @@ awk '/^### 11.1/,/^### 11.2/' $f | grep -oE '\bWAREHOUSE(_3PL|_INDIA|_DEALER|_SE
 ```
 
 Current platform count **213**, computed 2026-09-01 (§0.3). After warehouse: **428**.
+**Round 4** adds two v2 grids, WS-240 and WS-241, and one scope each: **217** to add, **430** after
+warehouse.
 

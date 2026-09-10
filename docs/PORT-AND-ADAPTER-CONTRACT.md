@@ -1,5 +1,7 @@
 # The movement port and adapter contract
 
+<!-- check-design-set: issue-citations file #2 #9 #790 #791 — `#2` and `#9` are ordinals in prose, not issue references — *Refusal #2*, *Adapter #2 (services)*, *ship-blocker #2*, *logistics needs #1, #2, #3, #5, #6, #10* — and at COMPETITOR-BENCHMARK.md:70/:146 `#9` is the markdown in-page anchor `[§9](#9--where-the-audits-disagree)`. In this repository `#2` and `#9` are in fact the two **pull requests** opened while the backlog was being filed, so no issue row can ever exist for either: see issues/CREATED.md. And `#790` and `#791` are issues in **`neetub1508/classic`**, cited as `classic#790, #791` with the second elided in the ordinary English way. The first resolves; the elided continuation reads to the checker as a bare `#NN`. It is a cross-repo citation, never a warehouse issue -->
+
 > **What this document is for.** The user's requirement is that warehouse serves the dealer module
 > now, a logistics/supply-chain module later, and *"if we have more in the future, we should be able
 > to do that"*. This is the document that turns that sentence into a **testable claim**. It is read
@@ -23,7 +25,7 @@
 |---|---|
 | **Established** | 2026-09-01 |
 | **Live codebase read** | `/Users/bbhushan/work/git/workspace/classic`, branch `main` |
-| **Sources** | `DECISIONS.md` (`D-1`…`D-13`, `L-1`…`L-14`, `OD-1`…`OD-7`) · `reviews/R4` §3 + §4 · `reviews/R7` §2, §4, §5, §6 · `IRREVERSIBLE.md` §4, §7 · `WAREHOUSE-FUNCTIONAL-REQUIREMENTS.md` · `MODULE-INTEGRATION.md` §12, §13 · `reviews/R1` `WF-6` |
+| **Sources** | `DECISIONS.md` (`D-1`…`D-14`, `L-1`…`L-14`, `OD-1`…`OD-7`) · round-4 fold `GAP-REGISTER-R4.md` §4.2 (`reviews/R24`–`R26`) · `reviews/R4` §3 + §4 · `reviews/R7` §2, §4, §5, §6 · `IRREVERSIBLE.md` §4, §7 · `WAREHOUSE-FUNCTIONAL-REQUIREMENTS.md` · `MODULE-INTEGRATION.md` §12, §13 · `reviews/R1` `WF-6` |
 | **Method** | reading and `grep` only. No `mvn` / `npm` / `tsc` — this project builds only in Docker (`DECISIONS.md` §7 rule 6). Every count carries the command that produced it |
 | **Local id namespace** | **`PC-01` … `PC-75`** — normative clauses of this contract. Confined to this file and to references into it. Not used anywhere else in the set (`DECISIONS.md` §6) |
 
@@ -143,7 +145,11 @@ admits only one implementation and is therefore useless for an N-consumer port:
 | `accounting-base/backend/src/main/java/ai/accountingbase/service/imports/AccImportHandlerRegistry.java:41-45` — `public AccImportHandlerRegistry(List<AccImportHandler> handlers)`, indexed in `@PostConstruct index()` at `:47-74`, duplicate claims fail the **boot** at `:65-69` | `List<T>` | The registry is explicitly *"the runtime substitute for the CHECK constraint V600120 deliberately does not put on `acc_import_batches.import_type`"* (`:15-16`), and the class comment at `:18-24` gives §7's argument in the base's own words |
 
 > **`PC-04`** · Every extension point in `warehouse-base` — document display resolvers, in-process
-> event subscribers, import handlers, gate-event handlers — is a **`List<T>` bean-collection
+> event subscribers, import handlers, gate-event handlers, **branch-link validators**
+> (`WarehouseBranchLinkValidator` — a jurisdiction pack checks every `whb_warehouse_branches` link on
+> save, e.g. `warehouse-india`'s GSTIN-state rule; `D-8`, `D-14`) and **pre-transition guards**
+> (`WhTransitionGuard` — consulted before every document status transition, v1.1, base ships none;
+> `P3-22`) — is a **`List<T>` bean-collection
 > registry** indexed at `@PostConstruct`, with a **duplicate claim failing the boot loudly** and a
 > **base-shipped fallback** for the empty-list case. Never a `@Primary` override. *(`FR-357`,
 > `R1 WF-6`, `E-004`.)* `AccImportHandlerRegistry:42-45` documents why the injected list may
@@ -270,7 +276,7 @@ code, any free-text `reference`. §2.9 gives each one its home.
 | `base_quantity` | DECIMAL(18,4) | S | signed, computed at post | `L-1` sums **this** |
 | `conversion_factor_used` | DECIMAL(18,8) *(`OD-7`)* | S | **frozen at post** | **Conversion factors change.** A ledger that re-derives from today's factor **silently restates last year**, and the restatement is undetectable because nothing records what the factor was. `L-7`, `FR-009`, `IRR-34` |
 | `stock_status_code` | VARCHAR(40) FK → `whb_stock_statuses` | **R** | the condition the goods are in at this end | Otherwise **quarantine is modelled as a location** and "damaged stock in the bulk aisle" is unrepresentable — and the **balance unique key is wrong for every historic row** the day status is added. `F-068`, `FR-102`, `IRR-10` |
-| `duty_status` | VARCHAR(30) | **R** (default `DOMESTIC`) | customs status | **Bonded and duty-paid stock of one SKU must never merge into one balance.** Once commingled **no algorithm separates them**, and it is a customs offence, not a data-quality issue. Column v1, feature v2 (`warehouse-india`). `D-5`, `FR-104`, `IRR-12` |
+| `duty_status` | VARCHAR(40) FK → `whb_duty_statuses(code)` | **R** (default `DOMESTIC`) | customs status — registry 15 (`DATA-MODEL.md` §2.1.1). **Base seeds `DOMESTIC` only**; `BONDED`, `MOOWR`, `SEZ`, `FTWZ` and `EXPORT_UNDER_BOND` are `warehouse-india`'s rows (`P4-07`) | **Bonded and duty-paid stock of one SKU must never merge into one balance.** Once commingled **no algorithm separates them**, and it is a customs offence, not a data-quality issue. A value that is not a registry code is refused by the FK, so no new balance grain appears (`WH-SC-327`). Column v1, feature v2 (`warehouse-india`). `D-5`, `FR-104`, `IRR-12`, `RL-001` |
 | `lot_id` | UUID FK → `whb_lots` | O | required when the item's `lot_control_mode` demands it | **A recall is a question about the past.** `FR-094`, `IRR-13` |
 | `serial_id` | UUID FK → `whb_serials` | O | required per the item's `serial_control_mode` | A tyre is a serial; a chassis is a serial. `FR-097`, `IRR-14` |
 | `lpn_id` | UUID FK → `whb_lpns` | O | the licence-plate / pallet this end refers to | **Per-pallet and anniversary storage billing are defined over pallets**, and a pallet the ledger never recorded cannot be billed for the past. `whb_lpns.received_at` is the anniversary anchor and has no substitute. `F-064`, `FR-100`, `IRR-15` |
@@ -280,14 +286,18 @@ code, any free-text `reference`. §2.9 gives each one its home.
 | `extended_cost` | DECIMAL(19,4) | O | the value effect of this line | The carrier of a value-only movement (§2.7) |
 | `cost_basis` | VARCHAR(30) | **R** | `ACTUAL` · `STANDARD` · `AVERAGE` · `INFORMATIONAL` · `ZERO_BAILMENT` | **Decides whether an accounting envelope is emitted at all.** Decided downstream = a year of wrong journals, unwound by hand. `L-14`, `FR-112`, `IRR-36` |
 | `moving_average_after` · `cost_layer_id` | DECIMAL(19,6) · UUID | S | valuation snapshots | Without the snapshot the 31-March cost is **not reproducible**. Columns v1; AVCO v1.1, FIFO v1.1. `IRR-38`, `IRR-39`. *(Whose table the layers live in is `OD-1`/`OD-6`; the **columns** are not in doubt — `IRREVERSIBLE.md` §7.3 item 1)* |
-| `hsn_code` | VARCHAR(8) | S | snapshotted from the item at post | **Reading the item master later gives the *new* code for *old* documents**, on a filed return. `FR-066`, `IRR-42` |
+| `tax_classification_code` · `tax_classification_scheme` | VARCHAR(20) · VARCHAR(20) | S | snapshotted from the item at post: the code (HSN/SAC under `warehouse-india`) and the scheme that issued it | **Reading the item master later gives the *new* code for *old* documents**, on a filed return. Named for no one country's scheme, so a second jurisdiction is a new scheme value, not a renamed ledger column (`RL-008`). `FR-066`, `IRR-42` |
 | `reason_code_id` | UUID FK | O | line-level override of the header reason | — |
 | `source_line_ref` | VARCHAR(100) | O | **the producer's own line identity** | Distinct from the header's `source_document_line_no`: the header field points at *a line of the producer's document*; this points at *the producer's own line-level identity*, which for a scan-gun batch or a marketplace order is not an ordinal. Without both, a partially reversed multi-line document cannot be reconciled. R7 §6 item 3, `FR-018` |
 | `expiry_date_override` · `qc_result_code` | DATE · VARCHAR(30) | O | producer knows an expiry the lot does not yet carry; receipt already inspected | — |
 | `read_point_location_id` · `biz_location_id` | UUID FK · UUID FK | O | EPCIS: where the scan happened vs where the goods then were | Two different facts. Columns v1, feature v2. `IRR-20` |
 
-**Attributes side table** — `whb_movement_line_attributes (movement_line_id, attribute_key_id FK →
-whb_attribute_keys, attribute_value, value_type)`.
+**Attributes side table** — `whb_movement_line_attributes (movement_line_id, occurred_at,
+attribute_key_id FK → whb_attribute_keys, value_string, value_number, value_date, value_boolean)`:
+**four typed value columns**, the one matching the key's `value_type` populated, as `DATA-MODEL.md`
+§2 carries it. The earlier `(attribute_value, value_type)` pair — one text value with a type tag — is
+withdrawn: the table is append-only from `V500030`, and a typed value cannot be recovered from text
+afterwards (`RL-007`).
 
 > **`PC-09`** · **Registered keys only. No JSONB.** An unregistered key is a column nobody can
 > filter, export or index — *"JSONB with extra steps and no index"* (R7 `G-063`). `whb_attribute_keys`
@@ -701,16 +711,16 @@ repo is **inbound** webhook logging (`automotive/…/V10108__Create_webhook_logs
 
 > **`PC-36`** · `warehouse-base` maintains an outbox with a **gapless monotonic cursor**, and **base
 > does not know its consumers**. Consumers read **by cursor**, delivery is **at-least-once**, and a
-> consumer **deduplicates on `(consumer, sequence)`**. *(`FR-330`, `F-086`.)*
+> consumer **deduplicates on `(consumer, cursor)`**. *(`FR-330`, `F-086`.)* `DATA-MODEL.md` §2's
+> `whb_outbox` row carries the column set below verbatim, from `V500040` (`P0-11`, `RL-002`).
 
 ```
 whb_outbox (
-  id                UUID PK,
-  sequence_no       BIGSERIAL NOT NULL,      -- the cursor. Monotonic, gapless, install-wide
-  event_type        VARCHAR(60)  NOT NULL,   -- §4.4; a registry-backed code, no CHECK
+  cursor            BIGINT       NOT NULL,   -- the cursor, from one sequence. Monotonic, gapless, install-wide
+  recorded_at       TIMESTAMPTZ  NOT NULL,   -- the partition key
+  event_type        VARCHAR(60)  NOT NULL,   -- §4.4; FK -> whb_event_types(code), no CHECK (PC-43)
   event_version     SMALLINT     NOT NULL DEFAULT 1,   -- §10.4
   occurred_at       TIMESTAMPTZ  NOT NULL,   -- business time, copied from the movement
-  recorded_at       TIMESTAMPTZ  NOT NULL,
   posting_date      DATE         NOT NULL,
   company_id        UUID NOT NULL,
   warehouse_id      UUID NOT NULL,
@@ -733,18 +743,21 @@ whb_outbox (
   actor_type        VARCHAR(30) NULL,
   actor_user_id     UUID NULL,
   device_id         VARCHAR(100) NULL,
-  payload_ref       UUID NULL,               -- typed side-table rows for event-specific facts
-  created_at        TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-)
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (cursor, recorded_at)
+) PARTITION BY RANGE (recorded_at)           -- partitioned at CREATE, P0-02's partition job (RL-011, IRR-67)
 ```
 
-> **`PC-37`** · **No JSONB payload column on the outbox.** Event-specific facts are typed rows in a
-> side table keyed by registered `whb_attribute_keys`, exactly as `PC-09` requires of the ledger. An
-> outbox that carries an opaque blob is a schema nobody can filter, index or reconcile — and it is
-> the shape a billing meter cannot aggregate over.
+> **`PC-37`** · **No payload column on the outbox in v1** — not JSONB, not `TEXT`, not a
+> `payload_ref`. **The event is its typed columns**: the dimensions `PC-38` fixes plus the lineage
+> quad. A consumer that needs more of the source document calls the lineage `GET` (`FR-036`) with the
+> quad the event carries. An outbox that carries an opaque blob is a schema nobody can filter, index
+> or reconcile — and it is the shape a billing meter cannot aggregate over; this contract meets that
+> ban by having no blob. *(`RL-002`; the heavier `payload_ref` into typed attribute rows was declined —
+> `GAP-REGISTER-R4.md` §3.7 (e).)*
 
 > **`PC-38`** · **`owner_id`, `warehouse_id`, `lot_id`, `lpn_id` and the three timestamps are on
-> every event from day one, even where v1 has no consumer for them.** *(`FR-331`.)*
+> every event from day one, even where v1 has no consumer for them.** *(`FR-331`, `IRR-66`.)*
 > **Adding an event code later is cheap; adding a dimension to an existing code is not** — because
 > the dimension was never emitted for the events already consumed, and consumers' cursors have
 > already passed them.
@@ -757,15 +770,21 @@ whb_outbox (
 ```
 whb_outbox_subscriptions (
   id, subscriber_code VARCHAR(40) NOT NULL UNIQUE,
-  target_kind       VARCHAR(20)  NOT NULL,   -- IN_PROCESS | HTTP.  NO CHECK: this is a catalogue-adjacent column
+  transport         VARCHAR(20)  NOT NULL,   -- IN_PROCESS | HTTP.  NO CHECK: this is a catalogue-adjacent column
   endpoint_url      VARCHAR(500) NULL,       -- HTTP only
   secret_ref        VARCHAR(200) NULL,       -- a reference to a secret, never the secret
   event_type_filter VARCHAR(500) NULL,       -- null = all
-  last_delivered_sequence_no BIGINT NOT NULL DEFAULT 0,
+  owner_filter_id   UUID NULL,               -- FK -> whb_owners; null = no owner narrowing
+  accepted_event_version SMALLINT NOT NULL DEFAULT 1,  -- PC-75: emitted at this version until the subscriber moves
+  last_delivered_cursor BIGINT NOT NULL DEFAULT 0,
   max_attempts      INTEGER NOT NULL DEFAULT 8,
+  backoff_seconds   INTEGER NULL,            -- PC-44's backoff base
   is_active, status, version, audit columns
 )
 ```
+
+Column names are `DATA-MODEL.md` §2's; this section's earlier `target_kind` and
+`last_delivered_sequence_no` are withdrawn in their favour.
 
 > **`PC-40` · Divergence from R4, stated.** R4 `F-086` specifies the outbox and says *"base knows no
 > consumers"* — correct — but **does not specify how an out-of-process consumer subscribes**, and an
@@ -806,22 +825,25 @@ whb_outbox_subscriptions (
 | `work_order.completed` | a VAS / kitting work order closes | work order | VAS billing |
 | `owner.changed` | an `OWNER_CHANGE` posts | line | a title transfer is a billable and a reportable event |
 | `stock.reservation.created` / `.released` | §5 | reservation | a consumer plans against reserved stock before it is picked (`G-042`) |
+| `document.status_changed` | a document's status changes, through the single transition helper | document | an install or ERP learns *"PO approved"* without a fork. **Code seeded in v1 so the grain is fixed; emitted from v1.1** (`P3-22`, `RL-014`) — see §12.2 item 9 |
 
 **Additions this contract carries from R7 §2.7**, for the logistics seam:
 `equipment.issued_to_trip` (serial, trip ref, expected return) and
 `dock.appointment.detention_started` (appointment, `arrived_at`, free-time expiry) — *the charge is
 logistics', the clock is ours*.
 
-> **`PC-43`** · **`event_type` is a registry-backed code with no `CHECK`**, on the same terms as the
-> thirteen catalogues of §7. Adding an event code is a seed `INSERT` from the owning module's
-> migration, never an `ALTER`.
+> **`PC-43`** · **`event_type` is an FK by code into `whb_event_types`** — registry 17
+> (`DATA-MODEL.md` §2.1.1), created and seeded by `P0-11` in `V500040` with §4.4's codes plus
+> `document.status_changed` — **with no `CHECK`**, on the same terms as the catalogues of §7. Adding
+> an event code is a seed `INSERT` from the owning module's migration under `PC-66`'s guard, never an
+> `ALTER`. *(`RL-002`.)*
 
 ## 4.5 Delivery guarantees
 
-> **`PC-44`** · **At-least-once, in `sequence_no` order, per subscriber.**
+> **`PC-44`** · **At-least-once, in `cursor` order, per subscriber.**
 > - **Ordering:** a subscriber's cursor advances monotonically; base never delivers `n+1` before `n`
 >   to the same subscriber. Cross-subscriber ordering is not coordinated and is not promised.
-> - **Duplication:** a consumer **must** deduplicate on `(subscriber_code, sequence_no)`. Base does
+> - **Duplication:** a consumer **must** deduplicate on `(subscriber_code, cursor)`. Base does
 >   not promise exactly-once and no consumer may assume it. A consumer whose handler is not
 >   idempotent has a bug, not a base gap.
 > - **The outbox row is written in the same transaction as the movement.** That is the whole point of
@@ -834,7 +856,7 @@ logistics', the clock is ours*.
 
 ## 4.6 Replay
 
-> **`PC-45`** · `POST /api/warehouse/outbox/subscriptions/{code}/replay?from_sequence_no=…` resets a
+> **`PC-45`** · `POST /api/warehouse/outbox/subscriptions/{code}/replay?from_cursor=…` resets a
 > subscriber's cursor and re-delivers. It is permissioned (`warehouse:outbox:replay`), audited, and
 > **the only supported recovery mechanism** — there is no "re-emit this one event" and no manual row
 > insert into `whb_outbox`, because either would break the gapless-cursor guarantee that consumers
@@ -1126,7 +1148,7 @@ different enum value sets"* 36 versions after creation (R6, `WAREHOUSE_CORE_ISSU
 | 3 | **Source system / adapter id** | `whb_source_systems` | `module`, `is_reserved`, `is_claimable`, `post_permission` | **one row per module, by its own migration** |
 | 4 | **Stock status** | `whb_stock_statuses` | `is_on_hand`, `is_available_to_promise`, `is_allocatable`, `is_pickable`, `is_shippable`, `is_countable`, `is_valued`, `is_owned_asset`, `blocks_shipment`, `requires_reason_to_enter`/`_to_leave`, `badge_variant` | any |
 | 5 | **Location type** | `whb_location_types` | `is_physical`, `is_stock_holding`, `is_virtual_counterparty`, `is_mobile`, `is_transit`, `allows_mixed_owner`, `requires_assigned_user`, `is_pickable`, `is_receivable`, `counts_as_on_hand` | any |
-| 6 | **Reason code + context** | `whb_reason_codes` | `context` (**no CHECK**, `V600002:21-25` verbatim), `requires_note`, `owning_module`, `blocks_posting` | any |
+| 6 | **Reason code + context** | `whb_reason_codes` | `context` (**no CHECK**, `V600002:21-25` verbatim), `requires_note`, `owning_module`, `blocks_posting`; keyed `uk(context, code)` (`V500004`, `RL-003`) | any |
 | 7 | **UoM class + UoM** | `whb_uom_classes` + `whb_uoms` + `whb_uom_conversions` | `is_base_for_class`, `decimal_places`, `unece_rec20_code`, `gst_uqc_code` | any |
 | 8 | **Task type** | `whb_task_types` | `owning_module`, `is_directed`, `default_priority`, `interleavable`, `labour_standard_minutes` | any |
 | 9 | **Owner type** | `whb_owner_types` | `is_house`, `posts_to_our_gl`, `default_cost_basis` | any |
@@ -1167,8 +1189,22 @@ extend: **logistics** needs #1, #2, #3, #5, #6, #10; a **supply-chain** module n
 ## 7.3 How a consumer adds a value without a base release
 
 > **`PC-66`** · A consumer adds a catalogue value by a **seed `INSERT` from its own migration, in its
-> own Flyway sub-band, individually idempotent, `ON CONFLICT DO NOTHING`**. No `ALTER`, no base
-> commit, no coordination. *(`FR-356`, `G-043`.)*
+> own Flyway sub-band, individually idempotent**. No `ALTER`, no base commit, no coordination.
+> *(`FR-356`, `G-043`.)* Every registry is one install-wide namespace, so two rules make that safe
+> *(`RL-003`)*:
+>
+> 1. **A module inserts only codes it owns.** To *use* a code another module seeded — base's
+>    `TRANSFER_DEPART`, say — it references the code and never re-inserts it. A re-insert under
+>    `ON CONFLICT DO NOTHING` keeps the first writer's row and silently discards the second writer's
+>    behaviour flags, and the second module then posts under the first module's `is_financial` and
+>    `reversal_type_code`.
+> 2. **The seed is guarded.** `ON CONFLICT (<key>) DO NOTHING` is followed by a `DO $$ … $$` block
+>    that raises if any code the migration seeds exists under another `owning_module`, in the
+>    verification shape of `accounting-base/…/V600200__Allow_accounting_in_platform_module_check_constraints.sql:150-161`.
+>    It stays idempotent for the owner and fails loudly for anyone else. Reason codes key on
+>    `(context, code)`, so their conflict target is `(context, code)`. Install-created rows carry
+>    `owning_module = 'INSTALL'` (`RL-012`). `PC-72` assertion 7 catches the same collision in the
+>    reactor, before any install runs.
 >
 > **Idempotency per statement is not optional here.** `R1 C-047`: any Flyway failure in this codebase
 > triggers a **blind `repair()` plus one retry** (`FlywayConfiguration.java:246-264`), so a migration
@@ -1182,30 +1218,43 @@ exists so the `logistics` design set can number its own registration migration, 
 is written **from that module's repository**, not from this one. `IMPLEMENTATION-PLAN.md` §11 records
 the withdrawal of `P6-08`'s former `V524000`–`V524099` claim.
 
-**Worked example — the whole cost of a logistics module learning to move stock:**
+**Worked example — the whole cost of a logistics module learning to move stock.** Base's v1 seed
+already carries the transfer and transit-loss movement types, the `TRIP`/`MANIFEST`/`CONSIGNMENT`
+document types and the `LOGISTICS` source-system row (`IRREVERSIBLE.md` §2 rows 1–3, `P0-04`). Under
+`PC-66` rule 1 logistics references those and inserts only what it alone owns. *(Corrected in round 4:
+the earlier version re-inserted all three base movement types under `owning_module = 'logistics'`,
+and `DO NOTHING` discarded every one of its values without a word — `RL-003`.)*
 
 ```sql
 -- logistics/backend/src/main/resources/db/migration/V524001__Register_logistics_with_warehouse.sql
-INSERT INTO whb_source_systems (code, name, module, is_reserved, is_claimable, post_permission, owning_module, is_system)
-VALUES ('LOGISTICS', 'Logistics', 'logistics', false, true, 'warehouse:movements:post', 'logistics', false)
-ON CONFLICT (code) DO NOTHING;
-
-INSERT INTO whb_document_types (code, name, owning_module, is_stock_bearing, is_external, is_system)
-VALUES ('TRIP',        'Trip',        'logistics', true,  false, false),
-       ('MANIFEST',    'Manifest',    'logistics', false, false, false),
-       ('CONSIGNMENT', 'Consignment', 'logistics', false, false, false)
-ON CONFLICT (code) DO NOTHING;
+-- References, never re-inserts, base's v1 seed (IRREVERSIBLE.md §2 rows 1-3):
+--   whb_source_systems  LOGISTICS
+--   whb_document_types  TRIP, MANIFEST, CONSIGNMENT
+--   whb_movement_types  TRANSFER_DEPART, TRANSFER_ARRIVE, TRANSIT_LOSS
+-- Inserts only the codes logistics owns.
 
 INSERT INTO whb_movement_types (code, name, direction, is_financial, reversal_type_code,
                                 requires_reason, balance_rule, owning_module, is_system)
-VALUES ('TRANSFER_DEPART', 'Transfer — depart', 'INTERNAL', false, 'TRANSFER_DEPART_REV', false, 'MUST_BALANCE_PER_OWNER_ITEM', 'logistics', false),
-       ('TRANSFER_ARRIVE', 'Transfer — arrive', 'INTERNAL', false, 'TRANSFER_ARRIVE_REV', false, 'MUST_BALANCE_PER_OWNER_ITEM', 'logistics', false),
-       ('TRANSIT_LOSS',    'Transit loss',      'OUT',      true,  'TRANSIT_LOSS_REV',    true,  'MUST_BALANCE_PER_OWNER_ITEM', 'logistics', false)
+VALUES ('EQUIPMENT_ISSUE',  'Equipment — issue to trip',    'INTERNAL', false, 'EQUIPMENT_ISSUE_REV',  false, 'MUST_BALANCE_PER_OWNER_ITEM', 'logistics', false),
+       ('EQUIPMENT_RETURN', 'Equipment — return from trip', 'INTERNAL', false, 'EQUIPMENT_RETURN_REV', false, 'MUST_BALANCE_PER_OWNER_ITEM', 'logistics', false)
 ON CONFLICT (code) DO NOTHING;
 
 INSERT INTO whb_reason_codes (context, code, name, owning_module, requires_note, is_system)
 VALUES ('TRANSIT_LOSS', 'CARRIER_DAMAGE', 'Damaged in transit by carrier', 'logistics', true, false)
-ON CONFLICT DO NOTHING;
+ON CONFLICT (context, code) DO NOTHING;
+
+-- PC-66 rule 2: idempotent for the owner, loud for anyone else
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM whb_movement_types
+               WHERE code IN ('EQUIPMENT_ISSUE', 'EQUIPMENT_RETURN') AND owning_module <> 'logistics') THEN
+        RAISE EXCEPTION 'V524001: a movement-type code logistics seeds is owned by another module';
+    END IF;
+    IF EXISTS (SELECT 1 FROM whb_reason_codes
+               WHERE context = 'TRANSIT_LOSS' AND code = 'CARRIER_DAMAGE' AND owning_module <> 'logistics') THEN
+        RAISE EXCEPTION 'V524001: reason code TRANSIT_LOSS/CARRIER_DAMAGE is owned by another module';
+    END IF;
+END $$;
 ```
 
 **Commits to `warehouse-base` required by the above: zero.** That is the claim, and it is the thing
@@ -1221,14 +1270,21 @@ keys"*. Three rules, each checkable:
 > **`PC-67`** · **No TypeScript string-union type may enumerate a registry vocabulary.** The type is
 > `type MovementTypeCode = string` plus a runtime list fetched from a dropdown endpoint. String
 > unions remain right for genuinely closed system vocabularies (`'ACTIVE' | 'INACTIVE'`,
-> `posting_status`). *(`FR-380`.)*
+> `posting_status`). *(`FR-380`.)* **The same rule holds on mobile** *(`FR-382`, v1 · P0, `P0-16`,
+> `RL-009`)*: a registry-backed field in `mobile/…/common.schemas.ts` is `z.string().min(1)`
+> validated against the fetched dropdown list, never a `z.enum`, and a `z.enum` literal containing a
+> seeded registry code fails CI. Handhelds update on an MDM schedule, so a closed mobile enum would
+> refuse every adapter's new seed row, silently, for a release cycle.
 
 > **`PC-68`** · **`StatusBadge` variant comes from a `badge_variant` column on the registry row**, not
 > from a frontend map. One less place to forget. *(`FR-381`.)*
 
 > **`PC-69`** · **i18n falls back to the registry row's `name`** when `t('warehouse:statuses.<code>')`
 > misses, so a newly registered status renders in **English rather than as a raw key**. *(`FR-381`,
-> `G-065`.)* And every registry gets a **mobile-vocabulary consideration on day one**, because
+> `G-065`.)* From **v2** the fallback reads `whb_registry_translations` for the user's locale
+> **first**, then the row's `name` (`FR-469`, `P1-19`'s v2 increment, `RL-015`): an install-created row
+> (`owning_module = 'INSTALL'`) has no i18n key at all, and its translation is the only place a
+> second language can live. And every registry gets a **mobile-vocabulary consideration on day one**, because
 > `mobile/…/common.schemas.ts` is a third copy of every dropdown vocabulary and a missing value makes
 > the mobile save fail validation silently (`FR-382`, `G-066`).
 
@@ -1318,7 +1374,7 @@ accounting-base 660, accounting 660).
 
 ### Layer 1 — `WarehouseBaseCouplingTest`, static, in `warehouse-base`
 
-> **`PC-72`** · Six assertions, and **adding a fourteenth registry means adding a row to assertion
+> **`PC-72`** · Seven assertions, and **adding a fourteenth registry means adding a row to assertion
 > 4**. *(`FR-354`, R7 §4.4.)*
 >
 > 1. **No forbidden import.** No source file under `warehouse-base/backend/src/main/java` contains
@@ -1340,6 +1396,9 @@ accounting-base 660, accounting 660).
 >    broken."*
 > 6. **`whb_source_systems` contains the `ACCESSORIES` row with `is_reserved = true`** and no adapter
 >    claims it (`PC-65`).
+> 7. **No `(registry, code)` pair is inserted by two `owning_module` values** across every
+>    warehouse-family band (`D-2`), reason codes compared on `(context, code)`. `PC-66`'s guard
+>    catches a collision in one install; this catches it in the reactor (`RL-003`).
 
 ### Layer 2 — `warehouse-adapter-example`, a fixture adapter in the repo
 
@@ -1557,7 +1616,7 @@ Not an adapter — a **module** that depends on base **and** app, with **neither
 ## 9.6 `warehouse-india` · **v1 (documents) + v2 (registers)**
 
 Splits in two waves per `DECISIONS.md` §5.1 `A-4`. It consumes **only** base columns that already
-exist — `company_id`, `duty_status`, `hsn_code`, `whb_uoms.gst_uqc_code`, the reason-code catalogue —
+exist — `company_id`, `duty_status`, `tax_classification_code`, `whb_uoms.gst_uqc_code`, the reason-code catalogue —
 and adds **no** base column.
 
 | Wave | Contents |
@@ -1568,7 +1627,7 @@ and adds **no** base column.
 **Why the v1 wave exists:** in India goods physically cannot move between branches without a challan
 and an e-way bill, so a v1 that ships transfers but no challan ships *a transfer feature an Indian
 customer may not legally use*. **This does not weaken `D-8`** — the core stays country-neutral; the
-hooks (`company_id`, `duty_status`, `gst_uqc_code`, `hsn_code`, registry-backed reason codes) are in
+hooks (`company_id`, `duty_status`, `gst_uqc_code`, `tax_classification_code`, registry-backed reason codes) are in
 v1 **because they cannot be added later**, and every rule is in `warehouse-india`.
 
 ## 9.7 The future `logistics` module · **v2 posting, v3 optimisation**
@@ -1589,20 +1648,25 @@ v1 **because they cannot be added later**, and every rule is in `warehouse-india
 **In-transit stock is the whole seam** (`FR-335`, R4 §4.3). A transfer is **at least two** movements:
 
 ```
-TRANSFER_DEPART   A/PICK_FACE                    (−)  →  TRANSIT-WH / IN_TRANSIT-<trip>  (+)
-TRANSFER_ARRIVE   TRANSIT-WH / IN_TRANSIT-<trip> (−)  →  B/RECEIVING                     (+)
+TRANSFER_DEPART   A/PICK_FACE          (−)  →  A/IN_TRANSIT-<trip>  (+)
+TRANSFER_ARRIVE   A/IN_TRANSIT-<trip>  (−)  →  B/RECEIVING          (+)
 ```
 
-both carrying `source_document_type = 'TRIP'` and the trip id, so logistics finds its own postings
+The transit location is a per-transfer `IN_TRANSIT` child of the **source** site A, created at
+dispatch — never a separate transit warehouse (`FR-147`, `FR-148`, `GAP-REGISTER-R4.md` §3.4). In-transit
+value stays in the sender's grain (`FR-236`), and classification resolves to A's `REGISTERED` link,
+which is the transfer's frozen source branch. B's storekeeper posts the arrive leg against **that**
+transfer's transit location regardless of site scope, and against nothing else at A (`P1-18`,
+`RJ-002`). Both legs carry `source_document_type = 'TRIP'` and the trip id, so logistics finds its own postings
 through `A3` **without base knowing what a trip is**. Three consequences fall out, and all three are
 things customers ask for: **in-transit stock is countable and reportable**; **a transit loss is a
 normal reason-coded adjustment** against the transit location, which is what makes it claimable
 against the carrier; and **a partial arrival is representable** — twelve of fifteen cartons arrive,
 three stay in transit and age, and nobody has to decide whether B "received" fifteen.
 
-The v1 cost of supporting this before logistics exists is **one `location_type` value, one
-`is_physical` boolean on the warehouse, and a transfer service that posts two movements instead of
-one.** The v2 cost of adding it afterwards is that **every historic transfer is a single movement
+The v1 cost of supporting this before logistics exists is **one `location_type` value
+(`IN_TRANSIT`, seeded by `P1-05`), one transit location created per transfer at the source site,
+and a transfer service that posts two movements instead of one.** The v2 cost of adding it afterwards is that **every historic transfer is a single movement
 with no transit state**, in-transit ageing is unanswerable for the past, and every transfer report in
 the product changes shape.
 
@@ -1667,6 +1731,12 @@ own release cycles.
 | **Rename a catalogue `code`** | **no** | Posted history references it. Deactivate the row (`is_active = false`) and seed a new one |
 | **Change the meaning of an existing field** | **no** | The worst kind of break: it compiles, it returns 201, and the numbers are wrong |
 | **Remove anything** | **no**, except by §10.3 | — |
+| **Change a management endpoint a mobile screen calls** (`/warehouse/<resource>`) | **additive only**, from **v1.1** | Every row above applies to it as it does to the port, and each such endpoint is marked in its `BUILD-SPEC-SCREENS.md` mobile block. Handhelds lag the server on an MDM schedule, so a response field renamed for the web breaks every scan gun on the floor that morning (`RL-017`, `P3-04`) |
+
+**The handheld floor (v1.1).** The server refuses an app older than the `admin_settings` key
+`warehouse.mobile.min_app_version`, checked at login and at sync, with `426 CLIENT_UPGRADE_REQUIRED`;
+`whb_devices.app_version` is what the device grid filters on. A handheld on the wrong build is told to
+update rather than left to misbehave (`P3-04`; `P0-16`'s mobile section points here).
 
 ## 10.3 The deprecation path
 
@@ -1694,7 +1764,9 @@ own release cycles.
 > calling, i.e. base knowing its consumers, i.e. the thing this whole document forbids.
 >
 > Outbox events version **independently**, by `event_version` on the row (§4.2), because a consumer's
-> read cursor cannot be path-versioned.
+> read cursor cannot be path-versioned. **Each subscription names the version it accepts** —
+> `whb_outbox_subscriptions.accepted_event_version` (§4.3) — and base emits each event to it at that
+> version until the subscriber moves. *(`RL-002`, `IRR-66`.)*
 
 ## 10.5 What a breaking change would actually cost
 
@@ -1737,8 +1809,8 @@ Four calls, in JSON, with the resulting ledger lines shown. Ids are abbreviated 
 `…` is a UUID.
 
 **Setup, seeded per install and per site** (`FR-084`): virtual locations `VIRT-SUPPLIER`,
-`VIRT-CUSTOMER`, `VIRT-ADJUSTMENT`, `VIRT-SCRAP`, `VIRT-OPENING`, `VIRT-COUNT-VAR`, plus the
-non-physical transit warehouse `TRANSIT-WH`. All have `counts_as_on_hand = false`, so they never
+`VIRT-CUSTOMER`, `VIRT-ADJUSTMENT`, `VIRT-SCRAP`, `VIRT-OPENING`, `VIRT-COUNT-VAR`, and, created
+per transfer at dispatch, an `IN_TRANSIT` location under the **source** site (`FR-147`, `FR-148`). All have `counts_as_on_hand = false`, so they never
 inflate on-hand while still making every movement two-sided (`L-1`, `IRR-05`).
 
 ---
@@ -1838,16 +1910,20 @@ time, not the sync time):
 | line | owner | location | qty | base_qty | lot | status |
 |---|---|---|---|---|---|---|
 | 1 | HOUSE | `SITE-A/PICK-FACE-03` | **−15** | **−180** | L-2609 | AVAILABLE |
-| 2 | HOUSE | `TRANSIT-WH/IN_TRANSIT-TRIP-8842` | **+15** | **+180** | L-2609 | AVAILABLE |
+| 2 | HOUSE | `SITE-A/IN_TRANSIT-TRIP-8842` | **+15** | **+180** | L-2609 | AVAILABLE |
 
 The transit location is **per reference, not one global bucket** (`FR-085`), so two consignments on
-the road are separately countable and separately ageable.
+the road are separately countable and separately ageable. It is a child of the **source** site,
+`SITE-A`, so in-transit value stays in the sender's grain and resolves to `SITE-A`'s `REGISTERED`
+branch (`FR-147`, `FR-148`).
 
-**Leg 2 — arrive, partially.** Twelve cases arrive on 2 September; three are missing.
+**Leg 2 — arrive, partially.** Twelve cases arrive on 2 September; three are missing. `SITE-B`'s
+storekeeper posts this leg against that transfer's transit location regardless of site scope
+(`P1-18`).
 
 | line | owner | location | qty | base_qty | lot | status |
 |---|---|---|---|---|---|---|
-| 1 | HOUSE | `TRANSIT-WH/IN_TRANSIT-TRIP-8842` | **−12** | **−144** | L-2609 | AVAILABLE |
+| 1 | HOUSE | `SITE-A/IN_TRANSIT-TRIP-8842` | **−12** | **−144** | L-2609 | AVAILABLE |
 | 2 | HOUSE | `SITE-B/RECV-01` | **+12** | **+144** | L-2609 | AVAILABLE |
 
 **Position after both legs:**
@@ -1855,7 +1931,7 @@ the road are separately countable and separately ageable.
 | location | on hand |
 |---|---|
 | `SITE-A/PICK-FACE-03` | −180 EA against its prior balance |
-| `TRANSIT-WH/IN_TRANSIT-TRIP-8842` | **+36 EA (3 cases) — still on the road, countable, ageable, attributable** |
+| `SITE-A/IN_TRANSIT-TRIP-8842` | **+36 EA (3 cases) — still on the road, countable, ageable, attributable** |
 | `SITE-B/RECV-01` | +144 EA |
 
 **Nobody had to decide whether B "received" fifteen.** The three cases are a real, visible,
@@ -1866,7 +1942,7 @@ in the `TRANSIT_LOSS` context, mandatory because the type carries `requires_reas
 
 | line | owner | location | qty | base_qty | status | reason |
 |---|---|---|---|---|---|---|
-| 1 | HOUSE | `TRANSIT-WH/IN_TRANSIT-TRIP-8842` | **−3** | **−36** | AVAILABLE | CARRIER_DAMAGE |
+| 1 | HOUSE | `SITE-A/IN_TRANSIT-TRIP-8842` | **−3** | **−36** | AVAILABLE | CARRIER_DAMAGE |
 | 2 | HOUSE | `VIRT-ADJUSTMENT` | **+3** | **+36** | AVAILABLE | CARRIER_DAMAGE |
 
 That is a **reason-coded loss against a transit location with a named owner** — which is exactly what
@@ -2019,6 +2095,7 @@ argument, and both should be reflected into the FRD.
 | 6 | **`OD-1` / `OD-6` — where the cost-layer tables live** | before `P2` | Not this document's. What is **not** in doubt: `cost_basis`, `unit_cost`, `cost_currency_code`, `moving_average_after` and `cost_layer_id` are **columns on the ledger line** whoever computes the numbers (`IRREVERSIBLE.md` §7.3) |
 | 7 | **`OD-7` — precision** | before `P0-02` | Every numeric type in §2 is a recommendation carrying a citation, not a ruling. `conversion_factor_used` in particular: R4 proposes `numeric(18,8)`; the accounting set's `DECIMAL(19,8)` is explicitly *"the **currency-conversion** type and nothing else"* |
 | 8 | **`OD-3` — one DB per customer vs shared multi-tenancy** | before `warehouse-3pl` P5 | Not this document's. Note only that `PC-32`'s owner scope is what carries the 3PL case either way |
+| 9 | **Where `document.status_changed` carries `from_status` / `to_status`** (`RL-014`) | before `V500040` ships | `PC-37` leaves no payload and `PC-36`'s column set has no status pair, so the v1.1 event cannot say which transition happened. Either two nullable `VARCHAR(40)` columns join the v1 set in `V500040` (a dimension added later is `PC-38`'s irreversible case), or the consumer reads the status back by document id. **Flagged for `P0-11`/`P3-22`, not decided here** |
 
 ## 12.3 `UNVERIFIED`, stated plainly
 

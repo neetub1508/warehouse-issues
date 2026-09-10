@@ -1,5 +1,7 @@
 TITLE: [Warehouse] EPIC: Warehouse and inventory management — master
 LABELS: epic,warehouse
+issue: 1
+<!-- check-design-set: issue-citations file #2 — `#2` and `#9` are ordinals in prose, not issue references — *Refusal #2*, *Adapter #2 (services)*, *ship-blocker #2*, *logistics needs #1, #2, #3, #5, #6, #10* — and at COMPETITOR-BENCHMARK.md:70/:146 `#9` is the markdown in-page anchor `[§9](#9--where-the-audits-disagree)`. In this repository `#2` and `#9` are in fact the two **pull requests** opened while the backlog was being filed, so no issue row can ever exist for either: see issues/CREATED.md — declared in the front matter, above the `---`, so the declaration never enters the issue body and cannot drift against the filed issue -->
 ---
 Build a **standalone-capable, country-neutral warehouse and inventory-management product** for the
 Classic platform, as **five Maven modules plus adapters**.
@@ -48,7 +50,7 @@ Reserved since v1 and built in v3: **`logistics`** — package `ai.logistics`, p
 so `ai.warehouse.adapter.dealer` would load in **every** install, including ones where dealer is not
 built. This is the exact trap the accounting round-4 review found and corrected.
 
-## The thirteen decisions — do not re-litigate these
+## The fourteen decisions — do not re-litigate these
 
 | # | Decision |
 |---|---|
@@ -65,6 +67,7 @@ built. This is the exact trap the accounting round-4 review found and corrected.
 | **D-11** | **Adapters are proved by a build-time test, not by intent.** `warehouse-adapter-dealer` ships with **zero commits to `warehouse-base`**, enforced by an `ArchitectureInvariantsTest` per module and a `warehouse-adapter-example` fixture CI builds. **Adapter #2 (services) is in v1 for the reason that one adapter proves nothing about genericity** |
 | **D-12** | **v1 is a cut line, not the scope limit.** Every capability found by any lens is placed in a version and carried in a task file **now**. Nothing is deferred to *"we'll look at it later"* — which is why P5 and P6 exist and why four P6 tasks produce a written determination and no code |
 | **D-13** | **Mobile is not optional.** Every user-visible capability with a web screen has a mobile counterpart **in the same task**, per CLAUDE.md's web↔mobile mirroring rule — or a stated `none` with a reason. **Silence is a defect.** Note the correction R1 `CM-1` found: `mobile/…/ListHeader.tsx:210-218` now supports `type?: 'dropdown' \| 'text'`; **date filters are still unsupported** |
+| **D-14** | **Associations between masters are dated many-to-many; a warehouse has exactly one `REGISTERED` branch** (user decision, 2026-09-10, round 4). Every association between two independent masters is an effective-dated junction; composition and ledger fact rows stay scalar. A warehouse links to branches through `whb_warehouse_branches`, with exactly one `REGISTERED` link at every instant, which supplies its GSTIN; `SERVING` links grant visibility and let a branch draw stock, and a draw across GSTINs is a taxable transfer. A registration change is maker–checker and refused while stock is held (`OD-19`). Useful-but-not-day-one work goes to a later version **and is still tracked** — as a versioned increment of the most similar existing task (round 4 filed `P3-25` and `P5-24`…`P5-28`, and folded all six into their hosts on 2026-09-10: no duplicate tasks). Reverses `FR-079`'s *"belongs to exactly one branch"*; `RG-001` is canonical |
 
 ## The fourteen load-bearing invariants
 
@@ -118,6 +121,12 @@ Each is a **merge gate on a named task**, not a note.
 | **OD-4** | Who owns the shared supplier/counterparty master long-term? **Never an FK from base into another module** — the previous attempt died of exactly that | **`P6-06`** (`P1-08` proceeds regardless) | v3 |
 | **OD-2** | Does the dealer vehicle inventory migrate onto the ledger? The **test** is stated rather than the answer | **`P6-09`** | v3 planning, not before |
 
+**Round 4 adds two, both escalated, each with a safe default already in the design** (`DECISIONS.md`
+§3.5): **`OD-19`** — the statutory treatment of on-hand stock when a site's `REGISTERED` branch moves to
+another GSTIN; it gates `P1-05`'s *Change registration* action, which is refused while stock is held
+until it is answered. **`OD-18`** — what v1 records for a drop-shipment; it gates `P5-09`'s `FR-467`
+at the first drop-shipped purchase.
+
 **And one unnumbered conflict that must become an `OD-` row before `P0-02` is written:** the ledger's
 **partition key**. `FR-022` and `DATA-MODEL.md` `WHB-30` say `occurred_at`; `PLATFORM-DEPENDENCIES.md`
 `PD-D5` says `posting_date`. **Nothing resolves them**, and *a partition key cannot be added to a
@@ -151,8 +160,10 @@ adapter proves nothing*) · field-service and assets **v1.1** · logistics **v3*
 | P5 | __P5__ | 3PL, channels and reverse logistics | **23** | v2 |
 | P6 | __P6__ | Optimisation, planning and the logistics seam | **12** | v3 |
 
-**143 tasks** — `ls issues/p*.md | wc -l`, and 17 + 21 + 29 + 4 + 24 + 13 + 23 + 12.
-**459 requirements**, each owned by **exactly one** task. **305 scenarios** (computed:
+**143 tasks** — `ls issues/p*.md | wc -l`, and 17 + 21 + 29 + 4 + 24 + 13 + 23 + 12. Round 4 filed six
+(`P3-25`, `P5-24`…`P5-28`, `#156`–`#161`) and on 2026-09-10 folded each into its most similar existing
+task; the six issues are closed as duplicates (`issues/CREATED.md`, `GAP-REGISTER-R4.md` §4.6).
+**469 requirements**, each owned by **exactly one** task. **305 scenarios** (computed:
 `grep -cE '^\| \*\*WH-SC-[0-9]{3}\*\*' docs/SCENARIO-CATALOGUE.md`; 300 before review round 2 added
 §3.21's five. `IMPLEMENTATION-PLAN.md` §8.5 stated **119** for that same command until 2026-09-02,
 when `X-007`/`X-034` were closed by recomputing it). **314 tables. 237 screens**, 215 of them

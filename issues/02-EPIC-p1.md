@@ -1,5 +1,6 @@
 TITLE: [Warehouse] EPIC: P1 — Masters, identity, inbound
 LABELS: epic,warehouse,phase-p1
+issue: 4
 ---
 Part of __MASTER__ · Modules `warehouse-base` (masters) + `warehouse` (inbound documents) · Migrations — **20 blocks, enumerated below** · Ships in **v1**
 
@@ -54,8 +55,9 @@ references `whb_counterparties`, and `whb_owners` is `V500007` while `whb_counte
 
 `WH-SC-045` … `WH-SC-052` run **in order**:
 
-1. **`WH-SC-045`** — create a warehouse under a branch with a structured address and a timezone; the
-   GSTIN is **read from the branch**, never duplicated.
+1. **`WH-SC-045`** — create a warehouse with its `REGISTERED` branch link, a structured address and a
+   timezone; the GSTIN is **read from that branch**, never duplicated. A second current `REGISTERED`
+   link is refused and `SERVING` is offered (`FR-460`, `D-14`).
 2. **`WH-SC-046`** — generate **1,152 bins** from a format mask, with the **count and the first and
    last codes previewed before anything is written**.
 3. **`WH-SC-047`** — import an item master where the dry run reports **per-row, per-cell** errors.
@@ -82,6 +84,7 @@ references `whb_counterparties`, and `whb_owners` is `V500007` while `whb_counte
 | **Genealogy recorded at the moment of transformation** | Answerable **both** directions; **never reconstructed** | `P1-07` · `V500035` · `L-12` |
 | **Warehouse ∩ branch ∩ owner scope in the `WHERE` clause** | **A menu filter is not a guard** | `P1-18` |
 | **`is_taxable_supply` derived at creation and frozen** | A branch's GST registration changes; a filed return does not | `P1-17` · `V510031` |
+| **One `REGISTERED` branch at every instant** (`FR-460`, `D-14`) | A warehouse links to branches through `whb_warehouse_branches`; the `REGISTERED` link supplies the GSTIN, the branch-scoped series and the tax attribution, and classification reads it at `occurred_at`. Its history is dated and append-only once a movement stands in its range, so a re-registration closes one row and opens the next — it never overwrites (`RG-001`) | `P1-05` · `V500012` · `I-22`/`I-23` (`P0-02`, `V500030`/`V500037`) |
 
 **Two `PNR-3` deadlines land in P1** and neither breaks anything on the day:
 **GRN lifecycle timestamps** (`V510014`, `P1-13`) — *a duration cannot be backfilled, so the first
@@ -90,7 +93,7 @@ client's month-one dock-to-stock report cannot be produced*; and **`whb_lpns.rec
 
 ## Migration blocks
 
-**20 blocks**, re-derived from the `Migrations` field of every P1 task header, not transcribed from
+**26 blocks** (20 v1, and six v1.1/v2 increments folded in on 2026-09-10), re-derived from the `Migrations` field of every P1 task header, not transcribed from
 an earlier table:
 
 ```bash
@@ -103,14 +106,19 @@ That command is the authority; re-run it after any header change.
 **`warehouse-base` band — ★ marks a block that must land before `V500030`:**
 
 - ★ `V500009` `V500016` — `P1-02` UoM classes and UoMs · identifiers, packaging levels, conversions, attribute values
+- `V500076` — `P1-02` **v2 increment**: `whb_uom_scheme_codes` (`RG-020`, folded from former `P5-24`)
 - ★ `V500011` — `P1-08` counterparty roles, counterparties, role links, external refs **+ the `whb_owners` FK**
 - ★ `V500012` `V500013` — `P1-05` warehouses · locations, location external refs **and the virtual-location seed**
+- `V500070` — `P1-05` **v2 increment**: `whb_warehouse_companies`, `whb_location_owner_dedications` (`RG-012`, `RG-014`, `FR-468`, folded from former `P5-24`)
 - ★ `V500014` `V500015` — `P1-01` categories and variant axes · **`whb_items`, `PNR-4`**
+- `V500075` — `P1-01` **v2 increment**: `whb_item_uom_defaults`, `whb_item_tax_classifications` (`RG-010`, `RG-020`, folded from former `P5-24`)
 - ★ `V500018` `V500035` — `P1-07` **lots, serials (`PNR-4`), LPNs** · transformations
 - ★ `V500020` — `P1-09` number series, issued numbers, `whb_next_document_number()`, `I-20`
 - `V500017` `V500053` — `P1-04` item external refs and documents · **`D-9`'s two mandatory mitigations**
 - `V500046` — `P1-10` import batches and rows
 - `V500050` — `P1-03` item × site settings, supplier sources, supersessions
+- `V500069` `V500077` — `P1-03` **v1.1 increment**: the ABC cut-offs and previous class (`RK-003`, folded from former `P3-25`) · **v2 increment**: `warehouse_id` on supplier sources (`RG-011`, folded from former `P5-24`)
+- `V500071` — `P1-19` **v2 increment**: `whb_registry_translations` (`RL-015`, folded from former `P5-28`)
 - `V500055` — `P1-21` **`whb_master_merges`** — the round-2 master-merge task (`FR-451`, `Z-007`)
 - `V500051` `V500052` `V500054` — `P1-11` channels · transport details · the `whb_activity_history` **view**
 - `V501050`–`V501069` — `P1-20` base grid configuration, **wave 2**
@@ -121,13 +129,15 @@ That command is the authority; re-run it after any header change.
 - `V510011` — `P1-12` purchase orders and lines
 - `V510013` `V510014` — `P1-13` receiving sessions · **GRNs** *(★ `PNR-3` for the lifecycle timestamps)*
 - `V510015` `V510016` — `P1-14` inspection plans and criteria · inspections, lines, results
+- `V510220` — `P1-14` **v2 increment**: `wh_inspection_plan_assignments` (`RG-018`, folded from former `P5-24`)
 - `V510017` — `P1-15` putaway rules and tasks
 - `V510018` — `P1-16` receipt reversals and lines
 - `V510031` — `P1-17` transfer orders and lines — **schema only**
 - `V511000` `V511001` `V511010` `V511020`–`V511059` `V511200` — `P1-20` app permissions, dependencies, menus, app grids wave 1, admin settings
 
-`P1-18` and `P1-19` write **no migration**; that is not a defect — one is a query predicate and an
-architecture rule, the other is content and registration.
+`P1-18` writes **no migration**, and neither does `P1-19`'s v1 work (its `V500071` is the v2 increment
+above); that is not a defect — one is a query predicate and an architecture rule, the other is content
+and registration.
 
 ## Tasks
 

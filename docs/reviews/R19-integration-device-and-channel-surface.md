@@ -1,5 +1,7 @@
 # R19 — integration, device and channel surface
 
+<!-- check-design-set: issue-citations file #2 — `#2` and `#9` are ordinals in prose, not issue references — *Refusal #2*, *Adapter #2 (services)*, *ship-blocker #2*, *logistics needs #1, #2, #3, #5, #6, #10* — and at COMPETITOR-BENCHMARK.md:70/:146 `#9` is the markdown in-page anchor `[§9](#9--where-the-audits-disagree)`. In this repository `#2` and `#9` are in fact the two **pull requests** opened while the backlog was being filed, so no issue row can ever exist for either: see issues/CREATED.md -->
+
 > **Date** 2026-09-02 · **Branch** `docs/round-3-functional-completeness` · **Finding prefix** `RD-`
 > (`grep -rohE "\bRD-[0-9]{1,3}\b" docs/ issues/ | wc -l` → **0**, so the namespace was free; and
 > `FINDING_CITE_RE` at `tools/check-design-set.py:178` requires `\b` immediately before its register

@@ -63,6 +63,8 @@ produced it. All `grep` counts were run on **2026-09-01** against
 | Warehousing services SAC | `996729`, 18% | §3.5, §9 | **RE-VERIFY — and the place-of-supply rule changed in 2023; do not state it from memory** |
 | Schedule H1 register retention | 3 years | §8.1 | **RE-VERIFY** |
 | Food records retention | 1 year or the shelf life, whichever is longer | §8.2 | **RE-VERIFY** |
+| Packaged Commodities declaration — the parties a pack must name, and so the lot-party roles seeded in registry 11 for `whb_lot_counterparties` | manufacturer · packer · importer, beside the supplier the goods were bought from | §6 | **RE-VERIFY — the seed rows `MANUFACTURER`/`PACKER`/`IMPORTER` follow this list (`RG-006`)** |
+| Treatment of on-hand stock when a site's `REGISTERED` branch moves to a branch under a different GSTIN | **not held** — a supply, a transfer of a going concern, or an amendment of the place of business; the design set cannot say which | §3.4 | **RE-VERIFY — escalated as `OD-19`. Until an adviser rules, the change is refused while the site holds stock, and the operator empties it by taxable transfers first** |
 
 Statutory instruments named in this document, with the confidence attached to each: CGST Act
 Schedule I and CGST Rules r.28 (deemed supply between distinct persons and its valuation) —
@@ -195,7 +197,7 @@ everything observational, including the whole `IRR-51`…`IRR-57` block (`IRREVE
 
 > **E-way bill, delivery challan, ITC-04, the Rule 56 stock account, MRP declarations** — *additive*,
 > in `warehouse-india`. `D-8` keeps the rules out of the core as data. **The hooks are irreversible
-> and are already here**: `IRR-17` `company_id`, `IRR-32` tax-mapped reason codes, `IRR-42` `hsn_code`
+> and are already here**: `IRR-17` `company_id`, `IRR-32` tax-mapped reason codes, `IRR-42` tax-classification
 > snapshot, `IRR-57` warehouse legal identity, `IRR-12` `duty_status`. **Ship the hooks, defer the
 > rules.**
 
@@ -208,11 +210,11 @@ instruction.
 |---|---|---|---|---|---|---|
 | 1 | `company_id` | `whb_stock_movements` · base | `IRR-17` | `PNR-1` | **UB** | Historic rows get a *guessed* legal entity, and a GST return computed from guessed entities is a filing error, not a report defect |
 | 2 | `warehouse_id` | `whb_stock_movements` · base | `IRR-17` | `PNR-1` | **UB** | `sequence_no` is gapless per warehouse; adding the axis later renumbers history |
-| 3 | `hsn_code` | `whb_stock_movement_lines` · base | `IRR-42` | `PNR-1` | **UB** | Reading the item master later gives the **new** code for **old** documents, so a filed return no longer reconciles to the system that produced it |
+| 3 | `tax_classification_code` + `tax_classification_scheme` (`HSN`) | `whb_stock_movement_lines` · base | `IRR-42` | `PNR-1` | **UB** | Reading the item master later gives the **new** code for **old** documents, so a filed return no longer reconciles to the system that produced it |
 | 4 | `duty_status` | `whb_stock_movement_lines` · base **and in the `L-5` position key** | `IRR-12`, `IRR-09` | `PNR-1` | **UB** | Bonded and duty-paid stock of one SKU merge into one balance and no algorithm separates them. §7.1 |
 | 5 | `reason_code_id` (header **and** line) | `whb_stock_movements`, `whb_stock_movement_lines` · base | `IRR-32` | `PNR-1` | **UB** | A year of free-text reasons cannot be reclassified into the statutory categories, so that year's ITC reversal cannot be computed and the Rule 56 account cannot be produced |
-| 6–7 | `itc_treatment`, `statutory_category` | `whb_reason_codes` · base — **no `CHECK` on `context`** (`D-10`) | `IRR-32` | `PNR-1` | **UB** | As above; and the catalogue must stay open or `warehouse-india` cannot add a category without a base release |
-| 8–10 | `legal_entity_id`, `tax_registration_id`, `state_code` | `whb_warehouses` · base | `IRR-57` | `PNR-1` → `PNR-3` | **UB** | A historical transfer **cannot be classified as supply vs non-supply**, so it cannot be established whether a tax invoice was legally required — for a period whose return has already been filed |
+| 6–7 | `tax_treatment_code`, `statutory_category` | `whb_reason_codes` · base — **no `CHECK` on `context`** (`D-10`) | `IRR-32` | `PNR-1` | **UB** | As above; and the catalogue must stay open or `warehouse-india` cannot add a category without a base release |
+| 8–10 | `state_code`; the `REGISTERED` link's `branch_id` and `effective_from`/`effective_to` | `whb_warehouses`, `whb_warehouse_branches` · base (`D-14`) | `IRR-57`, `IRR-64` | `PNR-1` | **UB** | A historical transfer **cannot be classified as supply vs non-supply**, so it cannot be established whether a tax invoice was legally required — for a period whose return has already been filed. The GSTIN and the legal entity are read through the `REGISTERED` branch at `occurred_at`, never copied onto the site |
 | 11 | `tax_classification_code` (HSN/SAC) — a **string**, never an FK into a tax master | `whb_items` · base (`FR-066`) | `IRR-42` | `PNR-3` | **UB** | §5.3. No item table in this codebase has one today |
 | 12–13 | `gst_uqc_code`, `unece_rec20_code` | `whb_uoms` · base (`FR-056`) | `IRR-44` | `PNR-1` | **RK** | The return carries the government's unit code, not our UoM name; a line with no UQC cannot be summarised, and the IRP rejects the invoice |
 | 14–18 | `mrp`, `net_content`, `net_content_uom`, `country_of_origin`, `pack_month_year` | `whb_lots` · base (`FR-320`, `FR-095`) | `IRR-53` | `PNR-3` | **UB** | Every one is printed on a pack already put away. Nobody re-opens cartons to backfill. §6 |
@@ -236,7 +238,7 @@ in every case is still `PNR-1` and no column moves:
 | Cell | Says | Should say under A-4 | Evidence |
 |---|---|---|---|
 | `hsn_code` on the movement line | *Feature ships: **v2** (India)* | **v1 — wave 1.** HSN is on every e-way bill line and every challan line | `IRREVERSIBLE.md:482` vs `FR-318` (v1·P0), `A-4` |
-| `whb_warehouses.legal_entity_id · tax_registration_id · state_code` | *Feature ships: **v2** (India)* | **v1 — wave 1.** The transfer document kind is derived from these | `IRREVERSIBLE.md:542` vs `IRR-57` (`:235`, gate `PNR-1`), `FR-080` (v1·P1), `A-4` |
+| `whb_warehouses.legal_entity_id · tax_registration_id · state_code` — since 2026-09-10, `state_code` + the `REGISTERED` link (`D-14`) | *Feature ships: **v2** (India)* | **v1 — wave 1.** The transfer document kind is derived from these. *Applied in round 4's rewrite of `IRREVERSIBLE.md` §4.5* | `IRREVERSIBLE.md:542` vs `IRR-57` (`:235`, gate `PNR-1`), `FR-080` (v1·P1), `A-4` |
 | `duty_status` on the movement line | *Feature ships: **v2** (`warehouse-india`)* | **correct as written.** Column wave 1, feature wave 2 | `IRREVERSIBLE.md:474`, `FR-104` |
 
 `COEXISTENCE.md` §5 `M6` needs the same pass: it places `whin_delivery_challans` +
@@ -248,10 +250,11 @@ transport table is `whin_` or `wh_`.
 ### 2.4 The one thing that is *not* a hook
 
 `warehouse-base` must not gain a foreign key into `warehouse-india`. `D-11` forbids it in both
-directions and `MODULE-INTEGRATION.md:889` already enforces the reverse by test. Therefore
-`whb_warehouses.tax_registration_id` is a **`UUID` with no `REFERENCES` clause**, resolved through a
-registry at read time — the same `IRR-25`/`IRR-26` external-reference pattern the item and location
-masters already use. In a non-India install the column is simply null, and the `ArchitectureInvariantsTest`
+directions and `MODULE-INTEGRATION.md:889` already enforces the reverse by test. Since `D-14`
+(2026-09-10) base holds **no registration id at all**: `whb_warehouses` has no `tax_registration_id`.
+The site's registration is reached through its `REGISTERED` link in `whb_warehouse_branches`, then the
+platform branch, then `whin_gstin_profile_branches`, whose foreign key points **down** at platform
+branches and never into base. In a non-India install nothing on that path exists beyond the branch, and the `ArchitectureInvariantsTest`
 that proves `warehouse-base` names no `whin_` table (`MODULE-INTEGRATION.md:889`) keeps it that way.
 
 ---
@@ -350,22 +353,47 @@ to fix.** This document uses `whb_warehouses` throughout.
 
 The rules that follow from §3.3:
 
-1. **`whb_warehouses.branch_id NOT NULL`, and the GSTIN is read from the branch, never duplicated
-   onto the warehouse** (`FR-079`, `E-048`). Duplication is how the three-way disagreement above
-   happened.
-2. **Do not copy `accessory_warehouse_branch`.** Accessories links a warehouse to branches through a
-   many-to-many bridge (`accessories/…/V30018:8`, cited in `COEXISTENCE.md:199`); *a warehouse under
-   two tax registrations is not a thing.* One branch, one GSTIN.
-3. **`whb_warehouses.state_code` is a distinct column from the branch's free-text `state`**, because
-   the two-digit code does not exist anywhere in the platform today and the e-way bill needs it. It
-   is derivable from the first two digits of a valid GSTIN, so the column is a **denormalised
-   snapshot with a derivation rule**, not a second source of truth.
-4. **`whb_warehouses.legal_entity_id` is not `company_id` from automotive.** `D-7` makes standalone
-   the reference configuration, so base cannot depend on `automotive.companies`. It is a UUID
-   resolved through the counterparty/legal-entity registry, with an external-ref row where automotive
-   is installed (`IRR-25`, `FR-090`'s pattern).
+1. **Exactly one `REGISTERED` link at every instant, and the GSTIN is read from that branch, never
+   duplicated onto the warehouse** (`D-14` item 2, `FR-079`, `E-048`). `whb_warehouses` has no
+   `branch_id`. `whb_warehouse_branches` records which branch the site is registered under, and since
+   when, and every tax rule reads the link at the movement's `occurred_at`. Duplication is how the
+   three-way disagreement above happened.
+2. **Many links, one registration.** Accessories links a warehouse to branches through a many-to-many
+   bridge (`accessories/…/V30018:8`, cited in `COEXISTENCE.md:199`) with no role and no dates, and
+   that is the part not to copy. *A warehouse under two tax registrations at once is still not a
+   thing.* `SERVING`, `FULFILMENT` and `RETURNS` links grant visibility and let a branch draw stock. A
+   `SERVING` branch under a different GSTIN draws by a taxable transfer, never by a direct sale
+   (`D-14` item 3). A registration change is maker–checker and is **refused while the site holds stock
+   under a different GSTIN**. Its statutory treatment is on the RE-VERIFY register above and is
+   escalated as `OD-19`.
+3. **`whb_warehouses.state_code` is the site's own address fact** — the two-digit GST code of the
+   state the building stands in. It is distinct from the branch's free-text `state`, because the code
+   does not exist anywhere in the platform today and the e-way bill needs it. It is not a copy of the
+   registration: `warehouse-india`'s link validator refuses a `REGISTERED` link whose GSTIN state
+   code differs from it, because an additional place of business is always in its registration's own
+   state.
+4. **The legal entity is not a warehouse column, and it is not `company_id` from automotive.** `D-7`
+   makes standalone the reference configuration, so base cannot depend on `automotive.companies`. The
+   legal entity is read through the `REGISTERED` branch's GSTIN profile, and a second validator
+   refuses a link whose profile belongs to another company.
 5. **`branches.branch_type` already admits `'WAREHOUSE'` and `'DISTRIBUTION_CENTER'`**
    (`platform/…/V149:61`) — so the branch side of this costs nothing.
+6. **A GSTIN covers every branch in its state, as its principal or an additional place of business**
+   (`RG-002`). A company holds one registration per state, so two Delhi branches share one GSTIN, and
+   a profile cannot carry a single `branch_id`. `whin_gstin_profile_branches` (`V540010`) records each
+   covered branch with a `place_role` of `PRINCIPAL` or `ADDITIONAL`. That set is closed by statute,
+   so it is a `CHECK` under `OD-5`, not a catalogue. The rows are dated, with one current `PRINCIPAL`
+   per profile and an `EXCLUDE` so a branch sits under one registration per company at a time; `gstin`
+   stays unique on the profile. Platform can edit `branches.gst_number` and warehouse cannot block it,
+   so the profile's `gstin` is compared with every linked branch's number on save, and a **nightly
+   assertion** writes a drift row wherever they differ. `WS-173` gains a *Places of business*
+   sub-grid.
+7. **A counterparty's registration is per state too** (`RG-003`). An Indian customer has one PAN and
+   one GSTIN in each state it operates in. `national_tax_id` stays the legal-entity id (PAN).
+   `whb_counterparty_tax_registrations` and `whb_counterparty_addresses` (base, `V500011`, dated) hold
+   the per-state GSTINs and the ship-to blocks. The challan and the e-way bill **freeze**
+   `to_counterparty_tax_registration_id` and `to_counterparty_address_id`, so what was filed can be
+   reconstructed from the document.
 
 The live counter-example is worth stating because it is the exact failure §2 exists to prevent:
 `accessory_warehouses` (`accessories/…/V30017__Create_accessory_warehouses_table.sql:8-31`) has **no
@@ -417,15 +445,15 @@ a transfer cannot be numbered, cannot be cancelled, cannot be aged, and cannot b
 
 | Group | Fields |
 |---|---|
-| Identity | `challan_number`, `challan_date` (a **`DATE`**, per `FR-327`/`P-045`), `company_id`, `branch_id`, `series_id` |
+| Identity | `challan_number`, `challan_date` (a **`DATE`**, per `FR-327`/`P-045`), `company_id`, `branch_id` — **the site's `REGISTERED` branch at the challan date** (`D-14`), `series_id` |
 | Kind | `challan_type` — a **catalogue FK**, not a `CHECK`: `BRANCH_TRANSFER`, `JOB_WORK`, `APPROVAL`, `EXHIBITION`, `REPAIR`, `SKD_CKD`, `LINE_SALES`, `OTHER` (`D-10`) |
-| Ends | `from_warehouse_id`, `to_warehouse_id` nullable, `to_counterparty_id` nullable, ship-from and ship-to address blocks with **pincode and state code** |
+| Ends | `from_warehouse_id`, `to_warehouse_id` nullable, `to_counterparty_id` nullable, ship-from and ship-to address blocks with **pincode and state code**; the recipient's `to_counterparty_tax_registration_id` and `to_counterparty_address_id`, **frozen** (`RG-003`) |
 | Value | `declared_value`, `currency_code`, `valuation_basis` |
 | Lifecycle | `status`, `cancelled_at`, `cancel_reason_code_id`, `source_document_ref` (the lineage quad) |
 | Line | `item_id`, `lot_id`, `serial_id`, `quantity`, `uom_code`, `gst_uqc_code` **snapshotted**, `tax_classification_code` **snapshotted**, `unit_value`, `taxable_value` |
 | **Return clock — wave 1, per §1.4** | `expected_return_date`, `deemed_supply_due_date`, `quantity_returned` (maintained), `closed_at` |
 
-**Numbering.** Its own series, **per branch**, gapless. It does **not** get its own sequence table:
+**Numbering.** Its own series, **per branch** (the site's `REGISTERED` branch at the challan date), gapless. It does **not** get its own sequence table:
 `P-046` establishes that `warehouse-base` owns the number-series mechanism
 (`reviews/R6-prior-art-triage.md:1094-1100`) — a locked counter row, following the one working
 gapless precedent in this repo (`assets/V60014:2-9` + `AssetTagSequenceRepository.java:19-27`), not
@@ -780,8 +808,10 @@ consumption ships in v1.1 — *"an AVCO-only v1 has nothing to build layers from
 The reversal itself is `whin_itc_reversals`: reason code, statutory category, movement reference,
 lot, quantity, original ITC, reversed amount, period, and the return it was reported in. Wave 2.
 
-**What makes it possible is wave 1:** the reason-code catalogue with `itc_treatment` and
-`statutory_category` (§2.2 rows 5–7). Without it the reversal is uncomputable for every movement
+**What makes it possible is wave 1:** the reason-code catalogue with `tax_treatment_code` and
+`statutory_category` (§2.2 rows 5–7). The column is named for no one scheme (`RL-008`; it was
+`itc_treatment`). Its India values, the ITC treatments including this reversal, are seeded by
+`warehouse-india` and never by base. Without it the reversal is uncomputable for every movement
 already posted, and that is precisely the year the first audit covers.
 
 ### 5.5 Scrap, and TCS
@@ -901,11 +931,21 @@ that. The schema consequence is a single column, and it must be part of the stoc
 identity:
 
 ```
-duty_status ∈ { DOMESTIC | BONDED | MOOWR | SEZ | FTWZ | EXPORT_UNDER_BOND }
+duty_status  VARCHAR(40) NOT NULL DEFAULT 'DOMESTIC' REFERENCES whb_duty_statuses(code)
+  base seeds             DOMESTIC
+  warehouse-india seeds  BONDED | MOOWR | SEZ | FTWZ | EXPORT_UNDER_BOND      -- P4-07, V540140
 ```
 
 on **every movement line** and **in the `L-5` position unique key** (`FR-104`, `IRR-12`, `IRR-09`,
 `D-5`).
+
+**The regime values live in this pack, not in base** (`RL-001`). They moved here from `IRR-12`, which
+now names only the column and its registry. `whb_duty_statuses` is registry 15 (`V500005`), with the
+behaviour columns `is_duty_paid`, `is_allocatable_to_domestic_demand`, `requires_licence` and
+`commingle_group`. Base seeds `DOMESTIC`; `P4-07` seeds the five Indian regimes in `V540140`. So a new
+regime is a seed row in this module, never a base release. The FK is also what stops a misspelt
+`'Bonded'` from opening a balance grain of its own. `BONDED` is **not** also a stock status: a
+customs hold is a `wh_hold_types` row, so one fact is recorded on one axis.
 
 **Bonded and duty-paid stock of the same SKU in the same warehouse must never merge into one
 balance.** `IRREVERSIBLE.md:156` states the consequence in the terms that matter:
@@ -1115,7 +1155,7 @@ sequence is: receive the consignment → scan AWBs → match to the original shi
 contents against the original lines → grade → put back to sellable, unsellable or a claim.
 
 Two consequences for the ledger: a **lost RTO becomes a claim, not a silent shrinkage adjustment**
-(which is a reason code with an `itc_treatment`, §5.4); and an NDR is the **leading indicator** that a
+(which is a reason code with a `tax_treatment_code`, §5.4); and an NDR is the **leading indicator** that a
 unit is coming back and will need a receiving slot — which is why `F-044`'s queue and `F-046`'s
 consignment are one workflow, not two.
 
@@ -1141,7 +1181,7 @@ and **17 seed rows** (12 from R3 §3.2 + 5 ✚).
 |---|---|---|---|---|
 | S1 | `whb_items.tax_classification_code` (HSN/SAC) **and snapshotted on the line** | Adding it later gives the **new** code for **old** documents. Not rows | **1** | `E-047`, `IRR-42`, `FR-066`/`FR-318` |
 | S2 | `gst_uqc_code` on the UoM and copied to the line | A filed line with no UQC cannot be summarised; the value was never captured | **1** | `E-047`, `IRR-44`, `FR-056`/`FR-319` |
-| S3 | `whb_warehouses.branch_id NOT NULL` | Without the FK no movement's tax treatment is ever determinable | **1** | `E-048`, `FR-079` |
+| S3 | `whb_warehouse_branches` — **exactly one `REGISTERED` link at every instant**, dated (`D-14`) | Without the link no movement's tax treatment is ever determinable; without the dates, not for any past movement | **1** | `E-048`, `FR-079`, `RG-001` |
 | S4 | `wh_stock_transfers.{from_branch_id, to_branch_id, is_taxable_supply}`, **frozen at creation** | Changes the document, the series, the valuation and the GL posting. None of that is a setting | **1** | `E-050`, `FR-305` |
 | S5 | `transfer_valuation_method` + `transfer_price_amount` | Which r.28 basis was used must be defensible three years later; it is not re-derivable | **1** | `E-050`, `FR-306` |
 | S6 | `whin_delivery_challans` as a **numbered document with its own series** | A challan is a document, not a print template. Rule 55 movements have no invoice to hang attributes on | **1** | `E-049`, `FR-307` |
@@ -1153,11 +1193,11 @@ and **17 seed rows** (12 from R3 §3.2 + 5 ✚).
 | S12 | **In-transit as a location**, per reference | A `status = 'IN_TRANSIT'` flag makes the goods belong to no balance and to no 31-March statement | **1** | `E-032`, `FR-085` |
 | S13 | Job-work movement to an **owner-preserving external location** with `expected_return_date` | The clock is measured from the challan; a movement predating the field has no clock, ever | **1 schema** (2 ITC-04) | `E-054`, `FR-312` |
 | S14 | `owner_id` on movements and positions | Consignment / 3PL / job-work stock is not ours to value; adding it later invalidates every valuation query already written | **1** | `E-024`, `D-5`, `IRR-06` |
-| S15 | `whb_reason_codes` with `itc_treatment` + `statutory_category` + posting target | A year of free text cannot be reclassified, so that year's reversal cannot be computed | **1** | `E-033`, `S-028`, `IRR-32` |
+| S15 | `whb_reason_codes` with `tax_treatment_code` + `statutory_category` + posting target | A year of free text cannot be reclassified, so that year's reversal cannot be computed | **1** | `E-033`, `S-028`, `IRR-32` |
 | S16 | **Free / scheme quantity** on the receipt line (10+1) | It changes the unit cost and therefore the taxable base of the onward sale; bolting it on corrupts cost layers already written | **1 column** (2 feature) | `E-080` |
 | ✚ S17 | `duty_status` on the line **and in the position key** | Once commingled, no algorithm separates them. Customs offence, not data quality | **1 column** (2 feature) | `S-044`, `IRR-12`, `FR-104` |
 | ✚ S18 | `company_id` + `warehouse_id` on the movement header | A GST return computed from guessed entities is a filing error | **1** | `IRR-17`, `F-025` |
-| ✚ S19 | `whb_warehouses.legal_entity_id` + `tax_registration_id` + `state_code` | A historical transfer cannot be classified as supply vs non-supply for a filed period | **1** | `S-022`, `IRR-57`, `FR-080` |
+| ✚ S19 | `whb_warehouses.state_code` + the dated `REGISTERED` history (`IRR-64`); no `legal_entity_id` or `tax_registration_id` on the site (`D-14`) | A historical transfer cannot be classified as supply vs non-supply for a filed period | **1** | `S-022`, `IRR-57`, `FR-080` |
 | ✚ S20 | `whb_lots.net_content` + `net_content_uom` + `country_of_origin` + `pack_month_year` | Printed on a pack already put away; nobody re-opens cartons | **1** | `S-033`, `IRR-53`, `FR-095` |
 | ✚ S21 | `cost_layer_id` on the line, so a write-off can reach its receipt | The ITC-reversal amount needs the original credit, and an AVCO-only v1 has nothing to build layers from later | **1 column** (2 reversal) | `S-029`, `IRR-38`, `FR-316` |
 
@@ -1225,7 +1265,7 @@ Two structural rules that hold for every row below. **No `CHECK (x IN (…))` on
 | 2 | `whin_gst_state_codes` | `state_code` (2 digits) uk, `state_name`, `state_type` (STATE·UT), `is_active` — **36 seed rows** | V540010–V540019 |
 | 3 | `whin_hsn_codes` | `code` uk, `description`, `chapter`, `digit_length`, `effective_from`, `effective_to`, `uqc_default` — **seed** | V540020–V540029 |
 | 4 | `whin_uqc_codes` | `uqc_code` uk (`NOS`, `KGS`, `LTR`, `MTR`, …), `description`, `unece_rec20_code` — **seed**, plus the `whb_uoms.gst_uqc_code` mapping seed | V540030–V540039 |
-| 5 | `whin_delivery_challans` | §4.1's field table: identity · `challan_type` FK · both ends with pincode and state code · declared value and basis · status · cancellation · `source_document_ref` quad. uk(`company_id`,`branch_id`,`series_id`,`challan_number`) | V540100–V540119 |
+| 5 | `whin_delivery_challans` | §4.1's field table: identity · `challan_type` FK · both ends with pincode and state code · declared value and basis · status · cancellation · `source_document_ref` quad. uk(`company_id`,`branch_id`,`series_id`,`challan_number`); `branch_id` is the site's `REGISTERED` branch at `challan_date` | V540100–V540119 |
 | 6 | `whin_delivery_challan_lines` | `challan_id`, `line_no`, `item_id`, `lot_id`, `serial_id`, `quantity`, `uom_code`, **`gst_uqc_code` snapshot**, **`tax_classification_code` snapshot**, `unit_value`, `taxable_value`, **`expected_return_date`**, **`deemed_supply_due_date`**, `quantity_returned`, `closed_at`, `job_work_type` | V540100–V540119 |
 | 7 | `whin_eway_bills` | `id`, `company_id`, `source_document_type`, `source_document_id`, `ewb_number`, `ewb_date`, `supply_type`, `sub_type`, `part_a_status`, `part_b_status`, `generated_at`, `valid_until`, `distance_km`, `status` (catalogue), `cancelled_at`, `cancel_reason_code_id`, `consolidated_ewb_id` nullable, `idempotency_key` uk, `provider_document_id` | V540200–V540229 |
 | 8 | `whin_eway_bill_lines` | **the filed snapshot**: `eway_bill_id`, `line_no`, `hsn_code`, `description`, `quantity`, `uqc_code`, `taxable_value`, `cgst_rate`, `sgst_rate`, `igst_rate`, `cess_rate` | V540200–V540229 |

@@ -1,5 +1,6 @@
 TITLE: [Warehouse] EPIC: P3 — Execution & mobile
 LABELS: epic,warehouse,phase-p3
+issue: 7
 ---
 Part of __MASTER__ · Modules `mobile` · `warehouse` · `warehouse-base` · `warehouse-adapter-field-service` · `warehouse-adapter-assets` · `warehouse-adapter-dealer` · Migrations — **11 blocks, enumerated below** · Ships in **v1.1**
 
@@ -12,7 +13,9 @@ and batch picking, the pack session, the print server, manifests and handovers, 
 pick-face replenishment, order-edit rules, LPN move expansion and GS1 parsing, alert rules and health
 signals, the migration workbench, and the field-service and assets adapters.
 
-**Twenty-three tasks.** Sized in `IMPLEMENTATION-PLAN.md` §9.3 as 1 XL · 8 L · 9 M · 5 S, with
+**Twenty-four tasks** — `P3-24` from round 2. Round 4's `P3-25`, the simple ABC recompute, was folded
+into `P1-03` on 2026-09-10 as a v1.1 increment built in this wave (`RK-003`, `#156` closed as a
+duplicate). Sized in `IMPLEMENTATION-PLAN.md` §9.3 as 1 XL · 8 L · 10 M · 5 S, with
 `P3-01` (the RF family) the XL and a long tail behind it. It is the **only** phase with a real mobile
 load — 2–3 mobile engineers — and §9.6 says plainly that mobile is where the estimate is least
 trustworthy.
@@ -64,7 +67,7 @@ and is load-tested** (`FR-425`).
 
 ## Migration blocks
 
-**11 blocks**, re-derived from the `Migrations` field of every P3 task header — not transcribed from
+**13 blocks**, re-derived from the `Migrations` field of every P3 task header — not transcribed from
 an earlier table. That glob is the authority; **re-run it after any header change**:
 
 ```bash
@@ -76,13 +79,18 @@ done
 
 - `V500056` — `P3-24` **`whb_gs1_settings`, `whb_gs1_serial_counters`** and the GS1 identity columns — the round-2 task (`FR-452`–`FR-455`)
 - `V500060` — `P3-10` kits and kit components
-- `V500061` — `P3-12` item × location settings
-- `V500062` — `P3-03` devices
+- `V500062` — `P3-03` devices, and the dated `whb_device_assignments` (`RG-018`)
 - `V500063` — `P3-16` alert rules, conditions, recipients, events
+- `V500068` — `P3-06` `whb_location_zone_memberships`, functional zones beside the physical tree (`RG-015`, round 4)
 - `V501101`–`V501109` — `P3-04` base grid configuration, wave 4
 - `V510012` — `P3-05` ASNs, ASN lines, ASN line serials
 - `V510100`–`V510108` — `P3-06` waves · `P3-07` pack sessions · `P3-11` work orders and VAS service types · `P3-08` printers, routing rules, shipping labels · `P3-09` consignments, manifests, handovers, pickup requests · `P3-13` order-edit rules · `P3-17` KPI snapshots · `P3-18` migration mappings · `P3-12` replenishment tasks
-- `V511140`–`V511179` — `P3-04` app grid configuration, wave 4 (`V511180`–`V511199` left free on purpose)
+- `V511140`–`V511179` — `P3-04` app grid configuration, wave 4. `V511180` is `P2-23`'s `WS-241` grid (its v2 increment, round 4); `V511181`–`V511199` stay free
+- `V511208` **and** `V511238` — `P3-11` the work-order verb permissions and their dependency rows, its `WH-206` pair (`RJ-005`, round 4)
+
+**Released, not reused:** `P3-12`'s former base number, `V500061`. `whb_item_location_settings` moved
+into `P1-02`'s `V500016` with `is_fixed` and dates (`RG-008`), and the number is a hole
+(`DATA-MODEL.md` §7.1 rule 2).
 - `V520013` — `P3-18` OEM price files and lines
 - `V522000`–`V522149` **and** `V523000`–`V523149` — `P3-20` field-service adapter · `P3-21` assets adapter
 
@@ -115,6 +123,11 @@ means A precedes B.**
   server, which `P3-07` needs · `{P3-10, P3-11}` kits and work orders · `{P3-16, P3-17, P3-18}`
   observability and migration · `{P3-20, P3-21}` the two adapters, after `P3-22`'s event stream ·
   `{P3-23, P3-24}` sandbox and GS1, which nothing else waits on.
+- **The simple ABC recompute (round 4) is `P1-03`'s v1.1 increment, built in this wave** (folded from
+  former `P3-25`, `#156`; `V500069` is claimed by `P1-03`). `P2-15 → P1-03 (v1.1)`: its job
+  reads `P2-15`'s demand history and writes the class `P2-04`'s count programme reads, with its
+  `whb_job_runs` row in `P0-13`'s register. Nothing in P3 waits on it, so it can start the day v1 ships
+  and fill any gap (`RK-003`, `FR-463`).
 
 ## Tasks
 

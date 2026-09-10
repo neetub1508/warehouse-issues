@@ -1,14 +1,17 @@
 # Issue backlog — the source of truth
 
-The full Classic Warehouse backlog, ready to file on GitHub: **1 master epic + 8 phase epics + 143
-task issues = 152 issues**, 17,362 lines of task and epic text.
+The full Classic Warehouse backlog, **filed on GitHub** in `neetub1508/warehouse-issues`:
+**1 master epic + 8 phase epics + 143 task issues = 152 issues**, 17,362 lines of task and epic text.
+**Round 4 (2026-09-10) filed six more task issues, `#156`–`#161` (`p3-25`, `p5-24`…`p5-28`), and the same
+day folded each into its most similar existing task — no duplicate tasks.** The six are closed as
+duplicates and have no file; the backlog is **143 task files** again (`GAP-REGISTER-R4.md` §4.6).
 
 Every count on this page was computed, not estimated. The command is next to the number, and
 the checker figures are from the run of **2026-09-02 08:25 IST** — the design set is under active
 authoring, so re-run before quoting one.
 
 ```bash
-ls issues/p*.md | wc -l              # 143 tasks
+ls issues/p*.md | wc -l              # 143 tasks (#156–#161 folded into hosts, closed)
 ls issues/0*-EPIC-*.md | wc -l       #   9 epics (1 master + 8 phase)
 ```
 
@@ -19,12 +22,33 @@ checklist → traps → Definition of done; task issues open with
 
 ---
 
-## The backlog is **not filed yet** — read this before running the script
+## The backlog is **filed** — read this before touching anything
 
-`issues/CREATED.md` does not exist, no file carries an `issue: NN` line, and
-`tools/check-design-set.py --check 5` skips cleanly and says so. That is the current state.
+All **152** issues exist. `issues/CREATED.md` is written and holds the full
+`Issue | Task file | Title` map; **every one of the 152 files carries an `issue: NN` line** in its
+front matter; and `tools/check-design-set.py --check 5` therefore no longer skips — it resolves
+every `#NN` cross-reference against that map.
 
-**`DECISIONS.md` §7 rule 5 fixes the authority direction now, before anything is filed:**
+| | |
+|---|---|
+| Master epic | `#1` |
+| Phase epics | P0 `#3` · P1 `#4` · P2 `#5` · P2-IN `#6` · P3 `#7` · P4 `#8` · P5 `#10` · P6 `#11` |
+| The 143 filed tasks | **`#12`–`#154`** |
+| Round 4's six task issues | **`#156`–`#161`, closed as duplicates** — `#156`→`#33` · `#157`→ ten hosts, `FR-468` in `#54` · `#158`→`#48` · `#159`→`#133` · `#160`→`#146` · `#161`→`#139`; no task file |
+
+**The six round-4 files were filed, then folded.** `#156`–`#161` were created from `p3-25` and
+`p5-24`…`p5-28`. On 2026-09-10 the user rule *no duplicate tasks* folded each into its most similar
+existing task and the files were deleted. `CREATED.md` keeps their rows, marked closed, so every
+`#156`–`#161` citation still resolves; `--sync` / `--check` skip them because no file carries their
+`issue:` line. On GitHub each is closed as a duplicate of its host.
+
+**`#2` and `#9` are pull requests, not issues.** GitHub numbers issues and pull requests from one
+sequence per repository, and two PRs were opened while the backlog was being filed. That is the
+whole reason the phase epics are not `#2`–`#9` and the tasks are not `#10`–`#152`. **Nothing is
+missing from the backlog** — the two absent numbers are the PRs.
+
+**`DECISIONS.md` §7 rule 5 fixes the authority direction, and it is now load-bearing rather than
+prospective:**
 
 > The `.md` files in this repository are authoritative; GitHub issue bodies are a **mirror** kept in
 > sync mechanically by `issues/create-issues.sh --sync`, and `--check` fails CI on drift. **Never
@@ -36,7 +60,10 @@ bodies in place on GitHub and declared GitHub the winner — and round 3 then am
 artefact for weeks (accounting round 4, `B-003`). Reconciling in the other direction meant re-keying
 ~1,140 lines by hand and would have left the same failure mode in place.
 
-So: **files win, and the files are pushed to GitHub mechanically.**
+So: **files win, and the files are pushed to GitHub mechanically.** Now that the backlog is filed,
+the only two commands that matter are `--sync` (push every `.md` to its issue) and `--check` (fail
+CI on drift). **Never edit an issue body in the GitHub UI** — an edit there is drift `--check` will
+flag and `--sync` will overwrite.
 
 ```bash
 gh auth login                                   # needs a token with Issues: write
@@ -47,10 +74,10 @@ gh auth login                                   # needs a token with Issues: wri
 REPO=owner/other-repo ./issues/create-issues.sh # stand this backlog up somewhere else
 ```
 
-`create-issues.sh` **refuses to run the create path against a repository that already has issues**,
-so a re-run cannot duplicate 147 issues or orphan every cross-reference in the first set. Once filed
-it remains useful for standing the backlog up in a *different* repository, and `--sync` / `--check`
-are what you use from then on.
+`create-issues.sh` **refuses to run the create path against a repository that already has issues** —
+which `neetub1508/warehouse-issues` now does — so a re-run cannot duplicate the 152 or orphan every
+cross-reference in the first set. The create path remains useful only for standing the backlog up in
+a *different* repository; **`--sync` / `--check` are what you use from here on.**
 
 ## What the script does, in order
 
@@ -76,8 +103,15 @@ Part of __P0__ · Module **`warehouse-base`** · Migrations **V500030–V500032,
 ```
 
 `create-issues.sh` reads the title from `TITLE:`, the labels from `LABELS:`, and the body as
-everything after the first `---`. After filing, an `issue: NN` line is written between `LABELS:` and
-`---`; it stays out of the body because the body starts after the `---`.
+everything after the first `---`. The `issue: NN` line sits between `LABELS:` and `---`; it stays
+out of the body because the body starts after the `---`. **All 152 files carry theirs** — `p0-02.md`
+carries `issue: 25`, one line below its `LABELS:` and one above its `---` — which is what makes
+`--sync` and `--check` work with no hand-keyed list of 152 numbers.
+
+> The line is deliberately **not** reproduced at the left margin anywhere on this page.
+> `create-issues.sh` reads it with `sed -n 's/^issue: *//p'`, which does not know a fenced code
+> block from a file, so an example here would make this README look like issue #25 and `--sync`
+> would overwrite that issue with this page. Read a real file for the shape.
 
 `DEFECTS-FOUND.md` and this README live in `issues/` and declare no `TITLE:`, so the script skips
 them. They are documents, not issues.
@@ -113,8 +147,8 @@ Two rules the script enforces, both learned the hard way:
 
 | File | What it is |
 |---|---|
-| `00-EPIC-master.md` | Master epic — the 13 decisions, five modules, the Flyway bands, the 14 invariants, the version ladder, `OD-1`…`OD-11`, the definition of done |
-| `01-EPIC-p0.md` | **P0** Ledger foundation · `warehouse-base` · 16 migration blocks · **v1** |
+| `00-EPIC-master.md` | Master epic — the 14 decisions (`D-14` from round 4), five modules, the Flyway bands, the 14 invariants, the version ladder, `OD-1`…`OD-11`, the definition of done |
+| `01-EPIC-p0.md` | **P0** Ledger foundation · `warehouse-base` · 19 migration blocks (3 of them v2 increments) · **v1** |
 | `02-EPIC-p1.md` | **P1** Masters, identity, inbound · base + app · **v1** |
 | `03-EPIC-p2.md` | **P2** Outbound, counting, valuation, returns, printing, reports · **v1** |
 | `04-EPIC-p2in.md` | **P2-IN** The India movement documents · `warehouse-india` wave 1 · **v1** |
@@ -123,12 +157,12 @@ Two rules the script enforces, both learned the hard way:
 | `07-EPIC-p5.md` | **P5** 3PL, channels and reverse logistics · **v2** |
 | `08-EPIC-p6.md` | **P6** Optimisation, planning and the logistics seam · **v3** |
 | `p0-01.md` … `p0-17.md` | **17** P0 tasks |
-| `p1-01.md` … `p1-20.md` | **20** P1 tasks |
+| `p1-01.md` … `p1-21.md` | **21** P1 tasks |
 | `p2-01.md` … `p2-29.md` | **29** P2 tasks |
 | `p2in-01.md` … `p2in-04.md` | **4** P2-IN tasks — phase **`P2-IN`**, epic `04-EPIC-p2in.md`, placeholder `__P2IN__` |
-| `p3-01.md` … `p3-23.md` | **23** P3 tasks |
-| `p4-01.md` … `p4-12.md` | **12** P4 tasks |
-| `p5-01.md` … `p5-21.md` | **21** P5 tasks |
+| `p3-01.md` … `p3-24.md` | **24** P3 tasks — round 4's `p3-25` was folded into `p1-03` |
+| `p4-01.md` … `p4-13.md` | **13** P4 tasks |
+| `p5-01.md` … `p5-23.md` | **23** P5 tasks — round 4's `p5-24`…`p5-28` were folded into existing hosts |
 | `p6-01.md` … `p6-12.md` | **12** P6 tasks |
 | `DEFECTS-FOUND.md` | Defects found while authoring the task files — not an issue |
 | `create-issues.sh` | The filing and sync tool |
@@ -159,9 +193,11 @@ file and verified in context, and by declaring `IRR-`, `WS-` and the `T-n`/`T-nn
 
 - **`## Scope`** — the build list
 - the **module** it lands in and its **pre-allocated migration numbers**, on the header line, so
-  parallel work cannot collide. **823 migration numbers are allocated across 143 tasks with zero
-  duplicates and none outside its module's band** — the computed figure and the script that produces
-  it are `IMPLEMENTATION-PLAN.md` §8.3, which is the one place this number is derived; **33 tasks
+  parallel work cannot collide. **858 migration numbers are allocated across 143 tasks with zero
+  duplicates and none outside its module's band** (823 before round 4, which claimed twenty-nine and
+  released `V500061`; the 2026-09-10 fold added seven, `V500072`–`V500077` and `V510223`, when former
+  `P5-24`'s two migrations were split across the tasks that own their parent tables) — the computed figure and the script that produces
+  it are `IMPLEMENTATION-PLAN.md` §8.3, which is the one place this number is derived; **29 tasks
   write no migration**, which is not a defect — the DDL sits in another task, or the work is
   service, frontend or registry only
 
@@ -175,7 +211,8 @@ file and verified in context, and by declaring `IRR-`, `WS-` and the `T-n`/`T-nn
 - **`## Traps`** — the traps *specific to this codebase* that will otherwise cost a rebuild cycle,
   each with `file:line` evidence from `reviews/R1`
 - **`## Acceptance`** — checkboxes, each naming the scenario that proves it
-- **`## Blocked on`** — on the **24** tasks that are gated on an open decision
+- **`## Blocked on`** — on the **25** tasks that are gated on an open decision
+  (`grep -l '^## Blocked on' issues/p*.md | wc -l`; round 4 added `P5-09` → `OD-18`)
 
 ## The six tasks that carry the most risk
 
@@ -201,35 +238,44 @@ ls issues/p*.md | wc -l                                                  # 143
 python3 tools/check-design-set.py --check 8                              # pass
 
 # every requirement is owned by exactly one task
-grep -ohE '\bFR-[0-9]{3}\b' issues/p*.md | sort -u | wc -l               # 459 of 459
-python3 tools/check-design-set.py --check 10                             # pass
+grep -ohE '\bFR-[0-9]{3}\b' issues/p*.md | sort -u | wc -l               # 469 of 469
+python3 tools/check-design-set.py --check 10                             # pass once the FRD's §6.28 lands
 
 # every review finding is cited by the task that closes it
 grep -ohE '\b[CTEFSPG]-[0-9]{3}\b' issues/p*.md | sort -u | wc -l        # 427 of 575  (round 1)
-grep -ohE '\b[QHUYZKOJ]-[0-9]{3}\b' issues/p*.md | sort -u | wc -l        #   7 of  62  (round 2)
+grep -ohE '\b[QHUYZKOJ]-[0-9]{3}\b' issues/p*.md | sort -u | wc -l        #  46 of  62  (round 2)
+grep -ohE '\bR[GHJKL]-[0-9]{3}\b' issues/p*.md | sort -u | wc -l         #  82 of  83  (round 4)
 
 # scenarios, screens and tables the tasks reach for
-grep -ohE '\bWH-SC-[0-9]{3}\b' issues/p*.md | sort -u | wc -l            # 306 (305 real + WH-SC-306)
-grep -ohE '\bWS-[0-9]{3}\b'    issues/p*.md | sort -u | wc -l            # 238 (237 real + WS-238)
-grep -ohE '\b(whb|wh3|whin|wha[a-z]|wh)_[a-z0-9_]+\b' issues/p*.md | sort -u | wc -l   # 345
+grep -ohE '\bWH-SC-[0-9]{3}\b' issues/p*.md | sort -u | wc -l            # 327 (catalogue: 327, §3.22 landed)
+grep -ohE '\bWS-[0-9]{3}\b'    issues/p*.md | sort -u | wc -l            # 240 (237 + WS-238 + WS-240 + WS-241)
+grep -ohE '\b(whb|wh3|whin|wha[a-z]|wh)_[a-z0-9_]+\b' issues/p*.md | sort -u | wc -l   # 391
 
 # the whole gate
 python3 tools/check-design-set.py --summary                              # 0 violations, exit 0
 ```
 
-<!-- check-design-set: scenario-citations begin WH-SC-306 - the allocation marker named as the subject of this paragraph, not cited as a scenario -->
-<!-- check-design-set: screen-citations begin WS-238 - the next free screen id named as the subject of this paragraph, not cited as a screen -->
+<!-- check-design-set: scenario-citations begin WH-SC-328 - the allocation marker named as the subject of this paragraph, not cited as a scenario -->
+<!-- check-design-set: screen-citations begin WS-238 WS-239 WS-242 - WS-238 and WS-239 are reserved for round 3 (WS-238 is also claimed by p5-13), and WS-242 is the next free screen id; all three are named as the subject of this paragraph, not cited as screens -->
 
-Read those last three the way the checker does. **306 scenario ids** is all 305 of the catalogue
-plus the `WH-SC-306` allocation marker — round 2 took `WH-SC-301`–`WH-SC-305` for §3.21 and moved the
-marker, which is the reason the marker exists. `WH-SC-170` and `WH-SC-204` were the last two cited by no
+**Re-run after the 2026-09-10 fold: scenarios 327, round-4 findings 82 of 83; the rest unchanged.**
+**The figures above were first computed on 2026-09-10 against the P-LATE tree, before the other three round-4
+fold partitions merged. Re-run them after the merge** (`GAP-REGISTER-R4.md` §4.1 rule 3). The
+scenario, round-2 and table figures move when the other partitions' task files land.
+
+Read those last three the way the checker does. **The scenario marker is now `WH-SC-328`.** Round 4
+took `WH-SC-306`–`WH-SC-327` for §3.22 and moved the marker, just as round 2 took
+`WH-SC-301`–`WH-SC-305` for §3.21. That movement is the reason the marker exists. `WH-SC-170` and `WH-SC-204` were the last two cited by no
 task; `X-041` closed them on 2026-09-02 into `P2-01` and `P2-14`, so **every scenario in the
-catalogue is now walked by a task**. **238
-screen ids** is 237 real ones plus `WS-238`, which `p5-13` claims for the marketplace-claim queue
-before `BUILD-SPEC-SCREENS.md` §1 allocates it — **the table it also needed now exists**
-(`wh_marketplace_claims`, `WH-115`, `V510215`); the screen id is still to be allocated.
-**345 table names** is up from 330: the round-2 tasks name the thirteen tables `DATA-MODEL.md` §2
-gained, plus two fenced counter-examples (`whb_rfid_reads` in `p3-24`, `wh_damage_claims` in `p5-23`)
+catalogue is now walked by a task**. **240
+screen ids** is 237 real ones, plus `WS-240` (`P5-08`) and `WS-241` (`P2-23`) from round 4, plus
+`WS-238`. **The screen marker is now `WS-242`.** `p5-13` claims `WS-238` for the marketplace-claim
+queue before `BUILD-SPEC-SCREENS.md` §1 allocates it — **the table it also needed now exists**
+(`wh_marketplace_claims`, `WH-115`, `V510215`). But `GAP-REGISTER-R4.md` §4.0 **reserves `WS-238` and
+`WS-239`** for round 3's `RA-001` and `RA-002`. The two claims on `WS-238` collide, and the next screen
+allocation must settle it. That is recorded here, not decided.
+**391 table names** is up from 345: the round-4 files name the junctions and side tables
+`GAP-REGISTER-R4.md` §4.2 owes to `DATA-MODEL.md` §2, plus two fenced counter-examples (`whb_rfid_reads` in `p3-24`, `wh_damage_claims` in `p5-23`)
 which are named **so they are not built** and are excluded from check-3 by their own fences.
 
 **427 of 575 round-1 findings** are cited by a task — up from 385 when `X-050` closed the 36
@@ -239,6 +285,14 @@ this line, for the honest number. **7 of 62 round-2 findings** are cited by a ta
 number is correct rather than alarming: `GAP-REGISTER-R2.md` §2.1 dispositions 51 of the 62 as
 `FOLD-TASK` or `FOLD-DOC` amendments to text that already exists, and only the five new tasks carry a
 round-2 id in a `## Closes` block.
+
+**82 of 83 round-4 findings** (`RG-`, `RH-`, `RJ-`, `RK-`, `RL-`) are cited by a task file, re-measured
+after the fold. `GAP-REGISTER-R4.md` §2 dispositions all 83. The six round-4 task files were folded into
+their hosts on 2026-09-10, whose `## Closes` blocks now carry the ids: `RK-003` `RG-011` (`P1-03`), `RG-012`
+`RG-014` (`P1-05`), `RG-010` (`P1-01`), `RG-013` (`P0-06`), `RG-018` (`P0-11`, `P1-14`, `P2-04`, `P5-21`),
+`RG-020` (`P0-04`, `P1-01`, `P1-02`), `RK-006` (`P5-08`), `RK-007` (`P1-17`), `RK-008` (`P2-23`) and
+`RL-015` (`P1-19`). Requirements now run to
+`FR-469`, and the screen marker is `WS-242`.
 
 <!-- check-design-set: screen-citations end -->
 <!-- check-design-set: scenario-citations end -->
