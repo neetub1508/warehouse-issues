@@ -1,0 +1,342 @@
+# Functional Contract — Movement post / reverse (the stock ledger's single writer)
+
+> **What this is.** The functional truth for posting a stock movement, re-posting it idempotently,
+> reversing it, and what positions, periods, availability, the as-at query and the `L-4` rebuild
+> observably do as a result. Every row cites its source id, so a later gate can check a diff against
+> the row rather than re-derive it.
+>
+> **What this is not.** It does not restate `DECISIONS.md`, `DATA-MODEL.md` or the port contract. A row
+> points at them. It does not cover coding standards. Where two sources disagree, the row says so and
+> points at §9. It never picks one source silently.
+>
+> **Status.** Derived from the design set on 2026-09-12. **No code exists yet** (warehouse is greenfield
+> in `classic`). The contract becomes binding only when a human ratifies it (`DERIVED — ratify before
+> trusting`). `TBD` marks a cell no source answers. `OPEN-nn` marks a cell where sources contradict.
+
+---
+
+## 0. Identity
+
+| | |
+|---|---|
+| **Workflow** | Movement post / idempotent re-post / reverse, with the position cache, period gating, availability refusal, the as-at query and the `L-4` rebuild |
+| **Module** | `warehouse-base` (package `ai.warehousebase`, `D-1`) |
+| **Domain baseline** | `docs/DECISIONS.md` (`D-4`, `D-15`, `L-1`…`L-15`) · `docs/DATA-MODEL.md` §1.9, §2.1.8, §2.1.9, §6.3–§6.5 · `docs/PORT-AND-ADAPTER-CONTRACT.md` §3.5–§3.10 · `docs/IRREVERSIBLE.md` §4.1–§4.3 · `docs/BUILD-SPEC-SCREENS.md` §2.6, §10.2 · `docs/SCENARIO-CATALOGUE.md` §3.1, §3.9, §3.11 · `docs/GLOBAL-SETTINGS-DECISIONS.md` |
+| **Owning task bodies** | `issues/p0-02.md` (ledger, WS-040/041/042) · `issues/p0-03.md` (writer, availability, as-at, rebuild) · `issues/p0-08.md` (port, idempotency ladder) · `issues/p0-07.md` (period ladder, override) |
+| **Primary table(s)** | `whb_stock_movements`, `whb_stock_movement_lines`, `whb_movement_line_attributes` (`V500030`); `whb_stock_positions` (`V500031`); read: `whb_stock_periods`, `whb_stock_period_overrides` (`V500019`); `whb_position_drift_findings` (`V500045`); `whb_inbound_messages`, `whb_movement_batches`, `whb_movement_batch_results` (`V500041`) |
+| **Status column** | **None is a DB `CHECK`, by design** (`RL-006`, `D-10`). Lifecycle is carried by `approval_status` (`CLOSED-SYSTEM`, writer-enforced), `is_reversed` + `reversed_by_movement_id` + `reversal_of_movement_id`, and — per `I-2` — a header `status` that §2.1.8 does not list (**OPEN-05**) |
+| **Permission resource** | `warehouse:movements:*` (port, `PC-31`) **or** `whb_stock_movements:*` (screens) — **OPEN-01**; `whb_stock_positions:*`; `whb_stock_periods:override` — **OPEN-02** |
+| **Routes** | web: `/api/warehouse/movements` (+ `/batch`, `/{id}/reverse`, `/simulate`, `/{id}`, lineage `GET`), `GET /stock/as-at`, `/warehouse/ledger/movements` (WS-040), `/warehouse/ledger/movements/[id]` (WS-041), `/warehouse/ledger/positions` (WS-042) · **mobile: none.** Scope rule set by the user on 2026-09-11: warehouse gets **no mobile app**, so this screen contract is web only. The sources that still say otherwise are listed at **OPEN-13** |
+| **Requirement source** | `issues/p0-02.md`, `issues/p0-03.md`, `issues/p0-08.md`, `issues/p0-07.md` at `warehouse-issues` `main` `7ab6717` |
+| **Contract status** | `derived (unratified)` — built from the design set, no code exists; ratify with `/functional-contract` |
+| **Contract version** | `v0 — 2026-09-12` |
+
+### Acceptance checks
+
+| # | The requester expects… | Delivered by |
+|---|---|---|
+| A1 | A receipt writes two balanced lines against a virtual location, and a one-sided movement is refused before any row is written (`WH-SC-001`, `WH-SC-002`) | `MPR-T1-01`, `MPR-GRD-01` |
+| A2 | A retried identical request returns the original movement with `200` and posts nothing; a reused key with a different body is `409` naming the original (`WH-SC-023`, `WH-SC-165`) | `MPR-T1-03`, `MPR-GRD-03`, `MPR-GRD-04` |
+| A3 | A correction is a mirrored, linked reversal with a mandatory reason; a reversal cannot be reversed; nothing is ever edited or deleted (`WH-SC-006`…`WH-SC-013`) | `MPR-T1-08`, `MPR-UNR-01`…`MPR-UNR-05` |
+| A4 | A `CLOSED` period refuses every movement including a reversal; a `SOFT_CLOSED` one admits only a recorded, authorised override (`WH-SC-021`, `WH-SC-022`) | `MPR-GRD-09`, `MPR-GRD-10`, `MPR-T4-06` |
+| A5 | A status change is a balanced two-line movement at one location with a reason (`FR-103`) | `MPR-T1-10`, `MPR-GRD-18` |
+| A6 | An issue beyond available stock is refused with the arithmetic in the message; contention is a different code from shortage (`WH-SC-017`, `WH-SC-018`, `WH-SC-190`) | `MPR-GRD-15`, `MPR-GRD-16`, `MPR-GRD-17` |
+| A7 | The as-at query answers from the ledger, and a full rebuild reproduces every position row exactly (`WH-SC-040`, `WH-SC-014`, `WH-SC-061`) | `MPR-T1-13`, `MPR-T3-01`, `MPR-T4-09` |
+| A8 | The deliverables of `CONFIG-CASE-05`, `CONFIG-CASE-06` and `CONFIG-CASE-10` hold for this workflow (`GLOBAL-SETTINGS-DECISIONS.md`) | `MPR-GRD-02`, `MPR-GRD-16`, `MPR-T1-01` |
+
+---
+
+## 1. T1 — State machine
+
+A movement is a header plus two or more signed lines (`D-4`, `FR-001`). There is no draft screen. A
+movement arrives through the port or a document screen and posts in one transaction, or it is refused
+and nothing is written (`FR-040`, `FR-029`).
+
+### 1.1 Status inventory
+
+| Status | Represented by | Reachable via | Exits via | Kind |
+|---|---|---|---|---|
+| `POSTED_LIVE` | posted header, `is_reversed = false`, `reversal_of_movement_id IS NULL` | `MPR-T1-01`, `-02`, `-05`, `-10`, `-11` | `MPR-T1-08` | active |
+| `POSTED_REVERSED` | `is_reversed = true`, `reversed_by_movement_id` set (only through `I-2`'s allowlist, `I-3`) | `MPR-T1-08` | none | **terminal** |
+| `REVERSAL` | posted header with `reversal_of_movement_id` set, `movement_type_code` = original's `reversal_type_code` | `MPR-T1-08` | none. `CANNOT_REVERSE_A_REVERSAL` (`PC-20`) | **terminal** |
+| `PENDING_APPROVAL` | `approval_status = PENDING`, **no ledger effect** (`WH-SC-039`) | `MPR-T1-04` | `MPR-T1-05`, `-06`, `-07` | active. How the row can exist with no ledger effect is **OPEN-05** |
+| `REJECTED` | `approval_status` rejected value — the literal is `TBD` | `MPR-T1-06` | `TBD` — assumed none | terminal? `TBD` |
+| `WITHDRAWN` | `approval_status = WITHDRAWN`, row kept (`RA-004`) | `MPR-T1-07` | none | **terminal** (`RA-004`) |
+
+Not statuses, stated so they are not mistaken for them: `posting_status` (`NOT_APPLICABLE`/`PENDING`/
+`POSTED`/`REJECTED`) belongs to the accounting handover (`IRR-41`, P0-12's workflow) and appears here
+only in T4. A **simulated** movement is not a state, because it writes nothing (`PC-27`).
+
+### 1.2 Transitions
+
+| ID | From | Event / action | To | Guard (service, first) | Actor (permission) | Side effects | Comment/reason required | UI entry point |
+|---|---|---|---|---|---|---|---|---|
+| MPR-T1-01 | — | Post one movement. `POST /api/warehouse/movements`, one transaction, all or nothing (`FR-032`, `FR-040`) | `POSTED_LIVE` | `MPR-GRD-01`…`-09`, `-11`, `-15`…`-17`, `-21`…`-24`, `-26` | `warehouse:movements:post` (`PC-31`); owner grants checked by the single resolver, `403 OWNER_NOT_PERMITTED` (p0-08 Traps) | `MPR-T4-01`, `-02`, `-03`, `-11`, `-12`. Returns `201` with `movement_id` + `sequence_no` (p0-08 idempotency table) | only if the type has `requires_reason` (`FR-019`, `WH-SC-035`) | **no Add on WS-040** (`FR-436`). Posted by the port or by a document screen |
+| MPR-T1-02 | — | Batch post. `POST /movements/batch`: N movements, each with its own key, **each in its own transaction**, processed in array order (`FR-034`, `WH-SC-167`, `WH-SC-168`) | `POSTED_LIVE` per entry | per movement, as `MPR-T1-01`; plus `MPR-GRD-23` for the batch | `warehouse:movements:post` | per-movement result array (`CREATED`/`DUPLICATE`/`CONFLICT`/`REJECTED`), with `whb_movement_batch_results` rows | as T1-01 | port only (WS-055 shows the results) |
+| MPR-T1-03 | any posted status | Idempotent re-post: same `(source_system, idempotency_key)`, identical `payload_hash` | unchanged | `MPR-GRD-04` | as the original call | **nothing written**. `200` with the **original** `movement_id` and `sequence_no`, from the stored inbound-message result (`WH-SC-023`, `WH-SC-180`). Holds across a month boundary (`RL-011`). A repeated `batch_reference` returns `200` with the stored result array (`RD-004`) | no | port only |
+| MPR-T1-04 | — | Post a movement whose type has `requires_approval` (`FR-027`) | `PENDING_APPROVAL` | as T1-01, except that positions do not move | `warehouse:movements:post` — **OPEN-01** | row created, **no position change** (`WH-SC-039`) | type-dependent | port / document screen |
+| MPR-T1-05 | `PENDING_APPROVAL` | Approve | `POSTED_LIVE` | approver ≠ actor (`MPR-GRD-19`); period of `posting_date` still admits it, else `MPR-GRD-20` | `whb_stock_movements:approve` (BUILD-SPEC §10.2) | stamps `approved_by`, `approved_at`; positions move (`WH-SC-039`) | `TBD` | WS-040 row action **Approve** (`approval_status = PENDING`); WS-041 action |
+| MPR-T1-06 | `PENDING_APPROVAL` | Reject | `REJECTED` | `TBD` — no source states a guard | `whb_stock_movements:approve` (WS-040 Actions) | no position change; row kept (`L-2`) | `TBD` | WS-040 row action **Reject** |
+| MPR-T1-07 | `PENDING_APPROVAL` | Withdraw (the only correct act after `MPR-GRD-20`) | `WITHDRAWN` | `TBD` | `TBD` — no source names the actor or the permission | row kept, `L-2` untouched (`RA-004`) | `TBD` | `TBD` — no screen names a Withdraw action (see §9, gap G5) |
+| MPR-T1-08 | `POSTED_LIVE` | Reverse. `POST /movements/{id}/reverse` (`FR-035`, `PC-20`) | original → `POSTED_REVERSED`; new movement → `REVERSAL` | `MPR-GRD-03`, `-09`, `-10`, `-11` (REVERSAL context), `-12`, `-13`, `-14`; availability `MPR-GRD-15`/`-16` applies to the mirror's outbound lines (`TBD` — no source states it either way) | `warehouse:movements:reverse` **or** `whb_stock_movements:reverse` — **OPEN-01** | `MPR-T4-04`, `-05`; the mirror has its own `movement_id` and `sequence_no` (`WH-SC-171`); outbox and handover per `MPR-T4-07`, `-08` | **yes**, `reason_code_id` from the closed catalogue. No free-text field exists (`WH-SC-013`) | WS-040 row action **Reverse**; WS-041 action **Reverse** |
+| MPR-T1-09 | `REVERSAL` (already posted) | Re-send the same reverse request with the same reversal key | unchanged | `MPR-GRD-04` against the **reversal's own** key, not the original's | `warehouse:movements:reverse` — **OPEN-01** | `200` with the same reversal; no second reversal (`WH-SC-171`) | — | port |
+| MPR-T1-10 | — | Status change: a balanced **two-line movement at the same location**, differing only in `stock_status_code` (`FR-103`, p0-02 Traps) | `POSTED_LIVE` | `MPR-GRD-01`, `-09`, `-11`, `-18` | `TBD` — WS-042 names no permission for **Change status** (§9, gap G3) | as T1-01. Quarantine never needs a physical move | **yes** (`FR-103`) | WS-042 row action **Change status** (its own modal) |
+| MPR-T1-11 | — | Value-only movement: every line `quantity = 0`, value explicit, balanced against the `VALUE_OFFSET` virtual location (`L-15`, `OD-11`, `OD-13`, `FR-010`) | `POSTED_LIVE` | `MPR-GRD-02`, `-09`, `-11` | `warehouse:movements:post` | on-hand unchanged; the cost effect is P0-17/P2-16's (`D-15`) | type-dependent | port / document screen (`WH-SC-034`; offset code **OPEN-11**) |
+| MPR-T1-12 | — | Simulate. `POST /movements/simulate` (`FR-037`, `PC-27`) | — (nothing) | the **whole** guard chain; returns the **complete** error list and the balance deltas | `warehouse:movements:simulate` **or** `whb_stock_movements:simulate` — **OPEN-01** | **writes nothing**: no movement, no inbound-message row, no outbox event, no idempotency-key claim (`WH-SC-172`) | — | WS-040 toolbar **Simulate** |
+| MPR-T1-13 | — | As-at query. `GET /stock/as-at?at=…` (`FR-013`, `PC-25`) | — (read) | none | `warehouse:stock:view` (`PC-31`) | computed **from the ledger**, never from a snapshot or the position cache. The response carries the `sequence_no` it was computed at. A later backdated post legitimately changes a past answer (`WH-SC-040`) | — | API; `TBD` which screen calls it |
+
+### 1.3 Guards — the predicate, the refusal, and where it lands
+
+Every guard has a **service pre-check that rejects first, inside the transaction, with a field-level
+error** in the house envelope `{ "error", "details": { "errors": { "<field path>": "<message>" } } }`
+(`PC-28`, `DECISIONS.md` §4). The DB guard is only the backstop. A deferred constraint trigger raises at
+`COMMIT`, outside every `@Transactional`, so its message can never reach a form field. **A trigger that
+fires in production is an incident, not a validation** (`DATA-MODEL.md` §6.0). Each scenario cited
+asserts the service message **and** that the trigger did not fire.
+
+| ID | Predicate (must hold to proceed) | Refusal: HTTP · code · field | Message shape | DB backstop | Source |
+|---|---|---|---|---|---|
+| MPR-GRD-01 | Lines sum to zero in base UoM per `(company, owner, item, lot, serial, duty_status)` under the type's `balance_rule`. Mixed owners only where `allows_mixed_owner` | `422 MOVEMENT_UNBALANCED` · `lines` (or `lines[n].lot_id` / `.duty_status`); `422 MIXED_OWNER_NOT_ALLOWED` | names the owner/item and the **net difference**, e.g. *"net +120.0000 EA … must balance against a virtual location"* | `I-1` deferred trigger (memoised, §6.2) | `L-1`, `FR-001`, `FR-002`, `WH-SC-002`, `WH-SC-003`, `WH-SC-141`, `WH-SC-177` |
+| MPR-GRD-02 | Value-only: all quantities zero and signed extended value balances per currency. A movement mixing zero- and non-zero-quantity lines is refused (it is two movements) | `422 VALUE_UNBALANCED` · `TBD` field; the code for the mixed case is `TBD` | `TBD` | `I-21` | `L-15`, `OD-14`, `CONFIG-CASE-10`, `WH-SC-034` |
+| MPR-GRD-03 | `idempotency_key` present and non-blank. **Never server-generated** | `422 IDEMPOTENCY_KEY_REQUIRED` · `idempotency_key` (code name **OPEN-09**) | *"an idempotency key is required and is never generated by the server"* | `I-11` (the index shape is **OPEN-07**) | `L-9`, `FR-017`, `IRR-04`, `WH-SC-024` |
+| MPR-GRD-04 | For a seen key, the server-computed `payload_hash` (`PC-17` canonical form, over the **received** body) equals the stored one. A client-supplied hash is rejected | same hash → `200` replay (not an error); different → `409 IDEMPOTENCY_KEY_REUSED` | the body **names the original movement id** | `I-11` (**OPEN-07**) | `FR-017`, `FR-033`, `WH-SC-165`, `WH-SC-166` |
+| MPR-GRD-05 | `occurred_at` ≤ server now (injected UTC `Clock`, `RL-016`) | `422 OCCURRED_AT_IN_FUTURE` · `occurred_at` | *"business time is in the future; the producer's clock is wrong"* | — | `FR-008`, `PC-24`, `WH-SC-031` |
+| MPR-GRD-06 | `occurred_at` ≥ the oldest **live** partition. The floor is read from the live partition set, never from a constant | `422 OCCURRED_AT_BEFORE_RETENTION` · `occurred_at` | `TBD` | partition absence → opaque 500 without the pre-check | `Y-008` (p0-02 Scope) |
+| MPR-GRD-07 | The site has a `REGISTERED` link covering `occurred_at` | `422 UNREGISTERED_INSTANT` · `occurredAt` | names the site, the instant and the first registration start | `I-22` (`BEFORE INSERT`) | `RG-001`, `WH-SC-312` |
+| MPR-GRD-08 | Header `company_id` = the site's company, and every line's location/owner lies inside it | `422 COMPANY_MISMATCH` · `lines[n].location_id` | `TBD` | `I-22` trigger also asserts company (§2.1.8) | `RG-012`, `FR-025`, `WH-SC-038` |
+| MPR-GRD-09 | The period of `posting_date` is `OPEN`; or `SOFT_CLOSED` and `MPR-GRD-10` holds; **`CLOSED` admits nothing, including a reversal** | `409 PERIOD_CLOSED` · `posting_date` or `effective_date` (**OPEN-04**) | *"stock period 2026-08 is CLOSED and admits nothing, including a reversal"*; the correct act is a **current-dated** reversal | `I-10` `BEFORE INSERT` | `L-8`, `FR-020`, `PC-26`, `WH-SC-021`; reversal dating **OPEN-17** |
+| MPR-GRD-10 | `SOFT_CLOSED`: the poster holds the override permission **and** an override row exists whose `approved_by` ≠ poster; only then is the transaction-local GUC set | `403` naming the missing permission · date field | `TBD` | `I-10` reads the GUC (name **OPEN-03**) | `FR-020`, `WH-SC-022`, `I-10`; **OPEN-02** (permission and approval model) |
+| MPR-GRD-11 | A reason code is present where the type has `requires_reason`, and **always** on a reversal; it belongs to the right context (`REVERSAL` for a reversal) | `422 REASON_CODE_REQUIRED` / `422 UNKNOWN_REASON_CODE` · `reason_code_id` | *"a reason code from the REVERSAL context is mandatory on every reversal"*; the wrong-context case names the code's context | `I-3` `chk_whb_movements_reversal_shape` | `L-3`, `FR-005`, `FR-019`, `WH-SC-013`, `WH-SC-035` |
+| MPR-GRD-12 | The target of `/reverse` is not itself a reversal | `409 CANNOT_REVERSE_A_REVERSAL` · `movement_id` | *"m-A2 is a reversal of m-A1"* | service only (`I-3` has no DB rule for this) | `PC-20`, `FR-005`, `FR-035`, `WH-SC-012` |
+| MPR-GRD-13 | The target is not already reversed | `409 ALREADY_REVERSED` · header | `TBD` | `I-3` one-reversal unique index (shape **OPEN-07**) | `PC-20`, `WH-SC-012` |
+| MPR-GRD-14 | The reversal's lines mirror the original **line for line**: negated quantities, same lot/serial/LPN/status/owner/duty status, **same frozen conversion factor**, type = the original's `reversal_type_code` | `TBD` (the service constructs the mirror, so no caller input can break it) | — | service only, by design (`DATA-MODEL.md` §6.5) | `L-3`, `PC-20`, `WH-SC-011` |
+| MPR-GRD-15 | Issue quantity ≤ ATP = `max(0, allocatable on-hand − open reservations)`, evaluated **at post time, not as at `occurred_at`** | `409 INSUFFICIENT_STOCK` · `lines[n].quantity` | shows the arithmetic: *"available 2.0000 EA at … (on hand 20.0000 less 18.0000 reserved); requested 5.0000"* | `I-6` `CHECK (quantity_available >= 0)` | `L-6`, `FR-014`, `FR-168`, `PC-23`, `WH-SC-017`, `WH-SC-170`, `WH-SC-190` |
+| MPR-GRD-16 | Negative physical on-hand follows the effective policy (most-specific-first, default `BLOCK`). `WARN` needs an acknowledgement, a reason and an override permission. `ALLOW` needs a matching policy. **Neither** consumes another holder's reservation, and a serial is never issued twice | `409 NEGATIVE_STOCK_NOT_ALLOWED` · `lines[n].quantity`; `409 SERIAL_ALREADY_ISSUED` | `TBD`; the WARN override permission is unnamed (§9, gap G2) | `I-24` freezes a referenced policy row | `L-6`, `FR-014`, `FR-015`, `CONFIG-CASE-05`, `WH-SC-018` |
+| MPR-GRD-17 | The optimistic `@Version` conflict on a position resolves within `warehouse.position.max_contention_retries` (default 3, range 0–10), with jittered backoff and re-read. An advisory lock serialises a key that has no row yet | `409 POSITION_CONTENTION` — **a different code from `INSUFFICIENT_STOCK`**. The key is consumed exactly once whatever the retry count | `TBD` | `I-6` + lock ordering (`FR-016`) | `J-001`, `K-004`, `WH-SC-196`, `WH-SC-198` |
+| MPR-GRD-18 | Status change: the two lines share location, owner, item, lot, serial, LPN and duty status; the from→to status pair is allowed by the type's allowed from/to statuses and by the statuses' `requires_reason_to_enter`/`_to_leave` flags | `422 STATUS_TRANSITION_NOT_ALLOWED` · `lines[n]` | `TBD` | `I-1` (conservation holds per status pair) | `FR-003`, `FR-102`, `FR-103` |
+| MPR-GRD-19 | The approver is not the actor | `403` naming the maker-checker rule | `TBD` | service only (`DATA-MODEL.md` §6.5) | `FR-408`, `WH-SC-039` |
+| MPR-GRD-20 | Approval is refused when the period of `posting_date` has closed since submission | `TBD` code (named in `RA-004`, never allocated — §9, gap G1) | *"withdraw and resubmit current-dated"* | `I-10` | `RA-004` (p0-02 Scope round-3 fold) |
+| MPR-GRD-21 | Every registry code on the line resolves (`duty_status`, `stock_status_code`, movement type, document type, source system) | `422` `UNKNOWN_*` · the field, e.g. `lines[0].duty_status` | *"'Bonded' is not a duty status code"* | FKs `ON UPDATE RESTRICT` (`RL-013`) | `RL-001`, `WH-SC-327`, `WH-SC-173`, `WH-SC-028` |
+| MPR-GRD-22 | The payload carries no carrier/AWB/trip, sales price, customer, tax, charge code, channel field, free-text reference or JSONB | rejected as an unknown field (not ignored) | names the field | — | `FR-041`, `WH-SC-178` |
+| MPR-GRD-23 | Batch size ≤ `warehouse.port.max_batch_size` | `422 BATCH_TOO_LARGE`, **before any movement posts** | `TBD` | — | `RD-004` |
+| MPR-GRD-24 | Every line's registered attribute keys exist; values sit in the four typed columns | `422` naming `lines[n].attributes.<key>` | names the unregistered key | `whb_movement_line_attributes` FK | `RL-007`, `WH-SC-042` |
+| MPR-GRD-25 | Every request is persisted to `whb_inbound_messages` **before** validation | — (a parser crash still leaves a row) | — | — | `FR-044`, `WH-SC-180` |
+| MPR-GRD-26 | A non-zero entered quantity never yields a zero base quantity: round **away from zero**; the counter line negates the primary line's base quantity rather than converting again | — (the service constructs it) | — | `I-8` | `L-7`, `FR-009`, `WH-SC-004`, `WH-SC-005`, `WH-SC-019` |
+
+### 1.4 Transitions that must be unreachable
+
+| ID | Forbidden | What makes it unreachable | Source |
+|---|---|---|---|
+| MPR-UNR-01 | Editing any posted header column outside `I-2`'s allowlist, or any posted line column | writer has **no update method**; the `I-2` `to_jsonb`-diff trigger (line allowlist `'{}'`, kept empty by `D-15`); no `PUT`/`PATCH` on any `/movements/{id}` path other than `/reverse`, asserted by a controller-enumeration test | `L-2`, `FR-004`, `WH-SC-006`, `WH-SC-010`; allowlist wording **OPEN-06** |
+| MPR-UNR-02 | Deleting a posted header or line, by any actor including `ADMIN` | `I-2` `DELETE` branch; header→line FK `ON DELETE RESTRICT`, **no cascade**; mapping `cascade = {PERSIST, MERGE}` with no `orphanRemoval` | `L-2`, `WH-SC-007`, `WH-SC-008` |
+| MPR-UNR-03 | Inserting a line into a posted movement | `I-2` `INSERT` branch | `WH-SC-009` |
+| MPR-UNR-04 | Reversing a `REVERSAL` | `MPR-GRD-12` | `PC-20`, `WH-SC-012` |
+| MPR-UNR-05 | Reversing a `POSTED_REVERSED` movement a second time | `MPR-GRD-13` + one-reversal unique index | `I-3`, `WH-SC-012` |
+| MPR-UNR-06 | Any movement, including a reversal, into a `CLOSED` period | `MPR-GRD-09` + `I-10` | `L-8`, `WH-SC-021` |
+| MPR-UNR-07 | `WITHDRAWN` → anything | terminal per `RA-004` (enforcing mechanism `TBD`, see **OPEN-05**) | `RA-004` |
+| MPR-UNR-08 | A position row written by anything but the writer, or an owner changed by `UPDATE` | architecture test (`FR-436`); owner changes only by an `OWNER_CHANGE` movement | `FR-436`, `L-11`, `WH-SC-027` |
+| MPR-UNR-09 | A server-generated idempotency key | `MPR-GRD-03`; asserted by a test that submits without one | `PC-16`, p0-08 Acceptance |
+| MPR-UNR-10 | Restating `moving_average_after` or re-drawing an existing FIFO consumption on a backdated post or a reversal | `D-15`; line allowlist `'{}'` | `D-15`, `WH-SC-151` |
+
+---
+
+## 2. T2 — Action × role × state
+
+Columns are the §1.1 statuses. `✓` = offered/allowed, `—` = not offered, `n/a` = not applicable.
+
+| ID | Action | Permission | (none) | PENDING_APPROVAL | POSTED_LIVE | POSTED_REVERSED | REVERSAL | REJECTED / WITHDRAWN | Extra condition |
+|---|---|---|---|---|---|---|---|---|---|
+| MPR-T2-01 | Post / batch post | `warehouse:movements:post` | ✓ | n/a | n/a | n/a | n/a | n/a | owner grant (`PC-32`); a SOFT_CLOSED date adds `MPR-GRD-10` |
+| MPR-T2-02 | Simulate | `warehouse:movements:simulate` / `whb_stock_movements:simulate` (**OPEN-01**) | ✓ | n/a | n/a | n/a | n/a | n/a | writes nothing |
+| MPR-T2-03 | View register / detail / lineage query | `warehouse:movements:view` / `whb_stock_movements:view` (**OPEN-01**) | n/a | ✓ | ✓ | ✓ | ✓ | ✓ | site scope via `BranchScopeService` (`D-14`) |
+| MPR-T2-04 | Reverse | `warehouse:movements:reverse` / `whb_stock_movements:reverse` (**OPEN-01**) | n/a | — | ✓ | — | — | — | the reversal's period is `OPEN`, or `SOFT_CLOSED` with an approved override (WS-040 Actions). Which date that is: **OPEN-17** |
+| MPR-T2-05 | Approve | `whb_stock_movements:approve` | n/a | ✓ | — | — | — | — | approver ≠ actor; `MPR-GRD-20` |
+| MPR-T2-06 | Reject | `whb_stock_movements:approve` | n/a | ✓ | — | — | — | — | `TBD` |
+| MPR-T2-07 | Withdraw | `TBD` | n/a | ✓ | — | — | — | — | `TBD` (§9, gap G5) |
+| MPR-T2-08 | Change status (WS-042) | `TBD` (§9, gap G3) | ✓ (a new movement) | n/a | n/a | n/a | n/a | n/a | reason mandatory |
+| MPR-T2-09 | Post into a SOFT_CLOSED period | `whb_stock_periods:override` / `warehouse:movements:post:backdated` (**OPEN-02**) | ✓ | — | — | — | — | — | an approved override row, approver ≠ poster |
+| MPR-T2-10 | Rebuild check (WS-042 toolbar) | `whb_stock_positions:rebuild` | n/a | n/a | n/a | n/a | n/a | n/a | writes findings only, never positions (`MPR-T4-09`) |
+| MPR-T2-11 | As-at query | `warehouse:stock:view` | n/a | n/a | n/a | n/a | n/a | n/a | — |
+| MPR-T2-12 | Edit / Delete a movement | **none exists** | — | — | — | — | — | — | `MPR-UNR-01`, `-02` |
+| MPR-T2-13 | Export register (line grain) | `whb_stock_movements:export` or `ADMIN` | n/a | ✓ | ✓ | ✓ | ✓ | ✓ | — |
+| MPR-T2-14 | Any write, as an auditor | — | — | — | — | — | — | — | auditor is read-only across the ledger; every write is `403` (`WH-SC-245`) |
+
+---
+
+## 3. T3 — Time-driven rules & notifications
+
+| ID | Rule | Trigger (clock / date field) | What it changes | Who is notified | Channel | Job class | Notify-once? |
+|---|---|---|---|---|---|---|---|
+| MPR-T3-01 | Nightly `L-4` rebuild. A full rebuild from `whb_stock_movements` is diffed against `whb_stock_positions`, row for row at the nine-member grain | nightly, injected UTC `Clock` (`RL-016`) | writes `whb_position_drift_findings` (`POSITION_DRIFT`/`RESERVATION_DRIFT`/`ORPHANED_RESERVATION`/`NEGATIVE_AVAILABLE`); **never rewrites a position** | the finding's named owner; the alert is raised on drift | `TBD` | `TBD` | `TBD` |
+| MPR-T3-02 | Partition-creation job: next month's partitions for both ledger tables exist before they are needed | monthly, ahead of need | creates partitions | none | — | `TBD` | — |
+| MPR-T3-03 | Period generation. `period_id` is `NOT NULL`, so a date with no period cannot post | `MONTHLY`, missed-run `CATCH_UP` (`RE-001`) | creates `whb_stock_periods` rows (P0-07 owns them) | `TBD` | — | registered on WS-064 | — |
+| MPR-T3-04 | Daily position snapshot (non-zero positions only). Does **not** feed the as-at query (`MPR-T1-13` reads the ledger) | daily, injected `Clock` | writes `whb_stock_position_snapshots` (P0-03) | none | — | on WS-064 | — |
+| MPR-T3-05 | The server clock is the reference for `recorded_at` and for the future-date refusal | every post | stamps `recorded_at` | — | — | the writer | — |
+
+Scan for untracked dated obligations: a `PENDING_APPROVAL` movement has **no ageing, reminder or expiry
+rule** in any source, and the only exit forced by time is `MPR-GRD-20`. This is recorded at §9 gap G6
+rather than invented here.
+
+---
+
+## 4. T4 — Cross-entity effects
+
+| ID | When this happens | Then this other record must change | Enforced in |
+|---|---|---|---|
+| MPR-T4-01 | A movement posts (`MPR-T1-01/02/05/10/11`) | the `whb_stock_positions` row for each line's nine-member key is created or updated **in the same transaction**: signed `quantity_on_hand` and the maintained ATP projection (`OPEN-12`). An advisory lock covers a key with no row (`WH-SC-198`) | writer service (`FR-436`) |
+| MPR-T4-02 | A movement posts | `sequence_no` is the next gapless number **per warehouse** in server acceptance order, and `prev_payload_hash` chains to the predecessor (`WH-SC-033`, `WH-SC-169`) | writer + `I-4` (index shape **OPEN-07**) |
+| MPR-T4-03 | Any port request arrives | a `whb_inbound_messages` row is written **before** processing, with the status ladder `RECEIVED`/`PROCESSED`/`FAILED`/`DISCARDED` | port (`FR-044`) |
+| MPR-T4-04 | A reversal posts | original header: `is_reversed = true`, `reversed_by_movement_id` = the reversal. **This is the only post-hoc mutation of a posted header this workflow makes**, made through `I-2`'s allowlist | `I-3` trigger + reversal service |
+| MPR-T4-05 | A reversal posts | the mirror lines move positions back. Cost consequences follow `D-15` and are not restated here | writer |
+| MPR-T4-06 | A post into a `SOFT_CLOSED` period | a `whb_stock_period_overrides` row (`period_id`, `movement_id`, requester, approver, reason code, justification) exists **before** the GUC is set, and appears on WS-046 | writer + `I-10` (**OPEN-02**, **OPEN-03**) |
+| MPR-T4-07 | A movement posts or is reversed | an outbox event is emitted (WS-041 *Outbox* tab; `WH-SC-294` names "movement posted and reversed") — owned by P0-11 | outbox (not this contract) |
+| MPR-T4-08 | A movement posts or is reversed | a handover envelope and `posting_status` follow P0-12's contract. **A downstream rejection never reverses the stock movement** (`WH-SC-158`). Reversing a movement whose envelope never posted makes it eligible for *Void* on WS-052 (`RJ-011`) | handover (not this contract) |
+| MPR-T4-09 | The rebuild check (WS-042) or the nightly job runs | `whb_position_drift_findings` rows only. The cache is **not** corrected in place by this workflow | P0-03 |
+| MPR-T4-10 | `WARN`/`ALLOW` lets on-hand go negative | an insufficient-stock log row (item, warehouse, requested, available, source, user, time) is written | writer (`FR-015`, `WH-SC-018`) |
+| MPR-T4-11 | A movement is approved late, rejected or withdrawn | nothing else moves; the row stays (`L-2`) | writer |
+| MPR-T4-12 | A stock period's close pre-check runs | it lists every `PENDING_APPROVAL` movement dated in the period (P0-07 owns the close) | P0-07 (`RA-004`) |
+| MPR-T4-13 | Simulate (`MPR-T1-12`) | **nothing** — no movement, inbound message, outbox event or key claim | port (`PC-27`) |
+
+---
+
+## 5. T5 — Screen contract (web only — see §0)
+
+### 5.1 `/warehouse/ledger/movements` — WS-040 Stock Movement Register
+
+| | |
+|---|---|
+| **Type** | list + transition modals (reference: **Service Vehicle**); **no add, no edit** |
+| **Grid identifier** | `whb_stock_movements` · filter scope `WAREHOUSE_STOCK_MOVEMENT` |
+| **Default sort** | `TBD` — no source states one |
+| **Statistics tiles** | filter-aware, uncached: movements today · pending approval · pending handover · rejected handovers · reversed today (BUILD-SPEC WS-040) |
+| **Columns** | `sequenceNo`, `movementTypeCode`, `warehouseName`, `companyName`, `occurredAt`, `recordedAt`, `postingDate`, `sourceSystem`, `sourceDocumentType`, `sourceDocumentNo`, `sourceDocumentId`, `reasonCodeName`, `actorType`, `actorUserName`, `deviceId`, `periodCode`, `lineCount`, `totalBaseQuantity`, `postingStatus`, `approvalStatus`, `isReversed`, `reversalOfSequenceNo` |
+| **Sortable columns** | all except `sourceDocumentId`, `lineCount`, `totalBaseQuantity`, `reversalOfSequenceNo` |
+| **Filters** | `warehouseId` → `movementTypeCode` → `reasonCodeId`; `sourceSystem` → `sourceDocumentType`; `sourceDocumentNo`; `itemId`; `lotId`; `serialNumber`; `locationId`; `ownerId`; `actorUserId`; `actorType`; `occurredFrom`/`occurredTo` (`date`); `postingDateFrom`/`postingDateTo` (`dateOnly`); `postingStatus`; `approvalStatus` (`Y-001`); `isReversed`; `periodId`. **`sourceSystem` + `sourceDocumentType` + `sourceDocumentId` must all be in the scope allowlist** (`FR-036`) |
+| **Row actions** | View → always (routes to WS-041) · **Reverse** → `MPR-T2-04` (reverse permission **and** `is_reversed = false` **and** not itself a reversal **and** the period admits it) · **Approve / Reject** → `MPR-T2-05/06` (`approval_status = PENDING`) · View source document → via the display resolver (`FR-357`) · View handover → where `handover_id` is set |
+| **Toolbar** | Export · Grid config · Help · **Simulate** (`MPR-T2-02`). **No Add button** (`FR-436`) |
+| **Export columns** | **line grain**, one row per line: the header columns plus `lineNo`, `ownerName`, `itemCode`, `locationCode`, `lotCode`, `serialNumber`, `lpnCode`, `stockStatusCode`, `conditionCode`, `dutyStatus`, `quantity`, `uomCode`, `baseQuantity`, `baseUomCode`, `conversionFactorUsed`, `unitCost`, `extendedCost`, `costBasis`, `movingAverageAfter`, `sourceLineRef`, `isCounterSide`, and the tax classification pair (**OPEN-14**). **Ledger-style: no `createdByName`/`updatedByName` in the grid or the export**, deliberately |
+| **Add / Edit** | none. Write modals: **Reverse** (reason code from `whb_reason_codes`, its own idempotency key) and **Approve** |
+| **View** | a route: WS-041 |
+| **Mobile counterpart** | none (§0) |
+
+### 5.2 `/warehouse/ledger/movements/[id]` — WS-041 Movement Detail
+
+| | |
+|---|---|
+| **Type** | full-page tabs, no grid |
+| **Grid identifier** | — |
+| **Header panel** | every WS-040 column plus `idempotency_key`, `payload_hash`, `prev_payload_hash`, `occurred_at_tz_offset`, `handover_id`, `notes` |
+| **Tabs** | **Lines** (every line column; typed attributes inline, registered keys only) · **Reversal** (the mirror, or the movement this one reverses) · **Handover** · **Outbox** · **Cost** |
+| **Actions** | Reverse (`MPR-T2-04`) · Approve (`MPR-T2-05`) · Print movement document (template kind `MOVEMENT_DOCUMENT`) |
+| **Permission** | view permission (**OPEN-01**) |
+| **Mobile counterpart** | none (§0) |
+
+### 5.3 `/warehouse/ledger/positions` — WS-042 Stock Position Enquiry
+
+| | |
+|---|---|
+| **Type** | list, two tabs on one grid identifier: *By item* and *By location* (reference: **Customer**) |
+| **Grid identifier** | `whb_stock_positions` · filter scope `WAREHOUSE_STOCK_POSITION` |
+| **Default sort** | `TBD` |
+| **Statistics tiles** | filter-aware, uncached: distinct items · total on hand · total available · negative signed-balance rows (visible shortage) · negative ATP rows (**must be 0**) · rows drifted at last rebuild |
+| **Columns** | `itemCode`/`itemName`, `ownerName`, `warehouseName`, `locationCode`, `lotCode`, `expiryDate`, `serialNumber`, `lpnCode`, `stockStatusCode` (badge variant from the registry, `FR-102`), `dutyStatus`, `quantityOnHand`, `quantityReserved`, `quantityAvailable`, `baseUomCode`, `unitCost`/`value` (**suppressed where `owner_type != OWN`**, `L-14`), `lastMovementAt`, `lastOutwardMovementAt`, `lastCountDate` |
+| **Filters** | `warehouseId` → `locationId` → `itemId`; `ownerId`; `lotId`; `serialNumber`; `lpnCode`; `stockStatusCode` (multiselect); `dutyStatus`; `itemCategoryId`; **`nonZeroOnly` default true**; `hasAvailable`; `expiryFrom`/`expiryTo` (`dateOnly`); `expiringWithinDays`; `agedOverDays` |
+| **Row actions** | View movements for this grain → WS-040 pre-filtered · **Change status** → `MPR-T2-08` · Adjust → WS-089 pre-filled · Reserve → `whb_reservations:create` · Trace → WS-218 |
+| **Toolbar** | Export · Grid config · **Rebuild check** → `MPR-T2-10` |
+| **Export columns** | the nine-member grain plus quantities, UoM, cost/value where permitted, the three timestamps. **Ledger-style: no audit-name columns** |
+| **Add / Edit** | none. The position is a cache (`L-4`) and is never edited |
+| **Mobile counterpart** | none (§0) |
+
+Screens this workflow feeds but does not own: WS-043 (drift findings, P0-03), WS-045/WS-046 (periods and
+overrides, P0-07), WS-052 (handover queue), WS-053/WS-054/WS-055 (port monitor, rejected queue, batches,
+P0-08).
+
+---
+
+## 6. Out of scope (explicit decisions)
+
+| Baseline item | Decision | Reason | Revisit |
+|---|---|---|---|
+| Mobile screens for WS-040/041/042 | **not built** | user scope rule of 2026-09-11 (§0); sources to be amended (**OPEN-13**) | only if the user reverses the rule |
+| Period ladder transitions (open → soft close → close → reopen) | owned by P0-07's own contract | this contract reads the period status only | — |
+| Handover lifecycle and `posting_status` | P0-12 | T4 cross-reference only | — |
+| Reservation lifecycle | P0-09 | the ATP input only | — |
+| Cost layers, AVCO/FIFO arithmetic | P0-17 / P2-16 under `D-15` | cited, never restated | — |
+| Blocked-move queue for refused physical moves | P2 (`FR-028`) | refusals here are final to the caller | P2 |
+| Receipt reversal as a document (reverse GRN) | P1 (`WH-SC-081`, `WH-SC-082`) | it posts through `MPR-T1-08` | P1 contract |
+| Drift-finding resolution workflow | P0-03 / WS-043 | this contract only writes findings | — |
+
+---
+
+## 7. Amendments
+
+| Date | Row IDs affected | Change | Found by |
+|---|---|---|---|
+| 2026-09-12 | all | v0 derived from the design set at `7ab6717`; unratified | `functional-reviewer`, derive mode (task W0-2a) |
+
+---
+
+## 8. Invariants and scenarios this workflow must not break
+
+| Invariant | Rows that carry it | Scenarios that prove it |
+|---|---|---|
+| `L-1` conservation (`I-1`) | `MPR-GRD-01`, `-26` | `WH-SC-001`, `WH-SC-002`, `WH-SC-003`, `WH-SC-004`, `WH-SC-005`, `WH-SC-141`, `WH-SC-177` |
+| `L-2` append-only (`I-2`, `I-4`) | `MPR-UNR-01`…`-03`, `MPR-T4-02` | `WH-SC-006`, `WH-SC-007`, `WH-SC-008`, `WH-SC-009`, `WH-SC-010`, `WH-SC-033` |
+| `L-3` correction is reversal (`I-3`) | `MPR-T1-08`, `-09`, `MPR-GRD-11`…`-14`, `MPR-UNR-04`, `-05` | `WH-SC-011`, `WH-SC-012`, `WH-SC-013`, `WH-SC-171` |
+| `L-4` positions are a cache (`I-7`) | `MPR-T3-01`, `MPR-T4-01`, `-09`, `MPR-T1-13` | `WH-SC-014`, `WH-SC-015` (v1·P2), `WH-SC-040`, `WH-SC-061` |
+| `L-5` full-grain key (`I-5`) | `MPR-T4-01` | `WH-SC-016`, `WH-SC-141`, `WH-SC-198` |
+| `L-6` availability / negative policy (`I-6`, `I-24`) | `MPR-GRD-15`…`-17` | `WH-SC-017`, `WH-SC-018`, `WH-SC-170`, `WH-SC-190`, `WH-SC-191`, `WH-SC-196` |
+| `L-7` frozen factor (`I-8`) | `MPR-GRD-14`, `-26` | `WH-SC-011`, `WH-SC-019` |
+| `L-8` period-bound (`I-10`) | `MPR-GRD-09`, `-10`, `-20`, `MPR-UNR-06` | `WH-SC-021`, `WH-SC-022`, `WH-SC-036` |
+| `L-9` idempotent ingestion (`I-11`) | `MPR-T1-03`, `-09`, `MPR-GRD-03`, `-04`, `MPR-UNR-09` | `WH-SC-023`, `WH-SC-024`, `WH-SC-165`, `WH-SC-166`, `WH-SC-180`, `WH-SC-195` |
+| `L-11` ownership never changes silently (`I-14`) | `MPR-UNR-08` | `WH-SC-026`, `WH-SC-027` |
+| `L-12` traceability (`I-15`) | lineage `GET` (`MPR-T2-03`) | `WH-SC-028`, `WH-SC-174` |
+| `L-13` three timestamps (`I-13`) | `MPR-GRD-05`, `-06`, `MPR-T3-05` | `WH-SC-030`, `WH-SC-031`, `WH-SC-169` |
+| `L-14` non-own never valued (`I-16`) | WS-042 `unitCost`/`value` suppression | `WH-SC-032` |
+| `L-15` value conservation (`I-21`) | `MPR-T1-11`, `MPR-GRD-02` | `WH-SC-034` |
+| `D-14` registered instant (`I-22`, `I-23`) | `MPR-GRD-07` | `WH-SC-312` |
+| `D-15` never restate | `MPR-UNR-10`, `MPR-T4-05` | `WH-SC-151` |
+| Other scenarios in scope | port surface, errors, partitions | `WH-SC-037`, `WH-SC-038`, `WH-SC-039`, `WH-SC-041`, `WH-SC-042`, `WH-SC-043`, `WH-SC-164`, `WH-SC-167`, `WH-SC-168`, `WH-SC-172`, `WH-SC-173`, `WH-SC-178`, `WH-SC-327` |
+
+---
+
+## 9. Open rows — contradictions between sources, and holes no source fills
+
+**Contradictions.** Each is left open for the ratifier. Where the design set's own precedence rule points
+one way, the row says so. That is a pointer, not a decision.
+
+| ID | Contradiction | Source A | Source B | Rows affected | Precedence pointer |
+|---|---|---|---|---|---|
+| MPR-OPEN-01 | Permission names for the movement verbs | `warehouse:movements:post` / `:reverse` / `:simulate` / `:view` — `issues/p0-08.md` endpoint table; `PORT-AND-ADAPTER-CONTRACT.md` `PC-31`; `BUILD-SPEC-SCREENS.md` §10.2 | `whb_stock_movements:reverse` / `:simulate` / `:view` — `BUILD-SPEC-SCREENS.md` WS-040 *Actions*/*Toolbar* and WS-041; `issues/p0-02.md` *Screens* table and bullet ("`whb_stock_movements:simulate`") | T1-01/08/09/12, T2-02/03/04, WS-040, WS-041 | BUILD-SPEC owns screen contracts (repo CLAUDE.md), yet BUILD-SPEC disagrees with itself (§10.2 vs WS-040) |
+| MPR-OPEN-02 | Soft-close override: which permission, and whether approval is needed | `whb_stock_periods:override`, override written to `whb_stock_period_overrides` with reason code and justification — `issues/p0-07.md` Scope + Acceptance, BUILD-SPEC §10.2; an **approved** override with `approved_by` ≠ poster — `DATA-MODEL.md` §2.1.9 and `I-10`; setting `warehouse.period.soft_close_requires_approval` locked true — p0-07 | `warehouse:movements:post:backdated` alone, *"records the override with the overriding user"* — `PC-26`, `PC-31`, `FR-020`; *"recorded **on the movement**"* — `WH-SC-022` (the header has no override column) | GRD-10, T2-09, T4-06 | `GLOBAL-SETTINGS-DECISIONS.md` is DECISIONS' adopted amendment and locks approval to true |
+| MPR-OPEN-03 | The name of the session GUC that `I-10` reads | `whb.period_override_id` — `DATA-MODEL.md` §6.4 `I-10` | `warehouse.soft_close_override` — `issues/p0-07.md` Traps | GRD-10, T4-06 | DATA-MODEL owns schema |
+| MPR-OPEN-04 | The name of the accounting-date field (it decides the refusal's field path) | `posting_date` — `L-8`, `L-13`, `DATA-MODEL.md` §2.1.8, `PC-26`, p0-07 | `effective_date` — `FR-007`, `FR-020`, `WH-SC-021` (`details.errors["effective_date"]`), `WH-SC-022`, `WH-SC-030` | GRD-09, GRD-10 | DATA-MODEL owns schema |
+| MPR-OPEN-05 | Movement lifecycle column | `I-2`'s function reads `whb_stock_movements.status` (`'POSTED'`; "drafts are freely editable"); `WH-SC-008` edits a `DRAFT`; `WH-SC-039` creates a `PENDING` movement "with no ledger effect" that "posts" on approval | `DATA-MODEL.md` §2.1.8 and `IRREVERSIBLE.md` §4.1 list **no `status` column** (only `approval_status`, `posting_status`, `posted_at NOT NULL`), and `approval_status`/`approved_by`/`approved_at` are **not** on `I-2`'s mutable allowlist | §1.1, T1-04…07, UNR-07 | open: a column (a `PNR-1` decision) or a different pending-approval shape |
+| MPR-OPEN-06 | The size of `I-2`'s header allowlist | *"deliberately five columns"* — `DATA-MODEL.md` §6.4 `I-2` prose | the array literally lists seven: `posting_status, handover_id, is_reversed, reversed_by_movement_id, updated_at, updated_by, version` — same section | UNR-01, T4-04 | wording only; the array is what executes |
+| MPR-OPEN-07 | Unique keys on the partitioned header | *"PostgreSQL requires the partition key to be a member of every unique or primary key"* — `DATA-MODEL.md` §1.9; the same trap for the port's key — `issues/p0-08.md` Traps (`RL-011`) | `uk(source_system, idempotency_key)`, `uk(warehouse_id, sequence_no)` — §2.1.8 and §6.4 `I-4`/`I-11`; `uk(reversal_of_movement_id)` — §6.4 `I-3`. None includes `occurred_at`. The index names also differ between §2.1.8 (`uk_whb_stock_movements_*`) and §6.4 (`uk_whb_movements_*`) | GRD-03, -04, -13, T4-02, UNR-05 | open. Idempotency, the gapless sequence and the single reversal cannot rest on these indexes as written |
+| MPR-OPEN-08 | Type of the reversal link | bare UUID, no `REFERENCES`; `L-3` link held by the service + `I-3` — `DATA-MODEL.md` §1.9, §2.1.8 | "UUID FK self" — `IRREVERSIBLE.md` §4.1; `PORT-AND-ADAPTER-CONTRACT.md` field table | T1-08, T4-04 | DATA-MODEL owns schema |
+| MPR-OPEN-09 | Code for a missing idempotency key | `IDEMPOTENCY_KEY_REQUIRED` — `issues/p0-08.md`, `PC` §3.9.1, `WH-SC-024` | `MISSING_IDEMPOTENCY_KEY` — `DATA-MODEL.md` §6.4 `I-11` prose | GRD-03 | `PC-29`: codes are stable, so one must be retired before v1 |
+| MPR-OPEN-10 | Null discipline on the `L-5` key (it decides whether rebuild equality holds) | `NULLS NOT DISTINCT`, explicitly *not* a sentinel — `DATA-MODEL.md` §2.1.8, `issues/p0-02.md` Traps, `IRREVERSIBLE.md` §4.3 | "nil-UUID sentinel" — `FR-011`, `WH-SC-016` | T4-01, T3-01 | DATA-MODEL owns schema |
+| MPR-OPEN-11 | Code of the value-offset virtual location | `VALUE_OFFSET` — `OD-13`, `FR-084` | `VIRT-LANDED-COST-OFFSET` — `WH-SC-034` | T1-11 | `OD-13` is decided |
+| MPR-OPEN-12 | Whether availability is read from a stored column | *"`available` is computed, never read from a stored column"* — `WH-SC-017` | *"`quantity_available` is a stored column that the writer maintains … not a computed read"*; the ATP authority is computed and the column is its projection — `DATA-MODEL.md` §2.1.8 note | GRD-15, T4-01 | DATA-MODEL states that it resolves this |
+| MPR-OPEN-13 | Mobile scope | user scope rule of 2026-09-11: warehouse gets **no mobile app** | `D-13` (*mobile is not optional*); `BATCH-WAREHOUSE-P0.md` Rule 13; `issues/p0-02.md` *Screens* "Mobile" row and its date-range bullet; `BUILD-SPEC-SCREENS.md` WS-040/041/042 *Mobile* paragraphs; `WH-SC-195` (`base·mobile`) | §0, T5 | a user decision outranks the set; the set is not yet amended |
+| MPR-OPEN-14 | Tax column in the WS-040 export | `hsnCode` — `BUILD-SPEC-SCREENS.md` WS-040 *Export* | no `hsn_code` column exists; the pair is `tax_classification_code` + `tax_classification_scheme` — `RL-008`, `issues/p0-02.md`, `DATA-MODEL.md` §2.1.8 | WS-040 export | DATA-MODEL owns schema |
+| MPR-OPEN-15 | Scenario cited for the corrupted-cache case | `issues/p0-03.md` Acceptance: *"Deliberately corrupting one position row … (`WH-SC-014`)"* | catalogue: `WH-SC-014` is the **clean** rebuild; the corrupted case is `WH-SC-015` (v1·P2), and p0-03 itself says `WH-SC-015` is proved later | T3-01, §8 | the catalogue owns scenario ids |
+| MPR-OPEN-16 | Whether soft close refuses on pending handovers | WS-045 *Actions*: *"Soft close · Close · Reopen — three modals, each refusing while `pendingHandoverCount > 0`"* — `issues/p0-07.md` Screens | *"Soft close warns and lists; hard close refuses"* — `issues/p0-07.md` round-3 fold (`RA-004`) | GRD-09 (period state reachable) | the later fold, but both sit in one body |
+
+**Holes.** No source answers these, so nothing is contradicted. Each blocks a row from being fully
+checkable.
+
+| ID | Hole | Rows |
+|---|---|---|
+| MPR-OPEN-17 | **Which dates a reversal carries.** `PC-20` and `WH-SC-021` say the correct act is a *current-dated* reversal, and `PERIOD_CLOSED`'s retry note says *"re-date and re-post"*. No source says whether `/reverse` copies the original's `occurred_at`/`posting_date`, takes them from the caller, or stamps the current date, so which period WS-040's Reverse gate reads is undefined | T1-08, T2-04, GRD-09 |
+| G1 | The `FR-039` code for *approval after close* is promised by `RA-004` ("a named error code") and never allocated. The `FR-039` fold that adds `POSITION_CONTENTION`, `BATCH_TOO_LARGE`, `OCCURRED_AT_BEFORE_RETENTION`, `UNREGISTERED_INSTANT` and `VALUE_UNBALANCED` to the 43 is still pending (`RD-008`) | GRD-20, GRD-02, GRD-06, GRD-17 |
+| G2 | The permission a `WARN` negative-stock acknowledgement needs ("override permission") is never named | GRD-16 |
+| G3 | The permission gating WS-042 *Change status* is never named | T1-10, T2-08 |
+| G4 | The literal and the exits of the approval *reject* outcome | §1.1, T1-06 |
+| G5 | Who may withdraw a `PENDING_APPROVAL` movement, and from which screen | T1-07, T2-07 |
+| G6 | A `PENDING_APPROVAL` movement has no ageing, reminder or expiry rule | T3 |
+| G7 | Whether availability (`MPR-GRD-15`/`-16`) applies to a reversal's outbound lines, e.g. reversing a receipt whose stock has since been issued. `WH-SC-082` refuses this one level up, for a GRN, but the ledger-level rule is unstated | T1-08 |
+| G8 | Default sort for WS-040 and WS-042; the rebuild job's class, channel and notify-once behaviour | T5, T3-01 |
+
+<!-- Ratify with /functional-contract. A derived contract proves nothing until a human has ratified it. -->
