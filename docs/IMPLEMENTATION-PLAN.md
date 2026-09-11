@@ -1768,7 +1768,7 @@ Every one of the 143 tasks, without exception:
    not a validation.**
 3. **The loose-coupling ratchet runs in CI**, not in a reviewer's memory: `WarehouseBaseCouplingTest`'s
    six assertions, a per-module `ArchitectureInvariantsTest`, and `warehouse-adapter-example` built
-   green — with `warehouse-ratchets` on the required status checks.
+   green — with `warehouse-ratchets` running on every PR; failure is visible, not merge-blocking (required-check setting waived — branch protection unavailable on the current GitHub plan; made required if the plan ever allows).
 4. **Every threshold column ships with the scheduled job that reads it** (`FR-165`). A dated obligation
    with no actor is a defect **at the moment it is merged**, not when it is noticed.
 

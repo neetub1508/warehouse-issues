@@ -229,7 +229,7 @@ toolchain, so never run `mvn`, `npm` or `tsc` to "verify"**.
    not a validation.*
 3. **The loose-coupling ratchet runs in CI**, not in a reviewer's memory: `WarehouseBaseCouplingTest`'s six
    assertions, a per-module `ArchitectureInvariantsTest`, and `warehouse-adapter-example` built green, with
-   `warehouse-ratchets` on the required status checks.
+   `warehouse-ratchets` running on every PR (required-check setting waived).
 4. **Every threshold column ships with the scheduled job that reads it.** *A dated obligation with no actor
    is a defect at the moment it is merged, not when it is noticed.*
 5. **A task creating a `status` column ships its ladder rows** in `BUILD-SPEC-SCREENS.md` §0.11, in the same

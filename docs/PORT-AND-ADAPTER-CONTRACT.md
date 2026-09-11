@@ -1523,7 +1523,7 @@ Three shapes must be copied, not paraphrased:
   `--passWithNoTests` (required — "no tests found" is a non-zero exit in Jest and the trees are empty
   on day one) and a `--testPathPattern` regex whose alternation covers **every** warehouse module,
   or one tree is matched and the others silently missed;
-- `warehouse-ratchets` added to the repository's **required status checks** the day it lands.
+- `warehouse-ratchets` runs on every PR the day it lands; failure is visible, not merge-blocking (required-check setting waived — branch protection unavailable on the current GitHub plan; added to the **required status checks** if the plan ever allows).
 
 **Scoping is what makes this safe** — `:255-257`: *"Scoping the gate to
 `-pl accounting-base/backend,accounting/backend` means nothing outside those two directories can turn

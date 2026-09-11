@@ -1013,8 +1013,8 @@ repo moves to Jest 30.
 
 **Scoping is what makes this safe.** `:255-257`: *"Scoping the gate to `-pl accounting-base/backend,accounting/backend`
 means nothing outside those two directories can turn this job red. The two jobs above are untouched,
-so no existing module's CI behaviour changes."* Same for warehouse. Add `warehouse-ratchets` to the
-repository's required status checks the day it lands; it does not wait on the Phase 1 exit criteria
+so no existing module's CI behaviour changes."* Same for warehouse. `warehouse-ratchets` runs on
+every PR the day it lands; failure is visible, not merge-blocking (required-check setting waived — branch protection unavailable on the current GitHub plan; made required if the plan ever allows); it does not wait on the Phase 1 exit criteria
 at `:410-418`.
 
 ---
@@ -1066,7 +1066,7 @@ Execute in this order. Each step is verifiable before the next.
 **Phase D — the gates**
 
 19. **`.github/workflows/tests.yml`** — the `warehouse-ratchets` job and the blocking frontend step
-    (§13.4). Add `warehouse-ratchets` to required status checks.
+    (§13.4). `warehouse-ratchets` runs on every PR; failure is visible, not merge-blocking (required-check setting waived — branch protection unavailable on the current GitHub plan; made required if the plan ever allows).
 20. **`WarehouseBaseCouplingTest`** (§13.2) and **`warehouse-adapter-example`** (§13.1). The fixture
     adapter lands with the *first* adapter, not after the second — its whole purpose is to find base
     gaps before the base ships.
