@@ -163,7 +163,7 @@ adapter proves nothing*) · field-service and assets **v1.1** · logistics **v3*
 **143 tasks** — `ls issues/p*.md | wc -l`, and 17 + 21 + 29 + 4 + 24 + 13 + 23 + 12. Round 4 filed six
 (`P3-25`, `P5-24`…`P5-28`, `#156`–`#161`) and on 2026-09-10 folded each into its most similar existing
 task; the six issues are closed as duplicates (`issues/CREATED.md`, `GAP-REGISTER-R4.md` §4.6).
-**469 requirements**, each owned by **exactly one** task. **305 scenarios** (computed:
+**471 requirements**, each owned by **exactly one** task. **305 scenarios** (computed:
 `grep -cE '^\| \*\*WH-SC-[0-9]{3}\*\*' docs/SCENARIO-CATALOGUE.md`; 300 before review round 2 added
 §3.21's five. `IMPLEMENTATION-PLAN.md` §8.5 stated **119** for that same command until 2026-09-02,
 when `X-007`/`X-034` were closed by recomputing it). **314 tables. 237 screens**, 215 of them

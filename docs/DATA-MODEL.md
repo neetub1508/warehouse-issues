@@ -131,7 +131,7 @@ Three deliberate exceptions, each with its reason:
 
 | Exception | Tables | Why |
 |---|---|---|
-| **No `updated_at` / `updated_by`** | `whb_stock_movement_lines`, `whb_number_series_issued`, `whb_audit_events`, `whb_outbox`, and the `wh3_billable_events` meter | Append-only by invariant (`L-2`). A column that can never change should not exist to be changed. The header `whb_stock_movements` **keeps** them (`IRREVERSIBLE.md` §4.1) because `posting_status`, `is_reversed` and `reversed_by_movement_id` are written after post by the handover and reversal paths, which the `L-2` trigger's mutable-column allowlist permits |
+| **No `updated_at` / `updated_by`** | `whb_stock_movement_lines`, `whb_number_series_issued`, `whb_audit_events` and `whb_outbox`. **Not** the `wh3_billable_events` meter: its rating columns are an allowlisted `UPDATE`, so it carries them (`RF-008`) | Append-only by invariant (`L-2`). A column that can never change should not exist to be changed. The header `whb_stock_movements` **keeps** them (`IRREVERSIBLE.md` §4.1) because `posting_status`, `is_reversed` and `reversed_by_movement_id` are written after post by the handover and reversal paths, which the `L-2` trigger's mutable-column allowlist permits |
 | **No `is_active`** | every transactional table — movements, lines, positions, receipts, orders, shipments, counts, adjustments, tasks, reservations, billable events | A posted document is never soft-deleted; it is reversed, cancelled or released. `is_active` would be a second, contradictory way to make a posting vanish. `is_active` is on **masters and catalogues only** |
 | **No `version`** | `whb_stock_movement_lines`, `whb_movement_line_attributes`, `whb_outbox` | Nothing updates them, so there is nothing to lock optimistically |
 
@@ -745,6 +745,7 @@ is re-filed under this year's registration.
 |---|---|---|---|---|---|---|
 | `whb_owners` | **Whose the goods are.** House, 3PL client, consignor, customer-owned, job worker | `code`, `name`, `owner_type_code`, `company_id`, `counterparty_id` (nullable — an owner is usually also a counterparty, but the house owner is not), `default_cost_basis`, `is_house` | uk(`company_id`,`code`) — the only key (`RL-004`); **one `is_house` owner per company**, partial unique index (moves to `whb_owner_companies` at v2) | `owner_type_code → whb_owner_types(code)`; `company_id → whb_companies`; `counterparty_id → whb_counterparties` | `FR-108` `IRR-07` | v1 |
 | `whb_owner_grants` | Owner-scoped access. **One server-side resolver reads this and every query passes through it** | `owner_id`, `grantee_type` (`USER`/`ROLE`/`GROUP`), `grantee_id`, `access_level` (`VIEW`/`OPERATE`/`ADMIN`), `effective_from`, `effective_to` — dated per §1.3's convention | `EXCLUDE (owner_id =, grantee_type =, grantee_id =, range &&)` — no two overlapping grants for one grantee (`RG-021`); idx(`grantee_type`,`grantee_id`) | `owner_id → whb_owners`; `grantee_id` is a **generic reference** — it targets `users`, `roles` or `groups` depending on `grantee_type`, so no FK | `FR-114` `FR-406` `IRR-60` | v1 |
+| `whb_warehouse_grants` | Warehouse-scoped access — the third axis of `FR-405`'s scope predicate (`RA-001`). **Read by the same single resolver as `whb_owner_grants`**; a user with no row is unscoped on this axis, not blind, and a row narrows the branch-derived site set, never widens it | `warehouse_id`, `grantee_type` (`USER`/`ROLE`/`GROUP`), `grantee_id`, `access_level` (`VIEW`/`OPERATE`/`ADMIN`), `effective_from`, `effective_to` — dated per §1.3's convention | `EXCLUDE (warehouse_id =, grantee_type =, grantee_id =, range &&)`, as `whb_owner_grants` (`RG-021`); idx(`grantee_type`,`grantee_id`) | `warehouse_id → whb_warehouses`; `grantee_id` is a **generic reference**, so no FK | `FR-405` | v1 |
 | `whb_owner_companies` | **An owner served by more than one legal entity** — a 3PL group whose two companies serve one client. The one-house-per-company partial index moves here (`RG-013`) | `owner_id`, `company_id`, `company_role` (`HOUSE`/`SERVICED_BY`), `effective_from`, `effective_to` | one current `HOUSE` owner per company (partial uk); `EXCLUDE (owner_id =, company_id =, company_role =, range &&)` | `owner_id → whb_owners`; `company_id → whb_companies` | `FR-468` | v2 |
 
 > `whb_owner_grants` is v1 even though the 3PL portal is v2. `IRR-60`: owner segregation enforced
@@ -777,7 +778,7 @@ rather than hidden — in the worst case the monorepo carries **seven** party-sh
 | Table | Purpose | Key columns | Keys / indexes | FKs | FR | Ver |
 |---|---|---|---|---|---|---|
 | `whb_item_categories` | Category master with inspection and putaway defaults; the scope of the `D-9` ownership rule. **The root of each tree is a classification scheme**; the seeded system root `STOCKING` is the only scheme any resolver reads (`RG-005`) | `code`, `name`, `parent_category_id`, `default_inspection_plan_id`, `default_putaway_strategy_code`, `is_dual_eligible` | uk(`code`); idx(`parent_category_id`) | self; `default_inspection_plan_id` is a **generic reference** — the inspection plan is `wh_inspection_plans`, an application table, and base must not FK upward (§3.4 defect **X-2**) | `FR-386` `D-9` | v1 |
-| `whb_items` | **The** item master. One, and no module but `accessories` may own a second. **No `category_id` and no variant slots**: category is `whb_item_category_assignments` (`RG-005`), variant values are `whb_item_variant_values` (`RG-009`) | **`owner_id`**, **`sku`**, `code` (a **system-generated, immutable surrogate**, never a user-typed SKU, `RL-004`), `name`, `description`, `item_type_code`, `base_uom_code`, `purchase_uom_code`, `sale_uom_code` (v1 defaults, superseded at v2 by `whb_item_uom_defaults`, `RG-010`), `lot_control_mode` (`NONE`/`OPTIONAL`/`REQUIRED`), `serial_control_mode` (`NONE`/`RECEIPT`/`SHIP`/`FULL`), `expiry_policy` (`NONE`/`OPTIONAL`/`REQUIRED`), **four independent status facts** `is_receivable` / `is_issuable` / `is_orderable` / `is_countable` plus `lifecycle_status` (`NEW`/`ACTIVE`/`PHASE_OUT`/`OBSOLETE`), **`tax_classification_code`** (HSN/SAC — a string, never an FK into a tax master), `is_catch_weight`, `shelf_life_days`, `min_shelf_life_receipt_pct`, `min_shelf_life_ship_pct`, physical block (`weight_gross_kg`, `weight_net_kg`, `length_cm`/`width_cm`/`height_cm`, `volume_cc`, `is_oversized`, `is_stackable`, `is_fragile`), storage block (`storage_type`, `temperature_zone_code`, `temp_min_c`, `temp_max_c`), hazmat block (`is_hazmat`, `hazmat_un_number`, `hazmat_class`, `hazmat_packing_group`, `hazmat_proper_shipping_name`, `hazmat_subsidiary_classes`), `epr_category`, `regulatory_class`, **`style_item_id`**, `standard_cost` | **`uk(owner_id, sku)`** — never a global unique SKU; **uk(`code`)** globally, the stable surrogate every FK and every bin label uses; idx(`item_type_code`); idx(`style_item_id`); idx(`tax_classification_code`) | `owner_id → whb_owners`; `item_type_code → whb_item_types(code)`; `*_uom_code → whb_uoms(code)`; `style_item_id → whb_items` (self) | `FR-048`–`FR-053` `FR-060` `FR-066`–`FR-070` `FR-443` `IRR-19` `IRR-31` `IRR-42` `IRR-55` `IRR-56` | v1 |
+| `whb_items` | **The** item master. One, and no module but `accessories` may own a second. **No `category_id` and no variant slots**: category is `whb_item_category_assignments` (`RG-005`), variant values are `whb_item_variant_values` (`RG-009`) | **`owner_id`**, **`sku`**, `code` (a **system-generated, immutable surrogate**, never a user-typed SKU, `RL-004`), `name`, `description`, `item_type_code`, `base_uom_code`, `purchase_uom_code`, `sale_uom_code` (v1 defaults, superseded at v2 by `whb_item_uom_defaults`, `RG-010`), `lot_control_mode` (`NONE`/`OPTIONAL`/`REQUIRED`), `serial_control_mode` (`NONE`/`RECEIPT`/`SHIP`/`FULL`), `expiry_policy` (`NONE`/`OPTIONAL`/`REQUIRED`), **four independent status facts** `is_receivable` / `is_issuable` / `is_orderable` / `is_countable` plus `lifecycle_status` (`NEW`/`ACTIVE`/`PHASE_OUT`/`OBSOLETE`/`BLOCKED`, `RB-004`), **`tax_classification_code`** (HSN/SAC — a string, never an FK into a tax master), `is_catch_weight`, `shelf_life_days`, `min_shelf_life_receipt_pct`, `min_shelf_life_ship_pct`, physical block (`weight_gross_kg`, `weight_net_kg`, `length_cm`/`width_cm`/`height_cm`, `volume_cc`, `is_oversized`, `is_stackable`, `is_fragile`), storage block (`storage_type`, `temperature_zone_code`, `temp_min_c`, `temp_max_c`), hazmat block (`is_hazmat`, `hazmat_un_number`, `hazmat_class`, `hazmat_packing_group`, `hazmat_proper_shipping_name`, `hazmat_subsidiary_classes`), `epr_category`, `regulatory_class`, **`style_item_id`**, `standard_cost` | **`uk(owner_id, sku)`** — never a global unique SKU; **uk(`code`)** globally, the stable surrogate every FK and every bin label uses; idx(`item_type_code`); idx(`style_item_id`); idx(`tax_classification_code`) | `owner_id → whb_owners`; `item_type_code → whb_item_types(code)`; `*_uom_code → whb_uoms(code)`; `style_item_id → whb_items` (self) | `FR-048`–`FR-053` `FR-060` `FR-066`–`FR-070` `FR-443` `IRR-19` `IRR-31` `IRR-42` `IRR-55` `IRR-56` | v1 |
 | `whb_item_category_assignments` | **An item's category per classification scheme, and since when.** A re-categorisation closes a row, so *"which method costed this layer"* stays answerable from the policy **and** the category history (`RG-005`) | `item_id`, `category_id`, `scheme_root_category_id` (the root of the category's tree, **denormalised by trigger**), `effective_from`, `effective_to` | one current row per `(item, scheme)` (partial uk); `EXCLUDE (item_id =, scheme_root_category_id =, range &&)`; idx(`category_id`) `WHERE effective_to IS NULL` | `item_id → whb_items`; `category_id`, `scheme_root_category_id → whb_item_categories` | `FR-443` `D-9` | v1 |
 | `whb_item_variant_axes` | An axis a style varies along — SIZE, COLOUR, FIT. **A size scale is an axis whose values are ordered** | `code`, `name`, `is_ordered`, `owning_module` | uk(`code`) | — | `FR-055`-adjacent, `IRR-55`, `A-3` | **v1 schema**, v2 screens |
 | `whb_item_variant_axis_values` | The values on an axis, ordered where the axis is a scale | `axis_id`, `code`, `name`, `sort_order` | uk(`axis_id`,`code`) | `axis_id → whb_item_variant_axes` | `IRR-55` `A-3` | **v1 schema**, v2 screens |
@@ -1222,6 +1223,7 @@ so this is net-new and must not be built on it. A missing GRN number is an audit
 | `whb_external_stock_snapshots` | The accessories quantity, loaded by **snapshot** — because `warehouse` may not read `accessory_stock_levels` (`M8`, `D-11` B9) | `source_module`, `external_id`, `as_at_date`, `quantity_on_hand`, `loaded_at`, `loaded_by`, `import_batch_id` | uk(`source_module`,`external_id`,`as_at_date`); idx(`as_at_date`) | `import_batch_id → whb_import_batches` | `M2` `FR-369` | v1 |
 | `whb_channels` | The channel master. **In base**, because the ledger's source lineage and the item alias both reference it | `code`, `name`, `channel_kind` (`CHANNEL_KIND` code list: `MARKETPLACE`/`OWN_STORE`/`POS`/`B2B`) + `channel_kind_list`, `owning_module`, `min_shelf_life_ship_pct` (nullable `DECIMAL(9,6)`; the second step of counterparty → channel → item, `RJ-009`) | uk(`code`) | `(channel_kind_list, channel_kind) → whb_code_list_values` | `FR-207` `FR-161` | v1 |
 | `whb_transport_details` | Vehicle, transporter, distance, dispatch-from and ship-to — **every field an e-way bill needs**, and none of them India-specific | `document_type`, `document_id`, `transport_mode`, `vehicle_number`, `vehicle_type`, `transporter_counterparty_id`, `transporter_doc_no`, `transporter_doc_date`, `distance_km`, `dispatch_from_*` address block, `ship_to_*` address block, `driver_name`, `driver_phone`, `driver_licence_no` | uk(`document_type`,`document_id`); idx(`vehicle_number`) | `transporter_counterparty_id → whb_counterparties`; **`document_id` is a generic reference with no FK** — the document is a `wh_transfer_orders` row or a `whin_delivery_challans` row, both **above** base (§3.4 defect **X-5**) | `FR-308` | v1 |
+| `whb_metric_definitions` | **The KPI catalogue** (`RC-007`) — a `D-10` registry with **no `CHECK`**, so `warehouse-3pl` or an adapter registers its own metric by `INSERT`. Seeded under `RL-003`'s guarded idiom; `definition_text_key` binds to the platform metric explainer | `code`, `name`, `unit`, `definition_text_key`, `owning_module`, `is_system`, `higher_is_better`, `is_active` | uk(`code`) | — | `FR-470` `FR-394` | v1 |
 | `whb_alert_rules` | Operational alert rules — the **trigger conditions normalised**, never JSONB | `alert_type`, `scope_type`, `scope_ref`, `urgency`, `notify_in_app`/`_email`/`_sms`/`_push`, `escalation_minutes`, `is_active` | uk(`alert_type`,`scope_type`,`scope_ref`) `NULLS NOT DISTINCT` | — | `FR-165`-adjacent; re-homes prior art #59 | v1.1 |
 | `whb_alert_rule_conditions` | The bounded condition rows that replace `wms_alert_rules.trigger_conditions JSONB` | `rule_id`, `sequence`, `subject_column` (whitelisted), `operator` (whitelisted), `value_text`, `value_number` | uk(`rule_id`,`sequence`) | `rule_id → whb_alert_rules` | `FR-383` | v1.1 |
 | `whb_alert_rule_recipients` | Replaces `recipient_roles` / `recipient_user_ids` arrays | `rule_id`, `recipient_type` (`ROLE`/`USER`/`GROUP`), `recipient_id`, `is_escalation` | uk(`rule_id`,`recipient_type`,`recipient_id`,`is_escalation`) | `rule_id → whb_alert_rules`; `recipient_id` generic | `FR-383` | v1.1 |
@@ -1294,7 +1296,8 @@ writing `whb_stock_movements` directly (`FR-436`, `D-11` B5). A `wh_` table ther
 
 | Table | Purpose | Key columns | Keys / indexes | FKs | FR | Ver |
 |---|---|---|---|---|---|---|
-| `wh_stock_adjustments` | Adjustment header with an approval threshold **by value as well as by quantity** | `adjustment_number`, `warehouse_id`, `owner_id`, `adjustment_type` (`POSITIVE`/`NEGATIVE`/`MIXED`), `reason_code_id`, `total_lines`, `total_value_impact`, `requires_approval`, `approved_by`, `approved_at`, `status`, `posted_movement_id` (bare) | uk(`adjustment_number`); idx(`warehouse_id`,`status`) | ↓base | `FR-145` `FR-164` | v1 |
+| `wh_stock_adjustments` | Adjustment header. Its approval threshold — **by value as well as by quantity** — is resolved from `wh_adjustment_approval_policies`, not carried on the header (`RA-008`) | `adjustment_number`, `warehouse_id`, `owner_id`, `adjustment_type` (`POSITIVE`/`NEGATIVE`/`MIXED`), `reason_code_id`, `total_lines`, `total_value_impact`, `requires_approval`, `approved_by`, `approved_at`, `status`, `posted_movement_id` (bare) | uk(`adjustment_number`); idx(`warehouse_id`,`status`) | ↓base | `FR-145` `FR-164` | v1 |
+| `wh_adjustment_approval_policies` | **The adjustment approval ladder** (`RA-008`) — resolved most-specific-first, mirroring `whb_gl_posting_rules` exactly (`Z-001`). The all-null row is seeded from `admin_settings` `warehouse.adjustment.default_threshold_value` | `warehouse_id`, `owner_id`, `item_category_id`, `reason_code_id` (each nullable = any), `specificity` (computed), `threshold_quantity`, `threshold_value`, `is_active` | uk(`warehouse_id`,`owner_id`,`item_category_id`,`reason_code_id`) `NULLS NOT DISTINCT` | ↓base | `FR-145` | v1 |
 | `wh_stock_adjustment_lines` | **One `location_id`, one status, one owner per line** — the from/to shape is not re-homed | `adjustment_id`, `line_no`, `item_id`, `location_id`, `lot_id`, `serial_id`, `lpn_id`, `owner_id`, `stock_status_code`, `duty_status`, `system_quantity`, `actual_quantity`, `variance_quantity`, `uom_code`, `unit_cost`, `variance_value`, `reason_code_id`, `movement_id` (bare) | uk(`adjustment_id`,`line_no`) | ↓base | `FR-145` | v1 |
 | `wh_transfer_orders` | **Three legs, not two.** Depart → in-transit at the sending site → arrive. **The ladder** (`RJ-004`, `GAP-REGISTER-R4.md` §3.3): `REQUESTED → APPROVED \| REJECTED`, and `DRAFT → APPROVED` where `requires_approval`; then `ALLOCATED · IN_TRANSIT · PARTIALLY_RECEIVED · RECEIVED · CLOSED · CANCELLED`. `REQUESTED` is created only by a user scoped to the **destination**; `:approve`/`:reject` are scoped to the **source**, with approver ≠ requester (`FR-408`). **Part-approval is a line quantity, not a state.** Approval creates the `TRANSFER` demand order, which reserves — the one reservation path (`RJ-003`); dispatch is `wh_shipments:dispatch`, posting `TRANSFER_DEPART` into the per-transfer `IN_TRANSIT` location under the source site. `IN_TRANSIT → CANCELLED` posts `TRANSFER_RETURN` (`RJ-006`). **Both sites belong to one company** — a cross-company movement is a sale and a purchase, never a transfer (`422 CROSS_COMPANY_TRANSFER`, `RK-007`) | `transfer_number`, `transfer_type` (`BIN_TO_BIN`/`INTRA_SITE`/`INTER_SITE`), `company_id`, `source_warehouse_id`, `destination_warehouse_id`, `source_branch_id`, `destination_branch_id` (**frozen snapshots at creation**, `FR-305`), **`source_warehouse_branch_id`**, **`destination_warehouse_branch_id`** (the two link rows the snapshots were derived from, so the derivation is auditable, `RG-001`), **`is_taxable_supply`**, `transfer_price_basis` (`COST`/`TRANSFER_PRICE`/`OPEN_MARKET_VALUE`), `transfer_price`, `cost_value`, **`ownership_transfer_point`**, `transit_location_id`, `requested_date`, `expected_arrival_date`, `requires_approval`, `approved_by`, `status`, `demand_order_id` (nullable; added by `ALTER` in `V510040`), **`dispatched_at`**, **`received_at`** | uk(`transfer_number`); idx(`source_warehouse_id`,`status`); idx(`transit_location_id`) | ↓base; `source_warehouse_branch_id`/`destination_warehouse_branch_id ↓base whb_warehouse_branches(id)`; `source_branch_id`/`destination_branch_id ↓platform branches(id)`; `demand_order_id → wh_demand_orders` | `FR-147` `FR-148` `FR-244` `FR-305` `FR-306` `FR-344` `FR-462` | v1 |
 | `wh_transfer_order_lines` | | `transfer_id`, `line_no`, `item_id`, `quantity`, `approved_quantity` (nullable, ≤ `quantity`, null until approved; the unapproved remainder is written to `wh_insufficient_stock_log` as `TRANSFER_REQUEST`, `RK-001`), `uom_code`, `lot_id`, `serial_id`, `owner_id`, `source_location_id`, `destination_location_id`, `picked_quantity`, `dispatched_quantity`, `received_quantity`, `variance_quantity`, `depart_movement_id` (bare), `arrive_movement_id` (bare), `tax_classification_code` | uk(`transfer_id`,`line_no`) | ↓base | `FR-147` `FR-149` | v1 |
@@ -1327,7 +1330,7 @@ writing `whb_stock_movements` directly (`FR-436`, `D-11` B5). A `wh_` table ther
 | `wh_carton_evidence` | **Pack photo and scale weight captured at pack time in v1**, because the evidence for a carrier weight dispute cannot be created afterwards | `carton_id`, `evidence_type` (`PHOTO`/`SCALE_READING`/`DIM_SCAN`), `document_id`, `captured_value`, `captured_uom`, `captured_at`, `captured_by`, `instrument_id` | idx(`carton_id`) | `document_id ↓platform documents(id)`; `instrument_id → wh_weighing_instruments` | `FR-206` | v1 |
 | `wh_shipments` | **Dispatch is the inventory-relief event and it is the only one** | `shipment_number`, `warehouse_id`, `owner_id`, `carrier_counterparty_id`, `carrier_service_code`, `carrier_account_id`, `tracking_number`, `dock_door_id`, ship-to block, `total_cartons`, `total_weight_kg`, `total_volume_cc`, `shipping_cost`, `bol_number`, `manifest_id`, `consignment_id`, `status`, **`packed_at`**, **`loaded_at`**, **`shipped_at`**, **`delivered_at`**, `pod_document_id`, `ship_movement_id` (bare) | uk(`shipment_number`); idx(`tracking_number`); idx(`warehouse_id`,`status`); idx(`shipped_at` DESC) | as named | `FR-179` `FR-188` `FR-189` `IRR-23` | v1 |
 | `wh_shipment_orders` | Shipment ↔ order junction. **Many orders per shipment, many shipments per order** — the cardinality is a one-way door | `shipment_id`, `demand_order_id` | uk(`shipment_id`,`demand_order_id`) | as named | `FR-179` | v1 |
-| `wh_carriers` | Carrier master. **One of the five relocatable objects** (R7 §2.6) — referenced by stable code, never by an FK from a relocatable table | `code`, `name`, `counterparty_id`, `carrier_type`, `tracking_url_template`, `api_enabled`, `is_active` | uk(`code`); **uk(`counterparty_id`)** — one carrier per party, a 1:1 extension (`RG-016`) | `counterparty_id ↓base whb_counterparties` | `FR-196` `FR-199` | v1 |
+| `wh_carriers` | Carrier master. **One of the five relocatable objects** (R7 §2.6) — referenced by stable code, never by an FK from a relocatable table | `code`, `name`, `counterparty_id`, `carrier_type`, `tracking_url_template`, `api_enabled`, `owning_module` (nullable — the carrier adapter that registered it; null is a manual carrier, `RD-005`), `is_active` | uk(`code`); **uk(`counterparty_id`)** — one carrier per party, a 1:1 extension (`RG-016`) | `counterparty_id ↓base whb_counterparties` | `FR-196` `FR-199` | v1 |
 | `wh_carrier_services` | Service level per carrier | `carrier_id`, `service_code`, `name`, `transit_days_min`, `transit_days_max`, `supports_cod`, `supports_reverse` | uk(`carrier_id`,`service_code`) | as named | `FR-196` | v1 |
 | `wh_carrier_accounts` | **`owner_id` nullable — "ship on the client's account" is a standard 3PL contract clause** | `carrier_id`, `account_code`, **`owner_id` (nullable)**, `credentials_ref`, `is_default`, `payment_mode`, `is_active` | uk(`carrier_id`,`account_code`); one default per carrier+owner, partial unique index | `carrier_id → wh_carriers`; `owner_id ↓base whb_owners` | `FR-196` `IRR-59` | v1 |
 | `wh_carrier_account_scopes` | **The owners and sites a carrier account serves** — pickup locations are per site (`RG-016`) | `carrier_account_id`, `owner_id`, `warehouse_id` (both nullable), `pickup_location_code`, `is_default`, `effective_from`, `effective_to` | one current default per carrier × owner × warehouse `NULLS NOT DISTINCT` (partial uk); `EXCLUDE (carrier_account_id =, owner_id =, warehouse_id =, range &&)`, nullable members per §1.3 rule 2 | `carrier_account_id → wh_carrier_accounts`; `owner_id ↓base whb_owners`; `warehouse_id ↓base whb_warehouses` | `FR-196` | v2 |
@@ -1406,7 +1409,7 @@ decides the money. Stated so it is not proposed again.
 | Table | Purpose | Key columns | FKs | FR | Ver |
 |---|---|---|---|---|---|
 | `wh_landed_cost_documents` | Duty, freight, insurance, clearing and port handling arriving **weeks after the goods, on a different document** | `document_number`, `grn_id` (nullable and **derived** — a multi-GRN freight bill is associated through `wh_landed_cost_allocations.grn_line_id`, `RG-019`), `charge_kind`, `counterparty_id`, `amount`, `currency_code`, **`apportionment_basis`** (`VALUE`/`QUANTITY`/`WEIGHT`/`VOLUME`/`MANUAL`), `applied_at`, `apply_movement_id` (bare), `status` | ↓base | `FR-238` `FR-239` `FR-345` | v1 |
-| `wh_landed_cost_allocations` | The per-receipt-line apportionment, retained so the revaluation is reproducible | `landed_cost_document_id`, `grn_line_id`, `basis_value`, `allocated_amount` | as named | `FR-238` | v1 |
+| `wh_landed_cost_allocations` | The per-receipt-line apportionment, retained so the revaluation is reproducible | `landed_cost_document_id`, `grn_line_id`, `basis_value`, `allocated_amount`, `quantity_remaining_at_apply`, `amount_to_layer`, `amount_to_cogs` — `CHECK (amount_to_layer + amount_to_cogs = allocated_amount)`; a charge on a partly-consumed layer splits here (`RF-003`) | as named | `FR-238` | v1 |
 | `wh_revaluations` | **Revaluation is a document, not an `UPDATE`** — zero quantity, non-zero value | `revaluation_number`, `warehouse_id`, `owner_id`, `reason_code_id`, `effective_date`, `approved_by`, `approved_at`, `total_value_change`, `movement_id` (bare), `status` | ↓base | `FR-240` | v1 |
 | `wh_revaluation_lines` | | `revaluation_id`, `item_id`, `lot_id`, `cost_layer_id`, `old_unit_cost`, `new_unit_cost`, `quantity`, `value_change` | ↓base `cost_layer_id` | `FR-240` | v1 |
 | `wh_nrv_assessments` | **A register, not a one-way provision column** — including **the reversal** when NRV recovers | `assessment_number`, `item_id`, `lot_id`, `warehouse_id`, `assessed_nrv`, `basis`, `assessor_user_id`, `assessed_at`, `write_down_amount`, `reversal_of_assessment_id`, `movement_id` (bare) | ↓base; self | `FR-241` | v2 |
@@ -1415,6 +1418,7 @@ decides the money. Stated so it is not proposed again.
 | `wh_cutover_checklists` | The cut-over screen — masters loaded, mappings resolved, opening posted, value matched, period opened | `checklist_number`, `company_id`, `warehouse_id`, `target_go_live_at`, `status`, `certified_by`, `certified_at`, `certificate_document_id` | ↓base; `certificate_document_id ↓platform documents(id)` | `FR-412` `FR-413` | v1 |
 | `wh_cutover_checklist_items` | | `checklist_id`, `sequence`, `item_key`, `description`, `is_blocking`, `status`, `completed_by`, `completed_at`, `evidence_note` | as named | `FR-413` | v1 |
 | `wh_migration_mappings` | Mapping profiles for the incumbent products — item master, UoM, godowns, parties, opening balances | `profile_code`, `source_product`, `entity_kind`, `source_value`, `target_kind`, `target_id`, `target_code`, `confidence`, `resolved_by`, `resolved_at` | idx(`profile_code`,`entity_kind`) | `FR-414` | v1.1 |
+| `wh_metric_targets` | **The target WS-216 measures against** (`RC-007`); a metric with no target row renders a blank variance, never zero | `metric_code`, `warehouse_id` (nullable), `owner_id` (nullable), `period_grain`, `target_value`, `effective_from`, `effective_to` | `metric_code ↓base whb_metric_definitions(code)`; ↓base | `FR-470` | v1 |
 | `wh_kpi_snapshots` | The pre-aggregated KPI roll-up. **Added only for what is proved slow**, and every metric names the ledger query it replaces | `snapshot_date`, `snapshot_period`, `warehouse_id`, `owner_id`, the 29 metric columns of `FR-394` | uk(`snapshot_date`,`snapshot_period`,`warehouse_id`,`owner_id`) `NULLS NOT DISTINCT` | ↓base | `FR-392` `FR-394` | v1.1 |
 
 **Reports are queries, not tables.** `FR-384`–`FR-396` name twenty registers and reports — stock on
@@ -1448,7 +1452,7 @@ and a CSV fallback covers an install with no accounting module.
 
 | Table | Purpose | Key columns | Keys / indexes | FKs | FR | Ver |
 |---|---|---|---|---|---|---|
-| `wh3_clients` | **A client is an object, not a customer record.** Its parties are `wh3_client_counterparties` (`RG-017`) | `client_code`, `name`, **`owner_id`**, `contract_start_date`, `contract_end_date`, `notice_period_days`, `billing_cycle` (`MONTHLY`/`FORTNIGHTLY`/`WEEKLY`), `billing_day`, `currency_code`, `payment_terms_days`, `credit_limit`, `status` | uk(`client_code`); uk(`owner_id`) — one client per owner | `owner_id ↓base whb_owners` | `FR-282` `FR-303` | v2 |
+| `wh3_clients` | **A client is an object, not a customer record.** Its parties are `wh3_client_counterparties` (`RG-017`) | `client_code`, `name`, **`owner_id`**, `contract_start_date`, `contract_end_date`, `notice_period_days`, `billing_cycle` (`MONTHLY`/`FORTNIGHTLY`/`WEEKLY`), `billing_day`, `currency_code`, `payment_terms_days`, `credit_limit`, `go_live_date`, `minimum_monthly_charge`, `minimum_scope` (`CLIENT`/`WAREHOUSE`), `tax_profile_id` (no FK — accounting's, never evaluated here, `OD-9`), `status` (`RF-007`) | uk(`client_code`); uk(`owner_id`) — one client per owner | `owner_id ↓base whb_owners` | `FR-282` `FR-303` | v2 |
 | `wh3_client_counterparties` | **A client's parties by role** — bill-to, consignor and importer are different parties of one client (`RG-017`) | `client_id`, `counterparty_id`, `role`, `effective_from`, `effective_to` | `EXCLUDE (client_id =, counterparty_id =, role =, range &&)` | `client_id → wh3_clients`; `counterparty_id ↓base whb_counterparties` | `FR-282` | v2 |
 | `wh3_client_onboarding_templates` | **Onboarding is a task set from a template**, so every client is onboarded the same way | `code`, `name`, `is_default` | uk(`code`) | — | `FR-283` | v2 |
 | `wh3_client_onboarding_template_tasks` | | `template_id`, `sequence`, `task_name`, `owner_role`, `due_offset_days`, `is_blocking` | uk(`template_id`,`sequence`) | as named | `FR-283` | v2 |
@@ -1456,12 +1460,13 @@ and a CSV fallback covers an install with no accounting module.
 | `wh3_charge_codes` | **`D-10`'s thirteenth registry, living where the charges do.** A master with tax and revenue mapping, not strings on a rate line | `code`, `name`, `category`, `default_uom_code`, `is_recurring`, `is_pass_through`, `is_taxable`, `tax_classification_code`, `revenue_account_ref`, `owning_module`, `is_system`, `is_active` | uk(`code`) | `default_uom_code ↓base whb_uoms(code)`; `revenue_account_ref` is a **VARCHAR account code, not an FK** | `FR-286` `D-10` | v2 |
 | `wh3_rate_cards` | **Versioned and effective-dated**; a card may inherit a standard card and override lines. The clients it prices are `wh3_rate_card_clients`; **a card with no client row is the standard card** (`RG-017`) | `card_code`, `version`, `inherits_from_card_id`, `effective_from`, `effective_to`, `currency_code`, `status` (`DRAFT`/`ACTIVE`/`SUPERSEDED`), `approved_by`, `approved_at` | uk(`card_code`,`version`) | self | `FR-287` `FR-296` | v2 |
 | `wh3_rate_card_clients` | **The clients a card prices** — a negotiated card shared across a client group. The *"one `ACTIVE` card per client"* guard lives here, as an `EXCLUDE` (`RG-017`) | `card_id`, `client_id`, `effective_from`, `effective_to` | `EXCLUDE (client_id =, range &&)` over the rows of `ACTIVE` cards — a second `ACTIVE` card for one client over an overlapping range is refused | `card_id → wh3_rate_cards`; `client_id → wh3_clients` | `FR-287` | v2 |
-| `wh3_rate_card_lines` | | `card_id`, `charge_code`, `uom_code`, `rate`, `minimum_quantity`, `tier_from`, `tier_to`, `charge_kind` (`PER_UNIT`/`TIERED`/`FLAT`/`MINIMUM`), `basis` (whitelisted), `sequence` | uk(`card_id`,`charge_code`,`tier_from`) | as named | `FR-287` `FR-290` | v2 |
-| `wh3_billable_events` | **The whole billing engine.** Append-only and reversible, exactly like the stock ledger, with **its own idempotency key** | `event_code`, `client_id`, `owner_id`, `warehouse_id`, `charge_code`, `quantity`, `uom_code`, `occurred_at`, `posting_date`, `source_system`, `idempotency_key`, `outbox_cursor`, `subject_type`, `subject_id`, `is_reversed`, `reversal_of_event_id`, `billing_run_id` | uk(`source_system`,`idempotency_key`); idx(`client_id`,`posting_date`) `WHERE billing_run_id IS NULL`; idx(`outbox_cursor`) | ↓base `owner_id`, `warehouse_id`, `uom_code`; `client_id → wh3_clients` | `FR-285` `FR-299` | v2 |
-| `wh3_storage_billing_periods` | The storage computation for a period, **reading `whb_stock_position_snapshots` and never recomputing occupancy** | `client_id`, `period_from`, `period_to`, `method` (`PERIOD_END`/`PERIOD_START`/`ANNIVERSARY`/`AVERAGE_DAILY`), `basis` (`PALLET`/`SQFT`/`CBM`/`UNIT`), `computed_at`, `total_units`, `total_charge`, `status` | uk(`client_id`,`period_from`,`method`) | as named | `FR-288` `FR-289` | v2 |
-| `wh3_storage_billing_lines` | The per-identity detail behind the number, so a client dispute is answerable | `period_id`, `snapshot_date`, `item_id`, `lpn_id`, `location_id`, `units`, `age_days`, `anniversary_anchor_date`, `rate`, `charge` | idx(`period_id`) | ↓base | `FR-288` | v2 |
+| `wh3_rate_card_lines` | | `card_id`, `charge_code`, `uom_code`, `rate`, `minimum_quantity`, `tier_from`, `tier_to`, `charge_kind` (`PER_UNIT`/`TIERED`/`FLAT`/`MINIMUM`), `basis` (whitelist: `PALLET`/`LOCATION`/`UNIT`/`WEIGHT`/`CUBIC`/`SQFT_OCCUPIED`/`SQFT_ALLOCATED` for storage, `EVENT` for every other charge), `free_quantity`, `minimum_charge`, `maximum_charge`, `rounding_mode` (`NONE`/`UP`/`NEAREST`), `sequence` (`RF-007`) | uk(`card_id`,`charge_code`,`tier_from`) | as named | `FR-287` `FR-290` | v2 |
+| `wh3_storage_aging_bands` | **Aged-inventory surcharge bands** on a storage rate-card line (`RF-007`) | `rate_card_line_id`, `age_from_days`, `age_to_days`, `surcharge_percent` (`DECIMAL(9,6)`) | `EXCLUDE (rate_card_line_id =, int4range(age_from_days, age_to_days) &&)` — bands on one line never overlap | `rate_card_line_id → wh3_rate_card_lines` | `FR-288` | v2 |
+| `wh3_billable_events` | **The whole billing engine.** Append-only and reversible, exactly like the stock ledger, with **its own idempotency key** | `event_code`, `client_id`, `owner_id`, `warehouse_id`, `charge_code`, `quantity`, `uom_code`, `occurred_at`, `posting_date`, `source_system`, `source_event_key`, `outbox_cursor`, `subject_type`, `subject_id`, `rate_card_line_id`, `unit_rate`, `rated_amount`, `currency_code`, `status` (`METERED`/`RATED`/`BILLED`/`REVERSED`/`EXCLUDED`), `exclusion_reason_code`, `reversal_of_event_id`, `billing_run_id`, `updated_at`, `updated_by`. **Append-only except the allowlist** `rate_card_line_id`, `unit_rate`, `rated_amount`, `status`, `exclusion_reason_code`, `billing_run_id`, `updated_at`, `updated_by`, guarded by a `to_jsonb`-diff trigger (`RF-008`) | uk(`source_system`,`source_event_key`); idx(`client_id`,`posting_date`) `WHERE billing_run_id IS NULL`; idx(`outbox_cursor`) | ↓base `owner_id`, `warehouse_id`, `uom_code`; `client_id → wh3_clients` | `FR-285` `FR-299` | v2 |
+| `wh3_storage_billing_periods` | The storage computation for a period, **reading `whb_stock_position_snapshots` and never recomputing occupancy** | `client_id`, `period_from`, `period_to`, `method` (`PERIOD_END`/`PERIOD_START`/`ANNIVERSARY`/`AVERAGE_DAILY`/`SPLIT_MONTH`), `basis` (`wh3_rate_card_lines`' storage whitelist, `RF-007`), `computed_at`, `total_units`, `total_charge`, `status` | uk(`client_id`,`period_from`,`method`) | as named | `FR-288` `FR-289` | v2 |
+| `wh3_storage_billing_lines` | The per-identity detail behind the number, so a client dispute is answerable | `period_id`, `snapshot_date`, `item_id`, `lpn_id`, `location_id`, `units`, `age_days`, `anniversary_anchor_date`, `rate`, `charge`, `free_days_applied`, `days_charged`, `is_prorated` (`RF-007`) | idx(`period_id`) | ↓base | `FR-288` | v2 |
 | `wh3_billing_runs` | **An object with a frozen approved state** | `run_number`, `client_id`, `period_from`, `period_to`, `run_type`, `status` (`DRAFT`/`RATED`/`APPROVED`/`INVOICED`/`CANCELLED`), `rated_at`, `approved_at`, `approved_by`, `invoiced_at`, `rate_card_id`, `subtotal`, `tax_amount`, `total_amount`, `currency_code` | uk(`run_number`); idx(`client_id`,`period_from`) | as named | `FR-292` | v2 |
-| `wh3_billing_run_lines` | One line per charge code, with the arithmetic **shown** | `run_id`, `charge_code`, `quantity`, `uom_code`, `rate`, `amount`, `event_count`, `computation_note`, `is_minimum_true_up`, `is_sla_credit`, `accessorial_id`, `dispute_id` | idx(`run_id`) | as named | `FR-290` `FR-292` `FR-299` | v2 |
+| `wh3_billing_run_lines` | One line per charge code, with the arithmetic **shown** | `run_id`, `line_no`, `charge_code`, `quantity`, `uom_code`, `rate`, `amount`, `event_count`, `computation_note`, `is_minimum_true_up`, `is_sla_credit`, `accessorial_id`, `dispute_id` | uk(`run_id`,`line_no`) — `R-4`'s tie-break ordinal (`RF-009`) | as named | `FR-290` `FR-292` `FR-299` | v2 |
 | `wh3_accessorials` | Ad-hoc charges **with an author, a date, a reason and an approval threshold** | `accessorial_number`, `client_id`, `charge_code`, `quantity`, `rate`, `amount`, `reason`, `raised_by`, `raised_at`, `approved_by`, `approved_at`, `subject_type`, `subject_id`, `status` | uk(`accessorial_number`); idx(`client_id`,`status`) | as named | `FR-291` | v2 |
 | `wh3_disputes` | **Disputes are records**, raisable from the portal. An upheld dispute becomes a credit charge code, never a silent edit | `dispute_number`, `client_id`, `billing_run_id`, `billing_run_line_id`, `reason`, `disputed_quantity`, `disputed_amount`, `status`, `raised_by`, `raised_at`, `resolved_by`, `resolved_at`, `resolution`, `credit_charge_code` | uk(`dispute_number`); idx(`client_id`,`status`) | as named | `FR-293` | v2 |
 | `wh3_freight_billing_rules` | **Four modes** — at cost, cost plus percent, cost plus fixed, own published tariff — plus the client's own carrier account | `client_id`, `mode`, `markup_percent`, `markup_fixed`, `tariff_card_id`, `carrier_account_id`, `effective_from`, `effective_to` | uk(`client_id`,`effective_from`) | `carrier_account_id ↓app wh_carrier_accounts` | `FR-295` | v2 |
@@ -1578,6 +1583,8 @@ The adapter that **proves the port**: counter sale, workshop parts request, OEM 
 | `whad_vehicle_fitments` | **Vehicle fitment lives here and never in `warehouse-base`.** If base learns about vehicle models it is no longer country- or vertical-neutral | `item_id`, `model_id`, `variant_id`, `year_from`, `year_to`, `position`, `notes` | `item_id ↓base whb_items`; `model_id`/`variant_id → automotive` masters (**sideways within the adapter's own dependency set — legal, §3.2**) | `FR-074` | v1 |
 | `whad_counter_sales` | **Keyboard-first**: scan or part number, quantity, price level, print, next — a sub-ten-second bill. **The pair rule** (`FR-461`): `(branch_id, warehouse_id)` is valid only if the branch holds a current `REGISTERED` or `SERVING` link to the site **and** its `branches.gst_number` equals the site's `REGISTERED` GSTIN. A `SERVING` branch under a different GSTIN is refused with `422 CROSS_GSTIN_COUNTER_SALE` and offered *Raise request*. The adapter compares `branches.gst_number` because it cannot read `whin_` (`D-1`) | `sale_number`, `branch_id`, `warehouse_id`, `customer_counterparty_id`, `price_level`, `subtotal`, `tax_amount`, `total_amount`, `payment_mode`, `demand_order_id`, `status` | ↓base; `demand_order_id ↓app wh_demand_orders`; `branch_id ↓platform branches(id)` | `FR-358` `FR-359` | v1 |
 | `whad_counter_sale_lines` | | `sale_id`, `line_no`, `item_id`, `quantity`, `unit_price`, `discount_percent`, `line_total`, `is_superseded_substitute`, `original_item_id` | ↓base | `FR-359` `FR-073` | v1 |
+| `whad_price_levels` | **The price-level vocabulary** (`RA-002`) — a `D-10` catalogue with no `CHECK`; adapter-owned, so base learns nothing about selling (`D-11`) | `code`, `name`, `is_default`, `is_active` | — | `FR-359` | v1 |
+| `whad_item_prices` | **What a price level resolves to** (`RA-002`) — loaded through `ImportButton` on WS-239; `whad_price_files` (v1.1) later becomes a second loader into the same table | `item_id`, `price_level_code`, `unit_price`, `currency_code`, `effective_from`, `effective_to`; uk(`item_id`,`price_level_code`,`effective_from`) | `item_id ↓base whb_items`; `price_level_code → whad_price_levels(code)` | `FR-359` | v1 |
 | `whad_oem_orders` | The OEM order and its acknowledgement — allocated and back-ordered quantities and an ETA per line | `oem_order_number`, `oem_counterparty_id`, `warehouse_id`, `order_source`, `transmitted_at`, `acknowledged_at`, `status`, `po_id` | ↓base; `po_id ↓app wh_purchase_orders` | `FR-358` `FR-420` | v1 (order) · v1.1 (interface) |
 | `whad_oem_order_lines` | | `oem_order_id`, `line_no`, `item_id`, `ordered_quantity`, `allocated_quantity`, `backordered_quantity`, `eta_date`, `oem_status_code` | ↓base | `FR-420` | v1.1 |
 | `whad_price_files` | An OEM price file loads with a **dry-run diff before apply** | `file_reference`, `oem_counterparty_id`, `effective_date`, `import_batch_id`, `status`, `applied_at`, `applied_by` | `import_batch_id ↓base whb_import_batches` | `FR-419` | v1.1 |
@@ -2464,7 +2471,9 @@ parent exactly.
 **R-4 — Splits use largest remainder.** When one rounded amount is divided across N components —
 landed cost apportioned across receipt lines, a minimum charge trued up across charge codes, a kit's
 cost across outputs — assign `floor` of each provisional share, then distribute the remaining minor
-units one at a time, **largest fractional remainder first, ties broken by `line_no`**. Σ parts == whole,
+units one at a time, **largest fractional remainder first, ties broken by the sink's declared ordinal** — `line_no` on a
+document line, `line_no` on a billing run line, `sequence` on a kit output — and every sink of a
+largest-remainder split must declare one (`RF-009`). Σ parts == whole,
 always. This is why `wh_landed_cost_allocations` stores the allocated amount rather than recomputing
 it: the apportionment must be reproducible next year, and a recomputation against a changed line set
 would not be.
@@ -2819,6 +2828,11 @@ CREATE TRIGGER trg_whb_movement_lines_immutable
 > `reversed_by_movement_id` by the reversal service. Everything else — including `unit_cost`,
 > including `moving_average_after`, including `occurred_at` — is frozen. Adding a sixth column to this
 > array is a design decision with an argument, not a convenience.
+>
+> **`RF-001`, adopted 2026-09-11: `moving_average_after` is never restated.** It is the snapshot of the
+> average when that line posted (`IRR-39`). A backdated receipt inserts a cost layer, and the *current*
+> average is `Σ open layer_value / Σ open quantity_remaining`, computed on read and never stored. A
+> backdated FIFO layer is consumed by future issues only. The line allowlist therefore stays `'{}'`.
 >
 > **And the trap `IRREVERSIBLE.md` §3.1 names:** `ALTER TABLE … ADD COLUMN` is DDL, so this trigger
 > does not block it — but `UPDATE` is DML, so it **does**. Every column added after `V500030` is
@@ -3293,7 +3307,9 @@ Every one of these is covered by a test, and the tests are named in the task fil
 | WHB-44 | `V500044` | `whb_owner_grants` | v1 |
 | WHB-45 | `V500045` | `whb_stock_position_snapshots` (partitioned by `snapshot_date`, non-zero positions only), `whb_position_drift_findings` ★ **PNR-3 for the snapshot job's start date** — occupancy on each past day cannot be cheaply reconstructed, so storage billing, ageing, days-on-hand and obsolescence all begin on the day the job was switched on ★ | v1 |
 | WHB-46 | `V500046` | `whb_import_batches`, `whb_import_batch_rows` | v1 |
-| — | `V500047`–`V500049` | *gap* | — |
+| `P1-18` | `V500047` | `whb_warehouse_grants` (`RA-001`) — the warehouse axis beside `WHB-44`'s `whb_owner_grants`. After `PNR-1`; reversible | v1 |
+| `P2-21` | `V500048` | `whb_metric_definitions` (`RC-007`) — the KPI catalogue. The first number of the plain gap, allocated 2026-09-11 by the round-3 fold (lane `W0-1b`) | v1 |
+| — | `V500049` | *gap* | — |
 | WHB-50 | `V500050` | `whb_item_site_settings`, `whb_item_supplier_sources`, `whb_item_supersessions` | v1 |
 | WHB-51 | `V500051` | `whb_channels` | v1 |
 | WHB-52 | `V500052` | `whb_transport_details` | v1 |
@@ -3358,7 +3374,7 @@ named in that migration's row.
 | WH-10 | `V510019` | `wh_reconciliation_cases`, `wh_reconciliation_case_events` | v1 |
 | WH-11 | `V510020` | `wh_supplier_returns`, `wh_supplier_return_lines` | v1 |
 | — | `V510021`–`V510029` | *gap* | — |
-| WH-20 | `V510030` | `wh_stock_adjustments`, `wh_stock_adjustment_lines` | v1 |
+| WH-20 | `V510030` | `wh_stock_adjustments`, `wh_stock_adjustment_lines`, `wh_adjustment_approval_policies` (`RA-008`) | v1 |
 | WH-21 | `V510031` | `wh_transfer_orders` (the ladder incl. `REQUESTED`; `source_warehouse_branch_id`/`destination_warehouse_branch_id`; the same-company guard), `wh_transfer_order_lines` (`approved_quantity`) — `RK-001`, `RG-001` | v1 |
 | WH-22 | `V510032` | `wh_hold_types` + seed, `wh_holds` | v1 |
 | WH-23 | `V510033` | `wh_count_programs`, `wh_count_program_scopes`, `wh_counts`, `wh_count_zone_assignments`, `wh_count_lines`, `wh_count_tasks` ★ **PNR-3 for `count_snapshot_quantity`** — variance computed against a *live* quantity is not reproducible, so last quarter's count cannot be defended ★ | v1 |
@@ -3376,7 +3392,8 @@ named in that migration's row.
 | WH-60 | `V510070` | `wh_replenishment_runs`, `wh_replenishment_suggestions`, `wh_demand_history` | v1 |
 | WH-70 | `V510080` | `wh_landed_cost_documents`, `wh_landed_cost_allocations`, `wh_revaluations`, `wh_revaluation_lines` | v1 |
 | WH-80 | `V510090` | `wh_opening_stock_batches`, `wh_opening_stock_lines`, `wh_cutover_checklists`, `wh_cutover_checklist_items` | v1 |
-| — | `V510091`–`V510099` | *gap* | — |
+| `P2-21` | `V510091` | `wh_metric_targets` (`RC-007`). The first number of the plain gap after WH-80, allocated 2026-09-11 by the round-3 fold (lane `W0-1b`) | v1 |
+| — | `V510092`–`V510099` | *gap* | — |
 | WH-90 | `V510100` | `wh_waves`, `wh_wave_criteria`, `wh_wave_orders` | v1.1 |
 | WH-91 | `V510101` | `wh_pack_sessions` (the carton tables are already at `V510042`) | v1.1 |
 | WH-92 | `V510102` | `wh_work_orders`, `wh_work_order_lines`, `wh_vas_service_types` | v1.1 |
@@ -3417,14 +3434,14 @@ named in that migration's row.
 | `P2-23` | `V511180` | The `WS-241` grid configuration — one grid migration inside `WH-203`'s range, left free by `P3-04` | v2 |
 | WH-204 | `V511200` | `admin_settings` seed, category `WAREHOUSE` (app-owned keys) | v1 |
 | WH-205 | — | **No migration.** Cache names in `CacheConfiguration.java`; filter scopes in `filterUtils.ts` | v1 |
-| WH-206 | `V511201`–`V511260` | **Verb permissions and their dependency rows, P2 onward** — `V511201`–`V511230` one permission migration per task that ships a transition, `V511231`–`V511260` its matching `permission_dependencies` row. Carved out of the reserved block so that no P2+ task has to edit `WH-200`'s released `V511000` (`Q-001`). **Claimed pairs** (`GAP-REGISTER-R4.md` §4.0, `RJ-005`): `V511201`+`V511231` `P2-01` · `V511202`+`V511232` `P2-02` (transfer `request` `approve` `reject` `report_variance` `cancel`) · `V511203`+`V511233` `P2-04` · `V511204`+`V511234` `P2-10` · `V511205`+`V511235` `P2-12` · `V511206`+`V511236` `P2-13` · `V511207`+`V511237` `P2-15` · `V511208`+`V511238` `P3-11` · `V511209`+`V511239` `P5-08` · `V511210`+`V511240` `P2-23`; `V511211`–`V511230` and `V511241`–`V511260` free | v1 |
+| WH-206 | `V511201`–`V511260` | **Verb permissions and their dependency rows, P2 onward** — `V511201`–`V511230` one permission migration per task that ships a transition, `V511231`–`V511260` its matching `permission_dependencies` row. Carved out of the reserved block so that no P2+ task has to edit `WH-200`'s released `V511000` (`Q-001`). **Claimed pairs** (`GAP-REGISTER-R4.md` §4.0, `RJ-005`): `V511201`+`V511231` `P2-01` · `V511202`+`V511232` `P2-02` (transfer `request` `approve` `reject` `report_variance` `cancel`) · `V511203`+`V511233` `P2-04` · `V511204`+`V511234` `P2-10` · `V511205`+`V511235` `P2-12` · `V511206`+`V511236` `P2-13` · `V511207`+`V511237` `P2-15` · `V511208`+`V511238` `P3-11` · `V511209`+`V511239` `P5-08` · `V511210`+`V511240` `P2-23` · `V511211`+`V511241` `P2-21` (`wh_metric_targets:*`, `RC-007`); `V511212`–`V511230` and `V511242`–`V511260` free | v1 |
 | — | `V511261`–`V519999` | **Reserved: ~8,700 numbers** for post-v1 app work | — |
 
 ### 7.4 The adapters — V520000 to V529999, sub-allocated
 
 | Sub-band | Owner | Prefix | Ships | Content |
 |---|---|---|---|---|
-| **V520000–V520999** | `warehouse-adapter-dealer` | `whad_` | v1 | `V520000` bootstrap + source-system and movement-type seed rows · `V520010` `whad_vehicle_fitments` · `V520011` `whad_counter_sales`, `whad_counter_sale_lines` · `V520012` `whad_oem_orders`, `whad_oem_order_lines` · `V520013` `whad_price_files`, `whad_price_file_lines` (v1.1) · `V520014` `whad_core_exchanges` (v2) · `V520100`+ permissions, menus, grids |
+| **V520000–V520999** | `warehouse-adapter-dealer` | `whad_` | v1 | `V520000` bootstrap + source-system and movement-type seed rows · `V520010` `whad_vehicle_fitments` · `V520011` `whad_counter_sales`, `whad_counter_sale_lines` · `V520012` `whad_oem_orders`, `whad_oem_order_lines` · `V520013` `whad_price_files`, `whad_price_file_lines` (v1.1) · `V520014` `whad_core_exchanges` (v2) · `V520015` `whad_price_levels`, `whad_item_prices` (`RA-002`) · `V520100`+ permissions, menus, grids |
 | **V521000–V521999** | `warehouse-adapter-services` | `whas_` | v1 | `V521000` bootstrap + seed · `V521010` `whas_material_requests`, `whas_material_request_lines` · `V521011` `whas_job_part_issues` · `V521012` `whas_fitted_serials` · `V521013` `whas_warranty_holds` (v2) · `V521100`+ config |
 | **V522000–V522999** | `warehouse-adapter-field-service` | `whaf_` | v1.1 | `V522000` bootstrap + seed · `V522010` `whaf_van_stock_assignments` · `V522011` `whaf_van_replenishments` · `V522012` `whaf_job_consumptions` · `V522100`+ config |
 | **V523000–V523999** | `warehouse-adapter-assets` | `whaa_` | v1.1 | `V523000` bootstrap + seed · `V523010` `whaa_spare_consumptions` · `V523011` `whaa_asset_item_links` · `V523100`+ config |
@@ -3445,7 +3462,7 @@ table and **never** widens a base `CHECK`; it inserts a row.
 | W3-01 | `V530010` | `wh3_clients` — **`uk(owner_id)`, the one structural link into base, pointing down**; **`wh3_client_counterparties`** (`RG-017`) |
 | W3-02 | `V530011` | `wh3_client_onboarding_templates`, `wh3_client_onboarding_template_tasks`, `wh3_client_onboarding_tasks` |
 | W3-03 | `V530020` | `wh3_charge_codes` |
-| W3-04 | `V530021` | `wh3_rate_cards`, `wh3_rate_card_lines`, **`wh3_rate_card_clients`** (one `ACTIVE` card per client as an `EXCLUDE`, `RG-017`) |
+| W3-04 | `V530021` | `wh3_rate_cards`, `wh3_rate_card_lines`, **`wh3_rate_card_clients`** (one `ACTIVE` card per client as an `EXCLUDE`, `RG-017`), **`wh3_storage_aging_bands`** (`RF-007`) |
 | W3-05 | `V530030` | `wh3_billable_events` |
 | W3-06 | `V530031` | `wh3_storage_billing_periods`, `wh3_storage_billing_lines` |
 | W3-07 | `V530040` | `wh3_billing_runs`, `wh3_billing_run_lines` |
@@ -3565,8 +3582,10 @@ wh3_sla_breaches
 wh3_sla_definition_clients
 wh3_sla_definitions
 wh3_sla_measurements
+wh3_storage_aging_bands
 wh3_storage_billing_lines
 wh3_storage_billing_periods
+wh_adjustment_approval_policies
 wh_approval_levels
 wh_asn_line_serials
 wh_asn_lines
@@ -3622,6 +3641,7 @@ wh_landed_cost_documents
 wh_manifest_shipments
 wh_manifests
 wh_marketplace_claims
+wh_metric_targets
 wh_migration_mappings
 wh_ndr_actions
 wh_nrv_assessments
@@ -3700,10 +3720,12 @@ whaa_spare_consumptions
 whad_core_exchanges
 whad_counter_sale_lines
 whad_counter_sales
+whad_item_prices
 whad_oem_order_lines
 whad_oem_orders
 whad_price_file_lines
 whad_price_files
+whad_price_levels
 whad_vehicle_fitments
 whae_example_documents
 whaf_job_consumptions
@@ -3791,6 +3813,7 @@ whb_lot_counterparties
 whb_lots
 whb_lpns
 whb_master_merges
+whb_metric_definitions
 whb_movement_batch_results
 whb_movement_batches
 whb_movement_line_attributes
@@ -3842,6 +3865,7 @@ whb_valuation_policies
 whb_warehouse_branch_roles
 whb_warehouse_branches
 whb_warehouse_companies
+whb_warehouse_grants
 whb_warehouses
 whin_approval_clocks
 whin_approval_dispatches
@@ -3943,20 +3967,23 @@ Re-run 2026-09-02 against this file, after the eleven tables §7 allocated on th
 again after the round-2 review added thirteen more (`WHB-55`, `WHB-56`, `WHB-67`, `WH-116`, `WIN-23`),
 and again **2026-09-10 after round 4 added forty-one** (`D-14`'s junctions, registries 15–17, the code
 lists and typed attributes, and the v1.1/v2 tables `GAP-REGISTER-R4.md` §4.0 allocated — 29 base,
-7 app, 2 India, 3 3PL; 317 → 358):
+7 app, 2 India, 3 3PL; 317 → 358), and **2026-09-11 after round 3's fold added one** (`whb_warehouse_grants`,
+`RA-001`; 358 → 359), and **the same day after its second lane (`W0-1b`) added six**
+(`whb_metric_definitions`, `wh_adjustment_approval_policies`, `wh_metric_targets`,
+`wh3_storage_aging_bands`, `whad_price_levels`, `whad_item_prices`; 359 → 365):
 
 | Module | Prefix | Tables | Band | Ships |
 |---|---|---:|---|---|
-| `warehouse-base` | `whb_` | **129** | V500000–V509999 | v1 · v1.1 · v2 · v3 |
-| `warehouse` | `wh_` | **128** | V510000–V519999 | v1 · v1.1 · v2 |
+| `warehouse-base` | `whb_` | **131** | V500000–V509999 | v1 · v1.1 · v2 · v3 |
+| `warehouse` | `wh_` | **130** | V510000–V519999 | v1 · v1.1 · v2 |
 | `warehouse-india` | `whin_` | **58** | V540000–V549999 | v1 wave · v2 wave |
-| `warehouse-3pl` | `wh3_` | **24** | V530000–V539999 | v2 · v3 |
-| `warehouse-adapter-dealer` | `whad_` | **8** | V520000–V520999 | v1 · v1.1 · v2 |
+| `warehouse-3pl` | `wh3_` | **25** | V530000–V539999 | v2 · v3 |
+| `warehouse-adapter-dealer` | `whad_` | **10** | V520000–V520999 | v1 · v1.1 · v2 |
 | `warehouse-adapter-services` | `whas_` | **5** | V521000–V521999 | v1 · v2 |
 | `warehouse-adapter-field-service` | `whaf_` | **3** | V522000–V522999 | v1.1 |
 | `warehouse-adapter-assets` | `whaa_` | **2** | V523000–V523999 | v1.1 |
 | `warehouse-adapter-example` | `whae_` | **1** | V525000–V525999 | v1 |
-| **Total** | | **358** | | |
+| **Total** | | **365** | | |
 
 **Cross-check: `0` tables without an allocated migration** (the third command above, re-run
 2026-09-10 after the round-4 additions).
@@ -4040,8 +4067,10 @@ wh3_sla_breaches v2
 wh3_sla_definition_clients v2
 wh3_sla_definitions v2
 wh3_sla_measurements v2
+wh3_storage_aging_bands v2
 wh3_storage_billing_lines v2
 wh3_storage_billing_periods v2
+wh_adjustment_approval_policies v1
 wh_approval_levels v2
 wh_asn_line_serials v1.1
 wh_asn_lines v1.1
@@ -4097,6 +4126,7 @@ wh_landed_cost_documents v1
 wh_manifest_shipments v1.1
 wh_manifests v1.1
 wh_marketplace_claims v2
+wh_metric_targets v1
 wh_migration_mappings v1.1
 wh_ndr_actions v2
 wh_nrv_assessments v2
@@ -4175,10 +4205,12 @@ whaa_spare_consumptions v1.1
 whad_core_exchanges v2
 whad_counter_sale_lines v1
 whad_counter_sales v1
+whad_item_prices v1
 whad_oem_order_lines v1.1
 whad_oem_orders v1
 whad_price_file_lines v1.1
 whad_price_files v1.1
+whad_price_levels v1
 whad_vehicle_fitments v1
 whae_example_documents v1
 whaf_job_consumptions v1.1
@@ -4266,6 +4298,7 @@ whb_lot_counterparties v1
 whb_lots v1
 whb_lpns v1
 whb_master_merges v1
+whb_metric_definitions v1
 whb_movement_batch_results v1
 whb_movement_batches v1
 whb_movement_line_attributes v1
@@ -4317,6 +4350,7 @@ whb_valuation_policies v1
 whb_warehouse_branch_roles v1
 whb_warehouse_branches v1
 whb_warehouse_companies v2
+whb_warehouse_grants v1
 whb_warehouses v1
 whin_approval_clocks v2
 whin_approval_dispatches v2
@@ -4423,17 +4457,22 @@ cannot drift as they did before round 2: the same forty-one names were inserted 
 version its §2 row gives (a `v1 schema, v2 screens` row counts as `v1`), and the command's output below
 replaces the 2026-09-02 figures (v1 173 → 191, v1.1 40 → 42, v2 100 → 121, total 317 → 358).
 
-Re-run 2026-09-10 against this file:
+**Round-3 regeneration, 2026-09-11.** Re-run after the round-3 fold's second lane (`W0-1b`) inserted its
+six tables into both §8.1 and this block at the versions their §2 rows give. The figures also pick up
+`whb_warehouse_grants` (v1), which the first round-3 lane added to §8.2's module table but not to the
+block (v1 191 → 197, v2 121 → 122, total 358 → 365).
+
+Re-run 2026-09-11 against this file:
 
 | Version | Base | App | India | 3PL | Adapters | Total |
 |---|---:|---:|---:|---:|---:|---:|
-| **v1** — the stock ledger and inventory control | 98 | 68 | 16 | 0 | 9 | **191** |
+| **v1** — the stock ledger and inventory control | 100 | 70 | 16 | 0 | 11 | **197** |
 | **v1.1** — execution and mobile | 12 | 22 | 0 | 0 | 8 | **42** |
-| **v2** — India statutory, 3PL, channels, reverse logistics | 16 | 38 | 42 | 23 | 2 | **121** |
+| **v2** — India statutory, 3PL, channels, reverse logistics | 16 | 38 | 42 | 24 | 2 | **122** |
 | **v3** — optimisation, planning, the logistics seam | 3 | 0 | 0 | 1 | 0 | **4** |
-| **Total** | **129** | **128** | **58** | **24** | **19** | **358** |
+| **Total** | **131** | **130** | **58** | **25** | **21** | **365** |
 
-**191 tables in v1 is the number to argue with, and it is deliberately large.** Roughly a third of
+**197 tables in v1 is the number to argue with, and it is deliberately large.** Roughly a third of
 them carry no v1 screen: the ledger's twelve prerequisites, the seventeen registries, the four
 external-ref tables, the outbox, the owner grants, the transformation genealogy, the cost layers, the
 snapshot table, and `D-9`'s two mandatory coexistence tables. Every one of them is on

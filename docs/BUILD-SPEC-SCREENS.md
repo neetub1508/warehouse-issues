@@ -556,8 +556,8 @@ failed"***.
 
 ```bash
 f=docs/BUILD-SPEC-SCREENS.md
-grep -cE '^\| WS-[0-9]{3} \|' $f                       # screens        → 239 (237 + WS-240, WS-241, round 4)
-awk -F'|' '/^\| WS-[0-9]{3} \|/ && $7 ~ /Y/' $f | wc -l # configured grids → 216 (214 + WS-240, WS-241)
+grep -cE '^\| WS-[0-9]{3} \|' $f                       # screens        → 243 (237 + WS-240, WS-241, round 4; WS-238, WS-239, WS-243, WS-244, round 3)
+awk -F'|' '/^\| WS-[0-9]{3} \|/ && $7 ~ /Y/' $f | wc -l # configured grids → 220 (214 + WS-240, WS-241, WS-238, WS-239, WS-243, WS-244)
 ```
 
 | id | Screen | Module | Route | Ref | G | Ver · Ph |
@@ -799,15 +799,24 @@ awk -F'|' '/^\| WS-[0-9]{3} \|/ && $7 ~ /Y/' $f | wc -l # configured grids → 2
 | WS-235 | RF Cycle Count | mobile | `screens/whRfCycleCount` | — | N | v1.1 · P3 |
 | WS-236 | RF Stock Enquiry | mobile | `screens/whRfStockEnquiry` | — | N | v1.1 · P3 |
 | WS-237 | RF Task List | mobile | `screens/whRfTaskList` | — | N | v1.1 · P3 |
+| WS-238 | Warehouse Grants | base | `/warehouse/masters/warehouse-grants` | C | Y | v1 · P1 |
+| WS-239 | Item Prices | dealer | `/warehouse/dealer/item-prices` | D | Y | v1 · P2 |
 | WS-240 | Trade Portal | app | `/warehouse/outbound/trade-portal` | C | Y | v2 · P5 |
 | WS-241 | Approval Levels | app | `/warehouse/inventory/approval-levels` | D | Y | v2 · P5 |
+| WS-243 | Location Utilisation | app | `/warehouse/reports/location-utilisation` | C | Y | v3 · P6 |
+| WS-244 | Metric Targets | app | `/warehouse/reports/metric-targets` | D | Y | v1 · P2 |
 
-<!-- check-design-set: screen-citations begin WS-238 WS-239 WS-242 — the §1 allocation marker: WS-238/WS-239 are reserved for round 3's RA-001/RA-002 (GAP-REGISTER-R3.md §4.4) and have no row yet; WS-242 is the next free id -->
-**The allocation marker.** `WS-238` and `WS-239` are **reserved** for round 3's `RA-001` (*Warehouse
-Grants*) and `RA-002` (*Item Prices*), as `GAP-REGISTER-R3.md` §4.4 recommends, and have no row until that
-fold lands. `WS-240` and `WS-241` were allocated by `GAP-REGISTER-R4.md` §4.0. **The next free id is
-`WS-242`.** No other round-4 change takes a screen id. The round-4 junctions are sub-grids on existing
-screens: WS-015, WS-016, WS-017, WS-021, WS-023 and WS-173.
+<!-- check-design-set: screen-citations begin WS-242 WS-245 — the §1 allocation marker: WS-242 is reserved for P5-13's marketplace-claim queue and has no row until that task's PR adds one; WS-245 is the next free id -->
+**The allocation marker.** `WS-238` *Warehouse Grants* took its row on 2026-09-11, when round 3's `RA-001`
+was folded into `P1-18`. The same day's second fold (lane `W0-1b`):
+- gave `WS-239` *Item Prices* to `RA-002` (`P2-25`);
+- **reserved `WS-242`** for `P5-13`'s marketplace-claim queue, whose table has existed since `X-001`. It
+  has no row until that task's PR adds one;
+- allocated `WS-243` *Location Utilisation* (`RC-009`, `P6-02`, v3) and `WS-244` *Metric Targets*
+  (`RC-007`, `P2-21`).
+
+`WS-240` and `WS-241` were allocated by `GAP-REGISTER-R4.md` §4.0. **The next free id is `WS-245`.** The
+round-4 junctions are sub-grids on existing screens: WS-015, WS-016, WS-017, WS-021, WS-023 and WS-173.
 <!-- check-design-set: screen-citations end -->
 
 ---
@@ -1148,6 +1157,25 @@ range type) · `isActive` boolean.
 > owner the caller has no grant for is rejected **`403`, never returned empty**, because an empty grid
 > is indistinguishable from "no stock". A contract test fails the build if a repository method
 > touching an owner-scoped table has no owner-set parameter (`FR-406`).
+
+#### WS-238 · Warehouse Grants
+
+`/warehouse/masters/warehouse-grants` · **Customer** · `whb_warehouse_grants` · `WAREHOUSE_WAREHOUSE_GRANT` ·
+`whb_warehouse_grants:*` · v1 · **P1** · `FR-405` · table `V500047` · `RA-001`.
+
+**Columns:** `warehouseName` · `granteeType` (USER/ROLE/GROUP) · `granteeName` (rendered through the
+shared user-display helper where the grantee is a user) · `accessLevel` (VIEW/OPERATE/ADMIN) ·
+`effectiveFrom` (`dateOnly`) · `effectiveTo` (`dateOnly`) · `isActive` · audit quartet + names.
+**Filters:** `warehouseId` select → cascades `granteeType` select → cascades `granteeId` (async
+typeahead, scoped by grantee type — **scope before cap**) · `accessLevel` select ·
+`effectiveFromFrom` / `effectiveFromTo` (`dateOnly` pair) · `isActive` boolean.
+**Export:** visible + both audit names.
+**Actions:** row View / Edit / Revoke (sets `effective_to`, never deletes). Toolbar Add / Export.
+**Mobile:** `none` — access administration, desk only. Stated per `FR-218`.
+
+> The screen is a management surface over `P1-18`'s resolver, not the resolver. **A user with no grant
+> row is unscoped on this axis, not blind**: a grant narrows the branch-derived site set and never
+> widens it (`RA-001`, `RH-001`).
 
 #### WS-021 · Counterparties
 
@@ -2196,6 +2224,7 @@ one document type, one document kind, and a CI build. That is the point of it.
 | WS-195 | Vehicle Fitments · `whad_vehicle_fitments` · `WAREHOUSE_DEALER_VEHICLE_FITMENT` | C | `itemCode`, `modelName`, `variantName`, `yearFrom`, `yearTo`, `position`, `notes` | `modelId` → `variantId` → `itemId` typeahead · `yearFrom`/`yearTo` number pair | **Fitment lives here and never in `warehouse-base`** — if base learns about vehicle models it can no longer serve assets, field-service or logistics. References the automotive model master sideways | `FR-074` |
 | WS-196 | OEM Orders · `whad_oem_orders` (+ `_lines`) · `WAREHOUSE_DEALER_OEM_ORDER` | SV | `oemOrderNumber`, `oemName`, `warehouseName`, `orderSource`, `transmittedAt`, `acknowledgedAt`, `status`, `poNumber`, `lineCount`, `backorderedLines` | `warehouseId` → `oemCounterpartyId` → `status` · `transmittedFrom`/`To` | v1.1. Transmit · Consume acknowledgement (allocated and back-ordered quantities and an ETA per line) · Match receipt against the OEM invoice file · Raise discrepancy. **Format-pluggable per OEM; no single OEM's layout is hard-coded** | `FR-420` |
 | WS-197 | OEM Price Files · `whad_price_files` (+ `_lines`) · `WAREHOUSE_DEALER_PRICE_FILE` | SV | `fileReference`, `oemName`, `effectiveDate` (`dateOnly`), `importBatchNumber`, `status`, `appliedAt`, `appliedByName`, `lineCount`, `newCount`, `priceChangeCount`, `supersessionCount` | `oemCounterpartyId` → `status` · `effectiveFrom`/`To` `dateOnly` pair | v1.1. Upload · **Dry-run diff** (before apply, always) · Apply — writing item and price rows, supersessions and, where the direction warrants it, a **revaluation movement** for the on-hand quantity and a price-protection claim | `FR-419` |
+| WS-239 | Item Prices · `whad_item_prices` (+ `whad_price_levels`) · `WAREHOUSE_DEALER_ITEM_PRICE` | D | `itemCode`, `itemName`, `priceLevelCode`, `unitPrice`, `currencyCode`, `effectiveFrom` (`dateOnly`), `effectiveTo` (`dateOnly`) | `priceLevelCode` select (fetched) · `itemId` typeahead · `effectiveOn` (`dateOnly`) | v1 (`RA-002`). **`ImportButton`** in the Service Vehicle import pattern — thirty thousand prices are never keyed. A *Price levels* tab maintains `whad_price_levels`. The counter sale (WS-194) resolves a line's `unit_price` here by price level at the sale date, and a line with no price row is refused, never priced at zero. `whad_price_files` (WS-197, v1.1) later loads into the same table | `FR-359` |
 | WS-198 | Core Exchanges · `whad_core_exchanges` · `WAREHOUSE_DEALER_CORE_EXCHANGE` | SV | `exchangeNumber`, `orderLineRef`, `newItemCode`, `newSerialNumber`, `coreItemCode`, `coreDepositAmount`, `coreReturnDeadline` (`dateOnly`), `coreReceivedAt`, `gradingCode`, `creditAmount`, `status` | `status` select · `deadlineBefore` (`dateOnly`) · `overdueOnly` boolean | v2. **Cores are inventory**: a `CORE` item type linked to the serviceable part, a core charge, a **core-bank location with its own valuation**, a return deadline and a grading | `FR-277` |
 | WS-199 | Material Requests · `whas_material_requests` (+ `_lines`) · `WAREHOUSE_SERVICES_MATERIAL_REQUEST` | SV | `requestNumber`, `jobCardRef`, `warehouseName`, `requestedByName`, `technicianName`, `requestedAt`, `status`, `lineCount`, `reservedLines`, `issuedLines` | `warehouseId` → `status` **multiselect** · `technicianUserId` typeahead · `jobCardRef` text · `requestedFrom`/`To` | **A material request against a job card → reservation before it is picked.** Request · Reserve · Issue · Return unused · Cancel. `warehouse-adapter-services` is the largest consumer of the port and it ships in v1 because **one adapter proves nothing about genericity** | `FR-352` `FR-360` |
 | WS-200 | Job Part Issues & WIP · `whas_job_part_issues` · `WAREHOUSE_SERVICES_JOB_PART_ISSUE` | C | `jobCardRef`, `itemCode`, `quantity`, `unitCost`, `issuedAt`, `issuedByName`, `movementSequenceNo`, `isReturned`, `wipValue` | `warehouseId` → `itemId` · `jobCardRef` text · `issuedFrom`/`To` `date` pair · `openJobsOnly` boolean | **Parts issued to open jobs are neither stock nor cost of sale** and are reported as work-in-progress at every month end. That report is this grid with `openJobsOnly` on | `FR-361` |
@@ -2209,7 +2238,7 @@ flow degrades to a scan-first flow and the behaviour is identical), `screens/wha
 (a technician raises and receives a request from the bay), `screens/whafVanStock` (**the van
 reconciliation is the mobile flow, not a mirror of a web one** — the technician is never at a desk),
 `screens/whaaSpareConsumption` (issued against a complaint in the field).
-`none`, stated with the reason: WS-195 (a catalogue maintained by the parts manager), WS-196/197
+`none`, stated with the reason: WS-195 and WS-239 (catalogues maintained by the parts manager), WS-196/197
 (OEM integration, desk), WS-198 and WS-202 (v2 claim administration), WS-200/201 (reports).
 
 ### 6.9 The nine RF screens — WS-229 … WS-237
@@ -2276,7 +2305,7 @@ are text-pinned so Excel does not mangle them.
 | WS-209 | Stock Movement Register | `wh_rpt_movement_register` · `WAREHOUSE_RPT_MOVEMENT_REGISTER` | movement + line | line grain: `occurredAt`, `postingDate`, `movementTypeCode`, `sequenceNo`, `sourceSystem`, `sourceDocumentType`, `sourceDocumentNo`, `reasonCodeName`, `itemCode`, `ownerName`, `locationCode`, `lotCode`, `serialNumber`, `stockStatusCode`, `quantity`, `baseQuantity`, `uomCode`, `unitCost`, `extendedCost`, `actorUserName` | `warehouseId` → `movementTypeCode` → `reasonCodeId` · `itemId` · `lotId` · `serialNumber` text · `locationId` · `ownerId` · `sourceSystem` → `sourceDocumentType` · **`occurredFrom`/`occurredTo` (`date`)** · **`postingDateFrom`/`To` (`dateOnly`)** | Yes | `FR-385` |
 | WS-210 | Godown-wise Stock Statement | `wh_rpt_godown_statement` · `WAREHOUSE_RPT_GODOWN_STATEMENT` | movements aggregated per period | `warehouseName`, `itemCategoryName`, `itemCode`, `itemName`, `openingQuantity`, `openingValue`, `inwardQuantity`, `inwardValue`, `outwardQuantity`, `outwardValue`, `closingQuantity`, `closingValue` | **parameters:** `periodId` **or** `fromDate`/`toDate` (`dateOnly` pair) · `companyId` → `branchId` → `warehouseId` · `itemCategoryId` · `ownerId`. `branchId` groups by rule 4 — the `REGISTERED` branch at each movement's `occurred_at` | Yes | `FR-386` |
 | WS-211 | Stock Valuation (as-at) | `wh_rpt_valuation` · `WAREHOUSE_RPT_VALUATION` | ledger + `whb_cost_layers` | `itemCode`, `ownerName`, `warehouseName`, `lotCode`, `quantity`, `unitCost`, `value`, `method`, `currencyCode` | **parameter `asAtDate` (`dateOnly`, required)** · `companyId` → `warehouseId` → `itemCategoryId` · `ownerId` · `method` select · `valuedOnly` boolean. Branch grouping follows rule 4 (`REGISTERED` at `asAtDate`) | Yes | `FR-387` `FR-328` |
-| WS-212 | Stock Ageing | `wh_rpt_ageing` · `WAREHOUSE_RPT_AGEING` | `whb_stock_positions` + snapshots | `itemCode`, `warehouseName`, `ownerName`, `bucket0_30`, `bucket31_60`, `bucket61_90`, `bucket91_180`, `bucket181_365`, `bucketOver365`, each with a quantity **and a value**, `lastOutwardMovementAt` | **parameter `asAtDate`** · `warehouseId` → `itemCategoryId` → `itemId` · `ownerId` · `bucketSetCode` select. Branch grouping follows rule 4 (`REGISTERED` at `asAtDate`) | Yes | `FR-388` `FR-162` |
+| WS-212 | Stock Ageing | `wh_rpt_ageing` · `WAREHOUSE_RPT_AGEING` | `whb_stock_positions` + snapshots | `itemCode`, `warehouseName`, `ownerName`, `bucket0_30`, `bucket31_60`, `bucket61_90`, `bucket91_180`, `bucket181_365`, `bucketOver365`, each with a quantity **and a value**, `lastOutwardMovementAt` | **parameter `asAtDate`** · `warehouseId` → `itemCategoryId` → `itemId` · `ownerId`. The six bucket columns are fixed, so there is no bucket-set filter (`RB-008`). Branch grouping follows rule 4 (`REGISTERED` at `asAtDate`) | Yes | `FR-388` `FR-162` |
 | WS-213 | Adjustment Register | `wh_rpt_adjustment_register` · `WAREHOUSE_RPT_ADJUSTMENT_REGISTER` | movements with adjustment types | `postingDate`, `adjustmentNumber`, `reasonCodeName`, `warehouseName`, `itemCode`, `quantity`, `valueImpact`, `actorUserName`, `approvedByName` | `warehouseId` → `reasonCodeId` · `actorUserId` typeahead · `approvedBy` typeahead · `postingDateFrom`/`To` (`dateOnly`) · `valueImpactMin`/`Max` | Yes | `FR-389` |
 | WS-214 | Count History & Variance | `wh_rpt_count_variance` · `WAREHOUSE_RPT_COUNT_VARIANCE` | `wh_counts` + `wh_count_lines` | `countNumber`, `countType`, `warehouseName`, `zoneLocationCode`, `countedByName`, `countedAt`, `itemCode`, `bookQuantity`, `countedQuantity`, `varianceQuantity`, `variancePct`, `varianceValue`, `recountSequence`, `isWithinTolerance` | `warehouseId` → `programId` → `countedBy` typeahead · `countType` select · `hasVariance` boolean · `countedFrom`/`To` (`date`) · `includeRecounts` boolean | Yes | `FR-390` |
 | WS-215 | Low & Insufficient Stock | `wh_rpt_low_stock` · `WAREHOUSE_RPT_LOW_STOCK` | positions + `whb_item_site_settings` + `wh_insufficient_stock_log` | **three tabs:** *Low stock* (`itemCode`, `warehouseName`, `onHand`, `available`, `reorderPoint`, `safetyStock`, `shortfall`, `suggestedQuantity`) · *Insufficient-stock breaches* · *Replenishment suggestions* | `warehouseId` → `itemCategoryId` → `itemId` · `ownerId` · `belowSafetyOnly` boolean · `occurredFrom`/`To` (breaches tab) | Yes | `FR-391` `FR-015` |
@@ -2284,13 +2313,14 @@ are text-pinned so Excel does not mangle them.
 | WS-217 | Parts KPIs | `wh_rpt_parts_kpis` · `WAREHOUSE_RPT_PARTS_KPI` | ledger + `wh_demand_history` + `wh_insufficient_stock_log` | `fillRate`, `serviceLevel`, `stockTurn`, `obsolescencePct`, each by `warehouseName` and period | as WS-216 | Yes | `FR-393` |
 | WS-218 | Traceability | `wh_rpt_traceability` · `WAREHOUSE_RPT_TRACEABILITY` | movements + `whb_transformations` | **two directions.** *Forward*: lot → every shipment and consignee that received it. *Backward*: shipment or serial → supplier lot and receipt | **parameters:** `direction` select (required) · `lotId` **or** `serialNumber` **or** `shipmentId` (at least one required — the query is refused, not silently unbounded) · `warehouseId` · `occurredFrom`/`To` | Yes | `FR-105` `FR-396` |
 | WS-219 | Stock-to-GL Reconciliation | `wh_rpt_stock_to_gl` · `WAREHOUSE_RPT_STOCK_TO_GL` | movements + `whb_accounting_handovers` | `periodCode`, `companyName`, `warehouseName`, `openingValue`, `receiptsValue`, `adjustmentsValue`, `revaluationsValue`, `issuesValue`, `closingValue`, `handedOverValue`, `pendingValue`, `rejectedValue`, `difference` | `companyId` → `warehouseId` → `periodId` · `postingDateFrom`/`To` (`dateOnly`) · `differenceOnly` boolean | Yes | `FR-247` |
-| WS-220 | In-transit Ageing | `wh_rpt_in_transit_ageing` · `WAREHOUSE_RPT_IN_TRANSIT_AGEING` | positions at per-transfer transit locations | `transferNumber`, `sourceWarehouseName`, `destinationWarehouseName`, `itemCode`, `quantity`, `value`, `dispatchedAt`, `ageDays` | `sourceWarehouseId` → `destinationWarehouseId` · `ageOverDays` select · `dispatchedFrom`/`To` | Yes | `FR-149` `FR-335` |
+| WS-220 | In-transit Ageing | `wh_rpt_in_transit_ageing` · `WAREHOUSE_RPT_IN_TRANSIT_AGEING` | positions at per-transfer transit locations | `transferNumber`, `sourceWarehouseName`, `destinationWarehouseName`, `itemCode`, `quantity`, `value`, `dispatchedAt`, `ageDays` | `sourceWarehouseId` → `destinationWarehouseId` · `ageOverDays` select (7 · 15 · 30 · 60 · 90 · 180 · 365 days — the one ageing list, `RB-008`) · `dispatchedFrom`/`To` | Yes | `FR-149` `FR-335` |
 | WS-221 | Expiry & Shelf-life Register | `wh_rpt_expiry` · `WAREHOUSE_RPT_EXPIRY` | positions + `whb_lots` | `itemCode`, `lotCode`, `warehouseName`, `locationCode`, `ownerName`, `quantity`, `manufactureDate`, `expiryDate`, `bestBeforeDate`, `useByDate`, `retestDate`, `daysToExpiry`, `shelfLifeRemainingPct`, `stockStatusCode` | `warehouseId` → `itemCategoryId` → `itemId` · `ownerId` · `expiringWithinDays` select · `expiredOnly` boolean · `expiryFrom`/`To` (`dateOnly`) | Yes | `FR-160` `FR-161` |
 | WS-222 | Consolidated Valuation | `wh_rpt_consolidated_valuation` · `WAREHOUSE_RPT_CONSOLIDATED_VALUATION` | `whb_stock_positions` + `whb_external_stock_snapshots` | `sourceSystem` (**WAREHOUSE / ACCESSORIES**), `itemCode`, `warehouseName`, `quantity`, `value`, `valuationMethod` | `sourceSystem` select · `asAtDate` (`dateOnly`) · `warehouseId` · `itemCategoryId` | Yes | `FR-397` |
 | WS-223 | Install Health Signals | `wh_rpt_health` · `WAREHOUSE_RPT_HEALTH` | jobs, queues, positions | `signalCode`, `signalName`, `value`, `baseline`, `status`, `lastCheckedAt` — movements posted today against a baseline · handovers stuck pending · counts overdue · negative positions · orphaned reservations · dead outbox deliveries · failed jobs | `signalCode` multiselect · `warehouseId` · `failingOnly` boolean | Yes | `FR-398` |
 | WS-224 | Stock As-At | `wh_rpt_stock_as_at` · `WAREHOUSE_RPT_STOCK_AS_AT` | **the ledger, never balances** | the nine-member grain + `quantityOnHand` at the parameter date | **parameter `asAtDateTime` (required)** · `warehouseId` → `itemId` · `ownerId` · `locationId` | Yes | `FR-013` `FR-328` |
 | WS-225 | Coexistence Reconciliation | `wh_rpt_coexistence` · `WAREHOUSE_RPT_COEXISTENCE` | `whb_item_external_refs` + `whb_external_stock_snapshots` + `whb_category_stocking_ownership` | `itemCode`, `accessoryExternalId`, `mapStatus`, `warehouseQuantity`, `accessoriesQuantity`, `difference`, `stockingSystemOfRecord`, **`isViolation`** | `mapStatus` select · `isViolation` boolean (default true) · `asAtDate` (`dateOnly`) · `itemCategoryId` | Yes | `FR-368` `FR-369` `FR-370` `D-9` |
 | WS-226 | Stock by MRP | `whin_rpt_stock_by_mrp` · `WAREHOUSE_INDIA_RPT_STOCK_BY_MRP` | positions + `whb_lots.mrp` | `itemCode`, `mrp`, `warehouseName`, `quantity`, `value` | `warehouseId` → `itemId` · `mrpFrom`/`mrpTo` number pair · `asAtDate` | Yes | `FR-321` — **and note `OD-10`: MRP belongs on the lot, not in the position key.** The report groups by the lot's MRP; it does not imply a tenth key member |
+| WS-243 | Location Utilisation | `wh_rpt_location_utilisation` · `WAREHOUSE_RPT_LOCATION_UTILISATION` | `whb_locations` capacity block + `whb_stock_positions` | `locationCode`, `rollupLevel` (location / rack / aisle / zone / site), `warehouseName`, `weightCapacity`, `weightOccupied`, `volumeCapacity`, `volumeOccupied`, `unitCapacity`, `unitsOccupied`, `lpnCapacity`, `lpnsOccupied`, `utilisationPct` | `warehouseId` → `zoneLocationId` · `rollupLevel` select · `utilisationOver` number | Yes | `FR-471` — **v3 · P6** (`RC-009`). **The analysis, never an optimiser**: it recommends no move |
 | WS-227 | Custody & Insured Value | `wh3_rpt_custody_value` · `WAREHOUSE_3PL_RPT_CUSTODY_VALUE` | positions where `owner_type != OWN` | `clientName`, `ownerName`, `warehouseName`, `itemCode`, `quantity`, **`insuredValue`**, `declaredValueBasis` | `clientId` → `warehouseId` · `asAtDate` | Yes | `FR-115` `FR-112` — **a different number, on a different report, never mixed into the inventory asset** |
 
 **Mobile for §7:** `screens/whStockOnHandReport` and `screens/whExpiryReport` only — an operator on
@@ -2298,6 +2328,29 @@ the floor asks *"what have I got"* and *"what is about to expire"*, and both ans
 filters alone. **Every other report is `none`**, and the reason is the same for all of them: they are
 wide, parameterised and printed, and `ListHeader` supports neither a date parameter nor a column set
 this wide. Recorded per `FR-218` rather than left silent.
+
+#### WS-244 · Metric Targets — v1 · P2
+
+`/warehouse/reports/metric-targets` · **Department** · `wh_metric_targets` · `WAREHOUSE_METRIC_TARGET` ·
+`wh_metric_targets:*` · v1 · P2 · `FR-470` · table `V510091`, the metric catalogue
+`whb_metric_definitions` at `V500048`, permissions and dependencies `V511211` + `V511241` · caches:
+statistics `—` (filter-aware, `FR-395`), no dropdown.
+
+**The target WS-216 measures against** (`RC-007`).
+- A row is a metric × optional warehouse × optional owner × period grain, with a target value and
+  effective dates.
+- WS-216's `target` and `variance` read the effective row. A metric with no row renders a blank
+  variance, never zero.
+
+**Columns:** `metricCode` · `metricName` · `warehouseName` · `ownerName` · `periodGrain` · `targetValue` ·
+`unit` · `effectiveFrom` · `effectiveTo` · audit quartet + names.
+**Filters:** `metricCode` select (fetched from `whb_metric_definitions`) · `warehouseId` · `ownerId` ·
+`periodGrain` select.
+**Export:** visible + both audit names.
+**Modals:** single-tab add/edit. The view is `ViewModalBase`, rendering the metric's frozen definition
+through the platform metric explainer (`definition_text_key`).
+**Actions:** row View / Edit / Delete. Toolbar Add / Export / Grid config / Help.
+**Mobile:** `none` — a target is a desk master. Stated per `FR-218`.
 
 ---
 
@@ -2589,6 +2642,12 @@ bands, and **base verbs ride `P0-15`'s `V501000`**. Each verb gets its `→ :vie
 | `<resource>:view:all` · `<resource>:view:branch` | **the tier pair on every management resource** (`RH-002`). ADMIN and AUDITOR hold `:all`; Branch Admin holds `:branch` and never `:all`; operational bundles hold `:branch`. It is resolved through platform's `BranchScopeService` to the allowed warehouse set (§10.4) | every management screen | `P0-15` · `V501000`/`V501001`; `P1-20` · `V511000`/`V511001` |
 | `wh_trade_portal_users:view` · `:create` · `:edit` · `:delete` · `:export` | the new resource | WS-240 | `P5-08` · `V511209` + `V511239` |
 | `wh_approval_levels:view` · `:create` · `:edit` · `:delete` · `:export` | the new resource | WS-241 | `P2-23` · `V511210` + `V511240` |
+| `whb_warehouse_grants:view` · `:create` · `:edit` · `:delete` · `:export` | the new resource (`RA-001`) | WS-238 | `P0-15` · `V501000` + `V501001` |
+| `whb_stock_movements:post_backdated` | posting into a `SOFT_CLOSED` period — `mgr1`'s `WH-SC-022` authority, distinct from `whb_stock_periods:override` (`RA-007`) | the port (`P0-08`) | `P0-15` · `V501000` |
+| `whb_outbox:view` | reading the outbox and its deliveries (`RA-007`) | WS-056 | `P0-15` · `V501000` |
+| `whb_stock_movements:verify` | the ledger-chain verifier (`RC-008`, `RA-005`) | WS-040 | `P0-15` · `V501000` |
+| `wh_metric_targets:view` · `:create` · `:edit` · `:delete` · `:export` | the new resource (`RC-007`) | WS-244 | `P2-21` · `V511211` + `V511241` |
+| `whad_item_prices:view` · `:create` · `:edit` · `:delete` · `:export` · `:import` · `whad_price_levels:view` · `:create` · `:edit` | the new resources (`RA-002`) | WS-239 | `P2-25` · `V520100`–`V520149` |
 
 ### 10.3 `permission_dependencies` — **inserted, never created**
 
@@ -2681,5 +2740,8 @@ awk '/^### 11.1/,/^### 11.2/' $f | grep -oE '\bWAREHOUSE(_3PL|_INDIA|_DEALER|_SE
 
 Current platform count **213**, computed 2026-09-01 (§0.3). After warehouse: **428**.
 **Round 4** adds two v2 grids, WS-240 and WS-241, and one scope each: **217** to add, **430** after
-warehouse.
+warehouse. **Round 3's fold** adds one v1 grid, WS-238, and its scope `WAREHOUSE_WAREHOUSE_GRANT`: **218**
+to add, **431** after warehouse. **Its second lane (`W0-1b`)** adds three grids — WS-239, WS-244 (v1)
+and WS-243 (v3) — and their scopes `WAREHOUSE_DEALER_ITEM_PRICE`, `WAREHOUSE_METRIC_TARGET` and
+`WAREHOUSE_RPT_LOCATION_UTILISATION`: **221** to add, **434** after warehouse.
 

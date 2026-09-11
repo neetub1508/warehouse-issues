@@ -1,6 +1,5 @@
 # R24 — workflow contract completeness
 
-<!-- check-design-set: screen-citations file WS-238 — the BUILD-SPEC-SCREENS.md §1 next-free allocation marker; no RJ finding allocates a screen id -->
 
 **Date** 2026-09-10 · **Prefix** `RJ-` · **Branch** `docs/round-4-cardinality-and-gaps` · **Mode** gap report (no code exists): I derived the contracts from the design set rather than from code.
 

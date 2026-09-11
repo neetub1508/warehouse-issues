@@ -116,6 +116,7 @@ That command is the authority; re-run it after any header change.
 - ★ `V500020` — `P1-09` number series, issued numbers, `whb_next_document_number()`, `I-20`
 - `V500017` `V500053` — `P1-04` item external refs and documents · **`D-9`'s two mandatory mitigations**
 - `V500046` — `P1-10` import batches and rows
+- `V500047` — `P1-18` `whb_warehouse_grants`, the warehouse axis of the scope predicate (`RA-001`)
 - `V500050` — `P1-03` item × site settings, supplier sources, supersessions
 - `V500069` `V500077` — `P1-03` **v1.1 increment**: the ABC cut-offs and previous class (`RK-003`, folded from former `P3-25`) · **v2 increment**: `warehouse_id` on supplier sources (`RG-011`, folded from former `P5-24`)
 - `V500071` — `P1-19` **v2 increment**: `whb_registry_translations` (`RL-015`, folded from former `P5-28`)
@@ -135,9 +136,8 @@ That command is the authority; re-run it after any header change.
 - `V510031` — `P1-17` transfer orders and lines — **schema only**
 - `V511000` `V511001` `V511010` `V511020`–`V511059` `V511200` — `P1-20` app permissions, dependencies, menus, app grids wave 1, admin settings
 
-`P1-18` writes **no migration**, and neither does `P1-19`'s v1 work (its `V500071` is the v2 increment
-above); that is not a defect — one is a query predicate and an architecture rule, the other is content
-and registration.
+`P1-19`'s v1 work writes **no migration** (its `V500071` is the v2 increment above); that is not a
+defect — it is content and registration. `P1-18` writes one, `V500047` (`RA-001`, round 3).
 
 ## Tasks
 

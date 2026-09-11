@@ -107,7 +107,7 @@ done
 
 - `V510019`–`V510020` — `P2-13` reconciliation cases · supplier returns. **In the inbound block by
   design** (`DATA-MODEL.md` §7.3 WH-10/WH-11); do not "tidy" them upward
-- `V510030`, `V510032`–`V510035` — `P2-01` adjustments and the insufficient-stock / blocked-move logs
+- `V510030`, `V510032`–`V510035` — `P2-01` adjustments (with `wh_adjustment_approval_policies`, `RA-008`) and the insufficient-stock / blocked-move logs
   · `P2-03` hold types and holds · `P2-04` counting · `P2-06` reconciliation exceptions.
   **`V510031` in the middle of this block is `P1-17`'s transfer orders** and is not P2's
 - `V510040`–`V510044` — `P2-08` demand orders · `P2-09` pick tasks · `P2-11` cartons ·
@@ -115,8 +115,10 @@ done
 - `V510050` — `P2-12` RMAs, return receipts, RTO consignments (`A-1`)
 - `V510060` — `P2-14` print templates, versions, jobs (`A-2`)
 - `V510070` — `P2-15` replenishment runs, suggestions, demand history
-- `V510080` — `P2-17` landed cost documents and allocations, revaluations
+- `V510080` — `P2-17` landed cost documents and allocations (with the three split columns, `RF-003`), revaluations
 - `V510090` — `P2-19` opening-stock batches, cut-over checklists
+- `V500048` · `V510091` · `V511211` + `V511241` — `P2-21` the KPI catalogue `whb_metric_definitions` (base),
+  `wh_metric_targets`, and its `WS-244` resource permissions (`RC-007`, round 3)
 - `V510222` `V511180` `V511210` `V511240` — `P2-23` **v2 increment**: `wh_approval_levels`, its `WS-241` grid, its resource permissions and menu (`RK-008`, folded from former `P5-27`)
 - `V501070`–`V501099` — `P2-29` `warehouse-base` grid configuration, wave 3
 - `V511060`–`V511139` — `P2-29` `warehouse` grid configuration, wave 3
@@ -126,11 +128,11 @@ done
   `P2-12` RMAs and return receipts · `P2-13` supplier returns · `P2-15` replenishment suggestions. The
   first number of each pair seeds the permissions, the second the dependency rows. `V511000`/`V511001`
   are released and are never edited for this (`IMPLEMENTATION-PLAN.md` §2.9 row 2a)
-- `V520000`, `V520010`–`V520012`, `V520100`–`V520149` — `P2-25` dealer adapter · `P2-24` fitments
+- `V520000`, `V520010`–`V520012`, `V520015`, `V520100`–`V520149` — `P2-25` dealer adapter (with `whad_price_levels` and `whad_item_prices` at `V520015`, `RA-002`) · `P2-24` fitments
 - `V521000`, `V521010`–`V521012`, `V521100`–`V521149` — `P2-26` services adapter
 
-**Nine tasks write no migration** — `P2-05`, `P2-07`, `P2-16`, `P2-18`, `P2-20`, `P2-21`,
-`P2-22`, `P2-27`, `P2-28`. **That is not a defect**: it is service, frontend, job and report
+**Eight tasks write no migration** — `P2-05`, `P2-07`, `P2-16`, `P2-18`, `P2-20`,
+`P2-22`, `P2-27`, `P2-28` (`P2-21` left the list when round 3 gave it `V500048` and `V510091`). **That is not a defect**: it is service, frontend, job and report
 work over DDL that `P0` and `P1` already shipped — most visibly `P2-16`, whose three tables are
 `P0-17`'s `V500021` because `whb_stock_movement_lines.cost_layer_id` is a real FK and `V500021` must
 precede `V500030`. *(`P2-02` left this list in round 4: its transfer verbs claim the `V511202`/`V511232`

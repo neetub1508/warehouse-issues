@@ -1,6 +1,5 @@
 # GAP-REGISTER-R3 — the disposition of every round-3 finding
 
-<!-- check-design-set: screen-citations file WS-238 WS-239 — the BUILD-SPEC-SCREENS.md §1 next-free allocation marker (the id after WS-237) and the id after it, the same allocation R9, R10, R16, R18, GAP-REGISTER.md, GAP-REGISTER-R2.md, DESIGN-SET-DEFECTS.md and issues/p5-13.md already declare for WS-238. §4.4 below records that three round-3 findings each propose taking WS-238, and recommends WS-238 + WS-239 for the two v1 screens; by definition neither has an index row yet -->
 <!-- check-design-set: scenario-citations file WH-SC-306 — the SCENARIO-CATALOGUE.md §5 rule 3 next-free allocation marker, the same allocation GAP-REGISTER-R2.md, DESIGN-SET-DEFECTS.md and GAP-REGISTER.md already declare. Cited once in §4.4 as the precedent for how round 2's Q-006 moved the marker when it minted WH-SC-301-WH-SC-305; an allocation marker, not a citation of a scenario -->
 
 > **What this document is for.** `GAP-REGISTER.md` dispositions the **575** findings of review round 1.

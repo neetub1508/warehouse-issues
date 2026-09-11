@@ -1,6 +1,5 @@
 # R18 — reporting, analytics and the information-output surface
 
-<!-- check-design-set: screen-citations file WS-238 — the BUILD-SPEC-SCREENS.md §1 next-free allocation marker (X-001), the same one R9, R10, R16, GAP-REGISTER.md, GAP-REGISTER-R2.md and DESIGN-SET-DEFECTS.md declare. RC-009 proposes taking it; by definition it has no index row yet, and R16's RA-001/RA-002 propose the same marker — whichever lands first, the loser takes the next id -->
 
 > **Date** 2026-09-02 · **Branch** `docs/round-3-functional-completeness` · **Finding prefix** `RC-`
 > (`grep -rohE "\bRC-[0-9]{1,3}\b" docs/ issues/ | wc -l` → **0**, so the namespace was free, and

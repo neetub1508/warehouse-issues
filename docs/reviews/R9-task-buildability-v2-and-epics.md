@@ -1,6 +1,5 @@
 # R9 — Task buildability and spec completeness: the v1.1 / v2 / v3 phases, and the nine epics
 
-<!-- check-design-set: screen-citations file WS-238 — the BUILD-SPEC-SCREENS.md §1 next-free allocation marker (X-001). §3 names it as the one WS- id with no index row and §4 refuses to re-file it; it is quoted as evidence, never used as a reference -->
 
 **Date** 2026-09-02 · **Branch** `docs/round-2-functional-review` · **Finding prefix** `H-`
 (verified unallocated: `grep -rohE "\bH-[0-9]{1,3}\b" docs/ issues/ | wc -l` → **0**)

@@ -332,6 +332,27 @@ all 83 findings and the full fold plan are in [`GAP-REGISTER-R4.md`](GAP-REGISTE
    tracked as a *v1.1* or *v2 increment* inside an existing task, not as a new task file.
    `GAP-REGISTER-R4.md` §4.6 has the mapping.
 
+### D-15 · A posted moving average is never restated; a backdated receipt inserts a layer
+
+**User decision, taken 2026-09-11**, on round 3's `RF-001` (`GAP-REGISTER-R3.md` §2.6 and §5.1). It
+was adopted with the `GLOBAL-SETTINGS-DECISIONS.md` pass and folded into `P2-16` by lane `W0-1b`.
+
+1. **`moving_average_after` on a movement line is a snapshot** of the weighted average at the moment
+   that line posted (`IRR-39`). It is never restated.
+2. **A backdated receipt inserts a cost layer.** The *current* average is
+   `Σ open layer_value / Σ open quantity_remaining`, computed on read from `whb_cost_layers` and never
+   stored.
+3. **`I-2`'s line allowlist stays `'{}'`.** `V500030` ships it that way, so nothing about this decision
+   needs a column added after `PNR-1`.
+4. **FIFO follows the same rule.** A backdated layer is consumed by **future** issues only. Consumptions
+   already written are never re-drawn, because `L-2`/`L-3` make a correction a reversal and `P4-04`'s
+   ITC reversal walks that link.
+5. **Falsifier:** post a backdated receipt, re-read a following movement line, and assert that its
+   `moving_average_after` is byte-identical.
+
+`P0-02` and `P2-16` carry it, and `WH-SC-151` asserts it. Restating was the alternative: it would have
+grown `I-2`'s allowlist by a sixth column in `V500030`, and it was declined.
+
 ---
 
 ## 3. OD — open decisions. Each names its deadline and who decides.
@@ -474,7 +495,7 @@ and not know which won.
 
 ## 6. Id namespaces — disjoint by construction
 
-<!-- check-design-set: screen-citations begin WS-238 WS-239 WS-240 WS-241 WS-242 — the BUILD-SPEC-SCREENS.md §1 allocation marker and the ids reserved or allocated ahead of it: WS-238/WS-239 reserved for round 3's RA-001/RA-002, WS-240/WS-241 allocated by GAP-REGISTER-R4.md §4.0, WS-242 the next free. None has a row yet; named so a new screen takes the marker instead of reusing another screen's grid -->
+<!-- check-design-set: screen-citations begin WS-242 WS-245 — the BUILD-SPEC-SCREENS.md §1 allocation marker and the id reserved ahead of it: WS-242 reserved for P5-13's marketplace-claim queue, WS-245 the next free. Neither has a row yet; named so a new screen takes the marker instead of reusing another screen's grid -->
 
 The accounting set's most expensive defect was three different things sharing one namespace, which a
 late rename could not repair because a blanket search-and-replace corrupted the decisions table twice.
@@ -490,7 +511,7 @@ That cannot happen here.
 | Enforceable constraints | **`I-1` … `I-20`** — plus **`I-21`, allocated 2026-09-03** by `OD-14` as `L-15`'s database guard and **owed into `DATA-MODEL.md` §6.3**, which still stops at `I-20`. Allocating it here rather than there is deliberate: §6 is the allocation, and an id claimed in two places is the collision this table exists to prevent. **`I-22`, `I-23`, `I-24`** were **allocated 2026-09-10** by `GAP-REGISTER-R4.md` §4.0 and are owed into §6.3 after `I-21`: `I-22`, a movement at an instant with no `REGISTERED` link is refused (`V500030`); `I-23`, the `REGISTERED` history is exclusive and append-only (`V500037`); `I-24`, a rule row that a reservation or task references is immutable (`V500031`, `V500033`, `V510017`) | `DATA-MODEL.md` §invariants-as-SQL |
 | Irreversible rows | **`IRR-01` … `IRR-63`** — plus **`IRR-64` … `IRR-67`, allocated 2026-09-10** by `GAP-REGISTER-R4.md` §4.0 and owed into `IRREVERSIBLE.md` §2: registration history, v1 junction history, the outbox event schema, and non-ledger partitioning at `CREATE`. The next free is `IRR-68` | `IRREVERSIBLE.md` §2 |
 | Scenarios | **`WH-SC-001` …** | `SCENARIO-CATALOGUE.md` |
-| Screens | **`WS-001` … `WS-237`** — **`WS-238` and `WS-239` are reserved** for round 3's `RA-001`/`RA-002` (`GAP-REGISTER-R3.md` §4.4). **`WS-240`** *Trade Portal* and **`WS-241`** *Approval Levels* were **allocated 2026-09-10** by `GAP-REGISTER-R4.md` §4.0 | `BUILD-SPEC-SCREENS.md` §1 — the index is the allocation; the next free is `WS-242` |
+| Screens | **`WS-001` … `WS-237`** — **`WS-238`** *Warehouse Grants* was **allocated 2026-09-11** to round 3's `RA-001` (`P1-18`). The same day's second fold (lane `W0-1b`) allocated **`WS-239`** *Item Prices* (`RA-002`, `P2-25`), **`WS-243`** *Location Utilisation* (`RC-009`, `P6-02`) and **`WS-244`** *Metric Targets* (`RC-007`, `P2-21`), and **reserved `WS-242`** for `P5-13`'s marketplace-claim queue. **`WS-240`** *Trade Portal* and **`WS-241`** *Approval Levels* were **allocated 2026-09-10** by `GAP-REGISTER-R4.md` §4.0 | `BUILD-SPEC-SCREENS.md` §1 — the index is the allocation; the next free is `WS-245` |
 | Findings — R1 codebase reality | **`C-001` … `C-050`** | `reviews/R1` |
 | Findings — R2 tier-1 WMS | **`T-001` … `T-097`** | `reviews/R2` |
 | Findings — R3 ERP / mid-market | **`E-001` … `E-090`** | `reviews/R3` |
@@ -620,7 +641,7 @@ collision.
   accounting decisions table twice.
 - **`WS-nnn` — screens.** 237 ids, resolvable by the checker and never declared here. **The index in
   `BUILD-SPEC-SCREENS.md` §1 is the allocation**: a screen that is not a row there does not exist, and a
-  new screen takes the next free id (`WS-238` at the time of writing) rather than reusing another
+  new screen takes the next free id (`WS-245` at the time of writing) rather than reusing another
   screen's grid.
 - **`T-n` and `T-nnn` — two trap/finding registers under one prefix, deliberately not renumbered.**
   R1 §8's traps are **`T-1`…`T-18`, unpadded**; R2's findings are **`T-001`…`T-097`, three digits**.

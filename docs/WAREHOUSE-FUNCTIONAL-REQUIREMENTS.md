@@ -115,7 +115,7 @@ field-level error. A trigger firing in production is an incident, not a validati
 
 ## 6. Requirement catalogue
 
-**469 requirements in 28 areas.** Every one closes at least one review finding or derives from a
+**471 requirements in 29 areas.** Every one closes at least one review finding or derives from a
 numbered decision in `DECISIONS.md`. Requirements with no source are not requirements.
 
 > **§6.26 was appended after `DECISIONS.md` §5.1 landed** and renumbers nothing. `FR-443`–`FR-446`
@@ -232,7 +232,7 @@ differ from a placement below, the divergence is stated in the row.
 | **FR-081** | `is_physical` on the warehouse permits a **warehouse row that maps to no building** — a carrier, a trip, a transit pool. This is the single most important seam column for the logistics module. **A non-physical site still carries a `REGISTERED` row**, because `FR-079`'s exactly-one rule admits no exception. That row is administrative only: in-transit stock sits at a per-transfer location of the source site and is held by the transfer's frozen source branch (`FR-148`) | base | v1 | P1 | `F-089` `RG-001` |
 | **FR-082** | Locations are a **self-referencing hierarchy** (site → building → zone → aisle → rack → level → position) with a `location_level` and a materialised `path` for subtree queries. Four independent VARCHARs cannot answer "count zone A", "block aisle 12", "utilisation of rack B-04" — there is no row representing the zone | base | v1 | P1 | `T-008` `E-020` `C-029` |
 | **FR-083** | `location_type` is a **registry with behaviour flags** (`is_physical`, `is_stock_holding`, `is_virtual_counterparty`, `is_mobile`, `is_transit`, `allows_mixed_owner`, `requires_assigned_user`, `is_pickable`, `is_receivable`, `counts_as_on_hand`, `is_staging`, `is_dock`) and admits `IN_TRANSIT`, `MOBILE`, `VEHICLE`, `TRAILER`. **The prior product broke exactly this**: `location_type` and `zone_type` CHECKs were dropped and recreated with different value sets 36 versions after creation | base | v1 | P1 | `F-089` `G-055` `E-021` `D-10` |
-| **FR-084** | Virtual locations are seeded per install and per site — `SUPPLIER`, `CUSTOMER`, `ADJUSTMENT`, `SCRAP`, `PRODUCTION`, `IN_TRANSIT`, `COUNT_VARIANCE`, `OPENING_BALANCE`, `CONSUMED`, `JOB_WORKER`, `VALUE_OFFSET` — with `counts_as_on_hand = false`, so they never appear in a stock report and always balance the ledger. Every movement has a real from- and to-location, one of which may be virtual | base | v1 | P1 | `T-009` `S-069` `E-021` |
+| **FR-084** | Virtual locations are seeded per install and per site — `SUPPLIER`, `CUSTOMER`, `ADJUSTMENT`, `SCRAP`, `PRODUCTION`, `IN_TRANSIT`, `COUNT_VARIANCE`, `OPENING_BALANCE`, `CONSUMED`, `JOB_WORKER`, `VALUE_OFFSET`, `COST_OF_SALES` (`RF-003`) — with `counts_as_on_hand = false`, so they never appear in a stock report and always balance the ledger. Every movement has a real from- and to-location, one of which may be virtual | base | v1 | P1 | `T-009` `S-069` `E-021` |
 | **FR-085** | The transit location is **per reference** (per transfer, per trip), not one global `IN_TRANSIT` bucket, so two consignments on the road are separately countable and separately ageable | base | v1 | P1 | `G-074` |
 | **FR-086** | Capacity and constraint columns land on the location in v1 — weight, volume, height, LPN count, unit count, mixed-item, mixed-lot, mixed-owner, temperature zone, pick sequence, barcode and check digit — and are **enforced at putaway** in v1.1 with a hard-block-vs-warn setting | base·app | v1·v1.1 | P1·P3 | `T-074` `E-022` `F-003` `F-069` |
 | **FR-087** | `commingle_policy` ∈ {`FREE`,`SINGLE_OWNER`,`SINGLE_ITEM`,`SINGLE_LOT`,`SINGLE_LPN`} and `dedicated_owner_id` on the location; the port rejects a movement whose resulting balance would violate the policy, naming the policy and the conflicting owner, item or lot. Hard-coding "commingling allowed" makes a bonded or pharma client unsellable; hard-coding the opposite makes bulk storage uneconomic | base | v1 | P1 | `F-003` |
@@ -384,7 +384,7 @@ unbackfillable later. Four lenses reached this independently.
 | **FR-193** | The outbound object chain is **shipment (ours) → consignment (transport, 1:1 and optional) → manifest → trip**, with "add truck" living on the shipment so a child consignment cannot create siblings. A third-party parcel simply has no consignment | app | v1·v2 | P2·P5 | `P-038` `G-013` |
 | **FR-194** | **Manifest, handover and pickup request are three objects**, not one: the carrier's signed AWB list, *our* record that N shipments physically left with whom at what time against which signature, and a scheduled request for a vehicle with a window. Keeping them separate is what lets a logistics module take over the transport leg without touching the carrier manifest | app | v1.1 | P3 | `F-040` |
 | **FR-195** | The **gate pass is e-way-bill-conditional**: it issues freely where no e-way bill is required and blocks only where one is legally required and not yet generated. Full decoupling would let e-way-mandatory goods leave without one | india·app | v1 | P2-IN | `P-038` `S-024` `D-12` |
-| **FR-196** | Carrier, carrier service and carrier account masters exist in `warehouse` in v1, and **`owner_id` on the carrier account is nullable** — null means the house account. That one nullable column is the whole of "ship on the client's account", a standard contract clause | app | v1 | P2 | `F-036` |
+| **FR-196** | Carrier, carrier service and carrier account masters exist in `warehouse` in v1, and **`owner_id` on the carrier account is nullable** — null means the house account. That one nullable column is the whole of "ship on the client's account", a standard contract clause. **`warehouse` owns the carrier, service and account masters and never names a carrier vendor**: each carrier connector is an adapter registered through the `PC-04` `List<T>` bean registry and named by `wh_carriers.owning_module`, and a connector not on the classpath leaves `api_enabled` inert with a manual fallback (`RD-005`) | app | v1 | P2 | `F-036` |
 | **FR-197** | **Labels are stored artefacts with a void path**, never deleted: type, carrier, tracking number, format, a link to the platform document, generated-at, voided-at, void reason and the carrier's void reference. An Indian carrier bills for a generated-and-unused AWB in some contracts and the void call is what stops it | app | v1.1 | P3 | `F-039` |
 | **FR-198** | Tracking events are stored **normalised and raw**, with per-carrier status mappings held as **data**, so a mapping can be corrected and the history re-derived. A Java `switch` per carrier becomes unmaintainable at carrier six | app | v2 | P5 | `F-043` |
 | **FR-199** | The **five relocatable objects** — carriers, tracking events, NDR, RTO receipts and COD remittances — are referenced by a stable code resolved through a service, never by an FK from the referencing table, so moving them into a logistics module later is a refactor and not a data migration. *R4 names one movable boundary; R7 `G-013` finds five and this document follows R7* | app | v1 | P2 | `G-013` `F-036` |
@@ -448,7 +448,7 @@ unbackfillable later. Four lenses reached this independently.
 | **FR-234** | Cost is held as **layers with a remaining quantity plus a consumption table** linking each issue to the layers it consumed. A sales return or credit note consumes in reverse and **restores the original layer**. A cost column on a balance cannot produce FIFO, cannot produce specific identification, cannot be revalued without destroying history and cannot answer what the stock we shipped last March cost. **Every return has a stated cost rule**: a matched return reverses its consumption; an unmatched (blind) return takes the site's current method cost, flagged `cost_basis = RETURN_UNMATCHED` and listed on a report; a return to vendor that cites its origin GRN relieves that receipt's layer (specific identification) | base | v1 | P2 | `T-061` `E-035` `S-070` `C-027` `RJ-010` |
 | **FR-235** | Valuation methods: **weighted average and FIFO in v1** with the layer table present and the method **configurable per item category × site**, standard cost with purchase-price and usage variances in v1.1, and **specific identification for serial- and lot-tracked items** — required here even though the accounting set defers it, because vehicles, high-value electronics and any serialised spare are non-interchangeable by definition, and because FEFO and specific identification are **not expressible at accounting's item × godown × batch × serial grain**. That grain argument is half of why the costing engine is here rather than there. **LIFO is never built, and this document says why**: prohibited under Ind AS 2 / IAS 2 and ICDS II, and a migrating customer will ask. **⛔ OD-6** | base | v1·v1.1 | P2·P3 | `S-053` `T-068` `S-065` `C-027` `D-6` `OD-6` |
 | **FR-236** | The **valuation grain is declared, not emergent**: `(company, owner, item, site)`. Site-level makes an inter-site transfer a valuation event; company-level hides branch performance. Changing it later restates every balance, and the inter-site transfer valuation rule — transfer at the sending site's cost, so there is no profit in stock to eliminate — is written at the same time | base | v1 | P2 | `T-062` |
-| **FR-237** | The **moving average after the movement is snapshotted on the movement row**. A backdated receipt recomputes the average; without the snapshot there is no evidence of what the cost was on 31 March and the year-end valuation cannot be reproduced | base | v1 | P2 | `S-053` `C-027` |
+| **FR-237** | The **moving average after the movement is snapshotted on the movement row**. A backdated receipt **never restates** a written snapshot — it inserts a cost layer, and the current average is computed on read from the open layers (`RF-001`); without the snapshot there is no evidence of what the cost was on 31 March and the year-end valuation cannot be reproduced | base | v1 | P2 | `S-053` `C-027` |
 | **FR-238** | **Landed cost** has an apportionment basis per charge (value / quantity / weight / volume / manual), retrospectively revalues the receipt layer, and — where the layer is already partly consumed — splits into a layer adjustment and a **COGS adjustment for what already shipped**, with a link from the charge document back to the receipt movements it loads. The column lands in v1 always zero; the document is v2. The trap: a port whose `unit_cost` is write-once cannot carry this | base·app | v1·v2 | P2·P5 | `T-063` `S-071` `E-036` |
 | **FR-239** | **The apportionment basis lives on the receipt, not on the freight charge.** The charge is a transport fact; the effect on stock value is a warehouse fact | app | v1 | P2 | `G-023` |
 | **FR-240** | **Revaluation is a document, not an `UPDATE`** — a movement type with zero quantity and a non-zero value, so the stock ledger and the ledger of record stay in step through a price escalation or a year-end write-down. **Warehouse posts the movement; accounting approves the revaluation**, because approval is a downstream act on the ledger of record | base·app | v1 | P2 | `E-037` `F-088` `D-6` |
@@ -535,7 +535,7 @@ unbackfillable later. Four lenses reached this independently.
 | **FR-285** | The **billable-event meter is append-only and reversible**, exactly like the stock ledger, with its own idempotency key on `(source_system, source_event_key)`. A cancelled pick does not delete its billable event; it adds a reversing one. That is what makes a re-run of a period produce the same number twice and a dispute resolvable without archaeology. An excluded event carries a reason and an author — never a deleted row | 3pl | v2 | P5 | `F-011` `T-071` |
 | **FR-286** | **Charge codes are a master** with a category, a default UoM, recurring and pass-through and taxable flags, a tax code, a SAC/HSN code and a **revenue purpose code** the accounting module resolves to an account — never a GL account id, because accounting owns the chart. Around forty codes are seeded so a new client's rate card is built by pricing existing codes rather than inventing strings; the minimum true-up and the SLA credit are charge codes, not special cases in the biller | 3pl | v2 | P5 | `F-013` |
 | **FR-287** | **Rate cards are versioned and effective-dated**, a card may inherit a standard card and override lines, and a billing run rates each event against the version live **on that event's date**. Resolution is most-specific-wins with an explicit priority order and a **fail-rather-than-guess rule**: an unrated event blocks the run and names the missing combination, and is never silently rated at zero | 3pl | v2 | P5 | `F-014` `T-075` |
-| **FR-288** | **Storage billing implements four methods** — period-end snapshot, period-start snapshot, anniversary (each pallet billed for a storage month starting on its own receipt date), daily average and split month — over seven bases — pallet, location, unit, weight, cubic, square feet occupied and square feet allocated — with free days, a minimum billable quantity and aged-inventory surcharge bands. Anniversary is the one that cannot be computed from a month-end balance and is the clearest single argument for `FR-100`'s LPN `received_at` | 3pl | v2 | P5 | `F-015` |
+| **FR-288** | **Storage billing implements five methods** — period-end snapshot, period-start snapshot, anniversary (each pallet billed for a storage month starting on its own receipt date), daily average and split month — over seven bases — pallet, location, unit, weight, cubic, square feet occupied and square feet allocated — with free days, a minimum billable quantity and aged-inventory surcharge bands. Anniversary is the one that cannot be computed from a month-end balance and is the clearest single argument for `FR-100`'s LPN `received_at` | 3pl | v2 | P5 | `F-015` |
 | **FR-289** | **Daily storage snapshots are persisted, not recomputed** — one row per date, client, owner, warehouse, basis and identity, carrying the oldest receipt date as the anniversary anchor, the age in days and the outbox cursor at computation time. A re-run for a date **supersedes** rather than updates, with the superseded row retained, because a billed snapshot that silently changes is the same defect class as a mutable ledger. **The nightly job starts in v1**, because it doubles as the ageing and days-on-hand source and because starting it in v2 means no billing history | base·3pl | v1·v2 | P2·P5 | `F-016` `T-072` |
 | **FR-290** | The **minimum monthly charge posts a metered true-up event** on a seeded charge code with the arithmetic shown, not a hidden invoice line. It is visible in the meter, disputable, reversible and on the portal. It is also the single most common source of leaked 3PL revenue when it is a manual adjustment | 3pl | v2 | P5 | `F-017` |
 | **FR-291** | **Accessorials are ad-hoc charges with an author, a date, a reason and an approval threshold** above which a second user must approve, keyed in under thirty seconds from a dedicated screen. Auto-captured accessorials — detention from the dock appointment, after-hours from the receipt timestamp against the client's calendar — write the same table with their own source | 3pl | v2 | P5 | `F-018` |
@@ -651,7 +651,7 @@ unbackfillable later. Four lenses reached this independently.
 | **FR-356** | Adapters **register reference data by migration, in their own Flyway sub-band**, idempotently, because any Flyway failure in this codebase triggers a blind repair and one retry | adapter | v1 | P0 | `G-043` `C-047` `D-2` |
 | **FR-357** | Document display resolvers are a **bean-collection registry**, not a primary-bean override, and **base ships a fallback** that renders the document type and id so an unresolved reference is ugly rather than blank. A base-only install may legitimately have none on the classpath | base | v1 | P0 | `G-041` `E-004` `C-039` |
 | **FR-358** | **`warehouse-adapter-dealer` (spare parts) ships in v1**: counter sale, workshop parts request, OEM order and core return, registering its own movement types and owning its own tables | adapter | v1 | P2 | `E-006` `T-021` `C-034` |
-| **FR-359** | **Counter sale is keyboard-first**: scan or part number, quantity, price level, print, next — a sub-ten-second bill, with trade price levels and a cash ticket. The bar is set by the Indian retail incumbents, not by an ERP. **Which site a counter may sell from is `FR-461`'s serving-branch rule**: directly only where the counter's branch holds a current `REGISTERED` or `SERVING` link to the site under the site's own GSTIN; otherwise the sale is refused with `422 CROSS_GSTIN_COUNTER_SALE` and *Raise request* is offered | app·adapter | v1 | P2 | `E-065` `S-063` `RK-002` |
+| **FR-359** | **Counter sale is keyboard-first**: scan or part number, quantity, price level, print, next — a sub-ten-second bill, with trade price levels and a cash ticket. **A price level resolves to a price** in `whad_item_prices` at the sale date; a line with no price row is refused, never priced at zero (`RA-002`). The bar is set by the Indian retail incumbents, not by an ERP. **Which site a counter may sell from is `FR-461`'s serving-branch rule**: directly only where the counter's branch holds a current `REGISTERED` or `SERVING` link to the site under the site's own GSTIN; otherwise the sale is refused with `422 CROSS_GSTIN_COUNTER_SALE` and *Raise request* is offered | app·adapter | v1 | P2 | `E-065` `S-063` `RK-002` |
 | **FR-360** | **`warehouse-adapter-services` ships in v1** and is the largest consumer: a material request against a job card → reservation before it is an order → issue in parts as the job progresses → **return to store of unused parts crediting the job** → the warranty split. The `services` module has no parts table of any kind today, so this is a clean sheet, and without the return path the job is over-costed, the stock is short and the variance appears three months later as shrinkage. A job issue follows `FR-461`: from a site linked under the workshop's own GSTIN it posts directly, and from a site under another GSTIN it draws by transfer | adapter | v1 | P2 | `E-065` `T-081` `S-061` `C-034` `RK-002` |
 | **FR-361** | **Parts issued to open jobs are neither stock nor cost of sale** and are reported as work-in-progress at every month end | adapter·app | v1 | P2 | `E-065` |
 | **FR-362** | A serialised part fitted to a customer's vehicle **records the vehicle it was fitted to at issue time**, because retro-linking a year of parts issues to vehicle identifiers is impossible and a vehicle-linked recall depends on it | adapter | v1 | P2 | `S-048` |
@@ -841,6 +841,18 @@ rather than lost. The owning task of each row is `P1-05`, `P2-25`, `P2-02`, `P1-
 | **FR-468** | **The v2 association junctions are built dated per `D-14`**: UoM defaults per supplier and channel, site-scoped supplier preference, warehouse and owner companies, owner-set cages, tax-scheme codes for item, UoM and reason code, and configuration scopes. Each is an effective-dated many-to-many junction with one current row per key, so the v1 scalar it replaces keeps its history | base·app | v2 | P5 | `RG-010` `RG-011` `RG-012` `RG-013` `RG-014` `RG-018` `RG-020` |
 | **FR-469** | **Registry rows carry per-locale names** in `whb_registry_translations`, read before the row's own name, so an install-created reason code with a Hindi translation shows the Hindi name on the `hi` user's screen and printed challan | base | v2 | P5 | `RL-015` |
 
+### 6.29 Round-3 amendments
+
+**These two continue the range at `FR-470`, on the same no-renumbering rule as §6.26–§6.28.** They are
+the two requirements `GAP-REGISTER-R3.md` §4.2 owes — `RC-007`'s target object and `RC-009`'s placement
+— folded 2026-09-11 by the round-3 fold's second lane (`W0-1b`). The owning tasks are `P2-21` and
+`P6-02`, in order. The next free id is the one after `FR-471`.
+
+| # | Requirement | Module | Ver | Ph | Closes |
+|---|---|---|---|---|---|
+| **FR-470** | **A KPI target is data.** `whb_metric_definitions` is the metric catalogue — code, name, unit, frozen definition text key, owning module and direction — with no `CHECK`, so a module registers its own metric by `INSERT`. `wh_metric_targets` holds a target per metric, optional warehouse and owner, period grain and effective dates. The KPI report's `target` and `variance` read the effective target, and a metric with no target shows a blank variance, never zero | base·app | v1 | P2 | `RC-007` |
+| **FR-471** | **A location-utilisation report**: occupied against capacity by weight, volume, units and LPNs, rolled up the hierarchy to rack, aisle, zone and site, from `whb_locations`' capacity block and `whb_stock_positions`. **The analysis, never an optimiser** — it recommends no move, and it sits beside the slotting analysis §9's refusal row 7 calls *"v3 and not refused"* | app | v3 | P6 | `RC-009` |
+
 ## 7. Traceability
 
 Every requirement is traceable in both directions, and the check is mechanical.
@@ -874,12 +886,12 @@ grep -oE '`(R[GHJKL]|[CTEFSPGQHUYZKOJ])-[0-9]{3}[a-z]?`' WAREHOUSE-FUNCTIONAL-RE
 → (empty)
 ```
 
-**Numbering is contiguous, unique and in order** from `FR-001` to `FR-469`:
+**Numbering is contiguous, unique and in order** from `FR-001` to `FR-471`:
 
 ```
 grep -o '^| \*\*FR-[0-9]\{3\}\*\*' WAREHOUSE-FUNCTIONAL-REQUIREMENTS.md \
   | grep -o '[0-9]\{3\}' > /tmp/frnums.txt
-diff /tmp/frnums.txt <(seq -f "%03g" 1 469)
+diff /tmp/frnums.txt <(seq -f "%03g" 1 471)
 → (no output)
 ```
 
@@ -925,7 +937,7 @@ moved, so a reader can find them with one grep.
 
 ## 8. Coverage
 
-**469 requirements across 28 areas.** Counted with the command below, which counts each row's
+**471 requirements across 29 areas.** Counted with the command below, which counts each row's
 **distinct** versions — a row carrying `v1·v1` (a base column and an India document, both in v1, at
 different phases) contributes **one** to the v1 column, not two:
 
@@ -970,9 +982,10 @@ END { for (s in n) print s, n[s] }' WAREHOUSE-FUNCTIONAL-REQUIREMENTS.md
 | 6.26 Amendments — requirements added after the first authoring wave | 4 | 3 | — | 3 | — |
 | 6.27 Amendments — the requirements round 2 required | 13 | 5 | 4 | 5 | — |
 | 6.28 Round-4 amendments | 10 | 3 | 1 | 6 | — |
-| **Total** | **469** | **339** | **56** | **104** | **17** |
+| 6.29 Round-3 amendments | 2 | 1 | — | — | 1 |
+| **Total** | **471** | **340** | **56** | **104** | **18** |
 
-**The version columns sum to 516, not 469, and that is not an error.** 423 rows resolve to a single
+**The version columns sum to 518, not 471, and that is not an error.** 425 rows resolve to a single
 version; **45 span two and one spans three**, because the column lands in one version and the screen
 or behaviour in a later one — `v1·v2` for the duty-status column and the bonded feature, `v1·v1.1`
 for the print renderer and the print server, `v1·v2` for the landed-cost column and the landed-cost
@@ -982,7 +995,8 @@ one number.** *(The pre-round-2 edition of this paragraph said "401 rows / 45 sp
 to 491 rather than the stated 492: it counted the one three-version row as a two. The distribution is
 now computed rather than carried forward — `distinct=1 413 · distinct=2 45 · distinct=3 1`.)* Round 4
 added ten single-version rows and moved `FR-382` from v1.1 to v1 without changing its span, so the
-distribution is now `distinct=1 423 · distinct=2 45 · distinct=3 1`.
+distribution is now `distinct=1 423 · distinct=2 45 · distinct=3 1`. The round-3 fold's second lane
+added two more single-version rows (§6.29), making it `distinct=1 425 · distinct=2 45 · distinct=3 1`.
 
 A further **six rows carry two v1 phases** (`v1·v1` at `P1·P2-IN` or `P2·P2-IN`) — `FR-244`,
 `FR-304`, `FR-305`, `FR-306`, `FR-307`, `FR-308`. They are not split deliveries across releases; they
@@ -996,14 +1010,14 @@ phase it names):
 |---|---|---|
 | **P0** | ledger foundation | 118 |
 | **P1** | masters, identity, inbound | 103 |
-| **P2** | outbound, counting, valuation, returns, printing, reports | 113 |
+| **P2** | outbound, counting, valuation, returns, printing, reports | 114 |
 | **P2-IN** | the India movement documents | 11 |
 | **P3** | execution & mobile | 56 |
 | **P4** | India statutory & compliance | 18 |
 | **P5** | 3PL, channels & reverse logistics | 85 |
-| **P6** | optimisation, planning & the logistics seam | 17 |
+| **P6** | optimisation, planning & the logistics seam | 18 |
 
-**The shape to read from this table:** 339 of 469 requirements are v1, and the great majority of the
+**The shape to read from this table:** 340 of 471 requirements are v1, and the great majority of the
 v1 count is in P0 and P1 — columns, keys, registries and seeded tables with **no v1 screen**. That is
 deliberate. The 40 v1 schema items R4 lists and the 28 R5 lists are the ones that are free before the
 first migration runs and either very expensive or genuinely impossible afterwards, in the specific

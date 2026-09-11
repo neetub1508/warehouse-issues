@@ -1,6 +1,5 @@
 # R16 — role and persona completeness
 
-<!-- check-design-set: screen-citations file WS-238 — the BUILD-SPEC-SCREENS.md §1 next-free allocation marker (X-001), the same one R9, R10, GAP-REGISTER.md, GAP-REGISTER-R2.md and DESIGN-SET-DEFECTS.md declare. RA-001 and RA-002 propose taking it and the id after it; by definition neither has an index row yet -->
 
 **Date** 2026-09-02 · **Prefix** `RA-` · **Branch** `docs/round-3-functional-completeness`
 

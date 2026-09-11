@@ -125,7 +125,7 @@ That command is the authority; re-run it after any header change.
 - `V525000` `V525010` — `P0-14` the reference adapter
 
 `P0-16` writes **no migration** — that is not a defect, it is a task whose product is written
-decisions and a filed platform dependency.
+decisions, a filed platform dependency and `INSTALL.md` (`RE-006`).
 
 **Deliberate gap `V500022`–`V500029`:** eight numbers between the last prerequisite and the ledger,
 *"so a forgotten prerequisite has somewhere to land **before** the point of no return."* Use it; do

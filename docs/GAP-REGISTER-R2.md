@@ -2,7 +2,6 @@
 
 <!-- FR-447 was a proposal when this file was written; it is now a real row in WAREHOUSE-FUNCTIONAL-REQUIREMENTS.md §6.27, so the fr-citations exemption that stood here has been removed rather than left stale -->
 <!-- check-design-set: scenario-citations file WH-SC-306 — the SCENARIO-CATALOGUE.md §5 rule 3 next-free allocation marker, the same allocation DESIGN-SET-DEFECTS.md and GAP-REGISTER.md already declare. Round 2 took WH-SC-301-WH-SC-305 for SCENARIO-CATALOGUE.md 3.21, so the marker — and this declaration with it — moved to WH-SC-306 -->
-<!-- check-design-set: screen-citations file WS-238 — the BUILD-SPEC-SCREENS.md §1 next-free marker (X-001), named in §7 only as the third of the three allocation markers R9 and R10 declare. An allocation marker, not a citation of a screen -->
 
 > **What this document is for.** `GAP-REGISTER.md` dispositions the **575** findings of review round 1.
 > This one dispositions the **62** findings of round 2, under the same rule that produced it —
