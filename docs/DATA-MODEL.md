@@ -1,5 +1,8 @@
 # Data model — the migration authority for the Warehouse programme
 
+> **Current adopted amendment (2026-09-11):** [Global settings and resolved behaviour](GLOBAL-SETTINGS-DECISIONS.md) supplies defaults, scoped choices, resolved OD answers and acceptance cases. Earlier open/escalated or contradictory wording is historical where explicitly superseded there. Implement these answers; do not re-ask the same design questions.
+
+
 <!-- check-design-set: issue-citations file #2 #9 — `#2` and `#9` are ordinals in prose, not issue references — *Refusal #2*, *Adapter #2 (services)*, *ship-blocker #2*, *logistics needs #1, #2, #3, #5, #6, #10* — and at COMPETITOR-BENCHMARK.md:70/:146 `#9` is the markdown in-page anchor `[§9](#9--where-the-audits-disagree)`. In this repository `#2` and `#9` are in fact the two **pull requests** opened while the backlog was being filed, so no issue row can ever exist for either: see issues/CREATED.md -->
 
 > **This document is subordinate to [`DECISIONS.md`](DECISIONS.md) and to
@@ -1044,7 +1047,7 @@ alert (`FR-012`). Therefore this table has **no independent deadline** — its g
 > `FR-168` says *"availability is computed, never stored"*; `L-6` says available may never go below
 > zero and wants a `CHECK`; and `wms_inventory.quantity_available` is `GENERATED ALWAYS … STORED`,
 > which is where the prior art put it (`V30130:14` does the same in accessories).
-> The ruling: **the authority is `on_hand − Σ open reservations`, computed from
+> The current ruling: **the ATP authority is `max(0, allocatable on_hand − Σ open reservations)`, with signed balance separately exposed, computed from
 > `whb_reservations`; the column is a maintained projection of that authority, written in the same
 > transaction as the reservation, and covered by the same nightly rebuild and drift alert as
 > `quantity_on_hand`.** A `GENERATED` column cannot express it (the inputs are in another table), and
@@ -1517,7 +1520,7 @@ snapshot, warehouse legal identity, `duty_status`).
 | `whin_gst_state_codes` | State code reference, re-homed from `scc_gst_state_codes` | `FR-325` | v2 |
 | `whin_hsn_tax_master` | HSN → rate reference, re-homed from `scc_hsn_tax_master`. **The item still stores the code as a string, never an FK into this** | `FR-066` `FR-325` | v2 |
 | `whin_sac_master` | SAC reference for services | `FR-325` | v2 |
-| `whin_tax_components` · `whin_tax_entity_types` · `whin_tax_rules` · `whin_tax_rule_components` · `whin_tax_rule_conditions` · `whin_tax_resolution_audit` | The relational tax engine, carried forward **with its known defects fixed as blockers of the India pack**, not deferred: a deterministic resolution order, a resolution audit row per computation | `FR-325` | v2 |
+| `whin_tax_components` · `whin_tax_entity_types` · `whin_tax_rules` · `whin_tax_rule_components` · `whin_tax_rule_conditions` · `whin_tax_resolution_audit` | Reserved historical engine schema; no active engine build under resolved OD-9. External tax response/evidence uses the owning document audit contract | `FR-325` | v2 |
 | `whin_job_work_registrations` | Goods leave under a job-work challan to a location at the job worker's premises **with the owner unchanged**, carrying an expected-return clock | `FR-312` | v2 |
 | `whin_job_work_dispatch_lines` | Sent quantity, expected return, actual return, shortfall | `FR-312` | v2 |
 | `whin_itc04_returns` · `whin_itc04_lines` | The ITC-04 filing period and its lines | `FR-312` | v2 |
@@ -2658,7 +2661,7 @@ Enforcement layers: **C** = DB `CHECK` · **U** = DB unique index or constraint 
 | **I-3** | `L-3` Correction is reversal — mirrored lines, mandatory reason, single-set link | ● | ● | ● | | ● | `V500030` |
 | **I-4** | `L-2`/`IRR-03` Gapless `sequence_no` per warehouse + hash chain | | ● | ● | | ● | `V500030` |
 | **I-5** | `L-5` The nine-member position key | | ● | | | ● | `V500031` |
-| **I-6** | `L-6` Negative available refused; negative on-hand is a policy | ● | | ● | | ● | `V500031` |
+| **I-6** | `L-6` Nonnegative ATP projection; signed on-hand follows effective policy; allocations check positive free stock | ● | | ● | | ● | `V500031` |
 | **I-7** | `L-4` Positions are a cache — rebuild reproduces exactly | | | | | ● | job + `V500045` |
 | **I-8** | `L-7` Base UoM and the frozen factor; zero-quantity mirror | ● | | | | ● | `V500030` |
 | **I-9** | `L-7` Base stocking UoM immutable once stock exists | | | ● | | ● | `V500036` |
@@ -2673,6 +2676,7 @@ Enforcement layers: **C** = DB `CHECK` · **U** = DB unique index or constraint 
 | **I-18** | `D-10` No `CHECK (… IN (…))` on any of the **seventeen** registry columns, nor on any `CODE-LIST` column of §2.1.1's classification table | | | | | ● | `WarehouseBaseCouplingTest` |
 | **I-19** | `IRR-19` Item uniqueness is `(owner_id, sku)`; serial uniqueness is `(owner, item, serial_number)` | | ● | | | ● | `V500015` / `V500018` |
 | **I-20** | `L-6` Gapless document numbering, and the number is issued once | | ● | ● | | ● | `V500020` |
+| **I-21** | `L-15` Value-only movements balance signed extended value by currency; no mixed quantity/value-only movement | | ● | ● | | ● | `V500030` |
 | **I-22** | `D-14` A movement at an instant with no `REGISTERED` link is refused — `BEFORE INSERT` on `whb_stock_movements`: a `REGISTERED` link must cover `NEW.occurred_at` at `NEW.warehouse_id` | | | ● | | ● | `V500030` |
 | **I-23** | `D-14` The `REGISTERED` history — the exclusion (no overlap, from `V500012`), the deferred at-least-one trigger, and the append-only trigger (no `DELETE` and no key edit once a posted movement is in range; `effective_to` never inside a `CLOSED` period). It reads the ledger, so it cannot live in `V500012` | | ● | ● | ● | ● | **`V500037`** |
 | **I-24** | `RL-010` A rule row referenced by a reservation or task is immutable; an edit is copy-on-write (`version_no`, `supersedes_id`) | | | ● | | ● | `V500031`, `V500033`, `V510017` |
@@ -2868,7 +2872,9 @@ releases the number. A nightly job asserts `MAX(sequence_no) = COUNT(*)` per war
 §1.10's `CREATE UNIQUE INDEX … NULLS NOT DISTINCT`, verbatim. The correction of the prior art's
 invalid table-level `UNIQUE (…, COALESCE(lot_id, …))` and of its three-member grain.
 
-#### `I-6` — negative available refused, negative on-hand is a policy · `V500031`
+#### `I-6` — nonnegative ATP; negative signed on-hand is a policy · `V500031`
+
+The cached `quantity_available` is ATP, not signed balance. Allocation admission checks actual positive free stock under the writer lock; the CHECK alone is not sufficient. Rebuild computes the same clamped projection and separately reports physical debt. The current negative-stock resolver is the effective `whb_negative_stock_policies` rule with global fallback; NULL/no match resolves to BLOCK. The legacy item-site-only trigger below is historical pseudocode and must not be copied as the current resolver. Simulation, posting and database guard use the same resolved policy identity/version; WARN acknowledgement and override authority cannot be inferred from the mode string alone.
 
 ```sql
 ALTER TABLE whb_stock_positions

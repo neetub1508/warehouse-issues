@@ -1,5 +1,8 @@
 # India localisation pack — Warehouse
 
+> **Current adopted amendment (2026-09-11):** [Global settings and resolved behaviour](GLOBAL-SETTINGS-DECISIONS.md) supplies defaults, scoped choices, resolved OD answers and acceptance cases. Earlier open/escalated or contradictory wording is historical where explicitly superseded there. Implement these answers; do not re-ask the same design questions.
+
+
 > **Authority.** [`DECISIONS.md`](DECISIONS.md) wins over this document on module names, packages,
 > Flyway bands, prefixes and the version ladder. [`reviews/R1-codebase-reality.md`](reviews/R1-codebase-reality.md)
 > wins on any claim about the *existing* `classic` codebase. This document is the India **content**:

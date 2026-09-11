@@ -1,5 +1,8 @@
 # warehouse-issues
 
+**Adopted solutions:** [Global settings and resolved behaviour](docs/GLOBAL-SETTINGS-DECISIONS.md) · [First-day setup](INSTALL.md). Existing historical questions are resolved by this contract where named.
+
+
 Design, requirements and delivery backlog for the Classic **Warehouse and Inventory Management**
 product.
 

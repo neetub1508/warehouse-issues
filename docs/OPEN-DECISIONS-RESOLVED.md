@@ -1,5 +1,8 @@
 # Open decisions — resolved
 
+> **Current adopted amendment (2026-09-11):** [Global settings and resolved behaviour](GLOBAL-SETTINGS-DECISIONS.md) supplies defaults, scoped choices, resolved OD answers and acceptance cases. Earlier open/escalated or contradictory wording is historical where explicitly superseded there. Implement these answers; do not re-ask the same design questions.
+
+
 **Date resolved: 2026-09-03.** Nine of the fifteen `OD-` rows in
 [`DECISIONS.md`](DECISIONS.md) §3 are **decided**. Six remain open — **four escalated as business
 calls** (`OD-1`, `OD-3`, `OD-8`, `OD-9`) and **two held by schedule for v3** (`OD-2`, `OD-4`) —

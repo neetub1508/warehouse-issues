@@ -1,5 +1,8 @@
 # Warehouse — design set
 
+**Adopted solutions:** [Global settings and resolved behaviour](GLOBAL-SETTINGS-DECISIONS.md) · [First-day setup](../INSTALL.md). Existing historical questions are resolved by this contract where named.
+
+
 Pre-implementation design for the Classic **Warehouse and Inventory Management** product. No production
 code lives here.
 

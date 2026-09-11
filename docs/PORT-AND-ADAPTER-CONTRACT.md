@@ -1,5 +1,8 @@
 # The movement port and adapter contract
 
+> **Current adopted amendment (2026-09-11):** [Global settings and resolved behaviour](GLOBAL-SETTINGS-DECISIONS.md) supplies defaults, scoped choices, resolved OD answers and acceptance cases. Earlier open/escalated or contradictory wording is historical where explicitly superseded there. Implement these answers; do not re-ask the same design questions.
+
+
 <!-- check-design-set: issue-citations file #2 #9 #790 #791 — `#2` and `#9` are ordinals in prose, not issue references — *Refusal #2*, *Adapter #2 (services)*, *ship-blocker #2*, *logistics needs #1, #2, #3, #5, #6, #10* — and at COMPETITOR-BENCHMARK.md:70/:146 `#9` is the markdown in-page anchor `[§9](#9--where-the-audits-disagree)`. In this repository `#2` and `#9` are in fact the two **pull requests** opened while the backlog was being filed, so no issue row can ever exist for either: see issues/CREATED.md. And `#790` and `#791` are issues in **`neetub1508/classic`**, cited as `classic#790, #791` with the second elided in the ordinary English way. The first resolves; the elided continuation reads to the checker as a bare `#NN`. It is a cross-repo citation, never a warehouse issue -->
 
 > **What this document is for.** The user's requirement is that warehouse serves the dealer module
@@ -2135,3 +2138,10 @@ facts) > this document (on the wire shape of the port) > `reviews/R4` §3–§4 
 Every `grep`, `awk` and `find` count in this document carries the command that produced it and was run
 on that date against `/Users/bbhushan/work/git/workspace/classic`. Re-run before treating one as
 current.*
+
+
+## Adopted configuration integration boundary — 2026-09-11
+
+The base-owned port accepts base-valued `unit_cost`/`extended_value` and explicit source currency/rate evidence; adapters normalize original prices once. A foreign-currency source without a positive rate is refused atomically; repeat identity with changed normalized payload conflicts. The source snapshot preserves original amount, currency and rate evidence for audit; no base-to-accounting table access.
+
+Tax/cost provider capabilities are lower-layer interfaces with optional adapter registrations. A dealer adapter does not import warehouse-india classes or tables. The composition layer selects an installed provider under Global Settings, captures its result or external evidence in the owning document's audit payload, and blocks the affected finalization when absent. Core stock-only operations do not acquire a tax-engine dependency. All callbacks verify document identity and retain accepted results; timeout/retry is not permission to create a second invoice.

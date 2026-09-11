@@ -6,8 +6,7 @@ A **functional contract** is the machine-checkable behaviour spec for one workfl
 contract. It is the complement to the `reviewer` agent, which proves *how* code is written; this
 proves *what it does*.
 
-**None exist yet, and that is correct at this stage** — a contract describes a built workflow. They are
-written as each workflow lands, not up front.
+**Requirements contracts are specified before implementation.** [Global settings and resolved behaviour](../GLOBAL-SETTINGS-DECISIONS.md) defines the current decisions and acceptance cases. Workflow contracts add machine-checkable detail as tasks land; implementation verifies the agreed answer instead of asking the same product question again.
 
 ## When to write one
 

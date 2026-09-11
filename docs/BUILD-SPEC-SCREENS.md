@@ -1,5 +1,8 @@
 # Build spec — screens
 
+> **Current adopted amendment (2026-09-11):** [Global settings and resolved behaviour](GLOBAL-SETTINGS-DECISIONS.md) supplies defaults, scoped choices, resolved OD answers and acceptance cases. Earlier open/escalated or contradictory wording is historical where explicitly superseded there. Implement these answers; do not re-ask the same design questions.
+
+
 > **What this document is.** The per-screen block an engineer or a `/create-page` agent builds from
 > without going back to first principles. For every grid and every screen in the Warehouse product it
 > names the canonical reference page to diff against, the `gridIdentifier`, the
@@ -1408,7 +1411,7 @@ be scoped, and a site-level duplicate warning is shown where the scope permits t
 `status` select · `lpnType` select · `receivedFrom`/`receivedTo` (`date` pair) · `isMixedOwner` boolean.
 **Actions:** View (contents `DataTable`) · Move LPN (**one movement whose lines the service expands
 from the LPN's current contents and stores** — never leaves them implicit, `FR-101`) · Close · Print
-LPN label (GS1-128, template kind `LPN_LABEL`).
+LPN label (internal Code-128 in v1; optional GS1-128 after v1.1 capability checks, template kind `LPN_LABEL`).
 **Mobile:** `screens/whbLpn` — scan-to-LPN, contents, move. This is a genuine RF flow and it shares the
 engine with WS-231 RF Move.
 
@@ -1569,7 +1572,7 @@ Toolbar: Export · Grid config · **Rebuild check** (`whb_stock_positions:rebuil
 comparison for the filtered scope and writes findings to WS-043; the nightly job does the same thing
 unattended).
 **Statistics strip (filter-aware, uncached):** distinct items · total on hand · total available ·
-negative-available rows (must be 0) · rows drifted at last rebuild.
+negative signed-balance rows (visible shortage); negative ATP rows (must be 0) · rows drifted at last rebuild.
 **Mobile:** `screens/whStockEnquiry` list + the RF screen WS-236. Mobile carries `warehouseId`,
 `ownerId`, `stockStatusCode` dropdowns and `itemCode`/`locationCode`/`lotCode` text inputs; the date
 filters become an `expiringWithin` dropdown.
@@ -2047,7 +2050,7 @@ infrastructure with no precedent.
 | WS-134 | `wh_print_routing_rules` · `WAREHOUSE_PRINT_ROUTING_RULE` | C | `sequence`, `templateKind`, `warehouseName`, `zoneLocationCode`, `deviceId`, `printerName` | `warehouseId` → `templateKind` select · `printerId` | v1.1. Add/Edit/Reorder · **Test routing** | `FR-224` |
 
 **The eleven v1 template kinds** (`FR-225`), which are the `template_kind` vocabulary and which every
-print action above references: item/shelf label · LPN or pallet label (GS1-128) · carton label ·
+print action above references: item/shelf label · LPN or pallet label (internal Code-128 in v1; optional GS1-128 after capability checks) · carton label ·
 shipping label · location label · goods-receipt note · pick list · packing slip · delivery document ·
 movement document · hazard class label.
 **Mobile:** WS-132 `screens/whPrintJob` — reprint from the floor is the single most requested print
