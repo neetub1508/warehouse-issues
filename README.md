@@ -1,5 +1,8 @@
 # warehouse-issues
 
+For Claude task execution, follow [CLAUDE.md](CLAUDE.md). It preserves the existing task conventions and limits implementation to the assigned scope.
+
+
 **Adopted solutions:** [Global settings and resolved behaviour](docs/GLOBAL-SETTINGS-DECISIONS.md) · [First-day setup](INSTALL.md). Existing historical questions are resolved by this contract where named.
 
 

@@ -124,3 +124,7 @@ These cases supplement the existing numbered scenarios; they do not replace thei
 ## Readiness boundary
 
 The decisions above are answered. Capability tests, provider credentials, company base currency/time zone and customer master data are installation inputs; they are not unresolved design questions. External modules are not asserted to implement a contract merely because this repository specifies it. Implementers must prove these acceptance cases and the existing design-set checks before calling a workflow implemented. Future requirements changes remain versioned changes, not permission to silently choose a different behaviour.
+
+## Implementation scope — final clarification
+
+Reuse existing platform settings validation, version checks, cache invalidation and audit storage. A policy version/snapshot is needed only on the work whose behavior must remain reproducible; this does not require a second event store or configuration framework. Implement each shared concern once in P0-15/P1-20, and let consumers use that contract. A CONFIG-CASE shared by several owners is split by their existing responsibility: a provider consumer proves its refusal/recovery path, not every unrelated provider UI. A capability reserved for a later version remains unavailable in the current version; its switch is not an instruction to build it early.
