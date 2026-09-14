@@ -109,7 +109,7 @@ That command is the authority; re-run it after any header change.
 - `V500076` — `P1-02` **v2 increment**: `whb_uom_scheme_codes` (`RG-020`, folded from former `P5-24`)
 - ★ `V500011` — `P1-08` counterparty roles, counterparties, role links, external refs **+ the `whb_owners` FK**
 - ★ `V500012` `V500013` — `P1-05` warehouses · locations, location external refs **and the virtual-location seed**
-- `V500070` — `P1-05` **v2 increment**: `whb_warehouse_companies`, `whb_location_owner_dedications` (`RG-012`, `RG-014`, `FR-468`, folded from former `P5-24`)
+- `V500070` — `P1-05` **v2 increment**: `whb_location_owner_dedications` (`RG-014`, `FR-468`, folded from former `P5-24`; `whb_warehouse_companies`, `RG-012`, moved to `P1-22` at v1)
 - ★ `V500014` `V500015` — `P1-01` categories and variant axes · **`whb_items`, `PNR-4`**
 - `V500075` — `P1-01` **v2 increment**: `whb_item_uom_defaults`, `whb_item_tax_classifications` (`RG-010`, `RG-020`, folded from former `P5-24`)
 - ★ `V500018` `V500035` — `P1-07` **lots, serials (`PNR-4`), LPNs** · transformations
@@ -121,6 +121,9 @@ That command is the authority; re-run it after any header change.
 - `V500069` `V500077` — `P1-03` **v1.1 increment**: the ABC cut-offs and previous class (`RK-003`, folded from former `P3-25`) · **v2 increment**: `warehouse_id` on supplier sources (`RG-011`, folded from former `P5-24`)
 - `V500071` — `P1-19` **v2 increment**: `whb_registry_translations` (`RL-015`, folded from former `P5-28`)
 - `V500055` — `P1-21` **`whb_master_merges`** — the round-2 master-merge task (`FR-451`, `Z-007`)
+- `V500073` — `P1-22` **`whb_owner_companies`** (v1, reassigned from `P0-06`; drops `whb_owners.company_id`, `uk(code)`, `RG-013`, `D-14` item 8)
+- `V500078` — `P1-22` **`whb_warehouse_companies`** (v1; drops `whb_warehouses.company_id`, `uk(code)`, `RG-012`, `D-14` item 8)
+- `V500079` — `P1-22` one company per branch — `EXCLUDE` on `whb_company_branches` (`D-14` item 8e)
 - `V500051` `V500052` `V500054` — `P1-11` channels · transport details · the `whb_activity_history` **view**
 - `V501050`–`V501069` — `P1-20` base grid configuration, **wave 2**
 
@@ -144,7 +147,7 @@ defect — it is content and registration. `P1-18` writes one, `V500047` (`RA-00
 __TASKS__
 
 **Order:** `{P1-01, P1-05, P1-08, P1-09} → {P1-02, P1-07} → P1-03 → P1-04 → P0-02 → … → P1-06 →
-P1-12 → P1-13 → {P1-14, P1-15, P1-16} → P1-17`. `P1-10` follows `P1-01`; `P1-18`, `P1-19` and
+P1-12 → P1-13 → {P1-14, P1-15, P1-16} → P1-17`. `P1-10` follows `P1-01`; `P1-22` follows `P1-05`; `P1-18`, `P1-19` and
 `P1-20` follow `P0-15`.
 
 - **The six starred masters' migrations come first**, before `P0-02`; **their screens and services

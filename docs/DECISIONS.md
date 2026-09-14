@@ -288,6 +288,8 @@ are still unsupported**.
 all 83 findings and the full fold plan are in [`GAP-REGISTER-R4.md`](GAP-REGISTER-R4.md).
 
 1. **Every association between two independent masters is an effective-dated many-to-many junction.**
+   *(Narrowed 2026-09-14 by item 8: dates only where history is read; a pure link-set is edited from a
+   row action.)*
    It carries `is_primary`, or a role, where a default is needed. **Two kinds of row stay scalar**:
    composition, where a line belongs to its parent document, and ledger fact rows, which record what
    happened and are never re-pointed. The junction shape is R22 §1.3: `effective_from`/`effective_to`,
@@ -331,6 +333,64 @@ all 83 findings and the full fold plan are in [`GAP-REGISTER-R4.md`](GAP-REGISTE
    substance stands — useful-but-not-day-one work is still tracked and still versioned later — but it is
    tracked as a *v1.1* or *v2 increment* inside an existing task, not as a new task file.
    `GAP-REGISTER-R4.md` §4.6 has the mapping.
+8. **Round-5 amendment, 2026-09-14 (user decision): follow the existing pages, and go no heavier than the
+   need.** Items 1–7 stand except where this item narrows them.
+   - **a. Dates only where history is read.** A junction carries `effective_from`/`effective_to` and an
+     `EXCLUDE` only when something must answer *"which link held at a past instant"* — a movement's
+     `occurred_at`, a filed return, a custody shortage. That is `whb_warehouse_branches`,
+     `whb_company_branches`, `whb_warehouse_companies`, `whb_owner_companies`,
+     `whb_location_user_assignments`, `whin_gstin_profile_branches`, and the dated junctions already
+     specified (category assignments, supplier sources, lot parties). **Any other association between two
+     masters uses the plain junction of the existing pages**: `(parent_id, child_id, is_active,
+     display_order)`, plus `is_primary` where a default is needed, and `uk(parent_id, child_id)` — as
+     dealer `pdi_stock_yard_branches` (`V20123`), `pdi_stock_yard_companies` (`V20121`) and automotive
+     `company_branches` (`V10014`). The undated junctions already in `DATA-MODEL.md` stay as specified.
+     Item 1's *"every association is effective-dated"* is narrowed to this.
+   - **b. A pure link-set is maintained from a row action, not from a sub-grid.** Where a parent's
+     association with another master carries nothing but the link (role, primary, dates), the parent's
+     list has a **row action button** that opens `<Parent><Children>Modal`, a thin wrapper over one
+     module-local generic assignment modal: current list + available list, add several, remove one;
+     `Modal size="xl" resizable minWidth={800}`, `lazyModal()` + `Suspense`, mounted only when open. The
+     backend is `GET /{id}/<children>`, `POST /{id}/<children>` (a list of ids) and
+     `DELETE /{id}/<children>/{childId}` on the parent's controller, gated on the parent's `:edit` — **no
+     new permission, no new screen id, no grid of its own**. On a dated junction *remove* is **End link**
+     (`PATCH /{id}/<children>/{linkId}/end` sets `effective_to`, never deletes). **Copy these, do not
+     redesign them** (classic repo):
+     - platform Users — `platform/frontend/src/components/userManagement/UserManagementTable.tsx:695-701`
+       (the button), `platform/frontend/src/app/dashboard/admin/users/page.tsx:22,423,1006-1012`,
+       `UserBranchesModal.tsx`
+     - dealer PDI Stock Yards — `dealer/frontend/src/components/pdi-stock-yards/PdiStockYardManagementTable.tsx:599-611`,
+       `dealer/frontend/src/app/dealers/pdi-stock-yards/page.tsx:20-21,668-698,1019-1032`,
+       `PdiStockYardCompaniesModal.tsx`, `PdiStockYardBranchesModal.tsx`,
+       `dealer/backend/src/main/java/ai/dealer/controller/PdiStockYardController.java:535-632`
+     - automotive Companies — `automotive/frontend/src/components/companies/CompanyBranchesModal.tsx` over
+       `CompanyAssignmentModal.tsx`, `automotive/backend/src/main/java/ai/automotive/controller/CompanyController.java:423-464`
+
+     A tab that edits a record's **own child rows** stays a child editor, as on the existing pages:
+     counterparty roles, addresses and tax registrations (WS-021), item identifiers, packaging and
+     category-per-scheme (WS-023), lot parties (WS-036). A lifecycle transition keeps its own modal
+     (*Change registration*). **The rule applies to WS-015 *Branches*, WS-016 *Branches* and *Companies*,
+     WS-017 *Custody*, WS-019 *Companies*, WS-173 *Places of business*, and every future pure link-set.**
+   - **c. A warehouse and an owner link to companies; neither carries `company_id`.**
+     `whb_warehouse_companies` (`OPERATOR`/`STOCK_HOLDER`, one current `OPERATOR`) and
+     `whb_owner_companies` (`HOUSE`/`SERVICED_BY`, one current `HOUSE` owner per company) move from v2
+     to **v1**, and `whb_warehouses.company_id` and `whb_owners.company_id` are dropped once backfilled.
+     Create writes the first company link in the same transaction, as it writes the `REGISTERED` branch.
+     The movement company assertion (`RG-012`) reads a `STOCK_HOLDER` link at `occurred_at`, and a
+     transfer's two sites must both hold a current link to its company (`RK-007`). This takes the
+     warehouse and owner parts of `FR-468` into v1.
+   - **d. Codes are unique across the install** on `whb_warehouses` and `whb_owners` — `uk(code)`, as
+     platform `branches.branch_code` is. This supersedes `RL-004` for these two tables only; locations
+     stay `uk(warehouse_id, code)` and LPNs stay install-wide. House owners sharing the seeded code `HOUSE`
+     are renamed `HOUSE-<company code>` before the key is added (a single-company install keeps `HOUSE`),
+     and the migration refuses to run while any other duplicate code exists.
+   - **e. A branch belongs to one company at a time.** `whb_company_branches` gains
+     `EXCLUDE (branch_id =, range &&)`. The round-4 constraint only refused the same pair twice, while
+     WS-016's branch options and `422 WAREHOUSE_BRANCH_COMPANY_MISMATCH` already read *"the branch's
+     company now"* as one answer.
+   - **f. Built work is corrected by one task, `P1-22`**, because closed tasks are never reopened. Its
+     migrations are forward-only — `V500073` (reassigned from `P0-06`), `V500078`, `V500079` — and no
+     applied migration is edited.
 
 ### D-15 · A posted moving average is never restated; a backdated receipt inserts a layer
 
