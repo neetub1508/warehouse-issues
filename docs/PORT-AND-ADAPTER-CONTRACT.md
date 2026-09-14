@@ -164,7 +164,8 @@ admits only one implementation and is therefore useless for an N-consumer port:
 |---|---|---|---|---|
 | `POST` | `/api/warehouse/movements` | post one movement, synchronously, **all or nothing** | `warehouse:movements:post` | `FR-032`, `FR-040` |
 | `POST` | `/api/warehouse/movements/batch` | post many, each independently, **per-movement results** | `warehouse:movements:post` | `FR-034` |
-| `POST` | `/api/warehouse/movements/{id}/reverse` | post the mirror; own idempotency key; mandatory reason | `warehouse:movements:reverse` | `FR-035` |
+| `POST` | `/api/warehouse/movements/{id}/reverse` | post the mirror; own idempotency key; mandatory reason; optional `occurred_at`/`posting_date`, current-dated when omitted (`PC-20`) | `warehouse:movements:reverse` | `FR-035` |
+| `POST` | `/api/warehouse/movements/{id}/withdraw` | withdraw a `PENDING` movement — **maker only** (the submitting actor); own idempotency key; `approval_status → WITHDRAWN`, the row is kept (`RA-004`) | `warehouse:movements:post` | `FR-027` |
 | `GET` | `/api/warehouse/movements/{id}` | read back, including the assigned `sequence_no` | `warehouse:movements:view` | `FR-032` |
 | `GET` | `/api/warehouse/movements?source_system=&source_document_type=&source_document_id=` | **the lineage query** — how a consumer finds its own postings | `warehouse:movements:view` | `FR-036` |
 | `POST` | `/api/warehouse/movements/simulate` | validate and return balance deltas **without writing** | `warehouse:movements:simulate` | `FR-037` |
@@ -226,7 +227,7 @@ POST /api/warehouse/movements
 | `source_document_type` | VARCHAR(40) FK → `whb_document_types` | **R** | the producer's document kind — `SALES_ORDER`, `JOB_CARD`, `TRIP`, `POS_SHIFT`, `WORK_ORDER` | A row, not an enum, for the same reason as `movement_type_code`. `TRIP`, `MANIFEST` and `CONSIGNMENT` are *logistics* document types and must be insertable from the logistics migration. `FR-018`, R7 §6 item 8 |
 | `source_document_id` | VARCHAR(100) | **R** | the producer's own id, **opaque** | Deliberately `VARCHAR`, not UUID: **an external system's id is not ours**. A POS shift id, a marketplace order number and a trip reference are not UUIDs, and coercing them loses the identity |
 | `source_document_line_no` | INTEGER | O | the producer's header-level line pointer | Without it a **partially reversed** multi-line source document cannot be reconciled line by line — and partial reversal is the normal case, not the exception |
-| `idempotency_key` | VARCHAR(200) | **R** | caller-supplied, unique within `source_system` | **The most irreversible field in the schema.** `uk(source_system, idempotency_key)`. A ledger that has already double-posted **cannot be deduplicated afterwards**, because a duplicate is indistinguishable from a legitimate repeat of the same real event. `L-9`, `FR-017`, `IRR-04` |
+| `idempotency_key` | VARCHAR(200) | **R** | caller-supplied, unique within `source_system` | **The most irreversible field in the schema.** Unique per `source_system` **across months** through the non-partitioned `whb_movement_idempotency_keys` registry (`DATA-MODEL.md` §1.9, `I-11`). A ledger that has already double-posted **cannot be deduplicated afterwards**, because a duplicate is indistinguishable from a legitimate repeat of the same real event. `L-9`, `FR-017`, `IRR-04` |
 | `payload_hash` | CHAR(64) | S | SHA-256 of the canonicalised request body (§3.3) | Distinguishes *"retry"* from *"different payload, reused key"*. **Without it the conflict rule in §3.2 cannot exist** — the server can only choose between silently overwriting and silently ignoring, and both are wrong |
 | `sequence_no` | BIGINT | S | gapless, per warehouse | **A sequence cannot be started retroactively over rows that already exist.** The outbox cursor (§4) and the hash chain both key on it. `FR-006`, `IRR-03` |
 | `prev_payload_hash` | CHAR(64) | S | the previous movement's `payload_hash` in the same warehouse | Tamper evidence. **A chain begun in v2 proves nothing about v1.** Feature is v2; the column is v1. `IRR-03` |
@@ -419,7 +420,9 @@ item and the four points of no return, is [`IRREVERSIBLE.md`](IRREVERSIBLE.md) �
 
 ## 3.2 Idempotency — the exact table
 
-> **`PC-15`** · `uk(source_system, idempotency_key)`. The key is **caller-supplied and never
+> **`PC-15`** · `(source_system, idempotency_key)` is unique **across months**: it is the `PRIMARY KEY` of
+> `whb_movement_idempotency_keys`, inserted in the posting transaction for a movement, a reversal and a
+> withdraw alike, each on its own key (`DATA-MODEL.md` `I-11`). The key is **caller-supplied and never
 > server-generated**. *(`L-9`, `FR-017`.)*
 
 | Condition | Response | Body |
@@ -505,6 +508,11 @@ producer's responsibility to order them; base does not reorder and does not infe
 > - **Reversing an already-reversed movement** is `ALREADY_REVERSED`.
 > - **A reversal respects the period rules.** A reversal into a `CLOSED` period is `PERIOD_CLOSED`,
 >   and the correct act is a **current-dated** reversal, not a backdated one.
+> - **The reversal's dates.** The request may carry `occurred_at` and `posting_date`. When it omits
+>   them the reversal is **current-dated**: the injected `Clock`'s now and the current date. Every date
+>   guard reads the reversal's own dates.
+> - **The reversal's key is its own**, claimed in `whb_movement_idempotency_keys` like any other; a
+>   retry with the same key returns `200` and the same reversal (`WH-SC-171`).
 > - **"Edit" is never offered anywhere in the product** — not on a screen, not on the API, not as an
 >   admin tool.
 
@@ -624,8 +632,9 @@ Marked as **additions**, each with the clause that makes it necessary. They are 
 | `MOVEMENT_TYPE_NOT_PERMITTED_FOR_SOURCE` | 403 | no | §8.3 `B7` — a `source_system` may be scoped to the types its own migration registered |
 | `WAREHOUSE_MISMATCH` | 422 | no | §2.4 — a line's location not belonging to the header's `warehouse_id`; `sequence_no` is per warehouse |
 | `COMPANY_MISMATCH` | 422 | no | `FR-025` — a location or owner outside the header's `company_id` |
+| `PERIOD_CLOSED_SINCE_SUBMISSION` | 409 | no — withdraw and resubmit current-dated | `RA-004` — approving a `PENDING` movement whose `posting_date` period closed after it was submitted |
 
-**Total: 31 ratified + 12 proposed = 43.** Counted from the two tables above.
+**Total: 31 ratified + 13 proposed = 44.** Counted from the two tables above.
 
 ## 3.10 Authentication, authorisation and the permission a caller needs
 
@@ -639,11 +648,11 @@ Marked as **additions**, each with the clause that makes it necessary. They are 
 >
 > | Permission | Needed for |
 > |---|---|
-> | `warehouse:movements:post` | `POST /movements`, `POST /movements/batch` |
+> | `warehouse:movements:post` | `POST /movements`, `POST /movements/batch`, `POST /movements/{id}/withdraw` (the submitter only) |
 > | `warehouse:movements:reverse` | `POST /movements/{id}/reverse` |
 > | `warehouse:movements:view` | `GET /movements/{id}`, the lineage query |
 > | `warehouse:movements:simulate` | `POST /movements/simulate` |
-> | `warehouse:movements:post:backdated` | posting into a `SOFT_CLOSED` period (`PC-26`) |
+> | `whb_stock_movements:post_backdated` | posting into a `SOFT_CLOSED` period (`PC-26`), together with `whb_stock_periods:override` and an approved override row whose approver is not the poster (`RA-007`) |
 > | `warehouse:stock:view` | `GET /stock`, `GET /stock/as-at` |
 > | `warehouse:reservations:hold` · `:release` | §5 |
 > | `warehouse:outbox:replay` · `:view` | §4.6, the dead-letter grid |

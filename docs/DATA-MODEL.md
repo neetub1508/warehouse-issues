@@ -133,7 +133,7 @@ Three deliberate exceptions, each with its reason:
 |---|---|---|
 | **No `updated_at` / `updated_by`** | `whb_stock_movement_lines`, `whb_number_series_issued`, `whb_audit_events` and `whb_outbox`. **Not** the `wh3_billable_events` meter: its rating columns are an allowlisted `UPDATE`, so it carries them (`RF-008`) | Append-only by invariant (`L-2`). A column that can never change should not exist to be changed. The header `whb_stock_movements` **keeps** them (`IRREVERSIBLE.md` §4.1) because `posting_status`, `is_reversed` and `reversed_by_movement_id` are written after post by the handover and reversal paths, which the `L-2` trigger's mutable-column allowlist permits |
 | **No `is_active`** | every transactional table — movements, lines, positions, receipts, orders, shipments, counts, adjustments, tasks, reservations, billable events | A posted document is never soft-deleted; it is reversed, cancelled or released. `is_active` would be a second, contradictory way to make a posting vanish. `is_active` is on **masters and catalogues only** |
-| **No `version`** | `whb_stock_movement_lines`, `whb_movement_line_attributes`, `whb_outbox` | Nothing updates them, so there is nothing to lock optimistically |
+| **No `version`** | `whb_stock_movement_lines`, `whb_movement_line_attributes`, `whb_movement_idempotency_keys`, `whb_outbox` | Nothing updates them, so there is nothing to lock optimistically |
 
 **Soft delete.** `is_active BOOLEAN NOT NULL DEFAULT true` plus `status VARCHAR(20)` on masters and
 catalogues, matching the platform idiom. There is **no `deleted_at`/`deleted_by` pair anywhere** —
@@ -321,7 +321,7 @@ are baked into the backend image at build time (`Dockerfile.backend:140-181`, R1
 partition conversion later has no comfortable window.
 
 PostgreSQL requires the partition key to be a member of **every** unique or primary key on a
-partitioned table. Four consequences follow, and they are the reason this is in §1 rather than in the
+partitioned table. Five consequences follow, and they are the reason this is in §1 rather than in the
 table row:
 
 1. **`occurred_at` is denormalised onto the line.** `whb_stock_movement_lines.occurred_at` is
@@ -343,6 +343,13 @@ table row:
    `wh_stock_adjustment_lines.movement_id`, `wh_return_receipt_lines.receipt_movement_id`.
    `reversal_of_movement_id` and `reversed_by_movement_id` are bare UUIDs for the same reason, and
    `L-3`'s link is enforced by the reversal service plus the `I-3` trigger, not by an FK.
+5. **A key that must be unique across months cannot live on the ledger** (`MPR-OPEN-07`, decided
+   2026-09-14). A unique index on `whb_stock_movements` holds **per partition only**, so every one the
+   ledger carries includes `occurred_at` and is a backstop, not the guard. The three global guarantees
+   rest elsewhere: **idempotency** on `whb_movement_idempotency_keys`, a **non-partitioned** registry
+   with `PRIMARY KEY (source_system, idempotency_key)` that the writer inserts in the posting
+   transaction (§2.1.8, `I-11`); the **gapless per-warehouse sequence** on `I-4`'s locked counter row;
+   the **single reversal** on `I-3`'s conditional `UPDATE … WHERE is_reversed = false`.
 
 **The residual risk, named:** `id` alone is not unique across partitions at the database level. With
 `gen_random_uuid()` the collision probability is negligible, and every reference above is written by
@@ -890,8 +897,8 @@ backfilled converts a discipline into a mechanism.
 | `reason_code_id` | UUID → `whb_reason_codes` | yes | — | `IRR-32` |
 | `handover_id` | UUID, **bare** | yes | v1.1 GL seam | `IRR-41` |
 | `posting_status` | VARCHAR(20) NOT NULL DEFAULT `'NOT_APPLICABLE'` | no | v1.1 | `IRR-41` — `NOT_APPLICABLE`/`PENDING`/`POSTED`/`REJECTED`. §1.7's field-initialiser rule applies |
-| `approval_status`, `approved_by`, `approved_at` | VARCHAR(20), UUID, TIMESTAMPTZ | yes | v1 scrap, v1.1 write-down | `IRR-27` |
-| `posted_at` | TIMESTAMPTZ | **no** | — | — |
+| `approval_status`, `approved_by`, `approved_at` | VARCHAR(20), UUID, TIMESTAMPTZ | yes | v1 scrap, v1.1 write-down | `IRR-27` — **carries the movement's whole lifecycle; there is no header `status` column** (`MPR-OPEN-05`, decided 2026-09-14). `NULL` (type needs no approval) or `APPROVED` = the row has ledger effect. `PENDING` = a ledger row with **no** ledger effect, and the only header row `I-2` still lets change. `REJECTED` and `WITHDRAWN` (`RA-004`) are terminal and have no ledger effect. `CLOSED-SYSTEM`, no `CHECK` (`RL-006`) |
+| `posted_at` | TIMESTAMPTZ | **no** | — | set at acceptance; a `PENDING` row's is restamped when it is approved |
 | `notes` | TEXT | yes | — | — |
 | audit quartet + `version` | — | — | — | `updated_*` exist and are written **only** by the allowlisted paths (§1.4) |
 
@@ -899,10 +906,17 @@ backfilled converts a discipline into a mechanism.
 
 ```
 PRIMARY KEY (id, occurred_at)
+-- Every unique index carries occurred_at (§1.9 consequence 5): each holds per partition only and is a
+-- backstop. The global guards are whb_movement_idempotency_keys (I-11), I-4's counter row, I-3's update.
 CREATE UNIQUE INDEX uk_whb_stock_movements_idempotency
-    ON whb_stock_movements (source_system, idempotency_key);                    -- I-9
+    ON whb_stock_movements (source_system, idempotency_key, occurred_at);       -- I-11 backstop
 CREATE UNIQUE INDEX uk_whb_stock_movements_sequence
-    ON whb_stock_movements (warehouse_id, sequence_no);                         -- I-4
+    ON whb_stock_movements (warehouse_id, sequence_no, occurred_at);            -- I-4 backstop
+CREATE UNIQUE INDEX uk_whb_stock_movements_one_reversal
+    ON whb_stock_movements (reversal_of_movement_id, occurred_at)
+    WHERE reversal_of_movement_id IS NOT NULL;                                  -- I-3 backstop
+CREATE INDEX idx_whb_stock_movements_idem_lookup
+    ON whb_stock_movements (source_system, idempotency_key);
 CREATE INDEX idx_whb_stock_movements_lineage
     ON whb_stock_movements (source_system, source_document_type, source_document_id);
 CREATE INDEX idx_whb_stock_movements_wh_occurred  ON whb_stock_movements (warehouse_id, occurred_at DESC);
@@ -1022,6 +1036,12 @@ assumed. **The four typed value columns are the table's one shape** (`RL-007`). 
 value_type)` pair — one text value with a type tag — is `FR-434`'s *"JSON smuggled in a text column"*
 at a smaller scale and is not built; `IRREVERSIBLE.md` §4.2 and `PORT-AND-ADAPTER-CONTRACT.md` §2.5
 follow this row. The table is created in `V500030` and is append-only, so the shape is `PNR-1`.
+
+##### `whb_movement_idempotency_keys` — the key registry
+
+| Table | Purpose | Key columns | Keys / indexes | FKs | FR | Ver |
+|---|---|---|---|---|---|---|
+| `whb_movement_idempotency_keys` | **`I-11`'s database guard.** One row per accepted idempotency key: a movement's, a reversal's own key (`FR-035`) and a withdraw's own key (`RA-004`). **Not partitioned**, so the key stays unique across months, which a unique index on the partitioned ledger cannot do (§1.9 consequence 5, `RL-011`). The writer inserts it in the posting transaction. A concurrent duplicate waits on the primary key and then fails; the writer re-reads the row and answers `200` (same `payload_hash`) or `409 IDEMPOTENCY_KEY_REUSED` (different). Append-only | `source_system`, `idempotency_key`, `movement_id` (the movement the key created, or the one it withdrew), `occurred_at` (that movement's, to find its partition), `payload_hash`, `created_at` | `PRIMARY KEY (source_system, idempotency_key)`; idx(`movement_id`) | `source_system → whb_source_systems(code)` `ON UPDATE RESTRICT`; `movement_id` **bare UUID, no `REFERENCES`** (§1.9) | `FR-017` `FR-033` `IRR-04` `L-9` | v1 · `V500030` (`MPR-OPEN-07`, decided 2026-09-14) |
 
 ##### `whb_stock_positions` — the cache
 
@@ -1200,7 +1220,7 @@ It is also the fix for a real wrong-way FK — §3.4 defect **X-4**.
 
 | Table | Purpose | Key columns | Keys / indexes | FKs | FR | Ver |
 |---|---|---|---|---|---|---|
-| `whb_tasks` | The execution instruction, one per receipt line and per pick line **in v1**, completed in the same request | `task_type_code`, `warehouse_id`, `zone_location_id`, `owner_id`, `priority`, `status` (`CREATED`/`ASSIGNED`/`STARTED`/`PAUSED`/`COMPLETED`/`CANCELLED`/`EXCEPTION`), `assigned_to`, **`assigned_at`**, **`started_at`**, **`completed_at`**, **`paused_seconds`**, `device_id`, `travel_distance_m`, `units_processed`, `exception_code`, `required_resource_type`, `source_document_type`, `source_document_id`, `completion_movement_id` (bare), `task_number` | uk(`task_number`); idx(`status`,`warehouse_id`,`priority` DESC) `WHERE status IN ('CREATED','ASSIGNED')`; idx(`assigned_to`,`status`); idx(`source_document_type`,`source_document_id`) | `task_type_code → whb_task_types(code)`; `warehouse_id → whb_warehouses`; `zone_location_id → whb_locations`; `owner_id → whb_owners`; `assigned_to ↓platform users(id)`; **`source_document_id` is a generic reference with no FK** | `FR-212` `FR-213` `FR-215` `IRR-23` `IRR-46` | v1 |
+| `whb_tasks` | The execution instruction, one per receipt line and per pick line **in v1**, completed in the same request — for a putaway line that is the operator's Complete request: the task is created at GRN post or QC release and stays `CREATED`/`ASSIGNED` until then (`receipt-qc-putaway.contract.md` `RQP-OPEN-08`) | `task_type_code`, `warehouse_id`, `zone_location_id`, `owner_id`, `priority`, `status` (`CREATED`/`ASSIGNED`/`STARTED`/`PAUSED`/`COMPLETED`/`CANCELLED`/`EXCEPTION`), `assigned_to`, **`assigned_at`**, **`started_at`**, **`completed_at`**, **`paused_seconds`**, `device_id`, `travel_distance_m`, `units_processed`, `exception_code`, `required_resource_type`, `source_document_type`, `source_document_id`, `completion_movement_id` (bare), `task_number` | uk(`task_number`); idx(`status`,`warehouse_id`,`priority` DESC) `WHERE status IN ('CREATED','ASSIGNED')`; idx(`assigned_to`,`status`); idx(`source_document_type`,`source_document_id`) | `task_type_code → whb_task_types(code)`; `warehouse_id → whb_warehouses`; `zone_location_id → whb_locations`; `owner_id → whb_owners`; `assigned_to ↓platform users(id)`; **`source_document_id` is a generic reference with no FK** | `FR-212` `FR-213` `FR-215` `IRR-23` `IRR-46` | v1 |
 | `whb_devices` | Device inventory and device-bound sessions. **Which site and user a device is with is `whb_device_assignments`**, so floater devices and shift hand-over keep their history (`RG-018`) | `device_code`, `device_type`, `last_seen_at`, `app_version`, `is_active` | uk(`device_code`) | — | `FR-222` | v1.1 |
 | `whb_device_assignments` | A device's site and user over time | `device_id`, `warehouse_id`, `user_id` (nullable — a site pool device), `effective_from`, `effective_to` | `EXCLUDE (device_id =, range &&)` — one assignment per device at a time; idx(`warehouse_id`) `WHERE effective_to IS NULL`; idx(`user_id`) `WHERE effective_to IS NULL` | `device_id → whb_devices`; `warehouse_id → whb_warehouses`; `user_id ↓platform users(id)` | `FR-222` | v1.1 |
 | `whb_number_series` | **Gapless** document numbering from a locked counter row, module-scoped. **A branch-scoped series** (challan, transfer invoice) **resolves `branch_id` = the issuing site's `REGISTERED` branch at the document date**; warehouse-scoped series (GRN, pick, ship) are unaffected. A re-registration switches series from that instant and renumbers nothing (`RG-001`, `FR-307`) | `owning_module`, `series_code`, `company_id`, `warehouse_id`, `branch_id`, `prefix`, `suffix`, `pad_length`, `current_value`, `reset_policy` (`NEVER`/`YEARLY`/`MONTHLY`), `last_reset_at`, `is_gapless` | uk(`owning_module`,`series_code`,`company_id`,`warehouse_id`,`branch_id`) `NULLS NOT DISTINCT` | masters as named; `branch_id ↓platform branches(id)` | `FR-426` | v1 |
@@ -1262,17 +1282,17 @@ writing `whb_stock_movements` directly (`FR-436`, `D-11` B5). A `wh_` table ther
 | Table | Purpose | Key columns | Keys / indexes | FKs | FR | Ver |
 |---|---|---|---|---|---|---|
 | `wh_purchase_orders` | PO header. The **lifecycle command centre** — a detail page with sub-tabs where every GRN, invoice, return, QC result and putaway is visible | `po_number`, `company_id`, `warehouse_id`, `supplier_counterparty_id`, `owner_id`, `order_date`, `expected_delivery_date`, `currency_code`, `status` (`DRAFT`/`SUBMITTED`/`APPROVED`/`PARTIALLY_RECEIVED`/`RECEIVED`/`CLOSED`/`CANCELLED`), `order_source` (`STOCK`/`DAILY`/`VOR`/`EMERGENCY`/`SPECIAL_ORDER`/`BACK_ORDER`/`INITIAL_STOCK`), `customer_reference`, `priority`, `subtotal`, `tax_amount`, `total_amount`, `approved_by`, `approved_at`, `over_receipt_tolerance_pct`, `replenishment_suggestion_id`, **lifecycle timestamps** `submitted_at`, `acknowledged_at`, `first_receipt_at`, `closed_at` | uk(`po_number`); idx(`supplier_counterparty_id`,`order_date`); idx(`warehouse_id`,`status`) | ↓base `company_id`, `warehouse_id`, `supplier_counterparty_id`, `owner_id`; `replenishment_suggestion_id → wh_replenishment_suggestions` | `FR-122` `FR-125` `FR-260` `IRR-23` | v1 |
-| `wh_purchase_order_lines` | PO line with the received/cancelled counters | `po_id`, `line_no`, `item_id`, `ordered_quantity`, `uom_code`, `unit_price`, `line_total`, `expected_delivery_date`, `received_quantity`, `accepted_quantity`, `rejected_quantity`, `cancelled_quantity`, `remaining_quantity`, `line_status`, `tax_classification_code` | uk(`po_id`,`line_no`); idx(`item_id`) | `po_id → wh_purchase_orders`; ↓base `item_id`, `uom_code` | `FR-122` | v1 |
+| `wh_purchase_order_lines` | PO line with the received/cancelled counters | `po_id`, `line_no`, `item_id`, `ordered_quantity`, `uom_code`, `unit_price`, `line_total`, `expected_delivery_date`, `received_quantity`, `accepted_quantity`, `rejected_quantity`, `cancelled_quantity`, `remaining_quantity`, `line_status`, `tax_classification_code`, `over_receipt_tolerance_pct` (nullable — null inherits the PO header's, then item → warehouse → global `warehouse.receiving.over_receipt_percent`; `receipt-qc-putaway.contract.md` `RQP-OPEN-14`) | uk(`po_id`,`line_no`); idx(`item_id`) | `po_id → wh_purchase_orders`; ↓base `item_id`, `uom_code` | `FR-122` | v1 |
 | `wh_asns` | The supplier's shipment declaration | `asn_number`, `supplier_counterparty_id`, `warehouse_id`, `carrier_counterparty_id`, `tracking_number`, `vehicle_number`, `expected_arrival_at`, `total_pallets`, `total_cases`, `total_weight_kg`, `status` | uk(`asn_number`); idx(`expected_arrival_at`) | ↓base | `FR-136` | v1.1 |
 | `wh_asn_lines` | Declared line, with lot, expiry, serial and SSCC. **`serial_numbers JSONB` is normalised away** | `asn_id`, `line_no`, `po_id`, `po_line_id`, `item_id`, `expected_quantity`, `uom_code`, `lot_code`, `expiry_date`, `sscc`, `lpn_code` | uk(`asn_id`,`line_no`) | `asn_id → wh_asns`; ↓base | `FR-136` `FR-383` | v1.1 |
 | `wh_asn_line_serials` | The child table that replaces `wms_asn_lines.serial_numbers JSONB` | `asn_line_id`, `serial_number` | uk(`asn_line_id`,`serial_number`) | `asn_line_id → wh_asn_lines` | `FR-383` | v1.1 |
 | `wh_receiving_sessions` | **One truck against N POs × N ASNs × N GRNs**, with a nullable supplier for a consolidator's load | `session_number`, `warehouse_id`, `dock_door_id`, `supplier_counterparty_id` (**nullable**), `carrier_counterparty_id`, `vehicle_number`, `driver_name`, `seal_number_in`, `seal_number_out`, `gate_pass_ref`, `arrival_photo_document_id`, **`arrived_at`**, **`docked_at`**, **`unload_started_at`**, **`unload_completed_at`**, **`departed_at`**, `status` | uk(`session_number`); idx(`warehouse_id`,`arrived_at` DESC) | ↓base; `dock_door_id → wh_dock_doors`; `arrival_photo_document_id ↓platform documents(id)` | `FR-124` `FR-211` `IRR-23` | v1 |
 | `wh_receiving_session_documents` | The session ↔ PO / ASN junction | `session_id`, `document_type` (`PO`/`ASN`), `document_id` | uk(`session_id`,`document_type`,`document_id`) | `session_id → wh_receiving_sessions`; `document_id` generic within the module | `FR-124` | v1 |
-| `wh_goods_receipts` | GRN header. **Receiving verification always happens; quality inspection is optional** | `grn_number`, `session_id`, `po_id` (nullable and **derived** — the only PO, when there is one; the line's `po_line_id` is the association, so a consolidated GRN does not contradict its header and *"GRNs of PO X"* reads through lines, `RG-019`), `asn_id`, `supplier_counterparty_id`, `warehouse_id`, `owner_id`, `received_by`, `received_at`, **`is_blind_receipt`**, `receiving_mode`, `grn_timing`, `status`, `match_status` (`MATCHED`/`QTY_OVER`/`QTY_UNDER`/**`ITEM_MISMATCH`** — a received line whose item is on no attached PO line, `RJ-014`), `ownership_transfer_point`, `invoice_matched`, **`dock_to_stock_completed_at`** | uk(`grn_number`); idx(`po_id`); idx(`warehouse_id`,`received_at` DESC) | as named | `FR-122` `FR-126`–`FR-128` `FR-130` `FR-242` `FR-344` `IRR-23` | v1 |
+| `wh_goods_receipts` | GRN header. **Receiving verification always happens; quality inspection is optional** | `grn_number`, `session_id` (nullable — set by WS-075 Create GRN, null for a WS-076 blind receipt; `receipt-qc-putaway.contract.md` H2), `po_id` (nullable and **derived** — the only PO, when there is one; the line's `po_line_id` is the association, so a consolidated GRN does not contradict its header and *"GRNs of PO X"* reads through lines, `RG-019`), `asn_id`, `supplier_counterparty_id` (required, blind receipts included — derived from a non-house owner's `whb_owners.counterparty_id`, picked only for a house-owned blind receipt; `receipt-qc-putaway.contract.md` `RQP-OPEN-15`), `warehouse_id`, `owner_id`, `received_by`, `received_at`, **`is_blind_receipt`**, `receiving_mode`, `grn_timing`, `status`, `match_status` (`MATCHED`/`QTY_OVER`/`QTY_UNDER`/**`ITEM_MISMATCH`** — a received line whose item is on no attached PO line, `RJ-014`), `ownership_transfer_point`, `invoice_matched`, **`dock_to_stock_completed_at`** | uk(`grn_number`); idx(`po_id`); idx(`warehouse_id`,`received_at` DESC) | as named | `FR-122` `FR-126`–`FR-128` `FR-130` `FR-242` `FR-344` `IRR-23` | v1 |
 | `wh_goods_receipt_lines` | The receipt truth, and the row the ledger movement is posted from | `grn_id`, `line_no`, `po_line_id`, `item_id`, `expected_quantity`, `received_quantity`, `accepted_quantity`, `rejected_quantity`, **`free_quantity`**, `scheme_reference`, `uom_code`, `conversion_factor_used`, `lot_id`, `expiry_date`, `serial_capture_mode`, `lpn_id`, `received_status_code`, `condition_code`, `rejection_reason_code_id`, `damage_notes`, `unit_cost`, `duty_status`, **`is_cross_dock`**, `cross_dock_demand_line_id`, `putaway_location_id`, `receipt_movement_id` (bare), `tax_classification_code` | uk(`grn_id`,`line_no`); idx(`item_id`,`grn_id`); idx(`lot_id`) | as named; ↓base | `FR-129`–`FR-131` `FR-137` `FR-141` `FR-143` `FR-144` | v1 |
 | `wh_goods_receipt_line_serials` | Captured serials at receipt | `grn_line_id`, `serial_id`, `serial_number` | uk(`grn_line_id`,`serial_number`) | `serial_id ↓base whb_serials` | `FR-106` | v1 |
 | `wh_receipt_reversals` | **Reversal is an action, not a data fix.** It generates a `REVERSAL` movement, decrements the PO line and leaves both visible | `grn_id`, `reversal_number`, `reason_code_id`, `requested_by`, `approved_by`, `approved_at`, `reversal_movement_id` (bare), `status` | uk(`reversal_number`); idx(`grn_id`) | `grn_id → wh_goods_receipts`; ↓base `reason_code_id` | `FR-131` | v1 |
-| `wh_receipt_reversal_lines` | Per-line reversal quantity | `reversal_id`, `grn_line_id`, `quantity` | uk(`reversal_id`,`grn_line_id`) | as named | `FR-131` | v1 |
+| `wh_receipt_reversal_lines` | Per-line reversal quantity — in v1 a reversal is whole-GRN, so `quantity` is always the line's full received quantity (`L-3`; `receipt-qc-putaway.contract.md` `RQP-OPEN-20`) | `reversal_id`, `grn_line_id`, `quantity` | uk(`reversal_id`,`grn_line_id`) | as named | `FR-131` | v1 |
 | `wh_inspection_plans` | The inspection **plan** — sampling and criteria as rows. Replaces `wms_quality_inspections.inspection_criteria JSONB` | `code`, `name`, `inspection_type` (`FULL`/`SAMPLING`/`SKIP_LOT`), `sampling_plan`, `sample_size_formula` (whitelisted), `aql`, `is_active` | uk(`code`) | — | `FR-133` `FR-383` | v1 |
 | `wh_inspection_plan_criteria` | One checklist criterion | `plan_id`, `sequence`, `criterion`, `value_type`, `is_mandatory`, `min_value`, `max_value`, `expected_text` | uk(`plan_id`,`sequence`) | `plan_id → wh_inspection_plans` | `FR-133` `FR-383` | v1 |
 | `wh_inspection_plan_assignments` | **The inspection plan per item × supplier × site**, which the category default and `whb_item_supplier_sources.inspection_strategy` cannot express. Resolved most-specific-first, the `whb_allocation_rules` shape (`RG-018`) | `plan_id`, `item_id`, `item_category_id`, `counterparty_id`, `warehouse_id` (all nullable = any), `specificity` (computed), `effective_from`, `effective_to` | `EXCLUDE (item_id =, item_category_id =, counterparty_id =, warehouse_id =, range &&)`, nullable members per §1.3 rule 2; idx(`specificity` DESC) | `plan_id → wh_inspection_plans`; ↓base `item_id`, `item_category_id`, `counterparty_id`, `warehouse_id` | `FR-133` `FR-468` | v2 |
@@ -2609,10 +2629,11 @@ BEGIN
     END IF;
     PERFORM set_config(v_key, '1', true);   -- is_local = true: reset at transaction end
 
-    -- 2. Drafts are allowed to be unbalanced; only posted movements are asserted.
-    SELECT status INTO v_status FROM whb_stock_movements
+    -- 2. Only a movement with ledger effect is asserted: approval_status NULL or APPROVED. A PENDING
+    --    (or REJECTED / WITHDRAWN) movement is not; there is no status column (MPR-OPEN-05).
+    SELECT approval_status INTO v_status FROM whb_stock_movements
      WHERE id = v_movement_id AND occurred_at = COALESCE(NEW.occurred_at, OLD.occurred_at);
-    IF v_status IS NULL OR v_status <> 'POSTED' THEN
+    IF NOT FOUND OR (v_status IS NOT NULL AND v_status <> 'APPROVED') THEN
         RETURN NULL;
     END IF;
 
@@ -2677,7 +2698,7 @@ Enforcement layers: **C** = DB `CHECK` · **U** = DB unique index or constraint 
 | **I-8** | `L-7` Base UoM and the frozen factor; zero-quantity mirror | ● | | | | ● | `V500030` |
 | **I-9** | `L-7` Base stocking UoM immutable once stock exists | | | ● | | ● | `V500036` |
 | **I-10** | `L-8` Period-bound posting, with session-GUC-gated override | | | ● | | ● | `V500032` |
-| **I-11** | `L-9` Idempotent ingestion — `(source_system, idempotency_key)` unique, never server-generated | | ● | | | ● | `V500030` |
+| **I-11** | `L-9` Idempotent ingestion — `(source_system, idempotency_key)` unique **across months** on the non-partitioned `whb_movement_idempotency_keys` registry, never server-generated | | ● | | | ● | `V500030` |
 | **I-12** | `L-10` Allocation is an open-item ledger with a holder quad | ● | | ● | | ● | `V500033` |
 | **I-13** | `L-13` Three timestamps, and the line's `occurred_at` mirrors its header's | ● | | ● | | ● | `V500030` |
 | **I-14** | `L-11` Ownership never changes silently | ● | | ● | | ● | `V500030` |
@@ -2706,13 +2727,14 @@ of the query surface, not of a row.
 #### `I-1` — conservation (deferred trigger + header trigger + service pre-check) · `V500030`
 
 The deferred line trigger is **§6.2 verbatim**, including the memoisation. Its primary partner fires
-once when the header flips to `POSTED`:
+at commit for every header with ledger effect: at insert, and when a `PENDING` header is approved:
 
 ```sql
 CREATE OR REPLACE FUNCTION whb_assert_movement_conserves_header() RETURNS TRIGGER AS $$
 DECLARE v_bad RECORD; v_lines INTEGER; v_rule VARCHAR(40);
 BEGIN
-    IF NEW.status <> 'POSTED' THEN RETURN NULL; END IF;
+    -- PENDING / REJECTED / WITHDRAWN carry no ledger effect; there is no status column (MPR-OPEN-05)
+    IF NEW.approval_status IS NOT NULL AND NEW.approval_status <> 'APPROVED' THEN RETURN NULL; END IF;
 
     SELECT balance_rule INTO v_rule FROM whb_movement_types WHERE code = NEW.movement_type_code;
 
@@ -2778,7 +2800,7 @@ appears rather than the day someone remembers to update the trigger.
 CREATE OR REPLACE FUNCTION whb_reject_posted_mutation() RETURNS TRIGGER AS $$
 DECLARE
     v_mutable TEXT[] := TG_ARGV[0]::TEXT[];   -- columns still allowed to move after post
-    v_old JSONB; v_new JSONB; v_col TEXT; v_status VARCHAR(30);
+    v_old JSONB; v_new JSONB; v_col TEXT; v_approval VARCHAR(20); v_same_tx BOOLEAN;
 BEGIN
     IF TG_OP = 'DELETE' THEN
         RAISE EXCEPTION 'I-2 violated: % row % is a posted ledger row and cannot be deleted by any '
@@ -2786,18 +2808,25 @@ BEGIN
                         TG_TABLE_NAME, OLD.id;
     END IF;
 
+    -- "Posted" = any header whose approval_status is not PENDING; there is no status column
+    -- (MPR-OPEN-05, decided 2026-09-14).
     IF TG_OP = 'INSERT' THEN
-        -- a line inserted into an already-posted movement is as fatal as an UPDATE
-        SELECT status INTO v_status FROM whb_stock_movements
+        -- a line inserted into an already-posted movement is as fatal as an UPDATE. The header's own
+        -- transaction still writes its lines: that is how every movement is written.
+        SELECT approval_status INTO v_approval
+          FROM whb_stock_movements
          WHERE id = NEW.movement_id AND occurred_at = NEW.occurred_at;
-        IF v_status = 'POSTED' THEN
+        -- ⚠ v_same_tx = "the current transaction inserted this header". DELIBERATELY UNSPECIFIED:
+        -- P0-02 chooses and proves the mechanism, and it must NOT read the header row's xmin
+        -- (see the note after this block).
+        IF FOUND AND v_approval IS DISTINCT FROM 'PENDING' AND NOT v_same_tx THEN
             RAISE EXCEPTION 'I-2 violated: cannot INSERT a line into posted movement %', NEW.movement_id;
         END IF;
-        RETURN NULL;
+        RETURN NEW;                        -- a BEFORE trigger: NULL would silently skip the insert
     END IF;
 
-    IF OLD.status IS DISTINCT FROM 'POSTED' AND TG_TABLE_NAME = 'whb_stock_movements' THEN
-        RETURN NULL;                       -- drafts are freely editable
+    IF TG_TABLE_NAME = 'whb_stock_movements' AND OLD.approval_status = 'PENDING' THEN
+        RETURN NEW;                        -- not yet posted: approve / reject / withdraw flip it here
     END IF;
 
     v_old := to_jsonb(OLD);
@@ -2809,11 +2838,11 @@ BEGIN
                             TG_TABLE_NAME, v_col, v_old -> v_col, v_new -> v_col;
         END IF;
     END LOOP;
-    RETURN NULL;
+    RETURN NEW;                            -- an allowed update: NULL would silently drop the row change
 END;
 $$ LANGUAGE plpgsql;
 
--- the header: five columns may still move after post, and no others
+-- the header: seven columns may still move after post, and no others
 CREATE TRIGGER trg_whb_movements_immutable
     BEFORE UPDATE OR DELETE ON whb_stock_movements
     FOR EACH ROW EXECUTE FUNCTION whb_reject_posted_mutation(
@@ -2825,9 +2854,28 @@ CREATE TRIGGER trg_whb_movement_lines_immutable
     FOR EACH ROW EXECUTE FUNCTION whb_reject_posted_mutation('{}');
 ```
 
-> **The allowlist is the whole design, and it is deliberately five columns.** `posting_status` and
-> `handover_id` are written by the GL seam after the fact; `is_reversed` and
-> `reversed_by_movement_id` by the reversal service. Everything else — including `unit_cost`,
+> **⚠ Open for the P0-02 builder: the same-transaction allowance must not rely on `xmin`
+> (`MPR-OPEN-05`).** The `INSERT` branch admits a line into a non-`PENDING` header only when the
+> current transaction inserted that header. An earlier sketch tested the header row's
+> `xmin = txid_current()`, and that test is wrong. `xmin` names the transaction that wrote the row's
+> *current version*, and `I-3`'s conditional `UPDATE … SET is_reversed = true WHERE is_reversed = false`
+> rewrites the **original** movement inside the reversal transaction. An `xmin` test would then let
+> that transaction insert lines into the original, which is already posted. Any allowlisted update, and
+> the approval of a `PENDING` header, rewrites the row the same way. This document does not choose the
+> replacement. `P0-02` chooses the mechanism, proves it, and ships a test that reverses a movement and
+> inserts the mirror's lines in one transaction: the mirror's lines insert, and a line added to the
+> original in that same transaction is refused (`WH-SC-009`).
+>
+> **Every non-raising path returns `NEW`.** Both triggers are `BEFORE` row triggers, where
+> `RETURN NULL` silently skips the row's `INSERT` or `UPDATE` without raising. Only the `AFTER`
+> constraint triggers (`I-1`) may return `NULL`.
+
+> **The allowlist is the whole design, and it is deliberately seven columns** — four business columns
+> and the `updated_at`/`updated_by`/`version` stamp every allowlisted write carries (`MPR-OPEN-06`).
+> `posting_status` and `handover_id` are written by the GL seam after the fact; `is_reversed` and
+> `reversed_by_movement_id` by the reversal service. `approval_status`, `approved_by` and
+> `approved_at` are **not** on it: they change only while the row is `PENDING`, which the function
+> lets through before the allowlist is read. Everything else — including `unit_cost`,
 > including `moving_average_after`, including `occurred_at` — is frozen. Adding a sixth column to this
 > array is a design decision with an argument, not a convenience.
 >
@@ -2857,26 +2905,34 @@ ALTER TABLE whb_stock_movements
         reversal_of_movement_id IS DISTINCT FROM id
   );
 
--- a movement is reversed at most once
-CREATE UNIQUE INDEX uk_whb_movements_one_reversal
-    ON whb_stock_movements (reversal_of_movement_id)
+-- per-partition backstop only (§1.9 consequence 5); the guard is the trigger below
+CREATE UNIQUE INDEX uk_whb_stock_movements_one_reversal
+    ON whb_stock_movements (reversal_of_movement_id, occurred_at)
     WHERE reversal_of_movement_id IS NOT NULL;
 ```
 
 Plus a trigger that, on insert of a reversal, sets `is_reversed = true` and
 `reversed_by_movement_id` on the original **through the allowlisted columns of `I-2`** — which is the
-reason those two columns are on the allowlist at all. The service additionally asserts that the
+reason those two columns are on the allowlist at all. **This trigger is the single-reversal guard**
+(`MPR-OPEN-07`): it runs `UPDATE whb_stock_movements SET is_reversed = true, reversed_by_movement_id
+= NEW.id … WHERE id = NEW.reversal_of_movement_id AND occurred_at = <the original's> AND is_reversed =
+false` and raises when that touches no row. The row lock serialises two concurrent reversals, so the
+second one finds `is_reversed = true` whatever partition the two reversals land in. The service
+refuses first with `409 ALREADY_REVERSED`. The service additionally asserts that the
 reversal's lines are the exact mirror of the original's, line for line, and that its
 `movement_type_code` is the original type's declared `reversal_type_code`.
 
 #### `I-4` — gapless sequence and the hash chain · `V500030`
 
 ```sql
-CREATE UNIQUE INDEX uk_whb_movements_sequence
-    ON whb_stock_movements (warehouse_id, sequence_no);
+-- per-partition backstop only (§1.9 consequence 5); the guard is the counter row below
+CREATE UNIQUE INDEX uk_whb_stock_movements_sequence
+    ON whb_stock_movements (warehouse_id, sequence_no, occurred_at);
 ```
 
 Gaplessness itself is not expressible as a constraint — it is a property of the **issuing** path.
+The locked counter row is also the **uniqueness** guard, because the index above cannot see across
+partitions. A `PENDING` movement takes its number when it is accepted.
 `whb_next_movement_sequence(warehouse_id)` takes a row lock on a per-warehouse counter row
 (`SELECT … FOR UPDATE`), increments and returns, inside the posting transaction, so a rolled-back post
 releases the number. A nightly job asserts `MAX(sequence_no) = COUNT(*)` per warehouse and raises a
@@ -2942,7 +2998,7 @@ WITH rebuilt AS (
            SUM(l.base_quantity) AS qty
       FROM whb_stock_movement_lines l
       JOIN whb_stock_movements     m ON m.id = l.movement_id AND m.occurred_at = l.occurred_at
-     WHERE m.status = 'POSTED'
+     WHERE m.approval_status IS NULL OR m.approval_status = 'APPROVED'   -- ledger effect only (MPR-OPEN-05)
      GROUP BY 1,2,3,4,5,6,7,8,9
 )
 INSERT INTO whb_position_drift_findings (run_id, finding_type, /* nine key members */,
@@ -3043,15 +3099,38 @@ may not be the actor). `is_local` means the grant dies with the transaction; a s
 would silently open the period for every subsequent statement on that connection, and connection
 pooling makes that "every subsequent statement by anyone".
 
+`I-10` fires on `INSERT` only, so a `PENDING` movement is checked when it is submitted. Approving it
+after its period has closed is refused by the service: `409 PERIOD_CLOSED_SINCE_SUBMISSION` on
+`posting_date`, message *"withdraw and resubmit current-dated"* (`RA-004`, `MPR-GRD-20`).
+
 #### `I-11` — idempotent ingestion · `V500030`
 
 ```sql
-CREATE UNIQUE INDEX uk_whb_movements_idempotency
-    ON whb_stock_movements (source_system, idempotency_key);
+-- the guard: not partitioned, so the key is unique across months (§1.9 consequence 5, MPR-OPEN-07)
+CREATE TABLE whb_movement_idempotency_keys (
+    source_system    VARCHAR(40)  NOT NULL REFERENCES whb_source_systems (code) ON UPDATE RESTRICT,
+    idempotency_key  VARCHAR(200) NOT NULL,
+    movement_id      UUID         NOT NULL,    -- bare: the ledger is partitioned (§1.9)
+    occurred_at      TIMESTAMPTZ  NOT NULL,    -- finds the movement's partition
+    payload_hash     CHAR(64)     NOT NULL,
+    created_at       TIMESTAMPTZ  NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (source_system, idempotency_key)
+);
+CREATE INDEX idx_whb_movement_idempotency_keys_movement ON whb_movement_idempotency_keys (movement_id);
+
+-- the backstop on the ledger itself: per partition only
+CREATE UNIQUE INDEX uk_whb_stock_movements_idempotency
+    ON whb_stock_movements (source_system, idempotency_key, occurred_at);
 ```
 
+The writer inserts the registry row **in the posting transaction**. That covers a movement, a
+reversal (its **own** key, `FR-035`) and a withdraw (its **own** key, `RA-004`, where `movement_id` is
+the withdrawn movement). A concurrent request with the same key waits on the primary key, then fails.
+The writer then re-reads the registry row and answers from it, which is why a replay across a month
+boundary still returns `200` (`RL-011`).
+
 **The key is never server-generated** (`IRR-04`). The port rejects a request whose `idempotency_key`
-is absent with `MISSING_IDEMPOTENCY_KEY` rather than inventing one, because *"a retried network timeout
+is absent with `IDEMPOTENCY_KEY_REQUIRED` (`MPR-OPEN-09`; `PC-15`) rather than inventing one, because *"a retried network timeout
 posts twice"* is exactly what generating it produces. `FR-033`'s conflict semantics are exact: unseen
 key → `201` with the assigned `sequence_no`; seen key with an identical `payload_hash` → `200` with the
 original movement, posting nothing; seen key with a **different** `payload_hash` → `409`
@@ -3293,7 +3372,7 @@ Every one of these is covered by a test, and the tests are named in the task fil
 | WHB-20 | `V500020` | `whb_number_series`, `whb_number_series_issued`, `whb_next_document_number()` + **`I-20`** | v1 |
 | WHB-21 | `V500021` | `whb_valuation_policies`, `whb_cost_layers`, `whb_cost_layer_consumptions`. **Must precede `V500030`** — `whb_stock_movement_lines.cost_layer_id` is a real FK | v1 |
 | — | `V500022`–`V500029` | *deliberate gap* — the eight numbers between the last prerequisite and the ledger, so a forgotten prerequisite has somewhere to land **before** the point of no return | — |
-| **WHB-30** | **`V500030`** | ★★ **PNR-1 AND PNR-2, COLLAPSED INTO ONE FILE** ★★ `whb_stock_movements` + `whb_stock_movement_lines` + `whb_movement_line_attributes`, `PARTITION BY RANGE (occurred_at)` with monthly partitions and the partition-creation job, **and every one of `I-1`, `I-2`, `I-3`, `I-4`, `I-8`, `I-11`, `I-13`, `I-14`, `I-15`, `I-16`, `I-17`, `I-22` in the same file**, plus the company assertion (the movement's `company_id` equals its site's, `RG-012`). After this migration, `UPDATE` is refused to every actor: **a column added later is `NULL` on every pre-existing row forever, with no backfill path, because the backfill is an `UPDATE`.** `IRREVERSIBLE.md` §3.5 — *"the gap between them is the only window in which a column can be added and backfilled, and a window that exists will be used, quietly, by someone who does not know what it costs"* | v1 |
+| **WHB-30** | **`V500030`** | ★★ **PNR-1 AND PNR-2, COLLAPSED INTO ONE FILE** ★★ `whb_stock_movements` + `whb_stock_movement_lines` + `whb_movement_line_attributes`, `PARTITION BY RANGE (occurred_at)` with monthly partitions and the partition-creation job, plus the **non-partitioned** `whb_movement_idempotency_keys` registry (`I-11`'s guard, `MPR-OPEN-07`) and the seed `INSERT` of the `REVERSAL` reason-code context (`whb_reason_codes.context` has no `CHECK`; no `ALTER`), **and every one of `I-1`, `I-2`, `I-3`, `I-4`, `I-8`, `I-11`, `I-13`, `I-14`, `I-15`, `I-16`, `I-17`, `I-22` in the same file**, plus the company assertion (the movement's `company_id` equals its site's, `RG-012`). After this migration, `UPDATE` is refused to every actor: **a column added later is `NULL` on every pre-existing row forever, with no backfill path, because the backfill is an `UPDATE`.** `IRREVERSIBLE.md` §3.5 — *"the gap between them is the only window in which a column can be added and backfilled, and a window that exists will be used, quietly, by someone who does not know what it costs"* | v1 |
 | WHB-31 | `V500031` | `whb_stock_positions` + **`I-5`** (`NULLS NOT DISTINCT`) + **`I-6`**, and `whb_negative_stock_policies` — created **before** the trigger in the same file, because `I-6` calls its resolver (`Z-001`) | v1 |
 | WHB-32 | `V500032` | **`I-10`** — the period trigger. A separate file because it needs both `V500019` and `V500030` | v1 |
 | WHB-33 | `V500033` | `whb_reservations` + **`I-12`**, `whb_allocation_strategies`, `whb_allocation_strategy_rules`, `whb_allocation_rules` (`Z-001`) | v1 |
@@ -3320,7 +3399,8 @@ Every one of these is covered by a test, and the tests are named in the task fil
 | WHB-55 | `V500055` | `whb_master_merges` (`P1-21`) | v1 |
 | WHB-56 | `V500056` | `whb_gs1_settings`, `whb_gs1_serial_counters`, plus the `epc` columns on `whb_serials` and `whb_lpns`, `is_authorised_source` on `whb_item_supplier_sources`, the `GS1_DIGITAL_LINK` value in the `BARCODE_FORMAT` code list (`whb_code_list_values`, `RL-006`) and the `SUSPECT` row in `whb_dispositions` (`P3-24`) | v1.1 |
 | `P1-10` | `V500057` | **Correction of `V500046`**, which was applied before its gate finished — a forward-only migration, because a correction in the `V500022`–`V500029` gap would sort before `whb_import_batches` exists. `DISCARDED` joins `chk_whb_import_batches_status`; `uk_whb_import_batches_reversal_of` is recreated to ignore `FAILED`/`DISCARDED` reversals, so a failed reversal can be retried; `idx_whb_import_batches_document` and the partial unique `uk_whb_import_batches_document_landing` (one `APPLYING`/`APPLIED` landing per uploaded document). Creates no table | v1 |
-| — | `V500058`–`V500059` | *gap* | — |
+| `P1-14` | `V500058` | **Seed correction of `V500005` and `V500010`**, which are applied — so forward-only, never an edit (§7.1 rule 6). Inserts the stock status `REJECTED` into `whb_stock_statuses` with `QUARANTINE`'s behaviour flags, and the disposition `REJECT` into `whb_dispositions` (`movement_type_code = STATUS_CHANGE`, `target_stock_status_code = REJECTED`, `requires_inspection = true`), idempotently. QC's reject arm and `WH-SC-071`/`WH-SC-072` need both, and `P0-05`'s seed rule makes a code the seed lacks a merge blocker. Claimed 2026-09-14 from this gap, the `P1-10`/`V500057` precedent (`docs/contracts/receipt-qc-putaway.contract.md` `RQP-OPEN-12`). Creates no table | v1 |
+| — | `V500059` | *gap* | — |
 | WHB-60 | `V500060` | `whb_kit_definitions`, `whb_kit_components` | v1.1 |
 | WHB-61 | `V500061` | **released (hole)** — `whb_item_location_settings` moved to `V500016` (`RG-008`). Never reused (§7.1 rule 2) | — |
 | WHB-62 | `V500062` | `whb_devices`, **`whb_device_assignments`** (`RG-018`) | v1.1 |
@@ -3822,6 +3902,7 @@ whb_master_merges
 whb_metric_definitions
 whb_movement_batch_results
 whb_movement_batches
+whb_movement_idempotency_keys
 whb_movement_line_attributes
 whb_movement_line_attributes_archive
 whb_movement_types
@@ -4307,6 +4388,7 @@ whb_master_merges v1
 whb_metric_definitions v1
 whb_movement_batch_results v1
 whb_movement_batches v1
+whb_movement_idempotency_keys v1
 whb_movement_line_attributes v1
 whb_movement_line_attributes_archive v3
 whb_movement_types v1

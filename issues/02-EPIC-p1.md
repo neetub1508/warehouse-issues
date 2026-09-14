@@ -126,6 +126,7 @@ That command is the authority; re-run it after any header change.
 - `V500078` — `P1-22` **`whb_warehouse_companies`** (v1; drops `whb_warehouses.company_id`, `uk(code)`, `RG-012`, `D-14` item 8)
 - `V500079` — `P1-22` one company per branch — `EXCLUDE` on `whb_company_branches` (`D-14` item 8e)
 - `V500080` — `P1-22` drops `V500012`'s at-least-one `REGISTERED` triggers and function — a site saves with no link (`D-14` item 8g)
+- `V500058` — `P1-14` seed correction: the `REJECTED` stock status and the `REJECT` disposition (claimed 2026-09-14 from the `V500058`–`V500059` gap because `V500005`/`V500010` are applied; `RQP-OPEN-12`)
 - `V500051` `V500052` `V500054` — `P1-11` channels · transport details · the `whb_activity_history` **view**
 - `V501050`–`V501069` — `P1-20` base grid configuration, **wave 2**
 

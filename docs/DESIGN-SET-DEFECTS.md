@@ -1558,7 +1558,7 @@ it was **the second block that was not re-derived**.
 
 ### `X-055` · The quality-inspection mixed-result rollup is `CONDITIONAL` in the FRD and the exit scenario, and `PARTIAL` in the data model, the screen spec and the task — **MAJOR, and it is the column's stored value**
 
-> **Severity** MAJOR · **Status** **OPEN — a naming decision, deliberately not taken here.** Found 2026-09-02 by review round 2 while authoring `WH-SC-301` for `Q-006`
+> **Severity** MAJOR · **Status** **FIXED 2026-09-14 — `PARTIAL`**, on ratifying `docs/contracts/receipt-qc-putaway.contract.md` (`RQP-OPEN-01`): `FR-133` and `WH-SC-070` amended in the same change; `DATA-MODEL.md`, WS-080 and `issues/p1-14.md` already read `PARTIAL` · Found 2026-09-02 by review round 2 while authoring `WH-SC-301` for `Q-006`
 
 **Claim.** `FR-133` states the rollup as *"all pass → `PASS`, all fail → `FAIL`, anything mixed or
 partial → `CONDITIONAL`"*, and `WH-SC-070` — a **P1 acceptance scenario** — asserts the same word.

@@ -289,9 +289,11 @@ movement in the *current* period carrying the original's link — not a reopen.
 | `wh_purchase_orders` | `SUBMITTED` | `APPROVED` | Approve | `wh_purchase_orders:approve` | **approver ≠ submitter** above the value threshold (`FR-408`) | no |
 | `wh_purchase_orders` | `SUBMITTED` | `DRAFT` | Return for correction | `wh_purchase_orders:approve` | reason recorded | no |
 | `wh_purchase_orders` | `APPROVED` | `PARTIALLY_RECEIVED` | *(effect of a GRN post)* | `wh_goods_receipts:post` | **never set directly** — this row is a derived transition, and the guard is that no screen offers it | no |
-| `wh_purchase_orders` | `PARTIALLY_RECEIVED` | `RECEIVED` | *(effect of a GRN post)* | `wh_goods_receipts:post` | ordered − received ≤ the over-receipt tolerance | no |
+| `wh_purchase_orders` | `PARTIALLY_RECEIVED` | `RECEIVED` | *(effect of a GRN post)* | `wh_goods_receipts:post` | every line is `RECEIVED`, `CLOSED` or `CANCELLED`; a line is `RECEIVED` when ordered − received ≤ ordered × the short-receipt tolerance (item → warehouse → 0 — `receipt-qc-putaway.contract.md` `RQP-OPEN-19`) | no |
 | `wh_purchase_orders` | `APPROVED` · `PARTIALLY_RECEIVED` · `RECEIVED` | `CLOSED` | Close | `wh_purchase_orders:edit` | short-close reason required where received < ordered | **yes** |
 | `wh_purchase_orders` | `DRAFT` · `SUBMITTED` · `APPROVED` | `CANCELLED` | Cancel | `wh_purchase_orders:cancel` | **no receipt exists against any line** — this is the cancel cascade §10.2 names | **yes** |
+| `wh_purchase_orders` | `RECEIVED` | `PARTIALLY_RECEIVED` | *(effect of a `wh_receipt_reversals` post)* | `wh_receipt_reversals:post` | **never set directly** — recomputed from the lines in the reversal transaction: some line still holds received quantity | no |
+| `wh_purchase_orders` | `RECEIVED` · `PARTIALLY_RECEIVED` | `APPROVED` | *(effect of a `wh_receipt_reversals` post)* | `wh_receipt_reversals:post` | **never set directly** — no line holds received quantity; `first_receipt_at` is not cleared (`receipt-qc-putaway.contract.md` `RQP-T1-35`) | no |
 
 **`PARTIALLY_RECEIVED` and `RECEIVED` have no verb of their own.** They are consequences of
 `wh_goods_receipts:post`, and a screen that lets a user set them directly is the defect — the PO
@@ -383,7 +385,7 @@ Appendix A itself says. A guard is inferred from the cited source, and the task 
 | `wh_goods_receipts` | `POSTED` | `REVERSED` | *(effect of a `wh_receipt_reversals` row reaching `POSTED`)* | `wh_receipt_reversals:post` | `FR-131` — the stock has not moved on. Never set directly | **yes** |
 | `wh_receipt_reversals` | — | `REQUESTED` | Request | `wh_receipt_reversals:create` | the GRN is `POSTED` | no |
 | `wh_receipt_reversals` | `REQUESTED` | `APPROVED` | Approve | `wh_receipt_reversals:approve` | **approver ≠ requester** (`FR-408`) | no |
-| `wh_receipt_reversals` | `REQUESTED` | `REJECTED` | Reject | `wh_receipt_reversals:approve` | reason recorded | **yes** |
+| `wh_receipt_reversals` | `REQUESTED` · `APPROVED` | `REJECTED` | Reject | `wh_receipt_reversals:approve` | reason recorded; from `APPROVED` it is the exit when Post is refused (`receipt-qc-putaway.contract.md` H4) | **yes** |
 | `wh_receipt_reversals` | `APPROVED` | `POSTED` | Post | `wh_receipt_reversals:post` | generates the `REVERSAL` movement | **yes** |
 | `wh_stock_adjustments` | — | `DRAFT` | Create | `wh_stock_adjustments:create` | — | no |
 | `wh_stock_adjustments` | `DRAFT` | `SUBMITTED` | Submit | `wh_stock_adjustments:submit` | at least one line; mandatory reason code | no |
@@ -1529,35 +1531,38 @@ scope allowlist or a logistics module cannot find its own postings.**
 columns plus `lineNo`, `ownerName`, `itemCode`, `locationCode`, `lotCode`, `serialNumber`, `lpnCode`,
 `stockStatusCode`, `conditionCode`, `dutyStatus`, `quantity`, `uomCode`, `baseQuantity`,
 `baseUomCode`, `conversionFactorUsed`, `unitCost`, `extendedCost`, `costBasis`,
-`movingAverageAfter`, `hsnCode`, `sourceLineRef`, `isCounterSide`.
+`movingAverageAfter`, `taxClassificationCode`, `taxClassificationScheme` (the `RL-008` pair — there is
+no `hsn_code` column, `MPR-OPEN-14`), `sourceLineRef`, `isCounterSide`.
 **Ledger-style: no `createdByName` / `updatedByName` column and none in the export** — the actor is
 `actorUserName`, a business column, and adding audit columns here would emit a column no reader can
 select (§0.5).
 **Modals:** **no add and no edit modal exists.** The only write modals are **Reverse**
-(mandatory reason code from `whb_reason_codes`, its own idempotency key, refuses to reverse a
-reversal, refuses a `CLOSED` period, `FR-005`/`FR-035`) and **Approve** (for movement types flagged
-`requires_approval`; `FR-408` — the approver may not be the actor). View is a route, not a modal:
-WS-041.
-**Actions.** Row: View (WS-041) · Reverse (`whb_stock_movements:reverse` **and** `is_reversed = false`
-**and** the movement is not itself a reversal **and** the period is `OPEN` or an approved
-`SOFT_CLOSED` override exists) · Approve / Reject (`whb_stock_movements:approve`,
+(mandatory reason code from the `REVERSAL` context of `whb_reason_codes`, its own idempotency key,
+refuses to reverse a reversal, refuses a `CLOSED` period; no date fields, so the reversal is
+current-dated, `FR-005`/`FR-035`), **Approve** and **Reject** (for movement types flagged
+`requires_approval`; `FR-408` — the approver may not be the actor; a movement whose source document is
+a QC inspection also needs `wh_quality_inspections:approve`, approver ≠ disposer), and **Withdraw**
+(the submitter only, while `approval_status = PENDING`, its own idempotency key —
+`POST /api/warehouse/movements/{id}/withdraw`, `RA-004`). View is a route, not a modal: WS-041.
+**Actions.** Row: View (WS-041) · Reverse (`warehouse:movements:reverse` **and** `is_reversed = false`
+**and** the movement is not itself a reversal **and** the reversal's own period — the current one
+unless dates are supplied — is `OPEN` or an approved `SOFT_CLOSED` override exists) · Approve / Reject
+(`whb_stock_movements:approve`, `approval_status = PENDING`; plus `wh_quality_inspections:approve` for
+a QC-inspection source) · Withdraw (`warehouse:movements:post`, the submitter,
 `approval_status = PENDING`) · View source document (routes by `source_document_type` through the
 **bean-collection display resolver**, with base's fallback renderer when no bean is registered,
 `FR-357`) · View handover (WS-052, where `handover_id` is set).
-Toolbar: Export · Grid config · Help · **Simulate** (`whb_stock_movements:simulate` — `FR-037`, runs
+Toolbar: Export · Grid config · Help · **Simulate** (`warehouse:movements:simulate` — `FR-037`, runs
 the whole validation chain and returns balance deltas and the error list **without writing**; it is
 what support calls when a client says *"it says insufficient stock and there are 40 on the shelf"*).
 **There is no Add button.** Movements arrive through the port (`POST /api/warehouse/movements`) or
 through a document screen. A create form here would be a second writer, and `FR-436` allows exactly
 one.
+**Default sort:** `occurredAt` descending, then `sequenceNo` descending
+(`e.occurred_at DESC, e.sequence_no DESC`).
 **Statistics strip (filter-aware, uncached):** movements today · pending approval · pending handover ·
 rejected handovers · reversed today.
-**Mobile:** `screens/whMovementRegister` — read-only list + detail, filtered to the operator's site.
-`additionalFilters`: `warehouseId`, `movementTypeCode`, `postingStatus` dropdowns and a
-`sourceDocumentNo` text input. **The date range does not survive** — `ListHeader` has no date filter —
-so mobile carries an `occurredWithin` dropdown (Today / 7 days / 30 days) instead, resolved to a range
-on the backend. That divergence is deliberate and is exactly what `D-13` means by *"apply the
-equivalent behaviour within those constraints"*.
+**Mobile:** none — warehouse has no mobile app (user scope rule, 2026-09-11; `MPR-OPEN-13`).
 
 #### WS-041 · Movement Detail
 
@@ -1569,9 +1574,9 @@ JSONB blob) · **Reversal** (the mirror movement, or the movement this one rever
 **Handover** (`whb_accounting_handovers` envelope, status, rejection code and message) ·
 **Outbox** (the `whb_outbox` rows this movement emitted, with their delivery state) ·
 **Cost** (the `whb_cost_layers` created and the `whb_cost_layer_consumptions` recorded).
-Actions: Reverse · Approve · Print movement document (`FR-225`, template kind `MOVEMENT_DOCUMENT`).
-**Mobile:** reachable as the detail of `screens/whMovementRegister`; the Cost tab is hidden on mobile
-because cost is not an operator fact.
+Actions: Reverse · Approve · Withdraw (the submitter, while `approval_status = PENDING`) · Print
+movement document (`FR-225`, template kind `MOVEMENT_DOCUMENT`).
+**Mobile:** none — warehouse has no mobile app (user scope rule, 2026-09-11; `MPR-OPEN-13`).
 
 #### WS-042 · Stock Position Enquiry
 
@@ -1615,17 +1620,17 @@ stock_status_code, duty_status`.
 **Export:** every column of the nine-member grain plus quantities, UoM, cost/value where permitted,
 the three timestamps. **Ledger-style: no audit-name columns.**
 **Actions.** Row: View movements for this grain (routes to WS-040 pre-filtered) · **Change status**
-(own modal — a **balanced two-line movement at the same location** with a mandatory reason code, so
+(`whb_stock_positions:change_status`; own modal — a **balanced two-line movement at the same location** with a mandatory reason code, so
 quarantine never requires a physical move, `FR-103`) · **Adjust** (routes to WS-089 pre-filled) ·
 **Reserve** (`whb_reservations:create`) · Trace (WS-218).
 Toolbar: Export · Grid config · **Rebuild check** (`whb_stock_positions:rebuild` — runs the `L-4`
 comparison for the filtered scope and writes findings to WS-043; the nightly job does the same thing
 unattended).
+**Default sort:** *By location* `itemCode`, `warehouseName`, `locationCode` ascending; *By item*
+`itemCode`, `warehouseName` ascending.
 **Statistics strip (filter-aware, uncached):** distinct items · total on hand · total available ·
 negative signed-balance rows (visible shortage); negative ATP rows (must be 0) · rows drifted at last rebuild.
-**Mobile:** `screens/whStockEnquiry` list + the RF screen WS-236. Mobile carries `warehouseId`,
-`ownerId`, `stockStatusCode` dropdowns and `itemCode`/`locationCode`/`lotCode` text inputs; the date
-filters become an `expiringWithin` dropdown.
+**Mobile:** none — warehouse has no mobile app (user scope rule, 2026-09-11; `MPR-OPEN-13`).
 
 #### WS-043 · Position Drift Findings · WS-044 · Position Snapshots
 
@@ -1702,7 +1707,7 @@ operator has no action on them and a handheld cannot render a payload.
 
 | id | Screen | Table · Scope | Ref | Key columns | Filters | Actions | FR |
 |---|---|---|---|---|---|---|---|
-| WS-059 | Tasks | `whb_tasks` · `WAREHOUSE_TASK` | SV | `taskTypeCode`, `warehouseName`, `zoneLocationCode`, `ownerName`, `priority`, `status` (CREATED/ASSIGNED/STARTED/PAUSED/COMPLETED/CANCELLED/EXCEPTION), `assignedToName`, `assignedAt`, `startedAt`, `completedAt`, `pausedSeconds`, `deviceId`, `travelDistance`, `exceptionCode` | `warehouseId` → `zoneLocationId` → `taskTypeCode` · `status` **multiselect** · `assignedTo` typeahead · `priority` select · `createdFrom`/`To` `date` pair · `openOnly` boolean | Assign · Reassign · Cancel (reason-coded) · Complete-with-exception. **Tasks exist in v1 even though v1 has no RF gun** (`FR-212`): v1 creates one task per receipt line and per pick line and completes it in the same request, so `assigned_at`/`started_at`/`completed_at`/`paused_seconds` are populated from day one and labour reporting has a year of honest data before any standard is set (`FR-213`) | `FR-212` `FR-213` `FR-215` |
+| WS-059 | Tasks | `whb_tasks` · `WAREHOUSE_TASK` | SV | `taskTypeCode`, `warehouseName`, `zoneLocationCode`, `ownerName`, `priority`, `status` (CREATED/ASSIGNED/STARTED/PAUSED/COMPLETED/CANCELLED/EXCEPTION), `assignedToName`, `assignedAt`, `startedAt`, `completedAt`, `pausedSeconds`, `deviceId`, `travelDistance`, `exceptionCode` | `warehouseId` → `zoneLocationId` → `taskTypeCode` · `status` **multiselect** · `assignedTo` typeahead · `priority` select · `createdFrom`/`To` `date` pair · `openOnly` boolean | Assign · Reassign · Cancel (reason-coded) · Complete-with-exception. **Tasks exist in v1 even though v1 has no RF gun** (`FR-212`): v1 creates one task per receipt line and per pick line and completes it in the same request — for a putaway task that request is the operator's WS-082 Complete, which stamps `assigned_at` (when null), `started_at` and `completed_at` together; the task is created at GRN post or QC release and waits open until then (`receipt-qc-putaway.contract.md` `RQP-OPEN-08`) — so `assigned_at`/`started_at`/`completed_at`/`paused_seconds` are populated from day one and labour reporting has a year of honest data before any standard is set (`FR-213`) | `FR-212` `FR-213` `FR-215` |
 | WS-060 | Devices | `whb_devices` · `WAREHOUSE_DEVICE` | D | `deviceCode`, `deviceType`, `warehouseName`, `assignedToName`, `lastSeenAt`, `appVersion`, `isActive` | `warehouseId` · `deviceType` select · `isActive` · `lastSeenBefore` select (dropdown of ages, so mobile can carry it) | Add/Edit/Deactivate · Force sign-out | `FR-222` (v1.1) |
 | WS-061 | Number Series | `whb_number_series` · `WAREHOUSE_NUMBER_SERIES` | D | `owningModule`, `seriesCode`, `companyName`, `warehouseName`, `branchName` (**`branches.branch_name`**), `prefix`, `suffix`, `padLength`, `currentValue`, `resetPolicy`, `lastResetAt`, `isGapless` | `owningModule` select → `seriesCode` select · `companyId` → `warehouseId` → `branchId` · `isGapless` | Add/Edit · **Preview next number** (reads, never issues). **A branch-scoped series (challan, transfer invoice) resolves `branch_id` to the issuing site's `REGISTERED` branch at the document date** (`D-14`, R22 §1.2.4 row 2). Warehouse-scoped series (GRN, pick, ship) are unaffected. A re-registration switches series from that instant and renumbers nothing (`FR-307`). `current_value` is **read-only in the modal** — editing a gapless counter by hand is how a duplicate document number is created | `FR-426` |
 | WS-062 | Numbers Issued | `whb_number_series_issued` · `WAREHOUSE_NUMBER_ISSUED` | C | `seriesCode`, `issuedValue`, `formattedNumber`, `issuedToType`, `issuedToId`, `issuedAt`, `issuedByName` | `seriesId` select · `formattedNumber` text · `issuedFrom`/`To` `date` pair | View only — the table is append-only and has **no `updated_*` columns at all** | `FR-426` |
@@ -1767,7 +1772,8 @@ line) · `orderDateFrom`/`orderDateTo` `dateOnly` pair · `expectedFrom`/`expect
 PO and not on the receipt modal) · *Delivery* (`expected_delivery_date`, `ownership_transfer_point`) ·
 *Notes*. Transitions are their **own** modals: **Submit** · **Approve** · **Cancel**
 (`FR-132` — a cascade with a stock gate: refused if any GRN line has received stock, and the modal
-says which) · **Close short** · **Reopen**.
+says which) · **Close short**. There is no Reopen in v1: `CLOSED` and `CANCELLED` are terminal
+(§0.11; `receipt-qc-putaway.contract.md` `RQP-OPEN-07`).
 **Actions.** Row: View (WS-073) · Edit (`:edit` **and** `status = DRAFT`) · Submit · Approve
 (`wh_purchase_orders:approve`) · Cancel · Receive against (routes to WS-075 pre-filled) ·
 Print PO. Toolbar: Add · Import · Export · Grid config · Help.
@@ -1790,12 +1796,16 @@ screens.
 
 | id | Table · Scope | Ref | Key columns | Filters | Actions |
 |---|---|---|---|---|---|
-| WS-075 | `wh_receiving_sessions` · `WAREHOUSE_RECEIVING_SESSION` | SV | `sessionNumber`, `warehouseName`, `dockDoorCode`, `supplierName` (nullable), `carrierName`, `vehicleNumber`, `driverName`, `sealNumberIn`, `sealNumberOut`, `gatePassRef`, `arrivedAt`, `startedAt`, `completedAt`, `status`, `documentCount`, `grnCount`, audit | `warehouseId` → `dockDoorId` → `status` · `supplierCounterpartyId` typeahead · `vehicleNumber` text · `arrivedFrom`/`To` `date` pair · `openOnly` boolean | Start · Attach PO/ASN (child editor over `wh_receiving_session_documents`) · Create GRN · **Record seals** (in and out, `FR-211`) · Complete · Cancel |
-| WS-076 | `wh_goods_receipts` · `WAREHOUSE_GOODS_RECEIPT` | SV | `grnNumber`, `sessionNumber`, `poNumber`, `asnNumber`, `supplierName`, `warehouseName`, `ownerName`, `receivedByName`, `receivedAt`, **`isBlindReceipt`**, `receivingMode`, `grnTiming`, `status`, **`matchStatus`** (MATCHED/QTY_OVER/QTY_UNDER), `lineCount`, `receivedQuantity`, `acceptedQuantity`, `rejectedQuantity`, `freeQuantity`, `invoiceMatched`, audit | `warehouseId` → `supplierCounterpartyId` → `status` **multiselect** · `matchStatus` select · `isBlindReceipt` boolean · `poNumber` text · `grnNumber` text · `receivedFrom`/`To` `date` pair · `awaitingQc` boolean · `awaitingPutaway` boolean | View (WS-077) · **Post** · **Reverse** (WS-078) · **Inspect** (WS-080) · **Putaway** (WS-082) · Print GRN · Raise reconciliation case (WS-083) |
+| WS-075 | `wh_receiving_sessions` · `WAREHOUSE_RECEIVING_SESSION` | SV | `sessionNumber`, `warehouseName`, `dockDoorCode`, `supplierName` (nullable), `carrierName`, `vehicleNumber`, `driverName`, `sealNumberIn`, `sealNumberOut`, `gatePassRef`, `arrivedAt`, `startedAt`, `completedAt`, `status`, `documentCount`, `grnCount`, audit | `warehouseId` → `dockDoorId` → `status` · `supplierCounterpartyId` typeahead · `vehicleNumber` text · `arrivedFrom`/`To` `date` pair · `openOnly` boolean | Start · Attach PO/ASN (child editor over `wh_receiving_session_documents`) · Create GRN · **Record seals** (in and out, `FR-211`) · Complete · Cancel. Toolbar: **Add** (gate-in — the session is created at arrival, `receipt-qc-putaway.contract.md` H1) |
+| WS-076 | `wh_goods_receipts` · `WAREHOUSE_GOODS_RECEIPT` | SV | `grnNumber`, `sessionNumber`, `poNumber`, `asnNumber`, `supplierName`, `warehouseName`, `ownerName`, `receivedByName`, `receivedAt`, **`isBlindReceipt`**, `receivingMode`, `grnTiming`, `status`, **`matchStatus`** (MATCHED/QTY_OVER/QTY_UNDER/ITEM_MISMATCH — `RJ-014`), `lineCount`, `receivedQuantity`, `acceptedQuantity`, `rejectedQuantity`, `freeQuantity`, `invoiceMatched`, audit | `warehouseId` → `supplierCounterpartyId` → `status` **multiselect** · `matchStatus` select · `isBlindReceipt` boolean · `poNumber` text · `grnNumber` text · `receivedFrom`/`To` `date` pair · `awaitingQc` boolean · `awaitingPutaway` boolean | View (WS-077) · **Post** · **Cancel** (`DRAFT` only, `wh_goods_receipts:cancel`) · **Reverse** (WS-078; `wh_receipt_reversals:create`, `receipt-qc-putaway.contract.md` `RQP-OPEN-10`) · **Inspect** (WS-080) · **Putaway** (WS-082) · Print GRN · Raise reconciliation case (WS-083). Toolbar: **Blind receipt** (`RQP-T1-07`; Cancel is H1) |
 
 **WS-076's modals** are where the product's receiving character lives:
 - **Blind receipt** — a first-class v1 flow requiring only item, quantity, UoM, owner, status and
-  location (`FR-128`). Three of our own scenarios have no PO at the dock.
+  location (`FR-128`). Three of our own scenarios have no PO at the dock. The GRN still names a
+  counterparty (`FR-120`): derived from a non-house owner's `whb_owners.counterparty_id`, with a
+  counterparty picker shown **only** for a house-owned blind receipt; the receipt balances against
+  that counterparty's virtual location, and `session_id` stays null (`receipt-qc-putaway.contract.md`
+  `RQP-OPEN-15`, H2).
 - **Receive line** — captures lot, expiry (`expiry_date_override`), serials, LPN, **free/scheme
   quantity** with its `scheme_reference` (`FR-141`), `conversion_factor_used` frozen on the line, and
   the received **stock status**, defaulted item → supplier → `AVAILABLE` (`FR-129`; hard-coding
@@ -1820,9 +1830,9 @@ text; `receivedFrom`/`To` become a `receivedWithin` dropdown.
 | id | Table · Scope | Ref | Key columns | Filters | Actions & notes | FR |
 |---|---|---|---|---|---|---|
 | WS-074 | `wh_asns` · `WAREHOUSE_ASN` | SV | `asnNumber`, `supplierName`, `warehouseName`, `carrierName`, `trackingNumber`, `vehicleNumber`, `expectedArrivalAt`, `totalPallets`, `totalCases`, `totalWeightKg`, `status`, `lineCount` | `warehouseId` → `supplierCounterpartyId` → `status` · `asnNumber` text · `expectedFrom`/`To` `date` pair | Receive against · Cancel · child grid `wh_asn_lines` with its own child `wh_asn_line_serials` (**the normalised replacement for `serial_numbers JSONB`**) | `FR-136` `FR-383` |
-| WS-078 | `wh_receipt_reversals` · `WAREHOUSE_RECEIPT_REVERSAL` | SV | `reversalNumber`, `grnNumber`, `reasonCodeName`, `requestedByName`, `approvedByName`, `approvedAt`, `status`, `reversalMovementSequenceNo` | `warehouseId` · `status` · `reasonCodeId` · `requestedFrom`/`To` | Request · **Approve** (`wh_receipt_reversals:approve`; approver ≠ requester, `FR-408`) · Post. **Reversal is an action, not a data fix**: it generates a `REVERSAL` movement, decrements the PO line's received quantity, and **leaves both documents visible** | `FR-131` |
+| WS-078 | `wh_receipt_reversals` · `WAREHOUSE_RECEIPT_REVERSAL` | SV | `reversalNumber`, `grnNumber`, `reasonCodeName`, `requestedByName`, `approvedByName`, `approvedAt`, `status`, `reversalMovementSequenceNo` | `warehouseId` · `status` · `reasonCodeId` · `requestedFrom`/`To` | Request · **Approve** (`wh_receipt_reversals:approve`; approver ≠ requester, `FR-408`) · **Reject** (row action from `REQUESTED` or `APPROVED`, `wh_receipt_reversals:approve`, reason recorded — `receipt-qc-putaway.contract.md` H1, H4) · Post (whole GRN only, `RQP-OPEN-20`). **Reversal is an action, not a data fix**: it generates a `REVERSAL` movement, decrements the PO line's received quantity, and **leaves both documents visible** | `FR-131` |
 | WS-079 | `wh_inspection_plans` · `WAREHOUSE_INSPECTION_PLAN` | C | `code`, `name`, `inspectionType` (FULL/SAMPLING/SKIP_LOT), `samplingPlan`, `sampleSizeFormula` (**whitelisted**), `aql`, `criterionCount`, `isActive` | `inspectionType` select · `isActive` · `code`/`name` text | Add/Edit with a child editor over `wh_inspection_plan_criteria` — **rows, not `inspection_criteria JSONB`** | `FR-133` `FR-383` |
-| WS-080 | `wh_quality_inspections` · `WAREHOUSE_QUALITY_INSPECTION` | SV | `inspectionNumber`, `grnNumber`, `planName`, `inspectorName`, `startedAt`, `completedAt`, `result` (PASS/FAIL/PARTIAL), `dispositionCode`, `inspectedQuantity`, `passedQuantity`, `failedQuantity` | `warehouseId` → `planId` → `result` select · `inspectorId` typeahead · `dispositionCode` select · `startedFrom`/`To` | Start · Record results (child editors over `wh_quality_inspection_lines` and the typed `wh_quality_inspection_results`) · **Disposition** (release / reject / return to supplier / scrap — a **QA-role-gated** workflow, `wh_quality_inspections:disposition`) · Complete. **A header over lines, one inspection number per GRN** — not one row per GRN line | `FR-133` `FR-134` |
+| WS-080 | `wh_quality_inspections` · `WAREHOUSE_QUALITY_INSPECTION` | SV | `inspectionNumber`, `grnNumber`, `planName`, `inspectorName`, `startedAt`, `completedAt`, `result` (PASS/FAIL/PARTIAL), `dispositionCode`, `inspectedQuantity`, `passedQuantity`, `failedQuantity` | `warehouseId` → `planId` → `result` select · `inspectorId` typeahead · `dispositionCode` select · `startedFrom`/`To` | Start · Record results (child editors over `wh_quality_inspection_lines` and the typed `wh_quality_inspection_results`) · **Disposition** (release `RESTOCK_SELLABLE` / reject `REJECT` → `REJECTED`, seeded by `P1-14`'s `V500058` / return to supplier `RTV` / scrap `SCRAP` — a **QA-role-gated** workflow, `wh_quality_inspections:disposition`; only after Complete and only on QC-held quantity) · Complete · **Approve scrap** / **Reject scrap** (row actions on the scrap disposition's `SCRAP` movement, written with `approval_status = PENDING`; `wh_quality_inspections:approve`, approver ≠ disposer — `receipt-qc-putaway.contract.md` `RQP-OPEN-12`, `RQP-OPEN-13`). **A header over lines, one inspection number per GRN** — not one row per GRN line | `FR-133` `FR-134` |
 | WS-081 | `wh_putaway_rules` · `WAREHOUSE_PUTAWAY_RULE` | C | `code`, `name`, `warehouseName`, `sequence`, `scopeCategoryName`, `scopeItemCode`, `scopeStatusCode`, `strategy` (**whitelisted**: FIXED_LOCATION/NEAREST_EMPTY/ZONE_BY_VELOCITY/…), `isActive` | `warehouseId` → `strategy` select · `isActive` | Add/Edit/Reorder · **Test** (a modal: given item + quantity + status, which location does the rule chain suggest, and why). **Rules are data, evaluated in sequence** | `FR-135` |
 | WS-082 | `wh_putaway_tasks` · `WAREHOUSE_PUTAWAY_TASK` | SV | `taskNumber` (from `whb_tasks`), `grnNumber`, `itemCode`, `quantity`, `lotCode`, `lpnCode`, `suggestedLocationCode`, `actualLocationCode`, `overrideReasonName`, `stagingLocationCode`, `ruleName`, `status`, `assignedToName` | `warehouseId` → `status` **multiselect** → `assignedTo` typeahead · `grnNumber` text · `itemId` typeahead · `hasOverride` boolean | Assign · Complete (own modal: scan location, capture override reason when the operator overrides the suggestion — **the reason is captured, never silently discarded**) · Cancel | `FR-135` |
 | WS-083 | `wh_reconciliation_cases` · `WAREHOUSE_RECONCILIATION_CASE` | SV | `caseNumber`, `caseType` (QUANTITY/OVER_RECEIPT/INVOICE/ASN/INVENTORY), `warehouseName`, `subjectType`, `subjectId`, `status`, `ownerUserName`, `openedAt`, `resolvedAt`, `resolutionAction`, `resultingDocumentType`, `ageDays` | `warehouseId` → `caseType` select → `status` **multiselect** · `ownerUserId` typeahead · `openedFrom`/`To` · `openOnly` boolean (default true) | Assign · Add event (child `wh_reconciliation_case_events` timeline) · **Resolve** (the modal names the resulting document; **the case never moves stock itself**, `FR-138`) | `FR-138` |
@@ -2574,11 +2584,11 @@ a transition anybody with `:edit` can perform**, which is the failure `FR-408` n
 
 | Permission | Gates | Screen |
 |---|---|---|
-| `warehouse:movements:post` | `POST /api/warehouse/movements` | the port (`FR-043`) |
+| `warehouse:movements:post` | `POST /api/warehouse/movements`; `POST /movements/{id}/withdraw`, the submitter only (`RA-004`) | the port (`FR-043`); WS-040/041 Withdraw |
 | `warehouse:movements:reverse` | `POST /movements/{id}/reverse` | WS-040 |
 | `warehouse:movements:simulate` | `POST /movements/simulate` | WS-040 toolbar |
 | `warehouse:movements:view` | `GET /movements` incl. the lineage query | WS-040 |
-| `whb_stock_movements:approve` | approval of `requires_approval` movement types | WS-040 |
+| `whb_stock_movements:approve` | approval and rejection of `requires_approval` movement types; a QC-inspection source also needs `wh_quality_inspections:approve` | WS-040 |
 | `whb_stock_periods:close` · `:reopen` · `:override` | soft close, close, reopen, soft-close override | WS-045, WS-046 |
 | `whb_locations:block` | block / unblock a location | WS-017 |
 | `whb_stock_positions:rebuild` | the `L-4` rebuild check | WS-042 |
@@ -2651,6 +2661,7 @@ bands, and **base verbs ride `P0-15`'s `V501000`**. Each verb gets its `→ :vie
 | `wh_receiving_sessions:complete` · `:cancel` | session close | WS-075 | `P1-20` · `V511000` + `V511001` |
 | `wh_goods_receipts:cancel` · `wh_receipt_reversals:post` | a draft GRN's cancel; the reversal's post leg beside the existing `:approve` | WS-076, WS-078 | `P1-20` |
 | `wh_quality_inspections:approve` | **scrap-disposition approval**, with `:approve` semantics and approver ≠ actor (`FR-164`, `FR-408`) | WS-080 | `P1-20` |
+| `wh_putaway_tasks:complete` | the putaway Complete modal (scan location, override reason); Assign and Cancel stay under `:edit` (`receipt-qc-putaway.contract.md` `RQP-OPEN-11`) | WS-082 | `P1-20` |
 | `wh_stock_adjustments:submit` · `:reject` · `:post` · `:cancel` | beside the existing `:approve` | WS-089 | `P2-01` · `V511201` + `V511231` |
 | `wh_counts:generate` · `:recount` · `:cancel` | beside the existing `:freeze` · `:approve` · `:post`; cancel restores location status | WS-094 | `P2-04` · `V511203` + `V511233` |
 | `wh_shipments:cancel` · `:confirm_delivery` | cancel **only before `DISPATCHED`**; delivery confirmation (`FR-447`) | WS-105 | `P2-10` · `V511204` + `V511234` |
@@ -2665,8 +2676,10 @@ bands, and **base verbs ride `P0-15`'s `V501000`**. Each verb gets its `→ :vie
 | `wh_trade_portal_users:view` · `:create` · `:edit` · `:delete` · `:export` | the new resource | WS-240 | `P5-08` · `V511209` + `V511239` |
 | `wh_approval_levels:view` · `:create` · `:edit` · `:delete` · `:export` | the new resource | WS-241 | `P2-23` · `V511210` + `V511240` |
 | `whb_warehouse_grants:view` · `:create` · `:edit` · `:delete` · `:export` | the new resource (`RA-001`) | WS-238 | `P0-15` · `V501000` + `V501001` |
-| `whb_stock_movements:post_backdated` | posting into a `SOFT_CLOSED` period — `mgr1`'s `WH-SC-022` authority, distinct from `whb_stock_periods:override` (`RA-007`) | the port (`P0-08`) | `P0-15` · `V501000` |
+| `whb_stock_movements:post_backdated` | posting into a `SOFT_CLOSED` period — `mgr1`'s `WH-SC-022` authority, distinct from `whb_stock_periods:override`, which the poster also holds (`RA-007`, `MPR-OPEN-02`) | the port (`P0-08`) | `P0-15` · `V501000` |
 | `whb_outbox:view` | reading the outbox and its deliveries (`RA-007`) | WS-056 | `P0-15` · `V501000` |
+| `whb_stock_positions:change_status` | WS-042 *Change status* — a balanced two-line `STATUS_CHANGE` movement at one location (`FR-103`); depends on `whb_stock_positions:view` | WS-042 | `P0-15` · `V501000` |
+| `whb_negative_stock_policies:override` | acknowledging a `WARN` negative-stock issue (`FR-014`, `L-6`) | the port and document screens (`P0-03`) | `P0-15` · `V501000` |
 | `whb_stock_movements:verify` | the ledger-chain verifier (`RC-008`, `RA-005`) | WS-040 | `P0-15` · `V501000` |
 | `wh_metric_targets:view` · `:create` · `:edit` · `:delete` · `:export` | the new resource (`RC-007`) | WS-244 | `P2-21` · `V511211` + `V511241` |
 | `whad_item_prices:view` · `:create` · `:edit` · `:delete` · `:export` · `:import` · `whad_price_levels:view` · `:create` · `:edit` | the new resources (`RA-002`) | WS-239 | `P2-25` · `V520100`–`V520149` |
