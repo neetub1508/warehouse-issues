@@ -3340,7 +3340,8 @@ Every one of these is covered by a test, and the tests are named in the task fil
 | `P1-03` | `V500077` | `warehouse_id` on `whb_item_supplier_sources` (`RG-011`). Creates no table | v2 |
 | `P1-22` | `V500078` | `whb_warehouse_companies` (`RG-012`) + backfill of one open `OPERATOR` + `STOCK_HOLDER` pair per site from `whb_warehouses.company_id`; `uk(code)` in place of `uk(company_id, code)`; drops `whb_warehouses.company_id` (`D-14` item 8) | v1 |
 | `P1-22` | `V500079` | `EXCLUDE USING gist (branch_id =, range &&)` on `whb_company_branches` — one company per branch at a time (`D-14` item 8e). Creates no table | v1 |
-| — | `V500080`–`V500099` | *gap* — post-v1 base DDL. (`V500067` is `WHB-69`'s, below; the earlier gap row starting at `V500067` was stale) | — |
+| `P1-22` | `V500080` | Drops `V500012`'s at-least-one `REGISTERED` guard — `trg_whb_warehouses_assert_registered`, `trg_whb_warehouse_branches_assert_registered` and `whb_warehouses_assert_registered()` — so a site saves with no link (`D-14` item 8g). Keeps the one-open-`REGISTERED` index and the history `EXCLUDE`. Creates no table | v1 |
+| — | `V500081`–`V500099` | *gap* — post-v1 base DDL. (`V500067` is `WHB-69`'s, below; the earlier gap row starting at `V500067` was stale) | — |
 | WHB-66 | `V500100` | `whb_stock_movements_archive`, `whb_stock_movement_lines_archive`, `whb_movement_line_attributes_archive` (`P6-01`). **The archive-run record is not allocated here** — §2.1.14 states why | v3 |
 | — | `V500101`–`V500199` | *gap* — post-v1 base DDL, 99 numbers remaining | — |
 | WHB-69 | `V500067` | `whb_retention_policies` (`P4-09`, `Z-006`). **`WHB-68` is deliberately skipped** — it is reserved for `P6-01`'s archive-run record, per `DESIGN-SET-DEFECTS.md` §6.4 `R-3` | v1 |

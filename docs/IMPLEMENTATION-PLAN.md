@@ -457,7 +457,7 @@ lost. §8.2 lists all 51 with both ends.
 | **P1-19** | i18n **en / fr / hi** on every warehouse translation file (following the newest module, not the older ones), registration in `WarehouseBaseSafeTranslation` and `WarehouseSafeTranslation`, seeded menu translations, and the status-badge **variant read from a column on the registry row** with i18n falling back to the registry row's name. *v2 increment* (from `P5-28`): `whb_registry_translations`, read by the fallback before the row's own name (`RL-015`) | app+base | `V500071` | — | `FR-381` `FR-431` `FR-469` | P0-15 (v2 increment: P0-04) |
 | **P1-20** | App permissions, dependencies and menus; grid configuration wave 1 with **both** `default_columns` and `default_filters`; every filter scope registered in `COMMON_FILTER_CONFIGS` and every cache name in `CacheConfiguration.java` — **and the expiry, count and reservation-expiry jobs registered with them**; and the native-query timestamp mapper that handles **all four** types a driver may return and logs a warning on a fifth | app+platform | `V501050`–`V501069` `V511000` `V511001` `V511010` `V511020`–`V511059` `V511200` | — | `FR-432` `FR-433` `FR-438` | P0-15 |
 | **P1-21** | **Master merge** — two duplicate items, or two duplicate counterparties, reconciled by a **stock transfer to the survivor posted through the port** with a dedicated reason code, plus a pre-check listing everything that references the loser, deactivation with a scan redirect, and an explicit refusal where `base_uom_code`, `lot_control_mode` or `serial_control_mode` differ. **History is never re-pointed** (`L-2`). A 40,000-SKU import against `uk(owner_id, sku)` produces duplicates on day one, and without this the team does it in `psql` against an append-only ledger | base | `V500055` | `WS-021` `WS-023` | `FR-451` | P1-16 P0-02 |
-| **P1-22** | **Associations to the existing-page standard** (`D-14` item 8): pure link-sets move from Add/Edit sub-grids to row-action assignment modals, one file per link copied from its twin, with no link picked on create (`D-14` items 8g, 8h), `whb_warehouse_companies` and `whb_owner_companies` replace the scalar `company_id` at v1, warehouse and owner codes become `uk(code)` install-wide, and a branch belongs to one company at a time — correcting what `P0-06`, `P0-07` and `P1-05` built | base | `V500073` `V500078` `V500079` | `WS-015` `WS-016` `WS-017` `WS-019` | — | P0-06 P0-07 P1-05 |
+| **P1-22** | **Associations to the existing-page standard** (`D-14` item 8): pure link-sets move from Add/Edit sub-grids to row-action assignment modals, one file per link copied from its twin, with no link picked on create (`D-14` items 8g, 8h), `whb_warehouse_companies` and `whb_owner_companies` replace the scalar `company_id` at v1, warehouse and owner codes become `uk(code)` install-wide, and a branch belongs to one company at a time — correcting what `P0-06`, `P0-07` and `P1-05` built | base | `V500073` `V500078` `V500079` `V500080` | `WS-015` `WS-016` `WS-017` `WS-019` | — | P0-06 P0-07 P1-05 |
 
 ---
 
@@ -1548,13 +1548,14 @@ renumbering an allocated id, so the id and the version deliberately do not run i
 `P5-27` — now `P1-14`, `P5-08`, `P2-23`), `V511180` (`P5-27`, now `P2-23`) and the ten `WH-206` pairs `V511201`–`V511210` + `V511231`–`V511240` (§2.9 row 2a).
 Net **+28**, 823 → **851**. **The 2026-09-10 fold adds seven** — `V500072`–`V500077` and `V510223` —
 because former `P5-24`'s two migrations were split across the tasks that own their parent tables, and one
-number cannot have two owners: **858**. **Round 5 (2026-09-14) adds two** — `V500078` and `V500079` — and
-moves `V500073` from `P0-06` to `P1-22` (`D-14` item 8): **860** — base 158 · `warehouse` 245 · adapters 220 · india 120 · 3PL 117.
+number cannot have two owners: **858**. **Round 5 (2026-09-14) adds three** — `V500078`, `V500079` and
+`V500080` (drops `V500012`'s at-least-one `REGISTERED` trigger, `D-14` item 8g) — and
+moves `V500073` from `P0-06` to `P1-22` (`D-14` item 8): **861** — base 159 · `warehouse` 245 · adapters 220 · india 120 · 3PL 117.
 Tasks writing no migration: **28** — `P2-02` claims its pair; at the fold `P5-26` left the task list and
 `P1-19`, `P2-23` and `P5-08` gained claims. Re-run the
 script above to confirm; the header claims are also what `tools/check-design-set.py --check 4` reads.
 
-**860 numbers, exactly one owner each, every one inside its module's band.** A collision here
+**861 numbers, exactly one owner each, every one inside its module's band.** A collision here
 crash-loops Flyway — and worse than crash-loops it, because `FlywayConfiguration.java:296-320`
 renumbers legacy history rows into the very bands the original brief proposed and `:322-327` then
 **`DELETE`s duplicate history rows**, so a collision does not fail loudly, it silently deletes a
@@ -1618,7 +1619,7 @@ Every `Ver · Ph` in that index also matches the phase of the task that claims i
 | Tasks per phase | P0 17 · P1 22 · P2 29 · P2-IN 4 · P3 24 · P4 13 · P5 23 · P6 12 | `awk '{split($1,a,"-"); print (a[1]=="P2"&&a[2]=="IN")?"P2-IN":a[1]}' assign.txt \| sort \| uniq -c` |
 | Tasks per version | v1 **72** · v1.1 **24** · v2 **36** · v3 **12** | §9 |
 | Requirements per version of owning task | v1 **343** · v1.1 **42** · v2 **69** · v3 **17** — round 3 (`W0-1b`, 2026-09-11): v1 +1 (`FR-470`, `P2-21`), v3 +1 (`FR-471`, `P6-02`) — round 4: v1 +4 (`FR-460`…`FR-462`, and `FR-382` in from v1.1), v1.1 −1 (`FR-382` out), v2 +1 (`FR-467`); and since the 2026-09-10 fold five round-4 requirements are owned by v1 hosts as later-version increments (`FR-463` v1.1 in `P1-03`; `FR-465`, `FR-466`, `FR-468`, `FR-469` v2 in `P1-17`, `P2-23`, `P1-05`, `P1-19`) — `FR-464` stays v2 in `P5-08` | §9 |
-| Migration numbers allocated | **860** | §8.3 |
+| Migration numbers allocated | **861** | §8.3 |
 | Tables | **317** | `DATA-MODEL.md` §8.2 |
 | Tables per version | v1 **199** · v1.1 **42** · v2 **120** · v3 **4** | `awk '/TABLE-VERSIONS-BEGIN/,/TABLE-VERSIONS-END/' docs/DATA-MODEL.md \| grep -E '^wh' \| awk '{print $2}' \| sort \| uniq -c` |
 | Screens | **237** | §8.4 |

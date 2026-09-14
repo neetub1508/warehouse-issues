@@ -537,7 +537,7 @@ failed"***.
 |---|---|---|---|---|
 | `CROSS_GSTIN_COUNTER_SALE` | 422 | the counter-sale service. A `SERVING` branch under a different GSTIN may not sell directly from the site | WS-194, WS-200 (a job issue follows the same rule), and the mobile counter screen. The message offers *Raise request* (WS-090 in `REQUESTED`) | `FR-461` · `D-14` item 3 · `RK-002` |
 | `CROSS_COMPANY_TRANSFER` | 422 | the transfer service. Source and destination sites belong to different companies | WS-090. The destination picker never offers such a site, so the code is reached only by the API or an import | `RK-007` · `WH-SC-319` |
-| `WAREHOUSE_BRANCH_COMPANY_MISMATCH` | 422 | the warehouse service. The `REGISTERED` branch is not in `whb_company_branches` for any current company of the site (`whb_warehouse_companies`, `D-14` item 8c) | WS-016 **Branches** row action and *Change registration* modal | `RH-004` |
+| `WAREHOUSE_BRANCH_COMPANY_MISMATCH` | 422 | the warehouse service. The `REGISTERED` branch is not in `whb_company_branches` for any current company of the site (`whb_warehouse_companies`, `D-14` item 8c) | WS-016 *Change registration* modal — the **Branches** row action offers no `REGISTERED` role (`D-14` item 8g) | `RH-004` |
 | `AMBIGUOUS_LOCATION` | 409 | the scan resolver. A location code matches at more than one site and no session or device site disambiguates it | WS-071, every RF screen (WS-229 … WS-237), WS-017 mobile scan | `RL-004` |
 | `AMBIGUOUS_IDENTIFIER` | 409 | the scan resolver. An identifier matches several items after the session-owner and counterparty context are applied. **The response lists the candidates** | WS-071, WS-024, WS-194, every RF screen | `RL-005` |
 | `STAGED_STOCK` | 409 | a cancel on a document whose stock is still staged (a supplier return after `PICKED`, `RJ-006`, and a demand order under `FR-449`) | WS-084, WS-099 — the message names the staging location and the quantity to de-stage | `RJ-006` · `FR-449` |
@@ -960,7 +960,8 @@ Deactivate. Toolbar Add / Export / Grid config.
 `whb_warehouse_branch_roles`, `whb_warehouse_branches` — `D-14`) · caches `dropdown.whbWarehouse`.
 
 **A site is linked to platform branches, never mirrored as one** (`D-14`, `RG-001`). Its links are dated
-rows in `whb_warehouse_branches`, and **exactly one is `REGISTERED` at every instant**. That branch supplies
+rows in `whb_warehouse_branches`, and **at most one is `REGISTERED` at a time**, set and changed only by
+*Change registration* (`D-14` item 8g). That branch supplies
 the GSTIN, the branch-scoped series and the statutory attribution. `SERVING`, `FULFILMENT` and `RETURNS`
 links grant visibility and let a branch draw stock. `whb_warehouses` no longer has `branch_id`,
 `tax_registration_id` or `legal_entity_id`.
@@ -1002,22 +1003,26 @@ audit names. `registeredBranchName` is a visible column and is therefore exporte
 *Geo* (`latitude`, `longitude`) · *Tax identity* (the GSTIN, read-only through the `REGISTERED` link) ·
 *Operations* (`timezone` select, `order_cutoff_time`, `default_putaway_strategy_code`, `has_picking`) ·
 *Status*. **Add picks no link** — no *Company*, *Registered Branch* or *Registered From* (`D-14` item 8g):
-the site saves with none, and every link comes from the row actions below. A site with no current
+the site saves with none, and every link comes from the row actions below — the `REGISTERED` branch from
+*Change registration* only. A site with no current
 `REGISTERED` branch or `OPERATOR` company is refused with a field-level `422` when used — number series,
 documents, periods, import, stocking — not at create.
 **Branches** (`D-14` item 8b) — a row action opening `WhbWarehouseBranchesModal` over
 `whb_warehouse_branches`: branch (`branches.branch_name`), a per-row role, `isPrimary` — a copy of
 platform `UserBranchesModal` / dealer `PdiStockYardBranchesModal`, no date field (`D-14` item 8h). *Remove*
-is *End link*, which sets `effective_to` on any row, `REGISTERED` included, and never deletes. Adding a
-`REGISTERED` link ends the current one in the same save, under `D-14` item 4's guards (`WH-SC-045`). A `REGISTERED` branch that `whb_company_branches` links to no current
-company of the site is refused with `422 WAREHOUSE_BRANCH_COMPANY_MISMATCH`, and `warehouse-india`'s
-validators refuse a GSTIN state that differs from `state_code`.
+is *End link*, which sets `effective_to` and never deletes. **The popup neither offers `REGISTERED` nor
+ends it**: adding a `REGISTERED` link or ending the current `REGISTERED` row here is refused with a
+field-level `422` (`D-14` item 8g, `WH-SC-045`).
 **Companies** (`D-14` items 8b, 8c) — a row action opening `WhbWarehouseCompaniesModal` over
 `whb_warehouse_companies`: company and a per-row role `OPERATOR`/`STOCK_HOLDER` — a copy of dealer
 `PdiStockYardCompaniesModal`, no date field (`D-14` item 8h). A site has at most one current `OPERATOR`;
-adding one ends the current one. *Remove* is *End link*.
-**Change registration** — its own modal, gated on `warehouse:warehouses:change_registration` and
-maker–checker (`FR-408`); the checker is not the maker. It is refused for an `effective_from` in a
+adding one ends the current one in the same save. *Remove* is *End link*.
+**Change registration** — its own row action and modal, **the only way the `REGISTERED` branch is set —
+the first time included, since create writes none — or changed** (`D-14` items 4, 8g). Gated on
+`warehouse:warehouses:change_registration` and maker–checker (`FR-408`); the checker is not the maker. A
+`REGISTERED` branch that `whb_company_branches` links to no current company of the site is refused with
+`422 WAREHOUSE_BRANCH_COMPANY_MISMATCH`, and `warehouse-india`'s validators refuse a GSTIN state that
+differs from `state_code`. It is refused for an `effective_from` in a
 `CLOSED` period or before the site's latest posted `occurred_at`. It is also refused **while the site
 holds non-zero on-hand and the old and new GSTINs differ**, and the modal states the on-hand quantity to
 move out first (`OD-19`). It closes the current row and opens the next at the same instant, writes a

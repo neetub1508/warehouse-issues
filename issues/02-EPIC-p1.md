@@ -56,8 +56,9 @@ references `whb_counterparties`, and `whb_owners` is `V500007` while `whb_counte
 `WH-SC-045` … `WH-SC-052` run **in order**:
 
 1. **`WH-SC-045`** — create a warehouse with a structured address, a timezone and no link, then add its
-   `REGISTERED` branch from the **Branches** row action; the GSTIN is **read from that branch**, never
-   duplicated. Adding a second `REGISTERED` link ends the first (`FR-460`, `D-14` item 8g).
+   `REGISTERED` branch through the *Change registration* row action (maker–checker) — the **Branches**
+   popup does not offer it; the GSTIN is **read from that branch**, never duplicated. A second approved
+   *Change registration* ends the first (`FR-460`, `D-14` item 8g).
 2. **`WH-SC-046`** — generate **1,152 bins** from a format mask, with the **count and the first and
    last codes previewed before anything is written**.
 3. **`WH-SC-047`** — import an item master where the dry run reports **per-row, per-cell** errors.
@@ -124,6 +125,7 @@ That command is the authority; re-run it after any header change.
 - `V500073` — `P1-22` **`whb_owner_companies`** (v1, reassigned from `P0-06`; drops `whb_owners.company_id`, `uk(code)`, `RG-013`, `D-14` item 8)
 - `V500078` — `P1-22` **`whb_warehouse_companies`** (v1; drops `whb_warehouses.company_id`, `uk(code)`, `RG-012`, `D-14` item 8)
 - `V500079` — `P1-22` one company per branch — `EXCLUDE` on `whb_company_branches` (`D-14` item 8e)
+- `V500080` — `P1-22` drops `V500012`'s at-least-one `REGISTERED` triggers and function — a site saves with no link (`D-14` item 8g)
 - `V500051` `V500052` `V500054` — `P1-11` channels · transport details · the `whb_activity_history` **view**
 - `V501050`–`V501069` — `P1-20` base grid configuration, **wave 2**
 

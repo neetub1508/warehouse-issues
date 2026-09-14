@@ -391,17 +391,22 @@ all 83 findings and the full fold plan are in [`GAP-REGISTER-R4.md`](GAP-REGISTE
      WS-016's branch options and `422 WAREHOUSE_BRANCH_COMPANY_MISMATCH` already read *"the branch's
      company now"* as one answer.
    - **f. Built work is corrected by one task, `P1-22`**, because closed tasks are never reopened. Its
-     migrations are forward-only — `V500073` (reassigned from `P0-06`), `V500078`, `V500079` — and no
-     applied migration is edited.
+     migrations are forward-only — `V500073` (reassigned from `P0-06`), `V500078`, `V500079`, `V500080`
+     (drops `V500012`'s at-least-one `REGISTERED` triggers and function, item 8g) — and no applied
+     migration is edited.
    - **g. Links are never picked on create** (user decision, 2026-09-14), as on the existing pages:
      dealer `PdiStockYardModal` and automotive `CompanyModal` pick no branch or company. *Add Warehouse*
      (WS-016) has no *Company*, *Registered Branch* or *Registered From*; *Add Owner* (WS-019) has no
-     *Company*. Every company and branch link comes from the row actions of item 8b. A site with no
+     *Company*. Every company link and every non-`REGISTERED` branch link comes from the row actions of
+     item 8b. **The `REGISTERED` branch is set — the first time, now that create writes none — and
+     changed only through the existing *Change registration* row action**, under item 4's maker–checker
+     rules. The *Branches* popup neither offers `REGISTERED` nor ends it; an attempt is refused with a
+     field-level `422`. A site with no
      current `REGISTERED` branch or `OPERATOR` company, or an owner with no current company, is refused
      with a field-level `422` **when it is used** — number series, documents, periods, import, stocking —
-     not at create. Every current link can be ended. There is at most one current `REGISTERED`,
-     `OPERATOR` and `HOUSE` link, and adding one ends the current one in the same save; replacing a
-     `REGISTERED` link is a registration change and keeps item 4's guards. This replaces *"a site cannot
+     not at create. Every other current link can be ended from its popup. There is at most one current
+     `REGISTERED`, `OPERATOR` and `HOUSE` link; `OPERATOR` and `HOUSE` are replaced by adding one in the
+     *Companies* popups, which ends the current one in the same save. This replaces *"a site cannot
      exist without its `REGISTERED` link"* (R22 §1.2.2 guard 1 as applied to create, and its deferred
      at-least-one trigger) and the *"last link cannot be ended"* rule. `I-22` still refuses a movement at
      an instant with no `REGISTERED` link.

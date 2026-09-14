@@ -194,7 +194,7 @@ file and verified in context, and by declaring `IRR-`, `WS-` and the `T-n`/`T-nn
 
 - **`## Scope`** — the build list
 - the **module** it lands in and its **pre-allocated migration numbers**, on the header line, so
-  parallel work cannot collide. **860 migration numbers are allocated across 144 tasks with zero
+  parallel work cannot collide. **861 migration numbers are allocated across 144 tasks with zero
   duplicates and none outside its module's band** (823 before round 4, which claimed twenty-nine and
   released `V500061`; the 2026-09-10 fold added seven, `V500072`–`V500077` and `V510223`, when former
   `P5-24`'s two migrations were split across the tasks that own their parent tables) — the computed figure and the script that produces
