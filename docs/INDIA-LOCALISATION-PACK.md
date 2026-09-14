@@ -137,7 +137,7 @@ Counted from §11 of this document, which enumerates every table:
 | Screens | challan list + detail, e-way bill list + detail, transfer document-kind derivation on the existing transfer screen, registration master | §4 |
 
 Of the 14 tables, **3 are pure seed masters** (`whin_gst_state_codes`, `whin_hsn_codes`,
-`whin_uqc_codes`), **1 is per-install master data** (`whin_gst_registrations`) and **5 are the
+`whin_uqc_codes`), **1 is per-install master data** (`whin_gstin_profiles`, named `whin_gst_registrations` before round 4) and **5 are the
 transplanted `P-044` compliance-provider stack** rather than new design. The genuinely new modelling
 in wave 1 is therefore **five tables**: the challan and its lines, the e-way bill, its filed lines
 and its lifecycle event log. 3 + 1 + 5 + 5 = 14.
@@ -389,8 +389,8 @@ The rules that follow from §3.3:
    per profile and an `EXCLUDE` so a branch sits under one registration per company at a time; `gstin`
    stays unique on the profile. Platform can edit `branches.gst_number` and warehouse cannot block it,
    so the profile's `gstin` is compared with every linked branch's number on save, and a **nightly
-   assertion** writes a drift row wherever they differ. `WS-173` gains a *Places of business*
-   sub-grid.
+   assertion** writes a drift row wherever they differ. `WS-173` gains a **Places of business**
+   row action and modal (`D-14` item 8b).
 7. **A counterparty's registration is per state too** (`RG-003`). An Indian customer has one PAN and
    one GSTIN in each state it operates in. `national_tax_id` stays the legal-entity id (PAN).
    `whb_counterparty_tax_registrations` and `whb_counterparty_addresses` (base, `V500011`, dated) hold
@@ -1264,11 +1264,11 @@ Two structural rules that hold for every row below. **No `CHECK (x IN (…))` on
 
 | # | Table | Key columns | Block |
 |---|---|---|---|
-| 1 | `whin_gst_registrations` | `id`, `legal_entity_id`, `gstin` uk, `legal_name`, `trade_name`, `state_code`, `registration_type` (catalogue: REGULAR · COMPOSITION · SEZ_UNIT · SEZ_DEVELOPER · CASUAL · NON_RESIDENT · UNREGISTERED), `effective_from`, `effective_to`, `is_active`, `certificate_document_id` | V540000–V540009 |
+| 1 | `whin_gstin_profiles` | `id`, `company_id`, `gstin` uk, `legal_name`, `trade_name`, `state_code`, `registration_type` (catalogue: REGULAR · COMPOSITION · SEZ_UNIT · SEZ_DEVELOPER · CASUAL · NON_RESIDENT · UNREGISTERED), `effective_from`, `effective_to`, `is_active`, `certificate_document_id` | V540000–V540009 |
 | 2 | `whin_gst_state_codes` | `state_code` (2 digits) uk, `state_name`, `state_type` (STATE·UT), `is_active` — **36 seed rows** | V540010–V540019 |
 | 3 | `whin_hsn_codes` | `code` uk, `description`, `chapter`, `digit_length`, `effective_from`, `effective_to`, `uqc_default` — **seed** | V540020–V540029 |
 | 4 | `whin_uqc_codes` | `uqc_code` uk (`NOS`, `KGS`, `LTR`, `MTR`, …), `description`, `unece_rec20_code` — **seed**, plus the `whb_uoms.gst_uqc_code` mapping seed | V540030–V540039 |
-| 5 | `whin_delivery_challans` | §4.1's field table: identity · `challan_type` FK · both ends with pincode and state code · declared value and basis · status · cancellation · `source_document_ref` quad. uk(`company_id`,`branch_id`,`series_id`,`challan_number`); `branch_id` is the site's `REGISTERED` branch at `challan_date` | V540100–V540119 |
+| 5 | `whin_delivery_challans` | §4.1's field table: identity · `challan_type` FK · both ends with pincode and state code · declared value and basis · status · cancellation · `source_document_ref` quad. uk(`company_id`,`series_id`,`challan_number`); `from_gstin_profile_id` is the profile of the issuing site's `REGISTERED` branch at `challan_date` | V540100–V540119 |
 | 6 | `whin_delivery_challan_lines` | `challan_id`, `line_no`, `item_id`, `lot_id`, `serial_id`, `quantity`, `uom_code`, **`gst_uqc_code` snapshot**, **`tax_classification_code` snapshot**, `unit_value`, `taxable_value`, **`expected_return_date`**, **`deemed_supply_due_date`**, `quantity_returned`, `closed_at`, `job_work_type` | V540100–V540119 |
 | 7 | `whin_eway_bills` | `id`, `company_id`, `source_document_type`, `source_document_id`, `ewb_number`, `ewb_date`, `supply_type`, `sub_type`, `part_a_status`, `part_b_status`, `generated_at`, `valid_until`, `distance_km`, `status` (catalogue), `cancelled_at`, `cancel_reason_code_id`, `consolidated_ewb_id` nullable, `idempotency_key` uk, `provider_document_id` | V540200–V540229 |
 | 8 | `whin_eway_bill_lines` | **the filed snapshot**: `eway_bill_id`, `line_no`, `hsn_code`, `description`, `quantity`, `uqc_code`, `taxable_value`, `cgst_rate`, `sgst_rate`, `igst_rate`, `cess_rate` | V540200–V540229 |

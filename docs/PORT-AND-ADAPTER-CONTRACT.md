@@ -1048,7 +1048,8 @@ whb_item_external_refs (
 ### (a) `whb_location_external_refs` — the vehicle's dual identity
 
 > **`PC-60`** · A truck is **two rows**, and **neither is the other's master**:
-> - `whb_locations (location_type = 'VEHICLE', is_mobile = true, assigned_user_id = <driver>)` — so
+> - `whb_locations (location_type = 'VEHICLE', is_mobile = true)`, its driver the current `CUSTODIAN`
+>   row of `whb_location_user_assignments` (`RG-004`) — so
 >   stock can **sit on it**, be **counted on it**, and be **short-picked from it**;
 > - `log_vehicles` — so it can have a registration, an **insurance expiry**, a tyre and an odometer.
 >
@@ -1577,11 +1578,11 @@ change the other did not want. That is the whole acceptance test for the port.
 | **Catalogue rows** | `whb_source_systems`: `ADAPTER_FIELD_SERVICE` · `whb_location_types`: uses **`MOBILE`** |
 | **Own tables** | `whaf_van_stock_assignments` |
 | **Reads** | the van's current location — `job_trips` already knows it (`field-service/…/V80007__Create_job_trips_and_track_points.sql:13-48`) |
-| **Base columns it depends on** | `whb_locations.assigned_user_id` + the `MOBILE` location type — **v1 columns**, feature v1.1. Without them van stock becomes a separate table and a separate reconciliation problem (`FR-088`, `T-080`, R7 §6 item 13) |
+| **Base columns it depends on** | the current `CUSTODIAN` row of `whb_location_user_assignments` (`RG-004`) + the `MOBILE` location type — **v1**, feature v1.1. Without them van stock becomes a separate table and a separate reconciliation problem (`FR-088`, `T-080`, R7 §6 item 13) |
 | **Version** | **v1.1** |
 
-The van is a `whb_locations` row with `location_type = 'MOBILE'` and
-`assigned_user_id = <technician>`. Replenished by a transfer, consumed at job close, cycle-counted,
+The van is a `whb_locations` row with `location_type = 'MOBILE'`, its technician the current
+`CUSTODIAN` row of `whb_location_user_assignments` (`RG-004`). Replenished by a transfer, consumed at job close, cycle-counted,
 and its unreturned parts age (`FR-363`).
 
 ## 9.4 `warehouse-adapter-assets` — spares · **v1.1**

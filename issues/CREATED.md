@@ -1,13 +1,13 @@
 # Created issues
 
-Filed in `neetub1508/warehouse-issues`: **158 issues = 152 + 6 filed in round 4.** Open: **1 master
-epic + 8 phase epics + 143 tasks = 152.** The six round-4 task issues `#156`–`#161` are **closed as
+Filed in `neetub1508/warehouse-issues`: **159 issues = 152 + 6 filed in round 4 + 1 filed in round 5
+(`#163`, `P1-22`).** Open: **1 master epic + 8 phase epics + 144 tasks = 153.** The six round-4 task issues `#156`–`#161` are **closed as
 duplicates** — each was folded into its most similar existing task on 2026-09-10 and has no task file.
 
 > Verified against the file glob, which is the authority:
-> `ls issues/p*.md | wc -l` → **143**; per phase
+> `ls issues/p*.md | wc -l` → **144**; per phase
 > `for p in p0 p1 p2 p2in p3 p4 p5 p6; do ls issues/$p-[0-9][0-9].md | wc -l; done`
-> → **17 · 21 · 29 · 4 · 24 · 13 · 23 · 12**. `ls issues/*EPIC*.md | wc -l` → **9**
+> → **17 · 22 · 29 · 4 · 24 · 13 · 23 · 12**. `ls issues/*EPIC*.md | wc -l` → **9**
 > (1 master + 8 phase). The headline is correct.
 
 > **Round 4 (2026-09-10) filed six tasks, `#156`–`#161`:** `P3-25` and `P5-24`…`P5-28`
@@ -21,6 +21,9 @@ duplicates** — each was folded into its most similar existing task on 2026-09-
 > being filed. That is why the master epic is `#1`, the phase epics are
 > `#3 #4 #5 #6 #7 #8 #10 #11` — **not** `#2`–`#9` — and the 143 tasks run **#12–#154**
 > rather than #10–#152. There is no gap in the backlog; the two missing numbers are the PRs.
+
+> **Round 5 (2026-09-14) filed one task, `#163` = `P1-22`** (`DECISIONS.md` `D-14` item 8), for the
+> built screens only, because closed tasks are never reopened. `#162` is a pull request (round 4).
 
 > **The `.md` files win.** Every file below carries an `issue: NN` line in its front matter,
 > which is what `create-issues.sh --sync` and `--check` read. GitHub is a mirror:
@@ -79,6 +82,7 @@ cross-reference against — regenerate it with `create-issues.sh`, do not hand-e
 | #139 | `p1-19.md` | P1-19 · i18n en/fr/hi, SafeTranslation registration, and the status badge from a registry column |
 | #145 | `p1-20.md` | P1-20 · App permissions, menus, grid configuration wave 1, and the shared-registry edits |
 | #148 | `p1-21.md` | P1-21 · Master merge — two duplicate items, or two duplicate counterparties, reconciled by a movement rather than by an UPDATE |
+| #163 | `p1-22.md` | P1-22 · Associations to the existing-page standard — row-action assignment modals, warehouse and owner company links, install-wide codes |
 | #18 | `p2-01.md` | P2-01 · Adjustments with a value-based approval threshold, the insufficient-stock log and the blocked-move queue |
 | #24 | `p2-02.md` | P2-02 · Transfers as three legs, through a per-transfer in-transit location |
 | #29 | `p2-03.md` | P2-03 · Holds as records with a release audit, not a status column |

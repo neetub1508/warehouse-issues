@@ -152,7 +152,7 @@ adapter proves nothing*) · field-service and assets **v1.1** · logistics **v3*
 | Phase | Epic | Name | Tasks | Ships |
 |---|---|---|---|---|
 | P0 | __P0__ | Ledger foundation | **17** | v1 |
-| P1 | __P1__ | Masters, identity, inbound | **21** | v1 |
+| P1 | __P1__ | Masters, identity, inbound | **22** | v1 |
 | P2 | __P2__ | Outbound, counting, valuation, returns, printing, reports | **29** | v1 |
 | P2-IN | __P2IN__ | The India movement documents | **4** | v1 |
 | P3 | __P3__ | Execution and mobile | **24** | v1.1 |
@@ -160,7 +160,7 @@ adapter proves nothing*) · field-service and assets **v1.1** · logistics **v3*
 | P5 | __P5__ | 3PL, channels and reverse logistics | **23** | v2 |
 | P6 | __P6__ | Optimisation, planning and the logistics seam | **12** | v3 |
 
-**143 tasks** — `ls issues/p*.md | wc -l`, and 17 + 21 + 29 + 4 + 24 + 13 + 23 + 12. Round 4 filed six
+**144 tasks** — `ls issues/p*.md | wc -l`, and 17 + 22 + 29 + 4 + 24 + 13 + 23 + 12. Round 4 filed six
 (`P3-25`, `P5-24`…`P5-28`, `#156`–`#161`) and on 2026-09-10 folded each into its most similar existing
 task; the six issues are closed as duplicates (`issues/CREATED.md`, `GAP-REGISTER-R4.md` §4.6).
 **471 requirements**, each owned by **exactly one** task. **305 scenarios** (computed:
@@ -305,7 +305,7 @@ a compliance filing product until v1.1, v2 and v2 respectively.
    criteria.** "Done" means walked in a running application.
 7. **[`BUILD-SPEC-SCREENS.md`](../blob/main/docs/BUILD-SPEC-SCREENS.md)** — the 237 screens, their tables,
    columns, filters, actions and mobile verdicts.
-8. **[`IMPLEMENTATION-PLAN.md`](../blob/main/docs/IMPLEMENTATION-PLAN.md)** — the 143-task decomposition,
+8. **[`IMPLEMENTATION-PLAN.md`](../blob/main/docs/IMPLEMENTATION-PLAN.md)** — the 144-task decomposition,
    the critical path, the four points of no return, the open decisions as gates, and the traceability.
 9. **[`MODULE-INTEGRATION.md`](../blob/main/docs/MODULE-INTEGRATION.md)** — the **22** integration
    touchpoints, three of which fail **silently**.

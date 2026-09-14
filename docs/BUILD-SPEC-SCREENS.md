@@ -161,6 +161,7 @@ plus every report grid in §7.
 | View | `ViewModalBase` (`platform/frontend/src/components/common/ViewModalBase.tsx:31`) with `InfoSection`, `InfoRow`, `InfoGrid`, `StatusCard`, `DataTable`, `AlertBox` |
 | Multi-tab | **> 6 logical field groups** → `TabNavigation` + `useModalTabState`. Department Modal (4 tabs) is the reference |
 | Loading | every modal through `lazyModal()` + `Suspense` — never `React.lazy()`, never a direct import |
+| Association (pure link-set) | a **row action button** opening `<Parent><Children>Modal`, a thin wrapper over one module-local generic assignment modal (current list + available list, add several, remove one); `size="xl"`, `resizable`, `minWidth={800}`. On a dated junction *remove* is **End link**, never delete (`D-14` item 8b) |
 
 Where a document has a lifecycle, the **transition is its own modal**, not a field on the edit form —
 Service Vehicle's `TemporaryInModal` / `TemporaryOutModal` / `CheckOutModal` (`vehicles/page.tsx:48-51`)
@@ -536,7 +537,7 @@ failed"***.
 |---|---|---|---|---|
 | `CROSS_GSTIN_COUNTER_SALE` | 422 | the counter-sale service. A `SERVING` branch under a different GSTIN may not sell directly from the site | WS-194, WS-200 (a job issue follows the same rule), and the mobile counter screen. The message offers *Raise request* (WS-090 in `REQUESTED`) | `FR-461` · `D-14` item 3 · `RK-002` |
 | `CROSS_COMPANY_TRANSFER` | 422 | the transfer service. Source and destination sites belong to different companies | WS-090. The destination picker never offers such a site, so the code is reached only by the API or an import | `RK-007` · `WH-SC-319` |
-| `WAREHOUSE_BRANCH_COMPANY_MISMATCH` | 422 | the warehouse service. The `REGISTERED` branch is not in `whb_company_branches` for the site's `company_id` | WS-016 *Branches* tab and *Change registration* modal | `RH-004` |
+| `WAREHOUSE_BRANCH_COMPANY_MISMATCH` | 422 | the warehouse service. The `REGISTERED` branch is not in `whb_company_branches` for any current company of the site (`whb_warehouse_companies`, `D-14` item 8c) | WS-016 **Branches** row action and *Change registration* modal | `RH-004` |
 | `AMBIGUOUS_LOCATION` | 409 | the scan resolver. A location code matches at more than one site and no session or device site disambiguates it | WS-071, every RF screen (WS-229 … WS-237), WS-017 mobile scan | `RL-004` |
 | `AMBIGUOUS_IDENTIFIER` | 409 | the scan resolver. An identifier matches several items after the session-owner and counterparty context are applied. **The response lists the candidates** | WS-071, WS-024, WS-194, every RF screen | `RL-005` |
 | `STAGED_STOCK` | 409 | a cancel on a document whose stock is still staged (a supplier return after `PICKED`, `RJ-006`, and a demand order under `FR-449`) | WS-084, WS-099 — the message names the staging location and the quantity to de-stage | `RJ-006` · `FR-449` |
@@ -816,7 +817,8 @@ was folded into `P1-18`. The same day's second fold (lane `W0-1b`):
   (`RC-007`, `P2-21`).
 
 `WS-240` and `WS-241` were allocated by `GAP-REGISTER-R4.md` §4.0. **The next free id is `WS-245`.** The
-round-4 junctions are sub-grids on existing screens: WS-015, WS-016, WS-017, WS-021, WS-023 and WS-173.
+pure link-sets are row-action assignment modals on existing screens: WS-015, WS-016, WS-017, WS-019 and
+WS-173 (`D-14` item 8b); WS-021 and WS-023 keep their child editors.
 <!-- check-design-set: screen-citations end -->
 
 ---
@@ -935,17 +937,18 @@ FK ↓platform `currencies.currency_code`) · `countryCode` · `isDefault` (`is_
 **Filters:** `code` text · `name` text · `countryCode` select (platform country source) ·
 `baseCurrencyCode` select (the shared currency source — never a hand-built list) · `isActive` boolean.
 **Export:** visible set + `legalName`, `isDefault`, both audit-name columns. **Modals:** single-tab
-add/edit plus the *Company branches* sub-grid below; `ViewModalBase` view with a child `DataTable` of
+add/edit; `ViewModalBase` view with a child `DataTable` of
 `whb_company_external_refs` (`source_module`, `external_id`, `external_label`) — that table has **no
-grid of its own**.
-**Company branches** (`RH-004`, `D-14`) — a sub-grid on the modal and the view over
-`whb_company_branches`: branch (`branches.branch_name`), `effectiveFrom`, `effectiveTo`. *Add link*
-opens a row. *End link* sets `effective_to` and never deletes, and there is no `is_active` on this dated
-junction. **This is the warehouse-owned company axis**, because platform `branches` carry no company and
+grid of its own** — and a read-only `DataTable` of the branch-link history, closed rows included.
+**Branches** (`RH-004`, `D-14` item 8b) — a row action opening `WhbCompanyBranchesModal` over
+`whb_company_branches`: branch (`branches.branch_name`), `effectiveFrom`, `effectiveTo`. *Remove* is
+*End link*: it sets `effective_to` and never deletes, and there is no `is_active` on this dated
+junction. **A branch belongs to one company at a time** — an `EXCLUDE` over `branch_id` and the range
+(`D-14` item 8e, `V500079`). **This is the warehouse-owned company axis**, because platform `branches` carry no company and
 `company_branches` is automotive's. WS-016's branch options and `422 WAREHOUSE_BRANCH_COMPANY_MISMATCH`
 both read it. `warehouse-adapter-dealer` may seed it from automotive through
 `whb_company_external_refs`; **base never reads automotive**. The junction has no grid of its own.
-**Actions:** row View / Edit / Set-default (`:edit`; a partial unique index enforces one default) /
+**Actions:** row View / Edit / **Branches** (`:edit`, active row) / Set-default (`:edit`; a partial unique index enforces one default) /
 Deactivate. Toolbar Add / Export / Grid config.
 **Mobile:** `none` — install-time configuration; no operator flow reads or writes it.
 
@@ -964,9 +967,9 @@ links grant visibility and let a branch draw stock. `whb_warehouses` no longer h
 
 | key | label | type | sort | vis | source |
 |---|---|---|---|---|---|
-| `code` | Code | string | Y | Y | `whb_warehouses.code` — unique per company, `uk(company_id, code)` (`RL-004`) |
+| `code` | Code | string | Y | Y | `whb_warehouses.code` — unique across the install, `uk(code)` (`D-14` item 8d, superseding `RL-004` here) |
 | `name` | Name | string | Y | Y | `name` |
-| `companyName` | Company | string | Y | Y | `whb_companies.name` via `company_id` |
+| `companyName` | Company | string | Y | Y | `whb_companies.name` of the current `OPERATOR` link in `whb_warehouse_companies` (`D-14` item 8c) |
 | `registeredBranchName` | Registered branch | string | Y | Y | **`branches.branch_name`** of the **current `REGISTERED` link** in `whb_warehouse_branches` — the platform column is `branch_name`, not `name` |
 | `linkedBranchCount` | Linked branches | number | Y | Y | count of today's links of a visibility role — backend-computed. The column is labelled *Linked branches* |
 | `warehouseType` | Type | string | Y | Y | `warehouse_type` |
@@ -983,7 +986,8 @@ links grant visibility and let a branch draw stock. `whb_warehouses` no longer h
 
 **Filters:** `companyId` select → **cascades to** `branchId` select → cascades to `warehouseType` ·
 `relationshipRoleCode` select (options from `whb_warehouse_branch_roles`, fetched) · `isPhysical`
-boolean · `stateCode` select · `isActive` boolean · `code`/`name` text. **`branchId` means *"linked
+boolean · `stateCode` select · `isActive` boolean · `code`/`name` text. **`companyId` means *"holds a
+current link to"*** the company in `whb_warehouse_companies`. **`branchId` means *"linked
 to"*** — the site holds a current link of any visibility role to the branch. With
 `relationshipRoleCode = REGISTERED` it narrows to *"registered under"*. **The branch options come from a
 warehouse endpoint** that returns *my-branches ∩ the company's branches* (`whb_company_branches`, WS-015),
@@ -994,18 +998,23 @@ frontend `.filter()` is forbidden. `relationshipRoleCode` goes into the `WAREHOU
 comma-joined), `gln`, `latitude`, `longitude`, address lines 1/2, `postal_code`, `country_code`, both
 audit names. `registeredBranchName` is a visible column and is therefore exported too. The
 `legal_entity_id` and `tax_registration_id` labels are gone with their columns.
-**Modals:** Add/Edit is **multi-tab** (8 field groups > 6): *Identity* · *Company* · *Address* ·
+**Modals:** Add/Edit is **multi-tab** (7 field groups > 6): *Identity* · *Company* · *Address* ·
 *Geo* (`latitude`, `longitude`) · *Tax identity* (the GSTIN, read-only through the `REGISTERED` link) ·
 *Operations* (`timezone` select, `order_cutoff_time`, `default_putaway_strategy_code`, `has_picking`) ·
-*Status* · **Branches**.
-**Branches tab** — a sub-grid over `whb_warehouse_branches`: branch (`branches.branch_name`), role,
-`effectiveFrom`, `effectiveTo`, `isPrimary`. *Add link* opens a non-`REGISTERED` row. *End link* sets
-`effective_to` on a non-`REGISTERED` row and never deletes. **A site cannot be saved without a
-`REGISTERED` link**: create writes the site and its link in one transaction (R22 §1.2.2 guard 1). A second
-current `REGISTERED` link is refused, and `SERVING` is offered instead (`WH-SC-045`). A `REGISTERED` branch
-missing from `whb_company_branches` for the site's company is refused with
-`422 WAREHOUSE_BRANCH_COMPANY_MISMATCH`, and `warehouse-india`'s validators refuse a GSTIN state that
-differs from `state_code`.
+*Status*. **A site cannot be saved without a `REGISTERED` link or a company link**: at create the
+*Company* tab's select writes the site, its `REGISTERED` link and its first `OPERATOR` + `STOCK_HOLDER`
+link in `whb_warehouse_companies` in one transaction (R22 §1.2.2 guard 1, `D-14` item 8c). After create,
+links change only through the row actions below.
+**Branches** (`D-14` item 8b) — a row action opening `WhbWarehouseBranchesModal` over
+`whb_warehouse_branches`: branch (`branches.branch_name`), role, `effectiveFrom`, `effectiveTo`,
+`isPrimary`. The current `REGISTERED` row is read-only. *Remove* is *End link*, which sets `effective_to`
+on a non-`REGISTERED` row and never deletes. A second current `REGISTERED` link is refused, and `SERVING`
+is offered instead (`WH-SC-045`). A `REGISTERED` branch that `whb_company_branches` links to no current
+company of the site is refused with `422 WAREHOUSE_BRANCH_COMPANY_MISMATCH`, and `warehouse-india`'s
+validators refuse a GSTIN state that differs from `state_code`.
+**Companies** (`D-14` items 8b, 8c) — a row action opening `WhbWarehouseCompaniesModal` over
+`whb_warehouse_companies`: company, role `OPERATOR`/`STOCK_HOLDER`, `effectiveFrom`, `effectiveTo`. A site
+has one current `OPERATOR`. *Remove* is *End link*.
 **Change registration** — its own modal, gated on `warehouse:warehouses:change_registration` and
 maker–checker (`FR-408`); the checker is not the maker. It is refused for an `effective_from` in a
 `CLOSED` period or before the site's latest posted `occurred_at`. It is also refused **while the site
@@ -1014,8 +1023,8 @@ move out first (`OD-19`). It closes the current row and opens the next at the sa
 `whb_audit_events` row, and prompts for the new branch-scoped series (WS-061).
 View = `ViewModalBase` with an `InfoGrid` per tab, a `StatusCard`, and a `DataTable` of the link
 history, including closed rows.
-**Actions:** row View / Edit / Deactivate (refused while any `whb_stock_positions` row for the site is
-non-zero) / **Change registration** / **Generate locations** (`whb_locations:create`, opens WS-018).
+**Actions:** row View / Edit / **Branches** and **Companies** (`:edit`, active row) / Deactivate
+(refused while any `whb_stock_positions` row for the site is non-zero) / **Change registration** / **Generate locations** (`whb_locations:create`, opens WS-018).
 Toolbar Add / Export / Grid config / Help.
 **Mobile:** `mobile/src/screens/whbWarehouse/` — **read-only list + detail.** Site creation is a desk
 task; the mobile screen exists because every RF screen needs a site picker and the picker reads this
@@ -1062,13 +1071,14 @@ table `V500013` (★ must precede `V500030`) · caches `dropdown.whbLocation`.
 *Status & blocking*. View = `ViewModalBase` + a child `DataTable` of
 `whb_location_external_refs` (no grid of its own) and a live on-hand summary read from
 `whb_stock_positions`.
-**Custody** (`RG-004`, `D-14`) — a sub-grid on the modal and the view over
+**Custody** (`RG-004`, `D-14` item 8b) — a row action opening `WhbLocationCustodyModal` over
 `whb_location_user_assignments`: user (shared display helper), `assignment_role` from the `CUSTODY_ROLE`
 code list (`CUSTODIAN` / `DRIVER` / `HELPER`), `effectiveFrom`, `effectiveTo`. A location has one current
-`CUSTODIAN`. *Change custodian* ends one row and opens the next, so *"who held the van's stock at last
-Tuesday's shortage"* is a query and never an overwrite. The sub-grid has no grid of its own.
-`whaf_van_stock_assignments` (WS-203) references these rows.
-**Actions:** row View / Edit / **Block** and **Unblock** (own modals, mandatory reason code,
+`CUSTODIAN`. *Remove* is *End link*, which sets `effective_to` and never deletes. *Change custodian* ends
+the current row and opens the next in one save, so *"who held the van's stock at last Tuesday's
+shortage"* is a query and never an overwrite. The junction has no grid of its own; the view keeps a
+read-only `DataTable` of the custody history. `whaf_van_stock_assignments` (WS-203) references these rows.
+**Actions:** row View / Edit / **Custody** (`:edit`, active row) / **Block** and **Unblock** (own modals, mandatory reason code,
 `whb_locations:block`) / **Print location label** (`wh_print_jobs:create`, template kind
 `LOCATION_LABEL`). Toolbar Add / **Generate** (WS-018) / Import (CSV fallback of `FR-089`) /
 Export / Grid config.
@@ -1122,16 +1132,20 @@ v1 · **P0** · `FR-107` `FR-108` `FR-109` · table `V500007` · caches `dropdow
 
 `owner_id` is `NOT NULL` everywhere from v1 in **every** install and there is **no single-owner mode**
 (`D-5`, `FR-109`) — so this screen ships in P0 even though `warehouse-3pl` is v2.
-**Columns:** `code` · `name` · `ownerTypeCode` · `companyName` · `counterpartyName` (nullable — the
+**Columns:** `code` (unique across the install, `uk(code)` — `D-14` item 8d) · `name` · `ownerTypeCode` ·
+`companyName` (the current `HOUSE` company in `whb_owner_companies`, else the current `SERVICED_BY`
+companies comma-joined — `D-14` item 8c) · `counterpartyName` (nullable — the
 house owner is not a counterparty) · `isHouse` · `defaultCostBasis` · `isActive` · audit quartet + names.
-**Filters:** `ownerTypeCode` select · `companyId` select → cascades `counterpartyId` async typeahead ·
+**Filters:** `ownerTypeCode` select · `companyId` select (*"holds a current link to"*) → cascades `counterpartyId` async typeahead ·
 `isHouse` boolean · `isActive` boolean · `code`/`name` text.
 **Export:** visible + `posts_to_our_gl` (from the owner type), both audit names.
-**Modals:** single-tab add/edit; view = `ViewModalBase` with a `StatusCard` and an on-hand-by-site
-summary. The **house owner row is `is_system`-equivalent**: seeded by `V500007`, never deletable, and
-the `is_house` partial unique index means the modal must refuse a second house owner per company with
-a field-level error rather than a 500.
-**Actions:** row View / Edit / Deactivate (refused with `OWNER_HAS_STOCK` while any position or open
+**Modals:** single-tab add/edit — at create its company select writes the owner's first link in
+`whb_owner_companies`: `HOUSE` when `is_house`, otherwise `SERVICED_BY`; view = `ViewModalBase` with a
+`StatusCard` and an on-hand-by-site summary. The **house owner row is `is_system`-equivalent**: seeded by
+`V500007`, never deletable, and the one-house-owner-per-company index on `whb_owner_companies` means the
+modal must refuse a second house owner per company with a field-level error rather than a 500.
+**Actions:** row View / Edit / **Companies** (`:edit`, active row; opens `WhbOwnerCompaniesModal` over
+`whb_owner_companies`, role `HOUSE`/`SERVICED_BY`, *remove* is *End link* — `D-14` item 8b) / Deactivate (refused with `OWNER_HAS_STOCK` while any position or open
 reservation exists) / **Manage grants** (opens WS-020 filtered to the owner). Toolbar Add / Export.
 **Mobile:** `mobile/src/screens/whbOwner/` — **read-only picker list.** Every RF screen posts against
 an owner; the picker reads this. No writes.
@@ -1668,7 +1682,7 @@ scheduled job that reads it is a defect at the moment it is merged.**
 | WS-054 | Port Rejected Queue | **no grid of its own** — the same `whb_inbound_messages` grid and the same `WAREHOUSE_INBOUND_MESSAGE` scope, opened with `status IN (FAILED, DISCARDED)` defaulted | SV | as WS-053 plus `ageMinutes` and `alertRaised` | as WS-053, defaulted to failures · `ageOverMinutes` select | Reprocess · Bulk reprocess · Discard with reason | `FR-045` — **and its alert.** The queue is non-empty beyond a threshold ⇒ an alert fires; the threshold lives in `admin_settings` key `warehouse.port.rejected_queue_threshold` |
 | WS-055 | Movement Batches | `whb_movement_batches` (+ `_results`) · `WAREHOUSE_MOVEMENT_BATCH` | C | `sourceSystem`, `batchReference`, `submittedByName`, `actorType`, `deviceId`, `totalCount`, `succeededCount`, `failedCount`, `receivedAt`, `completedAt` | `sourceSystem` · `deviceId` text · `hasFailures` boolean · `receivedFrom`/`To` | View → child grid of `whb_movement_batch_results` (`sequenceInBatch`, `idempotencyKey`, `outcome` CREATED/DUPLICATE/CONFLICT/REJECTED, `errorCode`) | `FR-034` — *"a scan gun syncing 400 movements after a shift must not lose 399 because one bin was renamed"* |
 | WS-056 | Outbox Monitor | `whb_outbox` · `WAREHOUSE_OUTBOX` | C | **`cursor`**, `eventType`, `occurredAt`, `warehouseName`, `ownerName`, `subjectType`, `subjectId`, `payloadHash`, `movementSequenceNo` | `eventType` select · `warehouseId` · `ownerId` · `cursorFrom`/`cursorTo` number pair · `occurredFrom`/`To` `date` pair | View payload · Replay from cursor (`whb_outbox:replay`) | `FR-330` `FR-331` — gapless monotonic cursor; **base does not know its consumers** |
-| WS-057 | Outbox Subscriptions | `whb_outbox_subscriptions` · `WAREHOUSE_OUTBOX_SUBSCRIPTION` | D | `subscriberCode`, `transport` (IN_PROCESS/HTTP), `endpointUrl`, `eventTypeFilter`, `ownerFilterName`, `lastDeliveredCursor`, `maxAttempts`, `backoffSeconds`, `isActive` | `transport` select · `isActive` · `subscriberCode` text | Add/Edit/Disable · **Reset cursor** (own modal, requires a typed confirmation). `secret_ref` is **masked at the edge** — the response carries `hasValue`, never the value | `FR-333` |
+| WS-057 | Outbox Subscriptions | `whb_outbox_subscriptions` · `WAREHOUSE_OUTBOX_SUBSCRIPTION` | D | `subscriberCode`, `transport` (IN_PROCESS/HTTP), `endpointUrl`, `eventTypeFilter`, `ownerFilterName`, `lastDeliveredCursor`, `maxAttempts`, `backoffSeconds`, `isActive` | `transport` select · `isActive` · `subscriberCode` text | Add/Edit/Disable · **Reset cursor** (own modal, requires a typed confirmation) · **Owners** row action at v2 (`whb_outbox_subscription_owners`, plain junction, assignment modal — `D-14` item 8b). `secret_ref` is **masked at the edge** — the response carries `hasValue`, never the value | `FR-333` |
 | WS-058 | Outbox Dead-letter | `whb_outbox_deliveries` · `WAREHOUSE_OUTBOX_DELIVERY` | SV | `subscriberCode`, `cursor`, `attemptNo`, `status` (OK/RETRY/DEAD), `httpStatus`, `errorDetail`, `attemptedAt` | `subscriptionId` select → `status` select (default DEAD) · `attemptedFrom`/`To` | **Retry** · **Retry all dead for subscription** | `FR-332` — the dead-letter grid and the replay path are named in the budget, not implied |
 
 **Mobile:** `none` for all six. Stated per `FR-218`: these are support and integration surfaces; an
@@ -1854,8 +1868,8 @@ branch for an issue to it, `FR-305`), **`isTaxableSupply`**, `transferPrice`, `v
 `ownershipTransferPoint`, `status`, `requestedByName`, `approvedByName`, `demandOrderNumber`,
 `dispatchedAt`, `receivedAt`, `inTransitDays`, `lineCount`, audit. Lines carry `requestedQuantity` and
 **`approvedQuantity`**, because part-approval is a line quantity, not a state.
-**Filters:** `companyId` → `sourceWarehouseId` → `destinationWarehouseId` (**offered only within the
-source's company** — a cross-company site is never listed, `RK-007`) · `transferType` select ·
+**Filters:** `companyId` → `sourceWarehouseId` → `destinationWarehouseId` (**offered only among sites
+holding a current link to the selected company** — a cross-company site is never listed, `RK-007`) · `transferType` select ·
 `status` **multiselect** (the §0.11 vocabulary, `REQUESTED` included) · `isTaxableSupply` boolean ·
 `dispatchedFrom`/`To` `date` pair · `inTransitOverDays` select (dropdown — it is also the mobile filter) ·
 `transferNumber` text.
@@ -2169,7 +2183,7 @@ place of supply, `is_taxable_supply` frozen at creation, taxable value — and h
 
 | id | Screen · Table · Scope | Ref | Key columns | Filters | Actions & notes | FR |
 |---|---|---|---|---|---|---|
-| WS-173 | GSTIN Profiles · `whin_gstin_profiles` · `WAREHOUSE_INDIA_GSTIN_PROFILE` | C | `gstin`, `companyName`, `placeOfBusinessCount` (current `whin_gstin_profile_branches` rows), `stateCode`, `registrationType`, `legalName`, `tradeName`, `effectiveFrom`/`effectiveTo` (`dateOnly`), `isActive` | `companyId` → `branchId` (a current place of business) · `stateCode` select · `registrationType` select · `isActive` | Add/Edit/End-date · **Places of business** (a tab and sub-grid over `whin_gstin_profile_branches`: branch (`branches.branch_name`), `place_role` `PRINCIPAL`/`ADDITIONAL` — a closed statutory `CHECK` under `OD-5` — and dates). One registration covers every branch in its state, so the second Delhi branch resolves the same profile (`RG-002`, `WH-SC-313`). `whin_gstin_profiles.branch_id` is dropped. `gstin` stays unique, and it is checked equal to each place's `branches.gst_number` on save, with a nightly drift row (`RH-005`). The GSTIN is **never duplicated onto the warehouse** — a site reaches it through its `REGISTERED` link | `FR-305` |
+| WS-173 | GSTIN Profiles · `whin_gstin_profiles` · `WAREHOUSE_INDIA_GSTIN_PROFILE` | C | `gstin`, `companyName`, `placeOfBusinessCount` (current `whin_gstin_profile_branches` rows), `stateCode`, `registrationType`, `legalName`, `tradeName`, `effectiveFrom`/`effectiveTo` (`dateOnly`), `isActive` | `companyId` → `branchId` (a current place of business) · `stateCode` select · `registrationType` select · `isActive` | Add/Edit/End-date · **Places of business** (a row action opening a modal over `whin_gstin_profile_branches`, `D-14` item 8b: branch (`branches.branch_name`), `place_role` `PRINCIPAL`/`ADDITIONAL` — a closed statutory `CHECK` under `OD-5` — and dates; *remove* is *End link*). One registration covers every branch in its state, so the second Delhi branch resolves the same profile (`RG-002`, `WH-SC-313`). `whin_gstin_profiles.branch_id` is dropped. `gstin` stays unique, and it is checked equal to each place's `branches.gst_number` on save, with a nightly drift row (`RH-005`). The GSTIN is **never duplicated onto the warehouse** — a site reaches it through its `REGISTERED` link | `FR-305` |
 | WS-174 | Compliance Providers · `whin_compliance_providers` (+ `_provider_environments`, `_credential_specs`) · `WAREHOUSE_INDIA_COMPLIANCE_PROVIDER` | C | `code`, `name`, `providerKind` (EWAYBILL/EINVOICE/BOTH), `baseUrlTemplate`, `environmentCount`, `isActive` | `providerKind` select · `isActive` | Add/Edit with two child editors — environments (SANDBOX/PRODUCTION) and **credential specs as rows, so a new provider is data, not a release** | `FR-326` |
 | WS-175 | Compliance Registrations · `whin_compliance_registrations` (+ `_credentials`, `_auth_sessions`) · `WAREHOUSE_INDIA_COMPLIANCE_REGISTRATION` | C | `gstinProfileGstin`, `providerName`, `environment`, `documentKinds`, `registeredAt`, `status`, `tokenExpiresAt` | `gstinProfileId` → `providerId` → `environment` select · `status` | Register · Rotate credentials · Test connection. **Credential values are encrypted and masked at the edge** per the platform admin-settings idiom: the response carries `hasValue` (**`null`, not `undefined`**, when unset), never the value | `FR-326` |
 | WS-176 | Compliance Documents · `whin_compliance_documents` · `WAREHOUSE_INDIA_COMPLIANCE_DOCUMENT` | C | `documentKind`, `subjectType`, `subjectId`, `registrationGstin`, `status`, `providerReference`, `sentAt`, `respondedAt`, `errorCode` | `documentKind` select → `status` select · `registrationId` · `sentFrom`/`To` `date` pair | View request/response payload (`TEXT`) · Retry. **The e-way bill adapter reads only this table and the v1 base columns; it never reaches into an operational table for a field it forgot to copy** | `FR-310` `FR-326` |
