@@ -296,7 +296,8 @@ all 83 findings and the full fold plan are in [`GAP-REGISTER-R4.md`](GAP-REGISTE
    one current row per key enforced by an `EXCLUDE` constraint, and no `is_active` on a dated junction.
    R22's six KEEP-SCALAR findings (`RG-022`…`RG-027`) mark the edge of this rule.
 2. **A warehouse is linked to platform branches through `whb_warehouse_branches`.** At every instant it
-   has **exactly one `REGISTERED` link**. That branch supplies the site's GSTIN, its branch-scoped
+   has **exactly one `REGISTERED` link**. *(Narrowed 2026-09-14 by item 8g: at most one, and a site with
+   none is refused when used, not at create.)* That branch supplies the site's GSTIN, its branch-scoped
    statutory numbering, and its tax attribution. `whb_warehouses` loses `branch_id`,
    `tax_registration_id` and `legal_entity_id`.
    - `SERVING` links grant visibility and let the branch draw stock.
@@ -348,8 +349,8 @@ all 83 findings and the full fold plan are in [`GAP-REGISTER-R4.md`](GAP-REGISTE
      Item 1's *"every association is effective-dated"* is narrowed to this.
    - **b. A pure link-set is maintained from a row action, not from a sub-grid.** Where a parent's
      association with another master carries nothing but the link (role, primary, dates), the parent's
-     list has a **row action button** that opens `<Parent><Children>Modal`, a thin wrapper over one
-     module-local generic assignment modal: current list + available list, add several, remove one;
+     list has a **row action button** that opens `<Parent><Children>Modal` — one file per link, copied from
+     its twin (item 8h): current list + available list, add several, remove one;
      `Modal size="xl" resizable minWidth={800}`, `lazyModal()` + `Suspense`, mounted only when open. The
      backend is `GET /{id}/<children>`, `POST /{id}/<children>` (a list of ids) and
      `DELETE /{id}/<children>/{childId}` on the parent's controller, gated on the parent's `:edit` — **no
@@ -365,6 +366,7 @@ all 83 findings and the full fold plan are in [`GAP-REGISTER-R4.md`](GAP-REGISTE
        `dealer/backend/src/main/java/ai/dealer/controller/PdiStockYardController.java:535-632`
      - automotive Companies — `automotive/frontend/src/components/companies/CompanyBranchesModal.tsx` over
        `CompanyAssignmentModal.tsx`, `automotive/backend/src/main/java/ai/automotive/controller/CompanyController.java:423-464`
+       *(its backend endpoints only since item 8h — the generic `CompanyAssignmentModal` is not copied)*
 
      A tab that edits a record's **own child rows** stays a child editor, as on the existing pages:
      counterparty roles, addresses and tax registrations (WS-021), item identifiers, packaging and
@@ -375,7 +377,7 @@ all 83 findings and the full fold plan are in [`GAP-REGISTER-R4.md`](GAP-REGISTE
      `whb_warehouse_companies` (`OPERATOR`/`STOCK_HOLDER`, one current `OPERATOR`) and
      `whb_owner_companies` (`HOUSE`/`SERVICED_BY`, one current `HOUSE` owner per company) move from v2
      to **v1**, and `whb_warehouses.company_id` and `whb_owners.company_id` are dropped once backfilled.
-     Create writes the first company link in the same transaction, as it writes the `REGISTERED` branch.
+     Create writes no company link and no `REGISTERED` branch (item 8g).
      The movement company assertion (`RG-012`) reads a `STOCK_HOLDER` link at `occurred_at`, and a
      transfer's two sites must both hold a current link to its company (`RK-007`). This takes the
      warehouse and owner parts of `FR-468` into v1.
@@ -391,6 +393,30 @@ all 83 findings and the full fold plan are in [`GAP-REGISTER-R4.md`](GAP-REGISTE
    - **f. Built work is corrected by one task, `P1-22`**, because closed tasks are never reopened. Its
      migrations are forward-only — `V500073` (reassigned from `P0-06`), `V500078`, `V500079` — and no
      applied migration is edited.
+   - **g. Links are never picked on create** (user decision, 2026-09-14), as on the existing pages:
+     dealer `PdiStockYardModal` and automotive `CompanyModal` pick no branch or company. *Add Warehouse*
+     (WS-016) has no *Company*, *Registered Branch* or *Registered From*; *Add Owner* (WS-019) has no
+     *Company*. Every company and branch link comes from the row actions of item 8b. A site with no
+     current `REGISTERED` branch or `OPERATOR` company, or an owner with no current company, is refused
+     with a field-level `422` **when it is used** — number series, documents, periods, import, stocking —
+     not at create. Every current link can be ended. There is at most one current `REGISTERED`,
+     `OPERATOR` and `HOUSE` link, and adding one ends the current one in the same save; replacing a
+     `REGISTERED` link is a registration change and keeps item 4's guards. This replaces *"a site cannot
+     exist without its `REGISTERED` link"* (R22 §1.2.2 guard 1 as applied to create, and its deferred
+     at-least-one trigger) and the *"last link cannot be ended"* rule. `I-22` still refuses a movement at
+     an instant with no `REGISTERED` link.
+     *Why:* a create form that picks links is a second place to maintain them, and the existing pages
+     keep one, the row action. Refusing at use puts the check where the link is read, so a site or owner
+     can be set up before its branch or company is settled, with no trigger blocking the save.
+   - **h. Link popups are one file per link, a line-by-line copy of the existing twin** (user decision,
+     2026-09-14): branches ← platform `UserBranchesModal` / dealer `PdiStockYardBranchesModal`;
+     companies ← dealer `PdiStockYardCompaniesModal`; custody users ← platform `GroupUsersModal`. There is
+     **no shared generic assignment modal** and **no date field** in the popups — a link starts now, and
+     *Remove* ends it. The only addition is a per-row role column, copied from dealer
+     `CustomerDocumentTypeAssignmentModal`. This supersedes the generic `WhbAssignmentModal<T>` that
+     `P1-22` first specified.
+     *Why:* a copy is reviewed by diffing it against its twin; a new generic modal has no twin to diff
+     against, and a date field is exactly what the twins do not have.
 
 ### D-15 · A posted moving average is never restated; a backdated receipt inserts a layer
 

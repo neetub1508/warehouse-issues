@@ -161,7 +161,7 @@ plus every report grid in §7.
 | View | `ViewModalBase` (`platform/frontend/src/components/common/ViewModalBase.tsx:31`) with `InfoSection`, `InfoRow`, `InfoGrid`, `StatusCard`, `DataTable`, `AlertBox` |
 | Multi-tab | **> 6 logical field groups** → `TabNavigation` + `useModalTabState`. Department Modal (4 tabs) is the reference |
 | Loading | every modal through `lazyModal()` + `Suspense` — never `React.lazy()`, never a direct import |
-| Association (pure link-set) | a **row action button** opening `<Parent><Children>Modal`, a thin wrapper over one module-local generic assignment modal (current list + available list, add several, remove one); `size="xl"`, `resizable`, `minWidth={800}`. On a dated junction *remove* is **End link**, never delete (`D-14` item 8b) |
+| Association (pure link-set) | a **row action button** opening `<Parent><Children>Modal`, one file per link, a line-by-line copy of its existing twin — no shared generic modal, no date field (current list + available list, add several, remove one); `size="xl"`, `resizable`, `minWidth={800}`. On a dated junction *remove* is **End link**, never delete. Create picks no link (`D-14` items 8b, 8g, 8h) |
 
 Where a document has a lifecycle, the **transition is its own modal**, not a field on the edit form —
 Service Vehicle's `TemporaryInModal` / `TemporaryOutModal` / `CheckOutModal` (`vehicles/page.tsx:48-51`)
@@ -941,7 +941,7 @@ add/edit; `ViewModalBase` view with a child `DataTable` of
 `whb_company_external_refs` (`source_module`, `external_id`, `external_label`) — that table has **no
 grid of its own** — and a read-only `DataTable` of the branch-link history, closed rows included.
 **Branches** (`RH-004`, `D-14` item 8b) — a row action opening `WhbCompanyBranchesModal` over
-`whb_company_branches`: branch (`branches.branch_name`), `effectiveFrom`, `effectiveTo`. *Remove* is
+`whb_company_branches`: branch (`branches.branch_name`) — a copy of dealer `PdiStockYardBranchesModal`, no date field (`D-14` item 8h). *Remove* is
 *End link*: it sets `effective_to` and never deletes, and there is no `is_active` on this dated
 junction. **A branch belongs to one company at a time** — an `EXCLUDE` over `branch_id` and the range
 (`D-14` item 8e, `V500079`). **This is the warehouse-owned company axis**, because platform `branches` carry no company and
@@ -998,23 +998,24 @@ frontend `.filter()` is forbidden. `relationshipRoleCode` goes into the `WAREHOU
 comma-joined), `gln`, `latitude`, `longitude`, address lines 1/2, `postal_code`, `country_code`, both
 audit names. `registeredBranchName` is a visible column and is therefore exported too. The
 `legal_entity_id` and `tax_registration_id` labels are gone with their columns.
-**Modals:** Add/Edit is **multi-tab** (7 field groups > 6): *Identity* · *Company* · *Address* ·
+**Modals:** Add/Edit is **multi-tab** (6 field groups): *Identity* · *Address* ·
 *Geo* (`latitude`, `longitude`) · *Tax identity* (the GSTIN, read-only through the `REGISTERED` link) ·
 *Operations* (`timezone` select, `order_cutoff_time`, `default_putaway_strategy_code`, `has_picking`) ·
-*Status*. **A site cannot be saved without a `REGISTERED` link or a company link**: at create the
-*Company* tab's select writes the site, its `REGISTERED` link and its first `OPERATOR` + `STOCK_HOLDER`
-link in `whb_warehouse_companies` in one transaction (R22 §1.2.2 guard 1, `D-14` item 8c). After create,
-links change only through the row actions below.
+*Status*. **Add picks no link** — no *Company*, *Registered Branch* or *Registered From* (`D-14` item 8g):
+the site saves with none, and every link comes from the row actions below. A site with no current
+`REGISTERED` branch or `OPERATOR` company is refused with a field-level `422` when used — number series,
+documents, periods, import, stocking — not at create.
 **Branches** (`D-14` item 8b) — a row action opening `WhbWarehouseBranchesModal` over
-`whb_warehouse_branches`: branch (`branches.branch_name`), role, `effectiveFrom`, `effectiveTo`,
-`isPrimary`. The current `REGISTERED` row is read-only. *Remove* is *End link*, which sets `effective_to`
-on a non-`REGISTERED` row and never deletes. A second current `REGISTERED` link is refused, and `SERVING`
-is offered instead (`WH-SC-045`). A `REGISTERED` branch that `whb_company_branches` links to no current
+`whb_warehouse_branches`: branch (`branches.branch_name`), a per-row role, `isPrimary` — a copy of
+platform `UserBranchesModal` / dealer `PdiStockYardBranchesModal`, no date field (`D-14` item 8h). *Remove*
+is *End link*, which sets `effective_to` on any row, `REGISTERED` included, and never deletes. Adding a
+`REGISTERED` link ends the current one in the same save, under `D-14` item 4's guards (`WH-SC-045`). A `REGISTERED` branch that `whb_company_branches` links to no current
 company of the site is refused with `422 WAREHOUSE_BRANCH_COMPANY_MISMATCH`, and `warehouse-india`'s
 validators refuse a GSTIN state that differs from `state_code`.
 **Companies** (`D-14` items 8b, 8c) — a row action opening `WhbWarehouseCompaniesModal` over
-`whb_warehouse_companies`: company, role `OPERATOR`/`STOCK_HOLDER`, `effectiveFrom`, `effectiveTo`. A site
-has one current `OPERATOR`. *Remove* is *End link*.
+`whb_warehouse_companies`: company and a per-row role `OPERATOR`/`STOCK_HOLDER` — a copy of dealer
+`PdiStockYardCompaniesModal`, no date field (`D-14` item 8h). A site has at most one current `OPERATOR`;
+adding one ends the current one. *Remove* is *End link*.
 **Change registration** — its own modal, gated on `warehouse:warehouses:change_registration` and
 maker–checker (`FR-408`); the checker is not the maker. It is refused for an `effective_from` in a
 `CLOSED` period or before the site's latest posted `occurred_at`. It is also refused **while the site
@@ -1072,8 +1073,9 @@ table `V500013` (★ must precede `V500030`) · caches `dropdown.whbLocation`.
 `whb_location_external_refs` (no grid of its own) and a live on-hand summary read from
 `whb_stock_positions`.
 **Custody** (`RG-004`, `D-14` item 8b) — a row action opening `WhbLocationCustodyModal` over
-`whb_location_user_assignments`: user (shared display helper), `assignment_role` from the `CUSTODY_ROLE`
-code list (`CUSTODIAN` / `DRIVER` / `HELPER`), `effectiveFrom`, `effectiveTo`. A location has one current
+`whb_location_user_assignments`: user (shared display helper) and a per-row `assignment_role` from the
+`CUSTODY_ROLE` code list (`CUSTODIAN` / `DRIVER` / `HELPER`) — a copy of platform `GroupUsersModal`, no
+date field (`D-14` item 8h). A location has one current
 `CUSTODIAN`. *Remove* is *End link*, which sets `effective_to` and never deletes. *Change custodian* ends
 the current row and opens the next in one save, so *"who held the van's stock at last Tuesday's
 shortage"* is a query and never an overwrite. The junction has no grid of its own; the view keeps a
@@ -1139,13 +1141,14 @@ house owner is not a counterparty) · `isHouse` · `defaultCostBasis` · `isActi
 **Filters:** `ownerTypeCode` select · `companyId` select (*"holds a current link to"*) → cascades `counterpartyId` async typeahead ·
 `isHouse` boolean · `isActive` boolean · `code`/`name` text.
 **Export:** visible + `posts_to_our_gl` (from the owner type), both audit names.
-**Modals:** single-tab add/edit — at create its company select writes the owner's first link in
-`whb_owner_companies`: `HOUSE` when `is_house`, otherwise `SERVICED_BY`; view = `ViewModalBase` with a
+**Modals:** single-tab add/edit with **no company field** (`D-14` item 8g) — an owner's companies come
+only from the **Companies** row action, and an owner with no current company is refused with a
+field-level `422` when used, not at create; view = `ViewModalBase` with a
 `StatusCard` and an on-hand-by-site summary. The **house owner row is `is_system`-equivalent**: seeded by
 `V500007`, never deletable, and the one-house-owner-per-company index on `whb_owner_companies` means the
-modal must refuse a second house owner per company with a field-level error rather than a 500.
+**Companies** modal must refuse a second house owner per company with a field-level error rather than a 500.
 **Actions:** row View / Edit / **Companies** (`:edit`, active row; opens `WhbOwnerCompaniesModal` over
-`whb_owner_companies`, role `HOUSE`/`SERVICED_BY`, *remove* is *End link* — `D-14` item 8b) / Deactivate (refused with `OWNER_HAS_STOCK` while any position or open
+`whb_owner_companies`, a copy of dealer `PdiStockYardCompaniesModal` with a per-row role `HOUSE`/`SERVICED_BY` and no date field; adding a `HOUSE` link ends the owner's current one; *remove* is *End link* — `D-14` items 8b, 8h) / Deactivate (refused with `OWNER_HAS_STOCK` while any position or open
 reservation exists) / **Manage grants** (opens WS-020 filtered to the owner). Toolbar Add / Export.
 **Mobile:** `mobile/src/screens/whbOwner/` — **read-only picker list.** Every RF screen posts against
 an owner; the picker reads this. No writes.

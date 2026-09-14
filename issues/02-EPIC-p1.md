@@ -55,9 +55,9 @@ references `whb_counterparties`, and `whb_owners` is `V500007` while `whb_counte
 
 `WH-SC-045` … `WH-SC-052` run **in order**:
 
-1. **`WH-SC-045`** — create a warehouse with its `REGISTERED` branch link, a structured address and a
-   timezone; the GSTIN is **read from that branch**, never duplicated. A second current `REGISTERED`
-   link is refused and `SERVING` is offered (`FR-460`, `D-14`).
+1. **`WH-SC-045`** — create a warehouse with a structured address, a timezone and no link, then add its
+   `REGISTERED` branch from the **Branches** row action; the GSTIN is **read from that branch**, never
+   duplicated. Adding a second `REGISTERED` link ends the first (`FR-460`, `D-14` item 8g).
 2. **`WH-SC-046`** — generate **1,152 bins** from a format mask, with the **count and the first and
    last codes previewed before anything is written**.
 3. **`WH-SC-047`** — import an item master where the dry run reports **per-row, per-cell** errors.
