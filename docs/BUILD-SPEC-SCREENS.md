@@ -286,7 +286,7 @@ movement in the *current* period carrying the original's link — not a reopen.
 |---|---|---|---|---|---|---|
 | `wh_purchase_orders` | — | `DRAFT` | Create | `wh_purchase_orders:create` | — | no |
 | `wh_purchase_orders` | `DRAFT` | `SUBMITTED` | Submit | `wh_purchase_orders:edit` | at least one line, counterparty active | no |
-| `wh_purchase_orders` | `SUBMITTED` | `APPROVED` | Approve | `wh_purchase_orders:approve` | **approver ≠ submitter** above the value threshold (`FR-408`) | no |
+| `wh_purchase_orders` | `SUBMITTED` | `APPROVED` | Approve | `wh_purchase_orders:approve` | **approver ≠ submitter**, always — maker-checker per `FR-408`, which names no value threshold (amended 2026-09-15, P1-12 C1) | no |
 | `wh_purchase_orders` | `SUBMITTED` | `DRAFT` | Return for correction | `wh_purchase_orders:approve` | reason recorded | no |
 | `wh_purchase_orders` | `APPROVED` | `PARTIALLY_RECEIVED` | *(effect of a GRN post)* | `wh_goods_receipts:post` | **never set directly** — this row is a derived transition, and the guard is that no screen offers it | no |
 | `wh_purchase_orders` | `PARTIALLY_RECEIVED` | `RECEIVED` | *(effect of a GRN post)* | `wh_goods_receipts:post` | every line is `RECEIVED`, `CLOSED` or `CANCELLED`; a line is `RECEIVED` when ordered − received ≤ ordered × the short-receipt tolerance (item → warehouse → 0 — `receipt-qc-putaway.contract.md` `RQP-OPEN-19`) | no |
@@ -1097,7 +1097,9 @@ generator are desk tasks. Filters are `warehouseId`, `locationTypeCode`, `status
 
 #### WS-018 · Location Generator
 
-`/warehouse/masters/locations/generate` · **no grid** · permission `whb_locations:create` ·
+`/warehouse/masters/locations/generate` · **no grid** · permission `whb_locations:create` (the permission the
+`LOCATION_GENERATE` import handler declares) **plus** `whb_import_batches:create` (Preview, template) and
+`whb_import_batches:apply` (Generate) — a generation is an import batch (`P1-06` C1 D1) ·
 v1 · P1 · `FR-089`.
 
 A three-step wizard, not a management page: **(1)** parameters — site, parent zone, aisle range, rack
@@ -1109,8 +1111,10 @@ generated codes**, and a **uniqueness check within the site**. Location codes ar
 locations and the barcodes must agree with the labels already on the racking"*; **(3)** commit, which
 writes through the import framework (`whb_import_batches`, `import_kind = LOCATION_GENERATE`) so it
 has a reversal path (`FR-416`).
-**No modals** — the wizard is the page. **Actions:** Preview (idempotent, writes nothing) · Generate
-(`whb_locations:create`) · Download CSV template (the `FR-089` fallback).
+**No modals of its own** — the wizard is the page; a generation above `bulk_import_max_rows` is applied in the
+background and opens WS-065's batch detail for its progress (`P1-06` C1 D2). **Actions:** Preview (idempotent, writes
+nothing; `whb_import_batches:create`) · Generate (`whb_locations:create` + `whb_import_batches:create` + `:apply`) ·
+Download CSV template (the `FR-089` fallback).
 **Mobile:** `none` — a 20,000-row generation is not a handheld task, and the preview cannot be read on
 a 4-inch screen. Recorded as a decision per `FR-218`.
 
@@ -1782,7 +1786,10 @@ Print PO. Toolbar: Add · Import · Export · Grid config · Help.
 sub-tabs: **Lines** · **GRNs** · **QC results** · **Putaways** · **Invoices / three-way match** ·
 **Returns** · **Exceptions** (reconciliation cases) · **Movements** (the ledger lineage query of
 `FR-036`) · **Documents** · **Audit**. Every tab is a child grid with no independent
-`gridIdentifier`.
+`gridIdentifier`, built by the task that owns its document — GRNs and Movements `P1-13`, QC results
+`P1-14`, Putaways `P1-15`, Returns and Exceptions `P2-13`; until then the tab shows its count, or
+*not available* with the owner's reason. **Documents** is *not available* in v1: there is no PO
+document table (`receipt-qc-putaway.contract.md` §6; amended 2026-09-15, P1-12 C1).
 **Mobile:** `screens/whPurchaseOrder` — list + detail, read-only, plus **Receive against** which
 launches WS-229 RF Receive. `additionalFilters`: `warehouseId`, `status`, `supplierCounterpartyId`
 dropdowns and `poNumber` text. The two date ranges are replaced by an `expectedWithin` dropdown.
@@ -1837,7 +1844,7 @@ text; `receivedFrom`/`To` become a `receivedWithin` dropdown.
 | WS-082 | `wh_putaway_tasks` · `WAREHOUSE_PUTAWAY_TASK` | SV | `taskNumber` (from `whb_tasks`), `grnNumber`, `itemCode`, `quantity`, `lotCode`, `lpnCode`, `suggestedLocationCode`, `actualLocationCode`, `overrideReasonName`, `stagingLocationCode`, `ruleName`, `status`, `assignedToName` | `warehouseId` → `status` **multiselect** → `assignedTo` typeahead · `grnNumber` text · `itemId` typeahead · `hasOverride` boolean | Assign · Complete (own modal: scan location, capture override reason when the operator overrides the suggestion — **the reason is captured, never silently discarded**) · Cancel | `FR-135` |
 | WS-083 | `wh_reconciliation_cases` · `WAREHOUSE_RECONCILIATION_CASE` | SV | `caseNumber`, `caseType` (QUANTITY/OVER_RECEIPT/INVOICE/ASN/INVENTORY), `warehouseName`, `subjectType`, `subjectId`, `status`, `ownerUserName`, `openedAt`, `resolvedAt`, `resolutionAction`, `resultingDocumentType`, `ageDays` | `warehouseId` → `caseType` select → `status` **multiselect** · `ownerUserId` typeahead · `openedFrom`/`To` · `openOnly` boolean (default true) | Assign · Add event (child `wh_reconciliation_case_events` timeline) · **Resolve** (the modal names the resulting document; **the case never moves stock itself**, `FR-138`) | `FR-138` |
 | WS-084 | `wh_supplier_returns` · `WAREHOUSE_SUPPLIER_RETURN` | SV | `returnNumber`, `supplierName`, `warehouseName`, `ownerName`, `originGrnNumber`, `originLotCode`, `reasonCodeName`, `status` (DRAFT/APPROVED/PICKED/DISPATCHED/CLOSED/CANCELLED), `lineCount`, `totalValue`, `dispatchedAt`, audit | `warehouseId` → `supplierCounterpartyId` → `status` **multiselect** · `reasonCodeId` · `returnNumber` text · `createdFrom`/`To` | Approve · Close · Cancel · Print. **It runs through a demand order** (`RJ-003`). Approval creates a `VENDOR_RETURN` demand order, which reserves. Pick and staging follow the demand path (WS-099, WS-102), and dispatch is the shipment's `wh_shipments:dispatch` — **inventory is reduced only at dispatch** (`FR-139`). There is no supplier-return Pick or Dispatch of its own. A supplier return is not an RMA and does not share its ladder. **Cancel after `PICKED` is refused with `409 STAGED_STOCK`** until the stock is de-staged (`RJ-006`, §0.13). A return with `origin_grn_id` relieves that receipt's layer (`RJ-010`) | `FR-139` `FR-275` |
-| WS-085 | `wh_dock_doors` · `WAREHOUSE_DOCK_DOOR` | C | `code`, `warehouseName`, `doorType` (INBOUND/OUTBOUND/BOTH), `locationCode`, `hasLeveler`, `hasShelter`, `hasTemperatureControl`, `status` | `warehouseId` → `doorType` select · `status` select | Add/Edit/Block. Child editor `wh_dock_door_vehicle_types` — **rows replacing `compatible_vehicles JSONB`** | `FR-092` `FR-383` |
+| WS-085 | `wh_dock_doors` · `WAREHOUSE_DOCK_DOOR` | C | `code`, `warehouseName`, `doorType` (INBOUND/OUTBOUND/BOTH), `locationCode` (marked Inactive while the location is retired), `hasLeveler`, `hasShelter`, `hasTemperatureControl`, `status`, `isActive`, audit | `warehouseId` select · `doorType` select · `status` select — **no cascade** (door types are a fixed list) | The Department action set: View · Add · Edit (active) · Block / Unblock (mandatory reason each) · Retire / Activate · Delete (refused while referenced). A door's location must be of type `DOCK`. Child editor `wh_dock_door_vehicle_types` — **rows replacing `compatible_vehicles JSONB`**. Amended `P1-06` C1 (F4/D5, D3) | `FR-092` `FR-383` |
 | WS-086 | `wh_dock_appointments` · `WAREHOUSE_DOCK_APPOINTMENT` | SV | `appointmentNumber`, `dockDoorCode`, `appointmentType`, `scheduledStartAt`, `scheduledEndAt`, `slotDurationMinutes`, `referenceType`, `referenceId`, **`arrivedAt`**, **`dockedAt`**, **`departedAt`**, `noShow`, **`detentionMinutes`**, `status` | `warehouseId` → `dockDoorId` → `appointmentType` select · `status` **multiselect** · `scheduledFrom`/`To` `date` pair · `noShow` boolean | Book · Reschedule · **Check in** (`arrived_at` — the dock-to-stock clock starts here and cannot be backfilled) · Dock · Depart · Mark no-show. **Schema is v1 (`V510010`); the scheduling screen is v1.1** | `FR-092` `FR-392` |
 | WS-087 | `wh_cross_dock_plans` · `WAREHOUSE_CROSS_DOCK_PLAN` | C | `grnNumber`, `grnLineNo`, `asnNumber`, `demandOrderNumber`, `itemCode`, `quantity`, `crossDockType` | `warehouseId` · `crossDockType` select · `grnNumber`/`orderNumber` text | v2. The **`cross_dock_reference` column is nullable on the v1 receipt line** so "which receipts were cross-docked" is answerable for the period before the feature shipped | `FR-137` |
 | WS-088 | `wh_three_way_matches` · `WAREHOUSE_THREE_WAY_MATCH` | SV | `matchNumber`, `supplierName`, `supplierInvoiceRef`, `invoiceDate`, `invoiceTotal`, `status`, `varianceAmount`, `approvedByName` | `supplierCounterpartyId` → `status` · `invoiceDateFrom`/`To` `dateOnly` pair · `hasVariance` boolean | v2. Built on an **allocation junction** (`wh_three_way_match_allocations`: invoice line × GRN line × PO line with an allocated quantity **and** amount), never on a status column | `FR-140` |

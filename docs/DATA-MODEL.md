@@ -462,7 +462,7 @@ thirteen times is how a divergence hides.
 
 | # | Registry | Table | Behaviour columns | Ver | Gate |
 |---|---|---|---|---|---|
-| 1 | Movement type | `whb_movement_types` | `direction` (`IN`/`OUT`/`INTERNAL`/`VALUE_ONLY`), `is_financial`, `cost_basis_default`, `reversal_type_code` (self-FK by code), `requires_approval`, `requires_reason`, `affects_availability`, `is_stock_bearing`, `is_billable_event`, `balance_rule` (`MUST_BALANCE_PER_OWNER_ITEM` / `MUST_BALANCE_PER_ITEM` / `MUST_BALANCE_PER_MOVEMENT`) | v1 | **PNR-1** |
+| 1 | Movement type | `whb_movement_types` | `direction` (`IN`/`OUT`/`INTERNAL`/`VALUE_ONLY`), `is_financial`, `cost_basis_default`, `reversal_type_code` (self-FK by code), `requires_approval`, `requires_reason`, `affects_availability`, `is_stock_bearing`, `is_billable_event`, `balance_rule` (`MUST_BALANCE_PER_OWNER_ITEM` / `MUST_BALANCE_PER_ITEM` / `MUST_BALANCE_PER_MOVEMENT`), `is_ownership_transfer` (`I-14`'s flag, default `false`, seeded `true` on `OWNER_CHANGE` and its reversal; added by `V500049`) | v1 | **PNR-1** |
 | 2 | Document / reference type | `whb_document_types` | `owning_module`, `display_resolver_bean`, `is_stock_bearing`, `is_external` | v1 | **PNR-1** |
 | 3 | Source system | `whb_source_systems` | `module`, `is_reserved`, `is_claimable`, `post_permission` | v1 | **PNR-1** |
 | 4 | Stock status | `whb_stock_statuses` | `is_on_hand`, `is_available_to_promise`, `is_allocatable`, `is_pickable`, `is_shippable`, `is_countable`, `is_owned_asset`, `requires_reason_to_enter`, `requires_reason_to_leave`, `badge_variant` | v1 | **PNR-1** |
@@ -1284,7 +1284,7 @@ writing `whb_stock_movements` directly (`FR-436`, `D-11` B5). A `wh_` table ther
 
 | Table | Purpose | Key columns | Keys / indexes | FKs | FR | Ver |
 |---|---|---|---|---|---|---|
-| `wh_purchase_orders` | PO header. The **lifecycle command centre** — a detail page with sub-tabs where every GRN, invoice, return, QC result and putaway is visible | `po_number`, `company_id`, `warehouse_id`, `supplier_counterparty_id`, `owner_id`, `order_date`, `expected_delivery_date`, `currency_code`, `status` (`DRAFT`/`SUBMITTED`/`APPROVED`/`PARTIALLY_RECEIVED`/`RECEIVED`/`CLOSED`/`CANCELLED`), `order_source` (`STOCK`/`DAILY`/`VOR`/`EMERGENCY`/`SPECIAL_ORDER`/`BACK_ORDER`/`INITIAL_STOCK`), `customer_reference`, `priority`, `subtotal`, `tax_amount`, `total_amount`, `approved_by`, `approved_at`, `over_receipt_tolerance_pct`, `replenishment_suggestion_id`, **lifecycle timestamps** `submitted_at`, `acknowledged_at`, `first_receipt_at`, `closed_at` | uk(`po_number`); idx(`supplier_counterparty_id`,`order_date`); idx(`warehouse_id`,`status`) | ↓base `company_id`, `warehouse_id`, `supplier_counterparty_id`, `owner_id`; `replenishment_suggestion_id → wh_replenishment_suggestions` | `FR-122` `FR-125` `FR-260` `IRR-23` | v1 |
+| `wh_purchase_orders` | PO header. The **lifecycle command centre** — a detail page with sub-tabs where every GRN, invoice, return, QC result and putaway is visible | `po_number`, `company_id`, `warehouse_id`, `supplier_counterparty_id`, `owner_id`, `order_date`, `expected_delivery_date`, `currency_code`, `status` (`DRAFT`/`SUBMITTED`/`APPROVED`/`PARTIALLY_RECEIVED`/`RECEIVED`/`CLOSED`/`CANCELLED`), `order_source` (`STOCK`/`DAILY`/`VOR`/`EMERGENCY`/`SPECIAL_ORDER`/`BACK_ORDER`/`INITIAL_STOCK`), `customer_reference`, `priority`, `subtotal`, `tax_amount`, `total_amount`, `approved_by`, `approved_at`, `over_receipt_tolerance_pct`, `replenishment_suggestion_id`, **lifecycle timestamps** `submitted_at`, `acknowledged_at`, `first_receipt_at`, `received_at` (first entry to `RECEIVED`, never cleared — `V510021`), `closed_at` | uk(`po_number`); idx(`supplier_counterparty_id`,`order_date`); idx(`warehouse_id`,`status`) | ↓base `company_id`, `warehouse_id`, `supplier_counterparty_id`, `owner_id`; `replenishment_suggestion_id → wh_replenishment_suggestions` | `FR-122` `FR-125` `FR-260` `IRR-23` | v1 |
 | `wh_purchase_order_lines` | PO line with the received/cancelled counters | `po_id`, `line_no`, `item_id`, `ordered_quantity`, `uom_code`, `unit_price`, `line_total`, `expected_delivery_date`, `received_quantity`, `accepted_quantity`, `rejected_quantity`, `cancelled_quantity`, `remaining_quantity`, `line_status`, `tax_classification_code`, `over_receipt_tolerance_pct` (nullable — null inherits the PO header's, then item → warehouse → global `warehouse.receiving.over_receipt_percent`; `receipt-qc-putaway.contract.md` `RQP-OPEN-14`) | uk(`po_id`,`line_no`); idx(`item_id`) | `po_id → wh_purchase_orders`; ↓base `item_id`, `uom_code` | `FR-122` | v1 |
 | `wh_asns` | The supplier's shipment declaration | `asn_number`, `supplier_counterparty_id`, `warehouse_id`, `carrier_counterparty_id`, `tracking_number`, `vehicle_number`, `expected_arrival_at`, `total_pallets`, `total_cases`, `total_weight_kg`, `status` | uk(`asn_number`); idx(`expected_arrival_at`) | ↓base | `FR-136` | v1.1 |
 | `wh_asn_lines` | Declared line, with lot, expiry, serial and SSCC. **`serial_numbers JSONB` is normalised away** | `asn_id`, `line_no`, `po_id`, `po_line_id`, `item_id`, `expected_quantity`, `uom_code`, `lot_code`, `expiry_date`, `sscc`, `lpn_code` | uk(`asn_id`,`line_no`) | `asn_id → wh_asns`; ↓base | `FR-136` `FR-383` | v1.1 |
@@ -1308,9 +1308,9 @@ writing `whb_stock_movements` directly (`FR-436`, `D-11` B5). A `wh_` table ther
 | `wh_reconciliation_case_events` | The case's own audit trail | `case_id`, `event_type`, `actor_user_id`, `occurred_at`, `note` | idx(`case_id`,`occurred_at`) | `case_id → wh_reconciliation_cases` | `FR-138` | v1 |
 | `wh_supplier_returns` | **A supplier return is not an RMA.** Its own document, its own ladder, **inventory reduced only at dispatch**. **It runs through the one demand model** (`RJ-003`): reservation, pick and staging are the demand order's, and dispatch is `wh_shipments:dispatch`. `PICKED → CANCELLED` is refused with `409 STAGED_STOCK` until de-staged (`RJ-006`) | `return_number`, `supplier_counterparty_id`, `warehouse_id`, `owner_id`, `origin_grn_id`, `origin_lot_id` (both nullable and **derived** — the lines are the association, `RG-019`), `demand_order_id` (nullable, `VENDOR_RETURN`; added by `ALTER` in `V510040`, which creates `wh_demand_orders` after this table), `reason_code_id`, `status` (`DRAFT`/`APPROVED`/`PICKED`/`DISPATCHED`/`CLOSED`/`CANCELLED`), `approved_by`, `dispatched_at`, `debit_note_ref`, `carrier_counterparty_id` | uk(`return_number`); idx(`supplier_counterparty_id`,`status`) | as named | `FR-139` `FR-275` | v1 |
 | `wh_supplier_return_lines` | | `return_id`, `line_no`, `item_id`, `quantity`, `uom_code`, `lot_id`, `serial_id`, `unit_cost`, `dispatch_movement_id` (bare) | uk(`return_id`,`line_no`) | as named | `FR-139` | v1 |
-| `wh_dock_doors` | The dock door as a warehouse resource. **The dock door is the physical boundary** (R4 §4.1) | `code`, `warehouse_id`, `door_type` (`INBOUND`/`OUTBOUND`/`BOTH`), `location_id`, `has_leveler`, `has_shelter`, `has_temperature_control`, `status` | uk(`warehouse_id`,`code`) | ↓base `warehouse_id`, `location_id` | `FR-092` | v1 |
+| `wh_dock_doors` | The dock door as a warehouse resource. **The dock door is the physical boundary** (R4 §4.1) | `code`, `warehouse_id`, `door_type` (`INBOUND`/`OUTBOUND`/`BOTH`), `location_id`, `has_leveler`, `has_shelter`, `has_temperature_control`, `status` | uk(`warehouse_id`,`code`); uk(`location_id`) — one door per location (`uk_wh_dock_doors_location`, `V510010`) | ↓base `warehouse_id`, `location_id` (a location of type `DOCK`, service-checked — `P1-06` C1 D3) | `FR-092` | v1 |
 | `wh_dock_door_vehicle_types` | Replaces `wms_dock_doors.compatible_vehicles JSONB` | `dock_door_id`, `vehicle_type` | uk(`dock_door_id`,`vehicle_type`) | `dock_door_id → wh_dock_doors` | `FR-383` | v1 |
-| `wh_dock_appointments` | Booked slots. **Schema in v1** even though the scheduling screen is v1.1 — the detention clock is `arrived_at`/`released_at` and it cannot be backfilled | `appointment_number`, `dock_door_id`, `appointment_type`, `scheduled_start_at`, `scheduled_end_at`, `slot_duration_minutes`, `reference_type`, `reference_id`, `counterparty_id`, `vehicle_number`, `driver_name`, `driver_phone`, **`arrived_at`**, **`docked_at`**, **`released_at`**, **`departed_at`**, **`no_show`**, `status` | uk(`appointment_number`); idx(`dock_door_id`,`scheduled_start_at`) | as named; reference is generic | `FR-092` `IRR-23` | v1 (schema) · v1.1 (scheduling) |
+| `wh_dock_appointments` | Booked slots. **Schema in v1** even though the scheduling screen is v1.1 — the detention clock is `arrived_at`/`released_at` and it cannot be backfilled | `appointment_number`, `dock_door_id`, `appointment_type`, `scheduled_start_at`, `scheduled_end_at`, `slot_duration_minutes`, `reference_type`, `reference_id`, `counterparty_id`, `vehicle_number`, `driver_name`, `driver_phone`, **`arrived_at`**, **`docked_at`**, **`released_at`**, **`departed_at`**, **`no_show`**, **`detention_minutes`** (`≥ 0`, `FR-092`; `V510010`), `status` | uk(`appointment_number`); idx(`dock_door_id`,`scheduled_start_at`) | as named; reference is generic | `FR-092` `IRR-23` | v1 (schema) · v1.1 (scheduling) |
 | `wh_cross_dock_plans` | Inbound line → outbound line, no putaway | `grn_id`, `grn_line_id`, `asn_id`, `demand_order_id`, `demand_order_line_id`, `item_id`, `quantity`, `cross_dock_type` | idx(`grn_line_id`); idx(`demand_order_line_id`) | as named | `FR-137` | v2 |
 | `wh_three_way_matches` | Invoice × GRN × PO, built on an **allocation junction** | `match_number`, `supplier_counterparty_id`, `supplier_invoice_ref`, `invoice_date`, `invoice_total`, `status`, `variance_amount`, `approved_by` | uk(`match_number`) | ↓base | `FR-140` | v2 |
 | `wh_three_way_match_allocations` | invoice line ↔ GRN line ↔ PO line, with an allocated quantity **and** amount | `match_id`, `invoice_line_no`, `grn_line_id`, `po_line_id`, `allocated_quantity`, `allocated_amount` | idx(`match_id`); idx(`grn_line_id`) | as named | `FR-140` | v2 |
@@ -2700,18 +2700,18 @@ Enforcement layers: **C** = DB `CHECK` · **U** = DB unique index or constraint 
 | **I-7** | `L-4` Positions are a cache — rebuild reproduces exactly | | | | | ● | job + `V500045` |
 | **I-8** | `L-7` Base UoM and the frozen factor; zero-quantity mirror | ● | | | | ● | `V500030` |
 | **I-9** | `L-7` Base stocking UoM immutable once stock exists | | | ● | | ● | `V500036` |
-| **I-10** | `L-8` Period-bound posting, with session-GUC-gated override | | | ● | | ● | `V500032` |
+| **I-10** | `L-8` Period-bound posting into the period of `posting_date` for the movement's company and site, with session-GUC-gated override | | | ● | | ● | `V500032` + `V500049` |
 | **I-11** | `L-9` Idempotent ingestion — `(source_system, idempotency_key)` unique **across months** on the non-partitioned `whb_movement_idempotency_keys` registry, never server-generated | | ● | | | ● | `V500030` |
 | **I-12** | `L-10` Allocation is an open-item ledger with a holder quad | ● | | ● | | ● | `V500033` |
 | **I-13** | `L-13` Three timestamps, and the line's `occurred_at` mirrors its header's | ● | | ● | | ● | `V500030` |
-| **I-14** | `L-11` Ownership never changes silently | ● | | ● | | ● | `V500030` |
+| **I-14** | `L-11` Ownership never changes silently — a second owner, or quantity crossing items, only on a type with `is_ownership_transfer` | ● | | ● | | ● | `V500030` + `V500049` |
 | **I-15** | `L-12` Traceability is reconstructible in both directions | ● | | | | ● | `V500030` + test |
 | **I-16** | `L-14` Non-own stock is never valued | ● | | ● | | ● | `V500030` |
 | **I-17** | `IRR-05` Every line resolves to a location, and virtual locations exist | ● | | | | ● | `V500013` + `V500030` |
 | **I-18** | `D-10` No `CHECK (… IN (…))` on any of the **seventeen** registry columns, nor on any `CODE-LIST` column of §2.1.1's classification table | | | | | ● | `WarehouseBaseCouplingTest` |
 | **I-19** | `IRR-19` Item uniqueness is `(owner_id, sku)`; serial uniqueness is `(owner, item, serial_number)` | | ● | | | ● | `V500015` / `V500018` |
 | **I-20** | `L-6` Gapless document numbering, and the number is issued once | | ● | ● | | ● | `V500020` |
-| **I-21** | `L-15` Value-only movements balance signed extended value by currency; no mixed quantity/value-only movement | | ● | ● | | ● | `V500030` |
+| **I-21** | `L-15` Value-only movements balance signed extended value by currency; no mixed quantity/value-only movement; a type with `is_stock_bearing = false` carries no quantity | | ● | ● | | ● | `V500030` + `V500049` |
 | **I-22** | `D-14` A movement at an instant with no `REGISTERED` link is refused — `BEFORE INSERT` on `whb_stock_movements`: a `REGISTERED` link must cover `NEW.occurred_at` at `NEW.warehouse_id` | | | ● | | ● | `V500030` |
 | **I-23** | `D-14` The `REGISTERED` history — the exclusion (no overlap, from `V500012`) and the append-only trigger (no `DELETE` and no key edit once a posted movement is in range; `effective_to` never inside a `CLOSED` period). It reads the ledger, so it cannot live in `V500012`. No at-least-one trigger (`D-14` item 8g) | | ● | ● | ● | ● | **`V500037`** |
 | **I-24** | `RL-010` A rule row referenced by a reservation or task is immutable; an edit is copy-on-write (`version_no`, `supersedes_id`) | | | ● | | ● | `V500031`, `V500033`, `V510017` |
@@ -3066,14 +3066,33 @@ CREATE TRIGGER trg_whb_items_base_uom_immutable
 layer"*, and §5.4 explains why: the base UoM choice is what keeps the rounding-away-from-zero case out
 of the ledger, and it is the one decision that must be taken once.
 
-#### `I-10` — period-bound posting, with a gated override · `V500032`
+#### `I-10` — period-bound posting, with a gated override · `V500032` + `V500049`
 
 ```sql
 CREATE OR REPLACE FUNCTION whb_assert_period_open() RETURNS TRIGGER AS $$
-DECLARE v_status VARCHAR(20); v_override TEXT;
+DECLARE v_p whb_stock_periods%ROWTYPE; v_status VARCHAR(20); v_covering INTEGER; v_override TEXT;
 BEGIN
-    SELECT status INTO v_status FROM whb_stock_periods WHERE id = NEW.period_id;
-    IF v_status = 'OPEN' THEN RETURN NEW; END IF;
+    SELECT * INTO v_p FROM whb_stock_periods WHERE id = NEW.period_id;
+    IF NOT FOUND THEN RETURN NEW; END IF;                 -- fk_whb_movements_period refuses it by name
+
+    -- V500049: the period is THE period of posting_date for this movement (MPR-GRD-09, RG-026)
+    IF v_p.company_id <> NEW.company_id
+       OR (v_p.warehouse_id IS NOT NULL AND v_p.warehouse_id <> NEW.warehouse_id) THEN
+        RAISE EXCEPTION 'I-10 violated: period % is scoped to another company or site', NEW.period_id;
+    END IF;
+    IF NEW.posting_date NOT BETWEEN v_p.start_date AND v_p.end_date THEN
+        RAISE EXCEPTION 'I-10 violated: posting_date % lies outside period %', NEW.posting_date, NEW.period_id;
+    END IF;
+    SELECT COUNT(*) INTO v_covering FROM whb_stock_periods p
+     WHERE p.company_id = NEW.company_id
+       AND NEW.posting_date BETWEEN p.start_date AND p.end_date
+       AND (p.warehouse_id IS NULL OR p.warehouse_id = NEW.warehouse_id);
+    IF v_covering > 1 THEN
+        RAISE EXCEPTION 'I-10 violated: % stock periods cover posting_date %', v_covering, NEW.posting_date;
+    END IF;
+
+    IF v_p.status = 'OPEN' THEN RETURN NEW; END IF;
+    v_status := v_p.status;
 
     IF v_status = 'CLOSED' THEN
         RAISE EXCEPTION 'I-10 violated: period % is CLOSED and admits nothing, including a reversal',
@@ -3105,6 +3124,15 @@ pooling makes that "every subsequent statement by anyone".
 `I-10` fires on `INSERT` only, so a `PENDING` movement is checked when it is submitted. Approving it
 after its period has closed is refused by the service: `409 PERIOD_CLOSED_SINCE_SUBMISSION` on
 `posting_date`, message *"withdraw and resubmit current-dated"* (`RA-004`, `MPR-GRD-20`).
+
+**Which period, corrected by `V500049`.** The sketch above first read only `NEW.period_id`, and so did
+`V500032`: a writer defect or a direct insert naming an `OPEN` period's id for a `posting_date` inside a
+`CLOSED` period was admitted. The period is now checked against the movement itself — it contains
+`posting_date`, it is the movement's company's, it is the movement's site's or all sites', and it is the
+**only** period covering that date for that company and site. That last clause is `WhbPeriodResolver`'s
+KEEP-SCALAR rule (`RG-026`, `WAREHOUSE_AMBIGUOUS_PERIOD`) with the same predicate, so the backstop refuses
+exactly what the resolver refuses. The shipped body also reads the override through
+`NULLIF(current_setting(…), '')` and asserts the override is an approved override of this period (`V500032`).
 
 #### `I-11` — idempotent ingestion · `V500030`
 
@@ -3179,18 +3207,27 @@ about a timestamp.
 every ageing calculation silently."* The five-minute slack is for device clock skew on offline replay
 and is the smallest value that does not reject legitimate RF syncs.
 
-#### `I-14` — ownership never changes silently · `V500030`
+#### `I-14` — ownership never changes silently · `V500030` + `V500049`
 
 ```sql
 ALTER TABLE whb_stock_movement_lines
   ADD CONSTRAINT chk_whb_sml_owner_present CHECK (owner_id IS NOT NULL);
+
+-- V500049: the flag the behavioural half reads
+ALTER TABLE whb_movement_types ADD COLUMN is_ownership_transfer BOOLEAN NOT NULL DEFAULT false;
+UPDATE whb_movement_types SET is_ownership_transfer = true
+ WHERE code IN ('OWNER_CHANGE', 'OWNER_CHANGE_REVERSAL');
 ```
 
 `NOT NULL` is declared in the `CREATE TABLE`; the named `CHECK` exists so that the invariant has an id
-a failure message can carry. The behavioural half is a trigger asserting that a movement whose lines
-carry **two different `owner_id` values for one item** has a `movement_type_code` whose
-`balance_rule` permits it and, where the type is an ownership transfer, that the type's
-`is_ownership_transfer` flag is set. A title transfer is an explicit movement type with its own reason
+a failure message can carry. The behavioural half lives in the deferred per-movement assertion
+(`whb_assert_movement_integrity`, shared with `I-1` and `I-21`) and, since `V500049`, reads
+`whb_movement_types.is_ownership_transfer`: a movement whose lines carry **more than one `owner_id`** is
+refused unless its type's `is_ownership_transfer` is set **and** its `balance_rule` is not
+`MUST_BALANCE_PER_OWNER_ITEM`; and under `MUST_BALANCE_PER_MOVEMENT`, where the whole movement nets as one,
+quantity that does not net to zero per item is refused unless the type transfers ownership. `V500030`
+checked only the balance rule, so the four value-only types (`MUST_BALANCE_PER_MOVEMENT`) could move title,
+or turn one item's stock into another's. A title transfer is an explicit movement type with its own reason
 code: goods can change owner without moving, and can move without changing owner (`FR-111`, `L-11`).
 
 #### `I-15` — traceability · `V500030` + a contract test
@@ -3267,6 +3304,16 @@ and gaplessness holds. A nightly job asserts `MAX(issued_value) = COUNT(*)` per 
 
 **Do not build this on the platform's existing code generator**: it is scan-based, explicitly not
 gapless and racy (`C-019`), and a missing GRN number is an audit question.
+
+#### `I-21` — value conservation · `V500030` + `V500049`
+
+Part of the same deferred per-movement assertion as `I-1` and `I-14`, for every movement with ledger
+effect. Three rules: a movement is all quantity lines or all value-only lines, never a mix; a value-only
+movement has an `extended_cost` on every line and balances signed extended value per currency (against
+`VALUE_OFFSET`, `OD-13`); and, since `V500049`, a movement whose type has `is_stock_bearing = false` —
+`COST_ADJUSTMENT`, `LANDED_COST_APPLY`, `REVALUATION`, `WRITE_DOWN` and their reversals — carries **no
+non-zero quantity** on any line. Without the third rule a value-only type could post quantity lines that
+balance per movement and move stock.
 
 #### `I-22` — no movement at an unregistered instant · `V500030`
 
@@ -3393,7 +3440,7 @@ Every one of these is covered by a test, and the tests are named in the task fil
 | WHB-46 | `V500046` | `whb_import_batches`, `whb_import_batch_rows` | v1 |
 | `P1-18` | `V500047` | `whb_warehouse_grants` (`RA-001`) — the warehouse axis beside `WHB-44`'s `whb_owner_grants`. After `PNR-1`; reversible | v1 |
 | `P2-21` | `V500048` | `whb_metric_definitions` (`RC-007`) — the KPI catalogue. The first number of the plain gap, allocated 2026-09-11 by the round-3 fold (lane `W0-1b`) | v1 |
-| — | `V500049` | *gap* | — |
+| `P0-02` | `V500049` | **Forward-only correction of `V500030`/`V500032`** — `I-10` posting-date/site check, `I-14` `is_ownership_transfer`. `V500030` and `V500032` are applied, so never an edit (§7.1 rule 6). `whb_assert_period_open()` is replaced so the named period must contain `posting_date`, match the movement's company and site, and be the only period covering that date (`RG-026`). `whb_movement_types.is_ownership_transfer BOOLEAN NOT NULL DEFAULT false` is added, seeded `true` on `OWNER_CHANGE` and `OWNER_CHANGE_REVERSAL`, and `whb_assert_movement_integrity()` is replaced so a second owner, or quantity crossing items under `MUST_BALANCE_PER_MOVEMENT`, needs that flag, and `I-21` refuses quantity on a type with `is_stock_bearing = false`. Claimed 2026-09-15 from this gap by the C1 fix cycle (`functional-reviewer` F2/F3, D1/D2), after the `P1-10`/`V500057` precedent. Creates no table | v1 |
 | WHB-50 | `V500050` | `whb_item_site_settings`, `whb_item_supplier_sources`, `whb_item_supersessions` | v1 |
 | WHB-51 | `V500051` | `whb_channels` | v1 |
 | WHB-52 | `V500052` | `whb_transport_details` | v1 |
@@ -3462,7 +3509,8 @@ named in that migration's row.
 | WH-09 | `V510018` | `wh_receipt_reversals`, `wh_receipt_reversal_lines` | v1 |
 | WH-10 | `V510019` | `wh_reconciliation_cases`, `wh_reconciliation_case_events` | v1 |
 | WH-11 | `V510020` | `wh_supplier_returns`, `wh_supplier_return_lines` | v1 |
-| — | `V510021`–`V510029` | *gap* | — |
+| `P1-12` | `V510021` | `wh_purchase_orders.received_at` (first entry to `RECEIVED`, `IRR-23`); drops `chk_wh_purchase_orders_status` and `chk_wh_purchase_order_lines_line_status` (`receipt-qc-putaway.contract.md` §0). The first number of the plain gap after WH-11, allocated 2026-09-15 by the C1 fix cycle (lane D) | v1 |
+| — | `V510022`–`V510029` | *gap* | — |
 | WH-20 | `V510030` | `wh_stock_adjustments`, `wh_stock_adjustment_lines`, `wh_adjustment_approval_policies` (`RA-008`) | v1 |
 | WH-21 | `V510031` | `wh_transfer_orders` (the ladder incl. `REQUESTED`; `source_warehouse_branch_id`/`destination_warehouse_branch_id`; the same-company guard), `wh_transfer_order_lines` (`approved_quantity`) — `RK-001`, `RG-001` | v1 |
 | WH-22 | `V510032` | `wh_hold_types` + seed, `wh_holds` | v1 |
