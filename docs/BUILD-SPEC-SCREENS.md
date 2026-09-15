@@ -2687,6 +2687,7 @@ bands, and **base verbs ride `P0-15`'s `V501000`**. Each verb gets its `→ :vie
 | `whb_outbox:view` | reading the outbox and its deliveries (`RA-007`) | WS-056 | `P0-15` · `V501000` |
 | `whb_stock_positions:change_status` | WS-042 *Change status* — a balanced two-line `STATUS_CHANGE` movement at one location (`FR-103`); depends on `whb_stock_positions:view` | WS-042 | `P0-15` · `V501000` |
 | `whb_negative_stock_policies:override` | acknowledging a `WARN` negative-stock issue (`FR-014`, `L-6`) | the port and document screens (`P0-03`) | `P0-15` · `V501000` |
+| `whb_settings:edit` | saving a warehouse setting, checked **in addition to** platform `admin_settings:edit`, through the screen, the API and imports (`GLOBAL-SETTINGS-DECISIONS.md:11`, `RE-003`). No dependency row: "requires both" is the settings API's check, not an implication (added 2026-09-15, C3 fix pass 1) | the warehouse settings tab (`P1-20`) | `P0-15` · `V501000` |
 | `warehouse:stock:view` | the as-at stock query `GET /warehouse/stock/as-at` — a past balance computed from the ledger (`FR-013`, `PC-25`, `MPR-T1-13`) | API, no screen (`P0-03`) | `P0-15` · `V501000` |
 | `whb_position_drift_findings:assign` · `:resolve` | WS-043 *Assign* (names the owner of a rebuild finding) and *Resolve* (a mandatory note, `FINDING_RESOLUTION_NOTE_REQUIRED`) (`MPR-T3-01`) | WS-043 | `P0-03` · `V500045` |
 | `whb_stock_movements:verify` | the ledger-chain verifier (`RC-008`, `RA-005`) | WS-040 | `P0-15` · `V501000` |
@@ -2737,8 +2738,8 @@ migrations that have already run. They grant a new module nothing, so the record
 absent and must be taken again, explicitly, in `V501000`/`V511000`:
 
 - **AUDITOR is read-only across everything, including the ledger** (`WAREHOUSE-FUNCTIONAL-REQUIREMENTS.md`
-  §4). It receives every `:view` and every `:export` and **no** `:create`/`:edit`/`:delete` and **no**
-  verb permission. It is never a writer.
+  §4). It receives every `:view` and every `:view:all`, **no** `:export` (user decision 2026-09-15, platform
+  `V698` policy), **no** `:create`/`:edit`/`:delete` and **no** verb permission. It is never a writer.
 - **Branch admin holds the branch tier only** (`FR-404`). The three-mode view pattern — view-all,
   view-branch, no view — is implemented **as a record-level guard in the `WHERE` clause of every
   management query**, not as a UI filter, and warehouse-scoped user access participates in the same

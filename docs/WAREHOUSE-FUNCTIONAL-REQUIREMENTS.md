@@ -98,7 +98,7 @@ an adapter, `warehouse-3pl` or `warehouse-india`, Mode F does not install.
 | **Inventory controller** | a person | Counting programmes, reason-code administration, reconciliation |
 | **Buyer / parts manager** | a person | Replenishment, purchase documents, supersession, KPIs |
 | **Finance / controller** | a person | Valuation, the handover queue, the stock-to-GL reconciliation |
-| **Auditor** | a person | **Read-only across everything**, including the ledger. Never a writer (`P-014` — the prior module's AUDITOR exclusion is not inherited and must be re-taken) |
+| **Auditor** | a person | **Read-only across everything**, including the ledger. Never a writer, and never exports: no `:export` (user decision 2026-09-15, platform `V698` policy) (`P-014` — the prior module's AUDITOR exclusion is not inherited and must be re-taken) |
 | **3PL client user** | a person | Portal-scoped, owner-bound, `PORTAL` grant only (`F-004`, `F-008`) |
 | **Integration** | a system principal | Posts through the movement port. Owns an `idempotency_key` namespace via its `source_system` |
 | **Device** | a system principal | A scan gun, an RFID portal, a dock terminal, a boom barrier. `actor_type = DEVICE` + `device_id` |
