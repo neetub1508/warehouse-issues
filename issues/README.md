@@ -248,29 +248,29 @@ grep -ohE '\b[QHUYZKOJ]-[0-9]{3}\b' issues/p*.md | sort -u | wc -l        #  46 
 grep -ohE '\bR[GHJKL]-[0-9]{3}\b' issues/p*.md | sort -u | wc -l         #  82 of  83  (round 4)
 
 # scenarios, screens and tables the tasks reach for
-grep -ohE '\bWH-SC-[0-9]{3}\b' issues/p*.md | sort -u | wc -l            # 327 (catalogue: 327, §3.22 landed)
-grep -ohE '\bWS-[0-9]{3}\b'    issues/p*.md | sort -u | wc -l            # 244 (237 + seven round-3/round-4 ids, one of them reserved)
+grep -ohE '\bWH-SC-[0-9]{3}\b' issues/p*.md | sort -u | wc -l            # 330 (catalogue: 330, §3.23 landed)
+grep -ohE '\bWS-[0-9]{3}\b'    issues/p*.md | sort -u | wc -l            # 245 (237 + seven round-3/round-4 ids, one of them reserved, + WS-245 from P1-21)
 grep -ohE '\b(whb|wh3|whin|wha[a-z]|wh)_[a-z0-9_]+\b' issues/p*.md | sort -u | wc -l   # 391
 
 # the whole gate
 python3 tools/check-design-set.py --summary                              # 0 violations, exit 0
 ```
 
-<!-- check-design-set: scenario-citations begin WH-SC-328 - the allocation marker named as the subject of this paragraph, not cited as a scenario -->
-<!-- check-design-set: screen-citations begin WS-242 WS-245 - WS-242 is reserved for p5-13's marketplace-claim queue and WS-245 is the next free screen id; both are named as the subject of this paragraph, not cited as screens -->
+<!-- check-design-set: scenario-citations begin WH-SC-331 - the allocation marker named as the subject of this paragraph, not cited as a scenario -->
+<!-- check-design-set: screen-citations begin WS-242 WS-246 - WS-242 is reserved for p5-13's marketplace-claim queue and WS-246 is the next free screen id; both are named as the subject of this paragraph, not cited as screens -->
 
 **Re-run after the 2026-09-10 fold: scenarios 327, round-4 findings 82 of 83; the rest unchanged.**
 **The figures above were first computed on 2026-09-10 against the P-LATE tree, before the other three round-4
 fold partitions merged. Re-run them after the merge** (`GAP-REGISTER-R4.md` §4.1 rule 3). The
 scenario, round-2 and table figures move when the other partitions' task files land.
 
-Read those last three the way the checker does. **The scenario marker is now `WH-SC-328`.** Round 4
+Read those last three the way the checker does. **The scenario marker is now `WH-SC-331`.** Round 4
 took `WH-SC-306`–`WH-SC-327` for §3.22 and moved the marker, just as round 2 took
-`WH-SC-301`–`WH-SC-305` for §3.21. That movement is the reason the marker exists. `WH-SC-170` and `WH-SC-204` were the last two cited by no
+`WH-SC-301`–`WH-SC-305` for §3.21; `P1-21` then took `WH-SC-328`–`WH-SC-330` for §3.23. That movement is the reason the marker exists. `WH-SC-170` and `WH-SC-204` were the last two cited by no
 task; `X-041` closed them on 2026-09-02 into `P2-01` and `P2-14`, so **every scenario in the
-catalogue is now walked by a task**. **244
+catalogue is now walked by a task**. **245
 screen ids** is 237 real ones, plus `WS-240` (`P5-08`) and `WS-241` (`P2-23`) from round 4, plus
-`WS-238`, `WS-239`, `WS-243`, `WS-244` and the reserved `WS-242` from round 3. **The screen marker was then `WS-242`.** `p5-13` claimed `WS-238` for the marketplace-claim
+`WS-238`, `WS-239`, `WS-243`, `WS-244` and the reserved `WS-242` from round 3, plus `WS-245` (`P1-21`). **The screen marker was then `WS-242`.** `p5-13` claimed `WS-238` for the marketplace-claim
 queue before `BUILD-SPEC-SCREENS.md` §1 allocates it — **the table it also needed now exists**
 (`wh_marketplace_claims`, `WH-115`, `V510215`). But `GAP-REGISTER-R4.md` §4.0 **reserves `WS-238` and
 `WS-239`** for round 3's `RA-001` and `RA-002`. The two claims on `WS-238` collide, and the next screen
@@ -279,6 +279,7 @@ allocation must settle it. That is recorded here, not decided.
 (`P1-18`); `p5-13`'s marketplace-claim queue takes a new id from the marker when its lane folds.
 **The second lane (`W0-1b`, same day)** reserved **`WS-242`** for that queue, allocated `WS-239`
 (`P2-25`), `WS-243` (`P6-02`) and `WS-244` (`P2-21`), and moved **the screen marker to `WS-245`**.
+`P1-21` then took `WS-245` *Master Merge Log* (2026-09-16) and moved the marker to **`WS-246`**.
 **391 table names** is up from 345: the round-4 files name the junctions and side tables
 `GAP-REGISTER-R4.md` §4.2 owes to `DATA-MODEL.md` §2, plus two fenced counter-examples (`whb_rfid_reads` in `p3-24`, `wh_damage_claims` in `p5-23`)
 which are named **so they are not built** and are excluded from check-3 by their own fences.

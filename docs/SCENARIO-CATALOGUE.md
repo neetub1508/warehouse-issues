@@ -639,13 +639,25 @@ period lock that closes ahead of accounting's (`FR-251`).
 | **WH-SC-326** | An OEM ships `ECU-5501` serial `ECU55010000912` straight to a fleet customer; no site handles it | `mgr1` records the drop-shipment | One movement posts `−1 EA` at `VIRT-SUPPLIER` / `+1 EA` at `VIRT-CUSTOMER`. The purchase and sales documents are both in the source quad, and the serial is captured — mandatory, because the item is serial-controlled. On-hand at every site is unchanged. When the customer later returns the unit, the return receipt finds its origin rather than receiving an orphan. The posting shape is `OD-18`'s to decide; this row walks the recommended one | `FR-467` | `L-12` | app | v2·P5 | happy |
 | **WH-SC-327** | `whb_duty_statuses` (registry 15), seeded by base with `DOMESTIC` only | An integration posts a movement line with `duty_status = 'Bonded'`, which is not a registry code | Refused `422` on `lines[0].duty_status` = *"'Bonded' is not a duty status code"*: the service pre-check rejects it, and the FK is the backstop. No new balance grain appears in `whb_stock_positions`. A free-text value would create a duty-status grain no one can reconcile. A consumer that needs a new code adds one registry row in its own migration | `FR-104` | `L-5` · `I-5` | base | v1·P0 | error |
 
+### 3.23 Master merge
+
+> Authored by `P1-21` (`Z-007`). A 40,000-SKU import produces duplicates on day one, and the append-only
+> ledger (`L-2`) has no `DELETE`. A duplicate item or counterparty is therefore reconciled by a movement and a
+> retirement, never by an `UPDATE`. The cast is §2's; each row names its own duplicate.
+
+| # | Given | When | Then | FR | L | Mod | V·Ph | Type |
+|---|---|---|---|---|---|---|---|---|
+| **WH-SC-328** | `OF-1120A` is a duplicate of `OF-1120`: same owner, both `EA`, neither lot- nor serial-controlled. `OF-1120A` holds 30 `EA` available and 6 `EA` in quarantine at `SITE-A`, and 12 `EA` at `SITE-B`. Its barcode is already on the shelf | `mgr1`, holding `whb_master_merges:create`, opens *Merge* on `OF-1120A`, chooses `OF-1120` as the survivor, reads the pre-check and merges with the reason *"Imported twice under two SKUs"* | The pre-check lists the three positions as *moved* and the barcode as *re-parented*. One `MASTER_MERGE` movement posts per site through the ledger writer, carrying reason `DUPLICATE_MASTER` and the merge row as its source document. `SITE-A`'s movement has two balanced line pairs (the quarantined 6 `EA` move in their own status) and `SITE-B`'s has one, so the signed quantities sum to zero. No position of `OF-1120A` remains. The receipt that brought its stock in is returned unchanged, because nothing already posted is updated. `OF-1120A` is inactive, its barcode scans to `OF-1120`, and `whb_master_merges` holds one `ITEM` row with `moved_stock_movement_id` set. A second merge of `OF-1120A` is refused `409` `MASTER_ALREADY_MERGED` and writes no second row | `FR-451` | `L-1` · `L-2` | base | v1·P1 | happy |
+| **WH-SC-329** | `BRK-8840` is lot-controlled. `BRK-8840-X`, a duplicate with the same owner and base unit, is not | `mgr1` opens *Merge* on `BRK-8840-X` and chooses `BRK-8840` as the survivor, then posts the same merge directly to the API | The pre-check shows the refusal and *Merge* stays disabled. The direct post is refused `409` `MERGE_COLUMN_DIFFERS` on `lot_control_mode`, naming the column. Merging an uncontrolled item into a lot-controlled one would destroy the lot dimension of every future balance, and no transfer can reconcile it. Nothing posts, no `whb_master_merges` row is written, and both items stay active. A difference in `base_uom_code` or `serial_control_mode` is refused the same way | `FR-451` | — | base | v1·P1 | error |
+| **WH-SC-330** | `SUP-X2` is a duplicate of supplier `SUP-X`. `PO-2026-00410` from `SUP-X2` for `SITE-A` is open, and `SUP-X2` has a counterparty-scoped identifier | `mgr1` opens *Merge* on `SUP-X2`, chooses `SUP-X` as the survivor and merges; later the order is closed and the merge is tried again | The pre-check lists `PO-2026-00410` under *open documents* as refusing the merge, and the merge is refused `409` `MERGE_OPEN_DOCUMENTS` naming the order. **An open document is never re-pointed**: the supplier on an order it has already acknowledged does not change behind its back. Once the order is closed, the merge succeeds. The scoped identifier is re-pointed to `SUP-X` and `SUP-X2` is inactive. No movement posts, so `moved_stock_movement_id` stays null, and `whb_master_merges` records a `COUNTERPARTY` row. The closed order still names `SUP-X2`, because that is history | `FR-451` | — | base·app | v1·P1 | error |
+
 ---
 
 ## 4 · Coverage
 
 ### 4.1 Area × version × scenario count
 
-**327 scenarios.** Computed with the commands in §1.2; the version column is the scenario row's
+**330 scenarios.** Computed with the commands in §1.2; the version column is the scenario row's
 `V·Ph` value, so a scenario appears in exactly one version column.
 
 ```bash
@@ -685,40 +697,42 @@ awk -F'|' '/^\| \*\*WH-SC-/ {if (NF!=11) print "NF="NF" "$2}' SCENARIO-CATALOGUE
 | **3.20** Registries, platform seams, events and reports | 11 | 5 | 4 | 2 | — | — | — | — | 5 | 1 | 5 | — |
 | **3.21** Round-2 additions — the non-happy paths seven v1 tasks lacked | 5 | — | 1 | 2 | 2 | — | — | — | — | 4 | 1 | — |
 | **3.22** Round-4 additions | 22 | 2 | 3 | 7 | 2 | 1 | 1 | 6 | 10 | 7 | 4 | 1 |
-| **Total** | **327** | **98** | **75** | **110** | **9** | **18** | **4** | **13** | **175** | **63** | **75** | **14** |
-**What to read from this table.** 292 of 327 scenarios are v1 — 98 in `P0` (the ledger foundation),
-75 in `P1` (masters and inbound), 110 in `P2` (outbound, counting, valuation, returns, printing,
+| **3.23** Master merge | 3 | — | 3 | — | — | — | — | — | 1 | 2 | — | — |
+| **Total** | **330** | **98** | **78** | **110** | **9** | **18** | **4** | **13** | **176** | **65** | **75** | **14** |
+**What to read from this table.** 295 of 330 scenarios are v1 — 98 in `P0` (the ledger foundation),
+78 in `P1` (masters and inbound), 110 in `P2` (outbound, counting, valuation, returns, printing,
 reports) and 9 in `P2-IN` (the India movement documents). That mirrors the FRD's own shape, where
 338 of 469 requirements are v1 and the majority of those are `P0`/`P1` columns, keys and registries
 with no v1 screen. **The 43 scenarios in §3.1 are 13% of the catalogue against 7% of the
 requirements**, deliberately: an invariant that is only *stated* is an invariant that is not
 enforced, and the ledger is the one part of this product that cannot be repaired after it has rows.
 
-152 of 327 are **not** happy paths — 63 error, 75 edge, 14 concurrency. A catalogue that is mostly
+154 of 330 are **not** happy paths — 65 error, 75 edge, 14 concurrency. A catalogue that is mostly
 happy paths tests that the feature exists; it does not test that the guard fires. **The five added in
-round 2 are §3.21**, and **the twenty-two added in round 4 are §3.22**. The finding that produced round 2's five (`Q-006`) is the reason the mix is measured
+round 2 are §3.21**, and **the twenty-two added in round 4 are §3.22**, and **the three `P1-21` authored are §3.23**. The finding that produced round 2's five (`Q-006`) is the reason the mix is measured
 per *task* and not only per catalogue: a set that is 45% non-happy overall said nothing about the
 seven v1 tasks whose own acceptance was 100% happy.
 
 ### 4.2 Requirement coverage, and the requirements no scenario proves
 
 ```bash
-awk -F'|' '/^\| \*\*WH-SC-/ {print $6}' SCENARIO-CATALOGUE.md | grep -oE 'FR-[0-9]{3}' | sort -u   # -> 384
+awk -F'|' '/^\| \*\*WH-SC-/ {print $6}' SCENARIO-CATALOGUE.md | grep -oE 'FR-[0-9]{3}' | sort -u   # -> 385
 grep -oE '^\| \*\*FR-[0-9]{3}\*\*' WAREHOUSE-FUNCTIONAL-REQUIREMENTS.md | grep -oE 'FR-[0-9]{3}' | sort -u  # -> 469
 ```
 
-**384 of 469 requirements (81.9%) are proved by at least one scenario. 85 are not**, and the list
+**385 of 469 requirements (82.1%) are proved by at least one scenario. 84 are not**, and the list
 below is complete rather than convenient. `DECISIONS.md` §7 rule 3 exists because the accounting
 set's first two rounds carried 25 dangling `FR` citations of which 19 resolved to a *different* real
 requirement, so live gaps read as closed. **The honest list is the deliverable here**; padding it
 with scenarios nobody could run would be the same failure in a new costume.
 
-By version, the 85 break down as **6 v1 · 18 v1.1 · 48 v2 · 15 v3** (a row spanning two versions is
+By version, the 84 break down as **5 v1 · 18 v1.1 · 48 v2 · 15 v3** (a row spanning two versions is
 counted in each). **The count moved 71 → 84 in review round 2**, which added `FR-447`–`FR-459` and no
 scenarios: every one of the thirteen is unproven on the day it was written, and §6.27 below says so
 rather than leaving the total to drift. **It moved 84 → 85 in review round 4.** The ten §6.28
 requirements, `FR-460`–`FR-469`, are each proved by a §3.22 row. The split of `WH-SC-135` (`RJ-013`)
-un-proved `FR-266`, because the kit half of that trace needs v1.1 work orders.
+un-proved `FR-266`, because the kit half of that trace needs v1.1 work orders. **It moved 85 → 84 with
+`P1-21`**, whose §3.23 rows prove `FR-451`.
 
 | Area | Unproven `FR` | Why |
 |---|---|---|
@@ -739,21 +753,21 @@ un-proved `FR-266`, because the kit half of that trace needs v1.1 work orders.
 | 6.24 Import and migration | `FR-414` `FR-415` `FR-419` `FR-420`(v1.1) `FR-421`(v3) | Incumbent-product mapping profiles, demand-history import, the OEM price file, the OEM order interface, and the accessories absorption path — which is a **stated path, not a v1 or v2 behaviour** |
 | 6.25 Non-functional | `FR-424`(v1.1) `FR-441`(v2) | Scan-to-response under 300 ms (measurable only once RF screens exist) and retention-beats-erasure |
 | 6.26 Amendments | `FR-445`(v2) | Ratio and assortment packs. The v1 half of the variant model — the schema — **is** proved, by `WH-SC-270` |
-| 6.27 Round-2 amendments | `FR-447`–`FR-451`(v1) `FR-452`–`FR-455`(v1.1) `FR-456`–`FR-459`(v2) — **all thirteen** | Added by review round 2 on 2026-09-02, after the catalogue was written. **The five v1 ones are a real gap, not a deferral**: delivery confirmation (`FR-447`), the reserved-stock status guard (`FR-448`), the de-stage path on cancel (`FR-449`), cost visibility by actor (`FR-450`) and the master merge (`FR-451`) are all v1 behaviours a builder can walk. Each is carried as an acceptance bullet in its owning task (`P2-10`, `P0-05`, `P2-09`, `P1-18`, `P1-21`) and **the scenario is authored by that task**, per §5 rule 3 — the ids continue from the next free one rather than being pre-allocated here |
+| 6.27 Round-2 amendments | `FR-447`–`FR-450`(v1) `FR-452`–`FR-455`(v1.1) `FR-456`–`FR-459`(v2) — **twelve of the thirteen** | Added by review round 2 on 2026-09-02, after the catalogue was written. **The v1 ones are a real gap, not a deferral**: delivery confirmation (`FR-447`), the reserved-stock status guard (`FR-448`), the de-stage path on cancel (`FR-449`) and cost visibility by actor (`FR-450`) are all v1 behaviours a builder can walk. Each is carried as an acceptance bullet in its owning task (`P2-10`, `P0-05`, `P2-09`, `P1-18`) and **the scenario is authored by that task**, per §5 rule 3 — the ids continue from the next free one rather than being pre-allocated here. The fifth, the master merge (`FR-451`), left this list when `P1-21` authored `WH-SC-328`–`WH-SC-330` (§3.23) |
 
 **Two actions fall out of this table.** `FR-207`'s v1 half needs a scenario before phase `P1`
-closes. And the five v1 requirements in §6.27 need one each, written by their owning task before that
-task merges — `P0-05`, `P1-18`, `P1-21`, `P2-09` and `P2-10` each carry the obligation in their
-acceptance block. Every other unproven requirement is v1.1, v2 or v3, or is a recorded decision with
+closes. And the four v1 requirements still in §6.27 need one each, written by their owning task before
+that task merges — `P0-05`, `P1-18`, `P2-09` and `P2-10` each carry the obligation in their acceptance
+block (`P1-21` discharged its own with §3.23). Every other unproven requirement is v1.1, v2 or v3, or is a recorded decision with
 no walkable behaviour. **Nothing in the v1 exit criterion of `DECISIONS.md` §5 is unproven** — that
-criterion is `WH-SC-044`…`WH-SC-062`, all of which exist; the six open v1 items are additions to the
+criterion is `WH-SC-044`…`WH-SC-062`, all of which exist; the five open v1 items are additions to the
 v1 scope, not holes in its stated exit.
 
 ---
 
 ## 5 · How these are used
 
-<!-- check-design-set: scenario-citations begin WH-SC-328 — the SCENARIO-CATALOGUE.md §5 rule 3 allocation marker — the next free scenario id, which by definition has no row yet. Named here so a parallel task does not silently take it twice; it is never a citation of a scenario that exists -->
+<!-- check-design-set: scenario-citations begin WH-SC-331 — the SCENARIO-CATALOGUE.md §5 rule 3 allocation marker — the next free scenario id, which by definition has no row yet. Named here so a parallel task does not silently take it twice; it is never a citation of a scenario that exists -->
 
 1. **A task issue names its scenarios.** `issues/pN-nn.md` carries a *Scenarios closed* list of
    `WH-SC-nnn` ids. A task with no scenarios is either infrastructure with an architecture test
@@ -761,8 +775,8 @@ v1 scope, not holes in its stated exit.
 2. **"Done" means walked, not compiled.** `FR-435`'s seven-layer definition of done and
    `WH-SC-248` govern the tick. A backend that exists with no reachable UI has closed no scenario.
 3. **A defect found in the field becomes a scenario before it becomes a fix.** New ids continue
-   from **`WH-SC-328`**; ids are never reused and never renumbered. `WH-SC-301`–`WH-SC-305` were
-   taken by review round 2 (§3.21) and `WH-SC-306`–`WH-SC-327` by review round 4 (§3.22); the marker moves with every allocation and is the only place to
+   from **`WH-SC-331`**; ids are never reused and never renumbered. `WH-SC-301`–`WH-SC-305` were
+   taken by review round 2 (§3.21), `WH-SC-306`–`WH-SC-327` by review round 4 (§3.22) and `WH-SC-328`–`WH-SC-330` by `P1-21` (§3.23); the marker moves with every allocation and is the only place to
    read the next free id.
 4. **`tools/check-design-set.py` enforces §1.2.** Contiguity, zero dangling `FR` citations, and the
    §4.2 unproven list matching what the commands actually produce. A coverage table that has drifted

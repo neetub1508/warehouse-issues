@@ -559,8 +559,8 @@ failed"***.
 
 ```bash
 f=docs/BUILD-SPEC-SCREENS.md
-grep -cE '^\| WS-[0-9]{3} \|' $f                       # screens        → 243 (237 + WS-240, WS-241, round 4; WS-238, WS-239, WS-243, WS-244, round 3)
-awk -F'|' '/^\| WS-[0-9]{3} \|/ && $7 ~ /Y/' $f | wc -l # configured grids → 220 (214 + WS-240, WS-241, WS-238, WS-239, WS-243, WS-244)
+grep -cE '^\| WS-[0-9]{3} \|' $f                       # screens        → 244 (237 + WS-240, WS-241, round 4; WS-238, WS-239, WS-243, WS-244, round 3; WS-245, P1-21)
+awk -F'|' '/^\| WS-[0-9]{3} \|/ && $7 ~ /Y/' $f | wc -l # configured grids → 221 (214 + WS-240, WS-241, WS-238, WS-239, WS-243, WS-244, WS-245)
 ```
 
 | id | Screen | Module | Route | Ref | G | Ver · Ph |
@@ -808,8 +808,9 @@ awk -F'|' '/^\| WS-[0-9]{3} \|/ && $7 ~ /Y/' $f | wc -l # configured grids → 2
 | WS-241 | Approval Levels | app | `/warehouse/inventory/approval-levels` | D | Y | v2 · P5 |
 | WS-243 | Location Utilisation | app | `/warehouse/reports/location-utilisation` | C | Y | v3 · P6 |
 | WS-244 | Metric Targets | app | `/warehouse/reports/metric-targets` | D | Y | v1 · P2 |
+| WS-245 | Master Merge Log | base | `/warehouse/masters/master-merges` | C | Y | v1 · P1 |
 
-<!-- check-design-set: screen-citations begin WS-242 WS-245 — the §1 allocation marker: WS-242 is reserved for P5-13's marketplace-claim queue and has no row until that task's PR adds one; WS-245 is the next free id -->
+<!-- check-design-set: screen-citations begin WS-242 WS-246 — the §1 allocation marker: WS-242 is reserved for P5-13's marketplace-claim queue and has no row until that task's PR adds one; WS-246 is the next free id -->
 **The allocation marker.** `WS-238` *Warehouse Grants* took its row on 2026-09-11, when round 3's `RA-001`
 was folded into `P1-18`. The same day's second fold (lane `W0-1b`):
 - gave `WS-239` *Item Prices* to `RA-002` (`P2-25`);
@@ -818,7 +819,8 @@ was folded into `P1-18`. The same day's second fold (lane `W0-1b`):
 - allocated `WS-243` *Location Utilisation* (`RC-009`, `P6-02`, v3) and `WS-244` *Metric Targets*
   (`RC-007`, `P2-21`).
 
-`WS-240` and `WS-241` were allocated by `GAP-REGISTER-R4.md` §4.0. **The next free id is `WS-245`.** The
+`WS-240` and `WS-241` were allocated by `GAP-REGISTER-R4.md` §4.0. `WS-245` *Master Merge Log* took its row on
+2026-09-16, allocated by `P1-21`'s PR (warehouse-issues#148). **The next free id is `WS-246`.** The
 pure link-sets are row-action assignment modals on existing screens: WS-015, WS-016, WS-017, WS-019 and
 WS-173 (`D-14` item 8b); WS-021 and WS-023 keep their child editors.
 <!-- check-design-set: screen-citations end -->
@@ -1235,7 +1237,8 @@ View = `ViewModalBase` + `DataTable`s of roles, addresses, tax registrations and
 **The modal carries no payment terms, credit limit, bank details, contacts or scorecard** (`FR-119`)
 — if a builder adds them, the seam has leaked and the field must be removed, not moved. **Round 4
 reverses `FR-119`'s exclusion for addresses and tax registrations only** (`RG-003`).
-**Actions:** row View / Edit / Add role / End role / Deactivate. Toolbar Add / Import / Export.
+**Actions:** row View / Edit / Add role / End role / **Merge** into another counterparty (`P1-21`, `FR-451`
+— the pre-check dialog and the log are WS-245) / Deactivate. Toolbar Add / Import / Export.
 **Mobile:** `mobile/src/screens/whbCounterparty/` — read-only list + detail, used by RF Receive to
 confirm who shipped. `additionalFilters`: `roleCode` dropdown, `name` text.
 
@@ -1308,7 +1311,9 @@ and on-hand-by-site.
 **Actions.** Row: View · Edit · **Block for receipt** / **Block for issue** (own modals, they set the
 `FR-050` booleans and are the offered alternative when deactivation is refused) · Deactivate
 (**blocked with `ITEM_HAS_STOCK` while on-hand is non-zero across any site, status or owner**,
-`FR-051`) · Print item/shelf label · View supersession chain (routes to WS-030 filtered).
+`FR-051`) · **Merge** into another item (`P1-21`, `FR-451` — the pre-check dialog and the log are WS-245;
+a merge is **not** a supersession) · Print item/shelf label · View supersession chain (routes to WS-030
+filtered).
 Toolbar: Add · **Import** (`ImportButton`, the Service Vehicle pattern — item master, identifiers,
 packaging, supersessions and price files all land through `whb_import_batches`, `FR-418`) ·
 Export · Grid config · Help.
@@ -1317,6 +1322,34 @@ creation is a desk task; an operator who scans an unknown barcode gets the `UNKN
 create form. `additionalFilters`: `ownerId`, `categoryId`, `itemTypeCode`, `lifecycleStatus` dropdowns
 plus `sku` and `barcode` text. No date filter is required, which is fortunate — `ListHeader.tsx`
 supports only `dropdown` and `text`.
+
+#### WS-245 · Master Merge Log — read-only (`P1-21`, `FR-451`)
+
+`whb_master_merges` · scope `WAREHOUSE_MASTER_MERGE` · grid `whb_master_merges`. **Columns:** `entityType`,
+`losingCode`, `losingName`, `survivingCode`, `survivingName`, `mergedAt`, `mergedByName`, `reason`,
+`hasMovedStock`. **Filters:** `entityType` select · `mergedFrom`/`mergedTo` (`date` pair — `merged_at` is an
+instant) · `losingCode`/`survivingCode` text. Statistics are filter-aware: total, item merges, counterparty
+merges, merges that moved stock. Export = the grid's columns; the actor is `mergedByName`, so there are no
+audit-name columns (a log, as WS-067).
+**No Add, Edit or Delete here.** A merge starts from the **Merge** row action on WS-023 or WS-021: one loser,
+one survivor, a reason, and a pre-check dialog listing positions, open reservations, open documents,
+identifiers, external refs, supersessions, supplier sources and site/location settings, with what the merge
+does to each. Merge stays disabled while any refusal stands, and the server re-checks under a row lock.
+**What moves.** Every non-zero position of the item, in every status and location, moves by one
+`MASTER_MERGE` movement per site through the ledger writer: `L-1` balanced, reason `DUPLICATE_MASTER`,
+idempotency key `MASTER_MERGE:ITEM:<losingId>:<warehouseId>`. Nothing already posted is updated (`L-2`,
+`WH-SC-328`). Open reservations are released first. Identifiers are re-parented to the survivor (the scan
+redirect). External refs, supersessions, supplier sources and site/location settings stay on the retired
+loser. A counterparty's scoped identifiers are re-pointed; nothing is transferred.
+**Refusals (`409` unless noted).** `base_uom_code`, `lot_control_mode` or `serial_control_mode` differ, with
+the column named (`WH-SC-329`) · the owners differ · the loser is already merged (`uk(entity_type,
+losing_id)`) · the survivor is inactive or merged itself · **an open document names the loser** — refused and
+never re-pointed; the operator closes, cancels or amends it first (`WH-SC-330`) · a reservation cannot be
+released · a survivor serial or identifier collides · the loser holds stock outside the caller's owner or
+site scope (`403`).
+**Permissions.** `whb_master_merges:view` and `:export` for the log (company-wide, as a log); `:create` gates
+the Merge action and is ADMIN-only in v1.
+**Mobile:** none (`D-13`).
 
 #### WS-022 · Item Categories · WS-034 · Units of Measure — Department shape
 
