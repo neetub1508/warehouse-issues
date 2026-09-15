@@ -633,8 +633,23 @@ Marked as **additions**, each with the clause that makes it necessary. They are 
 | `WAREHOUSE_MISMATCH` | 422 | no | §2.4 — a line's location not belonging to the header's `warehouse_id`; `sequence_no` is per warehouse |
 | `COMPANY_MISMATCH` | 422 | no | `FR-025` — a location or owner outside the header's `company_id` |
 | `PERIOD_CLOSED_SINCE_SUBMISSION` | 409 | no — withdraw and resubmit current-dated | `RA-004` — approving a `PENDING` movement whose `posting_date` period closed after it was submitted |
+| `POSITION_CONTENTION` | 409 | **yes** | `FR-016` — a position's optimistic-lock conflict still unresolved after `warehouse.position.max_contention_retries` (`MPR-GRD-17`, contract G1) |
+| `BATCH_TOO_LARGE` | 422 | no — split the batch | `RD-004` — a batch above `warehouse.port.max_batch_size`, refused before any movement posts (`MPR-GRD-23`) |
+| `RETRY_AFTER` | 429 | **yes** — after the interval | `RD-004` — reserved from v1 so a producer's retry logic can branch on it; `P5-22` builds the limiter (v2) |
+| `OCCURRED_AT_BEFORE_RETENTION` | 422 | no | `Y-008` — an `occurred_at` older than the oldest live ledger partition (`MPR-GRD-06`, contract G1) |
+| `UNREGISTERED_INSTANT` | 422 | no | `RG-001` — the site has no `REGISTERED` link covering `occurred_at` (`MPR-GRD-07`, contract G1) |
+| `PERIOD_OVERRIDE_FORBIDDEN` | 403 | no | `RA-007` / `PC-26` — posting into a `SOFT_CLOSED` period without the override permissions (`MPR-GRD-10`; built precedent) |
+| `PERIOD_OVERRIDE_SELF_APPROVED` | 422 | no | `RA-007` — the override's approver is the poster (`MPR-GRD-10`; built precedent) |
+| `MOVEMENT_NOT_PENDING` | 409 | no | `RA-004` — Approve, Reject or Withdraw on a row that is not `PENDING` (`MPR-GRD-28`) |
+| `MOVEMENT_SELF_APPROVED` | 403 | no | `FR-408` — the approver or rejecter is the movement's actor (`MPR-GRD-19`) |
+| `NEGATIVE_STOCK_OVERRIDE_FORBIDDEN` | 403 | no | `FR-015` — a `WARN` acknowledgement without `whb_negative_stock_policies:override` (`MPR-GRD-16`, contract G2) |
+| `MOVEMENT_NOT_SUBMITTER` | 403 | no | `RA-004` — Withdraw by anyone but the submitting actor, a replay included (`MPR-GRD-28`) |
+| `UNKNOWN_ATTRIBUTE_KEY` | 422 | no | `RL-007` — a line attribute naming no active `MOVEMENT_LINE` key (`MPR-GRD-24`) |
+| `ATTRIBUTE_VALUE_TYPE_MISMATCH` | 422 | no | `RL-007` — a line attribute's value not in the one typed column its key's `value_type` names (`MPR-GRD-24`) |
 
-**Total: 31 ratified + 13 proposed = 44.** Counted from the two tables above.
+**Total: 31 ratified + 27 additions = 58** — the set `FR-039` names, folded by `RD-008` (2026-09-16), and the
+set `WhbLedgerErrorCodes.VOCABULARY` publishes; `WhbLedgerErrorCodesTest` asserts the 58. Counted from the two
+tables above.
 
 ## 3.10 Authentication, authorisation and the permission a caller needs
 
@@ -693,7 +708,11 @@ Marked as **additions**, each with the clause that makes it necessary. They are 
 > This is what makes `PC-15`'s `200` branch cheap and correct: the original response is *stored*,
 > not recomputed. It is also what makes the **interface error queue** of `FR-045` possible — a grid
 > over failed inbound messages with a reprocess action that is idempotent by construction, and an
-> alert when the queue is non-empty beyond a threshold.
+> alert when the queue is non-empty beyond a threshold. A reprocess needs the stored endpoint's own
+> permission (`PC-31`) as well as `whb_inbound_messages:reprocess`; a bulk reprocess is capped at
+> `warehouse.port.max_batch_size`; a reprocess or discard of a row no longer `FAILED` is
+> `409 INBOUND_MESSAGE_NOT_FAILED` — a screen refusal, not a §3.9 code; and a row an interrupted
+> request left `RECEIVED` is failed by a recovery job (`movement-post-reverse.contract.md` `MPR-T3-06`).
 
 ---
 
