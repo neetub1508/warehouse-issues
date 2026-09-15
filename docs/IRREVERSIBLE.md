@@ -340,7 +340,7 @@ The loss is observational, not mechanical, and it is no less permanent for that.
 
 | Table | Gate that binds it | The migration to check before writing | Rows it carries |
 |---|---|---|---|
-| `whb_stock_movements` | **PNR-2**, and in practice **PNR-1** | `P0-02` creates it; the `L-2` trigger migration seals it. **These two should be the same migration** — see §3.5 | `IRR-02` `IRR-03` `IRR-04` `IRR-17` `IRR-21` `IRR-22` `IRR-24` `IRR-27` `IRR-28` `IRR-32` `IRR-41` `IRR-48` `IRR-62` |
+| `whb_stock_movements` | **PNR-2**, and in practice **PNR-1** | `P0-02` creates it; the `L-2` trigger migration seals it. **These two should be the same migration** — see §3.5. `V500059` (`P1-11`, user decision 2026-09-15) adds the nullable `channel_id` after the seal: `NULL` on every earlier movement, never backfilled | `IRR-02` `IRR-03` `IRR-04` `IRR-17` `IRR-21` `IRR-22` `IRR-24` `IRR-27` `IRR-28` `IRR-32` `IRR-41` `IRR-48` `IRR-62` |
 | `whb_stock_movement_lines` | **PNR-2**, and in practice **PNR-1** | as above | `IRR-01` `IRR-06` `IRR-10` `IRR-11` `IRR-12` `IRR-13` `IRR-14` `IRR-15` `IRR-20` `IRR-24` `IRR-32` `IRR-34` `IRR-35` `IRR-36` `IRR-37` `IRR-38` `IRR-39` `IRR-42` `IRR-62` |
 | `whb_stock_positions` | **none of its own** — inherits `PNR-1` from the line (§3.3) | the position `CREATE UNIQUE INDEX` migration; but the *real* check is the line's | `IRR-09`, plus the key members listed against the line |
 | `whb_items` | **PNR-4** for the key; **PNR-3** for the attributes | the migration creating `uk(owner_id, sku)` | `IRR-19` `IRR-31` `IRR-55` `IRR-56`; `IRR-26` |
@@ -438,6 +438,7 @@ about that: about half of these columns have no v1 screen at all.
 | `source_document_type` | VARCHAR(40) FK → `whb_document_types` | **no** | — | `SALES_ORDER` · `TRIP` · `JOB_CARD` · `POS_SHIFT` · `WORK_ORDER` | `IRR-24` `IRR-28` |
 | `source_document_id` | VARCHAR(100) | **no** | — | Deliberately `VARCHAR`, not UUID: an external system's id is not ours | `IRR-24` |
 | `source_document_line_no` | INTEGER | yes | — | A partially reversed multi-line source document cannot otherwise be reconciled line by line | `IRR-24` |
+| `channel_id` | UUID FK → `whb_channels` | yes | v1 (the writer stamps it, `P0-03`/`P0-08`) | The channel in the source lineage (`FR-207`). **Not a §2 commitment**: added after `PNR-2` by `V500059` (`P1-11`, user decision 2026-09-15), so every movement posted before it is `NULL` forever | — |
 | `idempotency_key` | VARCHAR(200) | **no** | v1.1 (offline) | Unique per `source_system` across months through `whb_movement_idempotency_keys` (`PRIMARY KEY (source_system, idempotency_key)`); the ledger's own `uk(source_system, idempotency_key, occurred_at)` is a per-partition backstop. **Never server-generated** | `IRR-04` |
 | `payload_hash` | CHAR(64) | **no** | — | Distinguishes "retry" from "different payload, reused key". Without it the conflict rule cannot exist | `IRR-04` |
 | `sequence_no` | BIGINT | **no** | v1.1 (outbox), v2 (billing) | Gapless per warehouse. Cannot be started retroactively | `IRR-03` |

@@ -879,6 +879,7 @@ backfilled converts a discipline into a mechanism.
 | `source_document_id` | VARCHAR(100) | **no** | — | `IRR-24` — **deliberately `VARCHAR`, not UUID, and never an FK**: an external system's id is not ours (§3.3) |
 | `source_document_no` | VARCHAR(100) | yes | — | the human-readable number, for the register |
 | `source_document_line_no` | INTEGER | yes | — | `IRR-24` |
+| `channel_id` | UUID → `whb_channels` | yes | v1; stamped by the writer (`P0-03`/`P0-08`) | the channel in the source lineage (`FR-207`, `issues/p1-11.md`). **Added after `PNR-2`** by `V500059` (`P1-11`, user decision 2026-09-15): no default, no backfill — `NULL` on every movement posted before it, and sealed by `I-2` on every movement posted after |
 | `idempotency_key` | VARCHAR(200) | **no** | v1.1 offline | `IRR-04` — **never server-generated** |
 | `payload_hash` | CHAR(64) | **no** | — | `IRR-04` |
 | `sequence_no` | BIGINT | **no** | v1.1 outbox, v2 billing | `IRR-03` — gapless **per warehouse** |
@@ -924,6 +925,8 @@ CREATE INDEX idx_whb_stock_movements_period       ON whb_stock_movements (period
 CREATE INDEX idx_whb_stock_movements_posting      ON whb_stock_movements (posting_status)
     WHERE posting_status IN ('PENDING','REJECTED');
 CREATE INDEX idx_whb_stock_movements_type_date    ON whb_stock_movements (movement_type_code, posting_date);
+CREATE INDEX idx_whb_stock_movements_channel      ON whb_stock_movements (channel_id)
+    WHERE channel_id IS NOT NULL;                                               -- V500059 (P1-11)
 ```
 
 `idx_whb_stock_movements_lineage` is the index that makes `FR-036` a single seek —
@@ -3400,7 +3403,7 @@ Every one of these is covered by a test, and the tests are named in the task fil
 | WHB-56 | `V500056` | `whb_gs1_settings`, `whb_gs1_serial_counters`, plus the `epc` columns on `whb_serials` and `whb_lpns`, `is_authorised_source` on `whb_item_supplier_sources`, the `GS1_DIGITAL_LINK` value in the `BARCODE_FORMAT` code list (`whb_code_list_values`, `RL-006`) and the `SUSPECT` row in `whb_dispositions` (`P3-24`) | v1.1 |
 | `P1-10` | `V500057` | **Correction of `V500046`**, which was applied before its gate finished — a forward-only migration, because a correction in the `V500022`–`V500029` gap would sort before `whb_import_batches` exists. `DISCARDED` joins `chk_whb_import_batches_status`; `uk_whb_import_batches_reversal_of` is recreated to ignore `FAILED`/`DISCARDED` reversals, so a failed reversal can be retried; `idx_whb_import_batches_document` and the partial unique `uk_whb_import_batches_document_landing` (one `APPLYING`/`APPLIED` landing per uploaded document). Creates no table | v1 |
 | `P1-14` | `V500058` | **Seed correction of `V500005` and `V500010`**, which are applied — so forward-only, never an edit (§7.1 rule 6). Inserts the stock status `REJECTED` into `whb_stock_statuses` with `QUARANTINE`'s behaviour flags, and the disposition `REJECT` into `whb_dispositions` (`movement_type_code = STATUS_CHANGE`, `target_stock_status_code = REJECTED`, `requires_inspection = true`), idempotently. QC's reject arm and `WH-SC-071`/`WH-SC-072` need both, and `P0-05`'s seed rule makes a code the seed lacks a merge blocker. Claimed 2026-09-14 from this gap, the `P1-10`/`V500057` precedent (`docs/contracts/receipt-qc-putaway.contract.md` `RQP-OPEN-12`). Creates no table | v1 |
-| — | `V500059` | *gap* | — |
+| `P1-11` | `V500059` | **Adds `whb_stock_movements.channel_id`** (user decision 2026-09-15), so the ledger's source lineage references the channel master (`issues/p1-11.md` acceptance; the item-alias half is `V500051`'s). A nullable `UUID` with `fk_whb_movements_channel` → `whb_channels(id)` `ON UPDATE RESTRICT ON DELETE RESTRICT` (`RL-013`) and the partial index `idx_whb_stock_movements_channel`, all on the partitioned parent. Forward-only and above `PNR-2`: no default and no backfill, so every movement posted before it keeps `NULL`; `I-2`'s mutable list is unchanged, so the column is sealed on post. Claimed 2026-09-15 from this gap, after the `P1-10`/`V500057` and `P1-14`/`V500058` precedent. Creates no table | v1 |
 | WHB-60 | `V500060` | `whb_kit_definitions`, `whb_kit_components` | v1.1 |
 | WHB-61 | `V500061` | **released (hole)** — `whb_item_location_settings` moved to `V500016` (`RG-008`). Never reused (§7.1 rule 2) | — |
 | WHB-62 | `V500062` | `whb_devices`, **`whb_device_assignments`** (`RG-018`) | v1.1 |
