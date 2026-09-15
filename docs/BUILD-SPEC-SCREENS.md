@@ -2691,6 +2691,7 @@ bands, and **base verbs ride `P0-15`'s `V501000`**. Each verb gets its `→ :vie
 | `warehouse:stock:view` | the as-at stock query `GET /warehouse/stock/as-at` — a past balance computed from the ledger (`FR-013`, `PC-25`, `MPR-T1-13`) | API, no screen (`P0-03`) | `P0-15` · `V501000` |
 | `whb_position_drift_findings:assign` · `:resolve` | WS-043 *Assign* (names the owner of a rebuild finding) and *Resolve* (a mandatory note, `FINDING_RESOLUTION_NOTE_REQUIRED`) (`MPR-T3-01`) | WS-043 | `P0-03` · `V500045` |
 | `whb_stock_movements:verify` | the ledger-chain verifier (`RC-008`, `RA-005`) | WS-040 | `P0-15` · `V501000` |
+| `whb_tasks:reassign` | WS-059 *Reassign* — `ASSIGNED`/`EXCEPTION` → `ASSIGNED` under a new assignee; the Supervisor-only addition (`p0-15.md:35-36`), so Storekeeper does not hold it. Assign, Cancel and Complete-with-exception stay under `whb_tasks:edit` (`RQP-OPEN-11`); depends on `whb_tasks:view` (added 2026-09-15, C3 fix pass 1C) | WS-059 | `P0-15` · `V501000` |
 | `wh_metric_targets:view` · `:create` · `:edit` · `:delete` · `:export` | the new resource (`RC-007`) | WS-244 | `P2-21` · `V511211` + `V511241` |
 | `whad_item_prices:view` · `:create` · `:edit` · `:delete` · `:export` · `:import` · `whad_price_levels:view` · `:create` · `:edit` | the new resources (`RA-002`) | WS-239 | `P2-25` · `V520100`–`V520149` |
 
