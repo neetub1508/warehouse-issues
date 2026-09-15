@@ -901,7 +901,7 @@ backend opened but the schema closed fails the save with no message.
 
 | id | Screen | Table | Scope | Behaviour columns shown as grid columns (all sortable, all default-visible) | Triage filters |
 |---|---|---|---|---|---|
-| WS-001 | Movement Types | `whb_movement_types` | `WAREHOUSE_MOVEMENT_TYPE` | `direction`, `is_financial`, `cost_basis_default`, `balance_rule`, `requires_approval`, `requires_reason`, `affects_availability`, `is_stock_bearing`, `is_billable_event`, `reversal_type_code` | `direction` (select), `is_financial`, `requires_approval` |
+| WS-001 | Movement Types | `whb_movement_types` | `WAREHOUSE_MOVEMENT_TYPE` | `direction`, `is_financial`, `cost_basis_default`, `balance_rule`, `requires_approval`, `requires_reason`, `affects_availability`, `is_stock_bearing`, `is_billable_event`, `is_ownership_transfer` (`I-14`; editable like its siblings, so an install marks a type mixed-owner — `V500049` seeds it on `OWNER_CHANGE` and its reversal, which are system rows), `reversal_type_code` | `direction` (select), `is_financial`, `requires_approval` |
 | WS-002 | Document & Reference Types | `whb_document_types` | `WAREHOUSE_DOCUMENT_TYPE` | `is_stock_bearing`, `is_external`, `display_resolver_bean` | `is_external` |
 | WS-003 | Source Systems | `whb_source_systems` | `WAREHOUSE_SOURCE_SYSTEM` | `module`, `is_reserved`, `is_claimable`, `post_permission` | `is_reserved`, `is_claimable` |
 | WS-004 | Stock Statuses | `whb_stock_statuses` | `WAREHOUSE_STOCK_STATUS` | `is_on_hand`, `is_available_to_promise`, `is_allocatable`, `is_pickable`, `is_shippable`, `is_countable`, `is_owned_asset`, `requires_reason_to_enter`, `requires_reason_to_leave`, `badge_variant` | `is_allocatable`, `is_on_hand` |
