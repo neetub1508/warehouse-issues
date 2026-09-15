@@ -1341,17 +1341,40 @@ does to each. Merge stays disabled while any refusal stands, and the server re-c
 **What moves.** Every non-zero position of the item, in every status and location, moves by one
 `MASTER_MERGE` movement per site through the ledger writer: `L-1` balanced, reason `DUPLICATE_MASTER`,
 idempotency key `MASTER_MERGE:ITEM:<losingId>:<warehouseId>`. Nothing already posted is updated (`L-2`,
-`WH-SC-328`). Open reservations are released first. Identifiers are re-parented to the survivor (the scan
+`WH-SC-328`). Open reservations are released first, under the `RESERVATION_RELEASE` reason `MASTER_MERGED`
+(system-only, seeded by `V500055`; never offered to a person). A release happens position by position, so an open
+reservation on a grain where the loser holds no stock refuses the merge (`409 MERGE_RESERVATIONS_OPEN`) in the
+pre-check and in the merge alike. Identifiers are re-parented to the survivor (the scan
 redirect). External refs, supersessions, supplier sources and site/location settings stay on the retired
 loser. A counterparty's scoped identifiers are re-pointed; nothing is transferred.
 **Refusals (`409` unless noted).** `base_uom_code`, `lot_control_mode` or `serial_control_mode` differ, with
 the column named (`WH-SC-329`) · the owners differ · the loser is already merged (`uk(entity_type,
 losing_id)`) · the survivor is inactive or merged itself · **an open document names the loser** — refused and
-never re-pointed; the operator closes, cancels or amends it first (`WH-SC-330`) · a reservation cannot be
+never re-pointed; the operator closes, cancels or amends it first (`WH-SC-330`). The `409 MERGE_OPEN_DOCUMENTS`
+refusal **names the documents** the caller can see (`PURCHASE_ORDER PO-0007, STOCK_MOVEMENT 1042`) and counts the
+rest at sites or owners the caller cannot see; the count is always every site and owner. Open documents are: an open
+purchase order (the supplier on the order, or the item on a line that is neither closed nor cancelled), and **a
+`PENDING` stock movement with a line of the item** — approving it after the merge would post onto the retired
+loser, so it is approved, rejected or withdrawn first. Movements carry no counterparty, so a counterparty merge
+counts purchase orders only · a reservation cannot be
 released · a survivor serial or identifier collides · the loser holds stock outside the caller's owner or
 site scope (`403`).
+
+**In code, not in contract** (carried from the P1-21 build, now contract):
+
+| Rule | Behaviour |
+|---|---|
+| `COUNTERPARTY_HAS_ACTIVE_OWNERS` (`409`) | A counterparty merge retires the loser, so retiring's own rule applies unchanged: refused while the loser is still an active owner's counterparty. |
+| `MERGE_STOCK_REMAINS` (`409`) | After the merge movements post, the loser still holds stock (a position changed while the merge ran). Nothing is merged; run the pre-check again. |
+| `MERGE_REASON_CODE_MISSING` (`409`) | A seeded reason the merge records is missing or retired: `MASTER_MERGE/DUPLICATE_MASTER` for its movements, or `RESERVATION_RELEASE/MASTER_MERGED` when it releases reservations. |
+| Identifier re-parent rules | An item's identifiers move to the survivor, never deleted. A packaging level is re-mapped to the survivor's level of the same code and party, or cleared. A moved identifier keeps `is_primary` only when the survivor has no primary. A moved serial's `whb_serial_identifiers` (IMEI, EID, …) move onto the survivor's copy of that serial — never copied, because `uk(owner_id, identifier_type, identifier_value)` would refuse a second row — so a scan resolves to the survivor; the pre-check lists them under Identifiers. A copied lot keeps its parent lot, and a copied serial its core serial: the survivor's copy when the merge made one, otherwise the original. A counterparty's scoped identifiers are re-pointed; one the survivor already carries under the identifier key refuses (`409 MERGE_IDENTIFIER_COLLISION`). |
+| Merging an already-inactive loser | Allowed. The loser stays inactive and the merge row is recorded; only the survivor must be active and not merged itself. |
+
 **Permissions.** `whb_master_merges:view` and `:export` for the log (company-wide, as a log); `:create` gates
-the Merge action and is ADMIN-only in v1.
+the Merge action and is ADMIN-only in v1. The `:view:all` / `:view:branch` pair is seeded because `RH-002`
+requires it on every resource, but **the branch tier is inert**: a merge row names two install-wide masters and no
+site, so there is nothing to narrow (as for `whb_items`, `V501002:123-125`). A `:view:branch` holder sees the whole
+company-wide log, which shows nothing the WS-021 / WS-023 grids do not.
 **Mobile:** none (`D-13`).
 
 #### WS-022 · Item Categories · WS-034 · Units of Measure — Department shape
