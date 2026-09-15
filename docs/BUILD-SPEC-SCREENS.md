@@ -1195,12 +1195,15 @@ range type) · `isActive` boolean.
 
 **Columns:** `warehouseName` · `granteeType` (USER/ROLE/GROUP) · `granteeName` (rendered through the
 shared user-display helper where the grantee is a user) · `accessLevel` (VIEW/OPERATE/ADMIN) ·
-`effectiveFrom` (`dateOnly`) · `effectiveTo` (`dateOnly`) · `isActive` · audit quartet + names.
+`effectiveFrom` (`dateOnly`) · `effectiveTo` (`dateOnly`) · audit quartet + names. No `isActive`
+column or filter: a dated junction has no second end marker (`RG-021`).
 **Filters:** `warehouseId` select → cascades `granteeType` select → cascades `granteeId` (async
 typeahead, scoped by grantee type — **scope before cap**) · `accessLevel` select ·
-`effectiveFromFrom` / `effectiveFromTo` (`dateOnly` pair) · `isActive` boolean.
-**Export:** visible + both audit names.
+`effectiveFromFrom` / `effectiveFromTo` (`dateOnly` pair).
+**Export:** visible + both audit names + `isCurrent` (derived from the range at export time, never stored).
 **Actions:** row View / Edit / Revoke (sets `effective_to`, never deletes). Toolbar Add / Export.
+**Permissions:** the site picker's feed `GET /warehouse/masters/warehouse-grants/warehouses` also requires
+`whb_warehouses:view`.
 **Mobile:** `none` — access administration, desk only. Stated per `FR-218`.
 
 > The screen is a management surface over `P1-18`'s resolver, not the resolver. **A user with no grant
