@@ -314,7 +314,7 @@ afterwards (`RL-007`).
 
 > **Amended 2026-09-16 (C5) — `value_date` is a producer INSTANT and the screen files a calendar
 > DAY; settled by default.** Both typed side tables carry `value_date` as `TIMESTAMPTZ`, and the port
-> normalises it as an instant: `WhbMovementEnvelopeCodec.java:469` parses the member with
+> normalises it as an instant: `WhbMovementEnvelopeCodec.java:472` parses the member with
 > `instant(...)`, and `INSTANT_FIELDS` (`:100`) carries `value_date` beside `occurred_at` so `PC-17`
 > hashes it to UTC Z at milliseconds. A `DATE` attribute key, though, is a calendar day on every
 > screen that files or renders one. **A producer east of UTC posting after local midnight therefore
