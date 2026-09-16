@@ -3512,7 +3512,9 @@ named in that migration's row.
 | WH-10 | `V510019` | `wh_reconciliation_cases`, `wh_reconciliation_case_events` | v1 |
 | WH-11 | `V510020` | `wh_supplier_returns`, `wh_supplier_return_lines` | v1 |
 | `P1-12` | `V510021` | `wh_purchase_orders.received_at` (first entry to `RECEIVED`, `IRR-23`); drops `chk_wh_purchase_orders_status` and `chk_wh_purchase_order_lines_line_status` (`receipt-qc-putaway.contract.md` §0). The first number of the plain gap after WH-11, allocated 2026-09-15 by the C1 fix cycle (lane D) | v1 |
-| — | `V510022`–`V510029` | *gap* | — |
+| `P1-14` | `V510022` | `wh_quality_inspection_lines.dispositioned_quantity` — a line may be dispositioned several times until its QC-held quantity is used up (`RQP-GRD-29` wins over §7 2026-09-16 (2); user decision 2026-09-16). Forward-only because `V510016` was already on origin. Allocated 2026-09-16 by the C8 fix cycle | v1 |
+| `P1-16` | `V510023` | `wh_receipt_reversals` reject reason stored on the row (reason code + justification), so `RQP-T1-31` "reason recorded" is met by the product and not a log line. Forward-only because `V510018` was already on origin. Allocated 2026-09-16 by the C8 fix cycle | v1 |
+| — | `V510024`–`V510029` | *gap* | — |
 | WH-20 | `V510030` | `wh_stock_adjustments`, `wh_stock_adjustment_lines`, `wh_adjustment_approval_policies` (`RA-008`) | v1 |
 | WH-21 | `V510031` | `wh_transfer_orders` (the ladder incl. `REQUESTED`; `source_warehouse_branch_id`/`destination_warehouse_branch_id`; the same-company guard), `wh_transfer_order_lines` (`approved_quantity`) — `RK-001`, `RG-001` | v1 |
 | WH-22 | `V510032` | `wh_hold_types` + seed, `wh_holds` | v1 |
