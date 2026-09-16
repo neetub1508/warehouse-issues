@@ -312,6 +312,22 @@ afterwards (`RL-007`).
 > emit `'[…]'::jsonb` for `grid_preferences`. **The rule that holds is: no JSONB on a new warehouse
 > business table.**
 
+> **Amended 2026-09-16 (C5) — `value_date` is a producer INSTANT and the screen files a calendar
+> DAY; settled by default.** Both typed side tables carry `value_date` as `TIMESTAMPTZ`, and the port
+> normalises it as an instant: `WhbMovementEnvelopeCodec.java:469` parses the member with
+> `instant(...)`, and `INSTANT_FIELDS` (`:100`) carries `value_date` beside `occurred_at` so `PC-17`
+> hashes it to UTC Z at milliseconds. A `DATE` attribute key, though, is a calendar day on every
+> screen that files or renders one. **A producer east of UTC posting after local midnight therefore
+> renders a day early** — `2026-03-10T02:00+09:00` is stored `2026-03-09T17:00Z` and reads back as
+> 9 March. A day entered on a screen is filed at UTC midnight and reads back correctly, so the drift
+> is the producer's instant alone. **The fix is the retype, not a render-time shim**: separate
+> `value_date DATE` and `value_datetime TIMESTAMPTZ`, the shape `assets` already carries
+> (`assets/.../V60674__Asset_custom_field_engine_tables.sql:269-270`), rather than a bare retype —
+> `whb_attribute_keys` has no DATETIME value type today. It lands in each owning table's **v2
+> increment** and nowhere else: `whb_item_attribute_values` in `P1-01`'s, `whb_movement_line_attributes`
+> in `P0-02`'s, because that table is partitioned and append-only from `V500030` and `UPDATE` is
+> refused to every actor. Recorded, not fixed: no v1 behaviour changes.
+
 ## 2.6 Identifying an item without knowing warehouse's UUIDs
 
 > **`PC-10`** · A line identifies its item by **`item_id`**, or **`sku`**, or **`barcode`**, or
