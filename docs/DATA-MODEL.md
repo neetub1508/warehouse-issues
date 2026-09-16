@@ -1294,6 +1294,7 @@ writing `whb_stock_movements` directly (`FR-436`, `D-11` B5). A `wh_` table ther
 | `wh_goods_receipts` | GRN header. **Receiving verification always happens; quality inspection is optional** | `grn_number`, `session_id` (nullable — set by WS-075 Create GRN, null for a WS-076 blind receipt; `receipt-qc-putaway.contract.md` H2), `po_id` (nullable and **derived** — the only PO, when there is one; the line's `po_line_id` is the association, so a consolidated GRN does not contradict its header and *"GRNs of PO X"* reads through lines, `RG-019`), `asn_id`, `supplier_counterparty_id` (required, blind receipts included — derived from a non-house owner's `whb_owners.counterparty_id`, picked only for a house-owned blind receipt; `receipt-qc-putaway.contract.md` `RQP-OPEN-15`), `warehouse_id`, `owner_id`, `received_by`, `received_at`, **`is_blind_receipt`**, `receiving_mode`, `grn_timing`, `status`, `match_status` (`MATCHED`/`QTY_OVER`/`QTY_UNDER`/**`ITEM_MISMATCH`** — a received line whose item is on no attached PO line, `RJ-014`), `ownership_transfer_point`, `invoice_matched`, **`dock_to_stock_completed_at`** | uk(`grn_number`); idx(`po_id`); idx(`warehouse_id`,`received_at` DESC) | as named | `FR-122` `FR-126`–`FR-128` `FR-130` `FR-242` `FR-344` `IRR-23` | v1 |
 | `wh_goods_receipt_lines` | The receipt truth, and the row the ledger movement is posted from | `grn_id`, `line_no`, `po_line_id`, `item_id`, `expected_quantity`, `received_quantity`, `accepted_quantity`, `rejected_quantity`, **`free_quantity`**, `scheme_reference`, `uom_code`, `conversion_factor_used`, `lot_id`, `expiry_date`, `serial_capture_mode`, `lpn_id`, `received_status_code`, `condition_code`, `rejection_reason_code_id`, `damage_notes`, `unit_cost`, `duty_status`, **`is_cross_dock`**, `cross_dock_demand_line_id`, `putaway_location_id`, `receipt_movement_id` (bare), `tax_classification_code` | uk(`grn_id`,`line_no`); idx(`item_id`,`grn_id`); idx(`lot_id`) | as named; ↓base | `FR-129`–`FR-131` `FR-137` `FR-141` `FR-143` `FR-144` | v1 |
 | `wh_goods_receipt_line_serials` | Captured serials at receipt | `grn_line_id`, `serial_id`, `serial_number` | uk(`grn_line_id`,`serial_number`) | `serial_id ↓base whb_serials` | `FR-106` | v1 |
+| `wh_goods_receipt_line_attributes` | `LOT`-kind attribute values captured on a DRAFT line and **staged until Post** writes them to `whb_entity_attribute_values` against the lot (`receipt-qc-putaway.contract.md` `RQP-GRD-08`, `RQP-T4-03`, `RL-007`) — the `wh_goods_receipt_line_serials` shape, for the same reason: the request naming the values exists only at keying, but the value becomes a lot fact only when the receipt becomes stock. Four typed value columns, **never a JSONB map** (`FR-026`, `FR-383`). `ON DELETE CASCADE` from the line, so a cancelled or re-edited draft leaves no row behind | `grn_line_id`, `attribute_key_id`, `value_string`, `value_number`, `value_date`, `value_boolean` | uk(`grn_line_id`,`attribute_key_id`) | `attribute_key_id ↓base whb_attribute_keys` | `FR-026` `RL-007` | v1 |
 | `wh_receipt_reversals` | **Reversal is an action, not a data fix.** It generates a `REVERSAL` movement, decrements the PO line and leaves both visible | `grn_id`, `reversal_number`, `reason_code_id`, `requested_by`, `approved_by`, `approved_at`, `reversal_movement_id` (bare), `status` | uk(`reversal_number`); idx(`grn_id`) | `grn_id → wh_goods_receipts`; ↓base `reason_code_id` | `FR-131` | v1 |
 | `wh_receipt_reversal_lines` | Per-line reversal quantity — in v1 a reversal is whole-GRN, so `quantity` is always the line's full received quantity (`L-3`; `receipt-qc-putaway.contract.md` `RQP-OPEN-20`) | `reversal_id`, `grn_line_id`, `quantity` | uk(`reversal_id`,`grn_line_id`) | as named | `FR-131` | v1 |
 | `wh_inspection_plans` | The inspection **plan** — sampling and criteria as rows. Replaces `wms_quality_inspections.inspection_criteria JSONB` | `code`, `name`, `inspection_type` (`FULL`/`SAMPLING`/`SKIP_LOT`), `sampling_plan`, `sample_size_formula` (whitelisted), `aql`, `is_active` | uk(`code`) | — | `FR-133` `FR-383` | v1 |
@@ -3503,7 +3504,7 @@ named in that migration's row.
 | WH-02 | `V510011` | `wh_purchase_orders`, `wh_purchase_order_lines` | v1 |
 | WH-03 | `V510012` | `wh_asns`, `wh_asn_lines`, `wh_asn_line_serials` | v1.1 |
 | WH-04 | `V510013` | `wh_receiving_sessions`, `wh_receiving_session_documents` | v1 |
-| WH-05 | `V510014` | `wh_goods_receipts`, `wh_goods_receipt_lines`, `wh_goods_receipt_line_serials` ★ **PNR-3 for the lifecycle timestamps** — a duration cannot be backfilled, so the first client's month-one dock-to-stock report cannot be produced if they were not captured ★ | v1 |
+| WH-05 | `V510014` | `wh_goods_receipts`, `wh_goods_receipt_lines`, `wh_goods_receipt_line_serials`, `wh_goods_receipt_line_attributes` ★ **PNR-3 for the lifecycle timestamps** — a duration cannot be backfilled, so the first client's month-one dock-to-stock report cannot be produced if they were not captured ★ | v1 |
 | WH-06 | `V510015` | `wh_inspection_plans`, `wh_inspection_plan_criteria` | v1 |
 | WH-07 | `V510016` | `wh_quality_inspections`, `wh_quality_inspection_lines`, `wh_quality_inspection_results` | v1 |
 | WH-08 | `V510017` | `wh_putaway_rules`, `wh_putaway_tasks` | v1 |
@@ -3762,6 +3763,7 @@ wh_demand_orders
 wh_dock_appointments
 wh_dock_door_vehicle_types
 wh_dock_doors
+wh_goods_receipt_line_attributes
 wh_goods_receipt_line_serials
 wh_goods_receipt_lines
 wh_goods_receipts
@@ -4248,6 +4250,7 @@ wh_demand_orders v1
 wh_dock_appointments v1
 wh_dock_door_vehicle_types v1
 wh_dock_doors v1
+wh_goods_receipt_line_attributes v1
 wh_goods_receipt_line_serials v1
 wh_goods_receipt_lines v1
 wh_goods_receipts v1
