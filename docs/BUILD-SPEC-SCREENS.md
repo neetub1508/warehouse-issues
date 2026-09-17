@@ -2362,6 +2362,18 @@ hands it every refused physical move — attempted movement type, attempted payl
 beans: with none registered the refusal is audit-logged and no row is written, so a refusal is never
 silent. Recorded in `docs/contracts/movement-post-reverse.contract.md` §6's `FR-028` row and §7.
 
+**Which callers raise a row (ruling, 2026-09-18, P2-01 re-verify).** The producer
+(`WhbBlockedMovementReporter`, which owns the rule for *which* refusals qualify) is wired into the
+**movement port only** — `WhbMovementPoster.post`, the EDI / handheld / device envelope path,
+including each member of a batch. The **stock-adjustment path deliberately raises no row**, although
+it reaches the same writer and can be refused by the same codes: this screen is the queue of
+**physical** moves refused at a device or a port, where the goods have already moved and the refused
+payload, the actor and the device are the evidence a supervisor dispositions. A **document** refused
+at its own screen (WS-089 *Post* and every other screen-driven writer call) leaves the goods where
+they were — the operator is at the form, the refusal is on it, and the document is its own queue —
+so queueing it here would put two queues over one fact and this screen would show rows nobody can
+act on. That is why `deviceId` is a default-visible, sortable column and never empty in practice.
+
 **Open vocabularies render the registry, not an i18n map (decision, 2026-09-18).**
 `attemptedMovementTypeCode` and `rejectionCode` are open registries (`FR-039`/`FR-382`): both the cell
 and the filter's options show the registry row's own `name`, falling back to its `code`, with **no
