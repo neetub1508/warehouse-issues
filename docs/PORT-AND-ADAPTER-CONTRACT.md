@@ -164,7 +164,8 @@ admits only one implementation and is therefore useless for an N-consumer port:
 |---|---|---|---|---|
 | `POST` | `/api/warehouse/movements` | post one movement, synchronously, **all or nothing** | `warehouse:movements:post` | `FR-032`, `FR-040` |
 | `POST` | `/api/warehouse/movements/batch` | post many, each independently, **per-movement results** | `warehouse:movements:post` | `FR-034` |
-| `POST` | `/api/warehouse/movements/{id}/reverse` | post the mirror; own idempotency key; mandatory reason | `warehouse:movements:reverse` | `FR-035` |
+| `POST` | `/api/warehouse/movements/{id}/reverse` | post the mirror; own idempotency key; mandatory reason; optional `occurred_at`/`posting_date`, current-dated when omitted (`PC-20`) | `warehouse:movements:reverse` | `FR-035` |
+| `POST` | `/api/warehouse/movements/{id}/withdraw` | withdraw a `PENDING` movement — **maker only** (the submitting actor); own idempotency key; `approval_status → WITHDRAWN`, the row is kept (`RA-004`) | `warehouse:movements:post` | `FR-027` |
 | `GET` | `/api/warehouse/movements/{id}` | read back, including the assigned `sequence_no` | `warehouse:movements:view` | `FR-032` |
 | `GET` | `/api/warehouse/movements?source_system=&source_document_type=&source_document_id=` | **the lineage query** — how a consumer finds its own postings | `warehouse:movements:view` | `FR-036` |
 | `POST` | `/api/warehouse/movements/simulate` | validate and return balance deltas **without writing** | `warehouse:movements:simulate` | `FR-037` |
@@ -226,7 +227,7 @@ POST /api/warehouse/movements
 | `source_document_type` | VARCHAR(40) FK → `whb_document_types` | **R** | the producer's document kind — `SALES_ORDER`, `JOB_CARD`, `TRIP`, `POS_SHIFT`, `WORK_ORDER` | A row, not an enum, for the same reason as `movement_type_code`. `TRIP`, `MANIFEST` and `CONSIGNMENT` are *logistics* document types and must be insertable from the logistics migration. `FR-018`, R7 §6 item 8 |
 | `source_document_id` | VARCHAR(100) | **R** | the producer's own id, **opaque** | Deliberately `VARCHAR`, not UUID: **an external system's id is not ours**. A POS shift id, a marketplace order number and a trip reference are not UUIDs, and coercing them loses the identity |
 | `source_document_line_no` | INTEGER | O | the producer's header-level line pointer | Without it a **partially reversed** multi-line source document cannot be reconciled line by line — and partial reversal is the normal case, not the exception |
-| `idempotency_key` | VARCHAR(200) | **R** | caller-supplied, unique within `source_system` | **The most irreversible field in the schema.** `uk(source_system, idempotency_key)`. A ledger that has already double-posted **cannot be deduplicated afterwards**, because a duplicate is indistinguishable from a legitimate repeat of the same real event. `L-9`, `FR-017`, `IRR-04` |
+| `idempotency_key` | VARCHAR(200) | **R** | caller-supplied, unique within `source_system` | **The most irreversible field in the schema.** Unique per `source_system` **across months** through the non-partitioned `whb_movement_idempotency_keys` registry (`DATA-MODEL.md` §1.9, `I-11`). A ledger that has already double-posted **cannot be deduplicated afterwards**, because a duplicate is indistinguishable from a legitimate repeat of the same real event. `L-9`, `FR-017`, `IRR-04` |
 | `payload_hash` | CHAR(64) | S | SHA-256 of the canonicalised request body (§3.3) | Distinguishes *"retry"* from *"different payload, reused key"*. **Without it the conflict rule in §3.2 cannot exist** — the server can only choose between silently overwriting and silently ignoring, and both are wrong |
 | `sequence_no` | BIGINT | S | gapless, per warehouse | **A sequence cannot be started retroactively over rows that already exist.** The outbox cursor (§4) and the hash chain both key on it. `FR-006`, `IRR-03` |
 | `prev_payload_hash` | CHAR(64) | S | the previous movement's `payload_hash` in the same warehouse | Tamper evidence. **A chain begun in v2 proves nothing about v1.** Feature is v2; the column is v1. `IRR-03` |
@@ -310,6 +311,22 @@ afterwards (`RL-007`).
 > freezes a **baseline** rather than banning it, and every warehouse grid migration **must** still
 > emit `'[…]'::jsonb` for `grid_preferences`. **The rule that holds is: no JSONB on a new warehouse
 > business table.**
+
+> **Amended 2026-09-16 (C5) — `value_date` is a producer INSTANT and the screen files a calendar
+> DAY; settled by default.** Both typed side tables carry `value_date` as `TIMESTAMPTZ`, and the port
+> normalises it as an instant: `WhbMovementEnvelopeCodec.java:472` parses the member with
+> `instant(...)`, and `INSTANT_FIELDS` (`:100`) carries `value_date` beside `occurred_at` so `PC-17`
+> hashes it to UTC Z at milliseconds. A `DATE` attribute key, though, is a calendar day on every
+> screen that files or renders one. **A producer east of UTC posting after local midnight therefore
+> renders a day early** — `2026-03-10T02:00+09:00` is stored `2026-03-09T17:00Z` and reads back as
+> 9 March. A day entered on a screen is filed at UTC midnight and reads back correctly, so the drift
+> is the producer's instant alone. **The fix is the retype, not a render-time shim**: separate
+> `value_date DATE` and `value_datetime TIMESTAMPTZ`, the shape `assets` already carries
+> (`assets/.../V60674__Asset_custom_field_engine_tables.sql:269-270`), rather than a bare retype —
+> `whb_attribute_keys` has no DATETIME value type today. It lands in each owning table's **v2
+> increment** and nowhere else: `whb_item_attribute_values` in `P1-01`'s, `whb_movement_line_attributes`
+> in `P0-02`'s, because that table is partitioned and append-only from `V500030` and `UPDATE` is
+> refused to every actor. Recorded, not fixed: no v1 behaviour changes.
 
 ## 2.6 Identifying an item without knowing warehouse's UUIDs
 
@@ -419,7 +436,9 @@ item and the four points of no return, is [`IRREVERSIBLE.md`](IRREVERSIBLE.md) �
 
 ## 3.2 Idempotency — the exact table
 
-> **`PC-15`** · `uk(source_system, idempotency_key)`. The key is **caller-supplied and never
+> **`PC-15`** · `(source_system, idempotency_key)` is unique **across months**: it is the `PRIMARY KEY` of
+> `whb_movement_idempotency_keys`, inserted in the posting transaction for a movement, a reversal and a
+> withdraw alike, each on its own key (`DATA-MODEL.md` `I-11`). The key is **caller-supplied and never
 > server-generated**. *(`L-9`, `FR-017`.)*
 
 | Condition | Response | Body |
@@ -505,6 +524,11 @@ producer's responsibility to order them; base does not reorder and does not infe
 > - **Reversing an already-reversed movement** is `ALREADY_REVERSED`.
 > - **A reversal respects the period rules.** A reversal into a `CLOSED` period is `PERIOD_CLOSED`,
 >   and the correct act is a **current-dated** reversal, not a backdated one.
+> - **The reversal's dates.** The request may carry `occurred_at` and `posting_date`. When it omits
+>   them the reversal is **current-dated**: the injected `Clock`'s now and the current date. Every date
+>   guard reads the reversal's own dates.
+> - **The reversal's key is its own**, claimed in `whb_movement_idempotency_keys` like any other; a
+>   retry with the same key returns `200` and the same reversal (`WH-SC-171`).
 > - **"Edit" is never offered anywhere in the product** — not on a screen, not on the API, not as an
 >   admin tool.
 
@@ -624,8 +648,24 @@ Marked as **additions**, each with the clause that makes it necessary. They are 
 | `MOVEMENT_TYPE_NOT_PERMITTED_FOR_SOURCE` | 403 | no | §8.3 `B7` — a `source_system` may be scoped to the types its own migration registered |
 | `WAREHOUSE_MISMATCH` | 422 | no | §2.4 — a line's location not belonging to the header's `warehouse_id`; `sequence_no` is per warehouse |
 | `COMPANY_MISMATCH` | 422 | no | `FR-025` — a location or owner outside the header's `company_id` |
+| `PERIOD_CLOSED_SINCE_SUBMISSION` | 409 | no — withdraw and resubmit current-dated | `RA-004` — approving a `PENDING` movement whose `posting_date` period closed after it was submitted |
+| `POSITION_CONTENTION` | 409 | **yes** | `FR-016` — a position's optimistic-lock conflict still unresolved after `warehouse.position.max_contention_retries` (`MPR-GRD-17`, contract G1) |
+| `BATCH_TOO_LARGE` | 422 | no — split the batch | `RD-004` — a batch above `warehouse.port.max_batch_size`, refused before any movement posts (`MPR-GRD-23`) |
+| `RETRY_AFTER` | 429 | **yes** — after the interval | `RD-004` — reserved from v1 so a producer's retry logic can branch on it; `P5-22` builds the limiter (v2) |
+| `OCCURRED_AT_BEFORE_RETENTION` | 422 | no | `Y-008` — an `occurred_at` older than the oldest live ledger partition (`MPR-GRD-06`, contract G1) |
+| `UNREGISTERED_INSTANT` | 422 | no | `RG-001` — the site has no `REGISTERED` link covering `occurred_at` (`MPR-GRD-07`, contract G1) |
+| `PERIOD_OVERRIDE_FORBIDDEN` | 403 | no | `RA-007` / `PC-26` — posting into a `SOFT_CLOSED` period without the override permissions (`MPR-GRD-10`; built precedent) |
+| `PERIOD_OVERRIDE_SELF_APPROVED` | 422 | no | `RA-007` — the override's approver is the poster (`MPR-GRD-10`; built precedent) |
+| `MOVEMENT_NOT_PENDING` | 409 | no | `RA-004` — Approve, Reject or Withdraw on a row that is not `PENDING` (`MPR-GRD-28`) |
+| `MOVEMENT_SELF_APPROVED` | 403 | no | `FR-408` — the approver or rejecter is the movement's actor (`MPR-GRD-19`) |
+| `NEGATIVE_STOCK_OVERRIDE_FORBIDDEN` | 403 | no | `FR-015` — a `WARN` acknowledgement without `whb_negative_stock_policies:override` (`MPR-GRD-16`, contract G2) |
+| `MOVEMENT_NOT_SUBMITTER` | 403 | no | `RA-004` — Withdraw by anyone but the submitting actor, a replay included (`MPR-GRD-28`) |
+| `UNKNOWN_ATTRIBUTE_KEY` | 422 | no | `RL-007` — a line attribute naming no active `MOVEMENT_LINE` key (`MPR-GRD-24`) |
+| `ATTRIBUTE_VALUE_TYPE_MISMATCH` | 422 | no | `RL-007` — a line attribute's value not in the one typed column its key's `value_type` names (`MPR-GRD-24`) |
 
-**Total: 31 ratified + 12 proposed = 43.** Counted from the two tables above.
+**Total: 31 ratified + 27 additions = 58** — the set `FR-039` names, folded by `RD-008` (2026-09-16), and the
+set `WhbLedgerErrorCodes.VOCABULARY` publishes; `WhbLedgerErrorCodesTest` asserts the 58. Counted from the two
+tables above.
 
 ## 3.10 Authentication, authorisation and the permission a caller needs
 
@@ -639,11 +679,11 @@ Marked as **additions**, each with the clause that makes it necessary. They are 
 >
 > | Permission | Needed for |
 > |---|---|
-> | `warehouse:movements:post` | `POST /movements`, `POST /movements/batch` |
+> | `warehouse:movements:post` | `POST /movements`, `POST /movements/batch`, `POST /movements/{id}/withdraw` (the submitter only) |
 > | `warehouse:movements:reverse` | `POST /movements/{id}/reverse` |
 > | `warehouse:movements:view` | `GET /movements/{id}`, the lineage query |
 > | `warehouse:movements:simulate` | `POST /movements/simulate` |
-> | `warehouse:movements:post:backdated` | posting into a `SOFT_CLOSED` period (`PC-26`) |
+> | `whb_stock_movements:post_backdated` | posting into a `SOFT_CLOSED` period (`PC-26`), together with `whb_stock_periods:override` and an approved override row whose approver is not the poster (`RA-007`) |
 > | `warehouse:stock:view` | `GET /stock`, `GET /stock/as-at` |
 > | `warehouse:reservations:hold` · `:release` | §5 |
 > | `warehouse:outbox:replay` · `:view` | §4.6, the dead-letter grid |
@@ -684,7 +724,11 @@ Marked as **additions**, each with the clause that makes it necessary. They are 
 > This is what makes `PC-15`'s `200` branch cheap and correct: the original response is *stored*,
 > not recomputed. It is also what makes the **interface error queue** of `FR-045` possible — a grid
 > over failed inbound messages with a reprocess action that is idempotent by construction, and an
-> alert when the queue is non-empty beyond a threshold.
+> alert when the queue is non-empty beyond a threshold. A reprocess needs the stored endpoint's own
+> permission (`PC-31`) as well as `whb_inbound_messages:reprocess`; a bulk reprocess is capped at
+> `warehouse.port.max_batch_size`; a reprocess or discard of a row no longer `FAILED` is
+> `409 INBOUND_MESSAGE_NOT_FAILED` — a screen refusal, not a §3.9 code; and a row an interrupted
+> request left `RECEIVED` is failed by a recovery job (`movement-post-reverse.contract.md` `MPR-T3-06`).
 
 ---
 
@@ -1048,7 +1092,8 @@ whb_item_external_refs (
 ### (a) `whb_location_external_refs` — the vehicle's dual identity
 
 > **`PC-60`** · A truck is **two rows**, and **neither is the other's master**:
-> - `whb_locations (location_type = 'VEHICLE', is_mobile = true, assigned_user_id = <driver>)` — so
+> - `whb_locations (location_type = 'VEHICLE', is_mobile = true)`, its driver the current `CUSTODIAN`
+>   row of `whb_location_user_assignments` (`RG-004`) — so
 >   stock can **sit on it**, be **counted on it**, and be **short-picked from it**;
 > - `log_vehicles` — so it can have a registration, an **insurance expiry**, a tyre and an odometer.
 >
@@ -1388,8 +1433,10 @@ accounting-base 660, accounting 660).
 >    the token `whad_`, `whas_`, `whaf_`, `whaa_`, `wh3_`, `whin_`, `log_`, `accessory_`, `pdi_`,
 >    `service_` or `asset_` inside a `REFERENCES` clause.
 > 3. **Every base-band FK targets a `whb_` table or an asserted platform whitelist** (`users`,
->    `user_details`, `branches`, `documents`). **The whitelist is itself asserted**, so widening it
->    is a reviewed act rather than a diff nobody notices.
+>    `branches`, `documents`, `currencies`). **The whitelist is itself asserted**, so widening it
+>    is a reviewed act rather than a diff nobody notices. *(P0-14 build, 2026-09-17: the whitelist is
+>    asserted exactly AND asserted used. `currencies` is referenced by `V500001`, `V500023` and
+>    `V500030`; `user_details` is referenced by no base migration and is not carried.)*
 > 4. **No `CHECK (… IN (…))` on any of the thirteen registry columns of §7.2.** The test names the
 >    thirteen `table.column` pairs **explicitly**.
 > 5. **The scanners self-test.** Copy the shape at
@@ -1402,6 +1449,17 @@ accounting-base 660, accounting 660).
 > 7. **No `(registry, code)` pair is inserted by two `owning_module` values** across every
 >    warehouse-family band (`D-2`), reason codes compared on `(context, code)`. `PC-66`'s guard
 >    catches a collision in one install; this catches it in the reactor (`RL-003`).
+>
+> *As built (P0-14, 2026-09-17).* `issues/p0-14.md` ratified **six** assertions, and those are what
+> `WarehouseBaseCouplingTest` carries: items 1, 2+3 (one rule, plus a scan of every `warehouse*`
+> module for `ALTER TABLE whb_* … REFERENCES` a non-base table), 4, the migration-band check, the
+> `IRREVERSIBLE.md` §3.6 header check, and the scanner self-test (`ScannerIntegrity`), with P0-15's
+> §10.2 verb-coverage hand-off beside them. **Items 6 and 7 are not built as tests:** item 6 is
+> asserted at migrate by `V500002`'s verification (`ACCESSORIES` unclaimable); item 7 has no
+> reactor-level test — `PC-66`'s per-install `RL-003` guard in each seeding migration is the only
+> check. Warehouse modules are found by directory name, never by a list, so adding an adapter needs
+> no commit here; an adapter's own migration and import rules live in its own
+> `ArchitectureInvariantsTest` (`AdapterContractRule`).
 
 ### Layer 2 — `warehouse-adapter-example`, a fixture adapter in the repo
 
@@ -1577,11 +1635,11 @@ change the other did not want. That is the whole acceptance test for the port.
 | **Catalogue rows** | `whb_source_systems`: `ADAPTER_FIELD_SERVICE` · `whb_location_types`: uses **`MOBILE`** |
 | **Own tables** | `whaf_van_stock_assignments` |
 | **Reads** | the van's current location — `job_trips` already knows it (`field-service/…/V80007__Create_job_trips_and_track_points.sql:13-48`) |
-| **Base columns it depends on** | `whb_locations.assigned_user_id` + the `MOBILE` location type — **v1 columns**, feature v1.1. Without them van stock becomes a separate table and a separate reconciliation problem (`FR-088`, `T-080`, R7 §6 item 13) |
+| **Base columns it depends on** | the current `CUSTODIAN` row of `whb_location_user_assignments` (`RG-004`) + the `MOBILE` location type — **v1**, feature v1.1. Without them van stock becomes a separate table and a separate reconciliation problem (`FR-088`, `T-080`, R7 §6 item 13) |
 | **Version** | **v1.1** |
 
-The van is a `whb_locations` row with `location_type = 'MOBILE'` and
-`assigned_user_id = <technician>`. Replenished by a transfer, consumed at job close, cycle-counted,
+The van is a `whb_locations` row with `location_type = 'MOBILE'`, its technician the current
+`CUSTODIAN` row of `whb_location_user_assignments` (`RG-004`). Replenished by a transfer, consumed at job close, cycle-counted,
 and its unreturned parts age (`FR-363`).
 
 ## 9.4 `warehouse-adapter-assets` — spares · **v1.1**

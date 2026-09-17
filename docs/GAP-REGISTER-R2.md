@@ -162,7 +162,7 @@ almost every disposition below is a line to add to a file that already exists.
 | `Y-001` | BLOCKER | `on_behalf_of_actor_id` is mandated on the movement, is absent from the movement header, and the movement header is `PNR-1` | FOLD-TASK | `P0-02` |
 | `Y-002` | BLOCKER | A status change against stock that carries an open reservation has no stated outcome and no error code — and `FR-160`'s nightly expiry job is a status c… | NEW-FR | then `P0-05`, `P2-03` |
 | `Y-003` | BLOCKER | Cancelling after stock has been picked to staging has no de-stage path: the units become an unallocatable, unreported balance | NEW-FR | then `P2-09` |
-| `Y-004` | MAJOR | Work that is in flight has no abandonment clock, no reclaim and no signal — one root cause, four symptoms | FOLD-TASK | `P0-10` |
+| `Y-004` | MAJOR | Work that is in flight has no abandonment clock, no reclaim and no signal — one root cause, four symptoms | FOLD-TASK | `P0-10` — as built 2026-09-15 (`p0-10.md`, Y-004 note): the supervisor notified is every active holder of `whb_tasks:edit` through a role, group or direct grant, told only of tasks whose owner they may read; no run at startup; the text is English only, a platform limitation (`notification_templates` has no language column) |
 | `Y-005` | MAJOR | A wrong or unordered item on the dock has no rule and no reconciliation case type | FOLD-TASK | `P2-12` |
 | `Y-006` | MAJOR | LPN split, merge and loss are entirely unspecified, while the LPN is a v1 ledger object with a status ladder | FOLD-TASK | `P1-07` |
 | `Y-007` | MAJOR | There is no deactivation guard on a location, an owner or a warehouse that holds stock, while `FR-051` provides exactly that guard for an item | FOLD-TASK | `P1-05`, `P0-06` |

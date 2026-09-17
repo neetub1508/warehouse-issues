@@ -1,17 +1,17 @@
 # Issue backlog — the source of truth
 
 The full Classic Warehouse backlog, **filed on GitHub** in `neetub1508/warehouse-issues`:
-**1 master epic + 8 phase epics + 143 task issues = 152 issues**, 17,362 lines of task and epic text.
+**1 master epic + 8 phase epics + 144 task issues = 153 issues**, 17,362 lines of task and epic text.
 **Round 4 (2026-09-10) filed six more task issues, `#156`–`#161` (`p3-25`, `p5-24`…`p5-28`), and the same
 day folded each into its most similar existing task — no duplicate tasks.** The six are closed as
-duplicates and have no file; the backlog is **143 task files** again (`GAP-REGISTER-R4.md` §4.6).
+duplicates and have no file; the backlog is **144 task files** (round 5 adds `P1-22`, `D-14` item 8) (`GAP-REGISTER-R4.md` §4.6).
 
 Every count on this page was computed, not estimated. The command is next to the number, and
 the checker figures are from the run of **2026-09-02 08:25 IST** — the design set is under active
 authoring, so re-run before quoting one.
 
 ```bash
-ls issues/p*.md | wc -l              # 143 tasks (#156–#161 folded into hosts, closed)
+ls issues/p*.md | wc -l              # 144 tasks (#156–#161 folded into hosts, closed)
 ls issues/0*-EPIC-*.md | wc -l       #   9 epics (1 master + 8 phase)
 ```
 
@@ -24,8 +24,8 @@ checklist → traps → Definition of done; task issues open with
 
 ## The backlog is **filed** — read this before touching anything
 
-All **152** issues exist. `issues/CREATED.md` is written and holds the full
-`Issue | Task file | Title` map; **every one of the 152 files carries an `issue: NN` line** in its
+All **153** issues exist. `issues/CREATED.md` is written and holds the full
+`Issue | Task file | Title` map; **every one of the 153 files carries an `issue: NN` line** in its
 front matter; and `tools/check-design-set.py --check 5` therefore no longer skips — it resolves
 every `#NN` cross-reference against that map.
 
@@ -34,6 +34,7 @@ every `#NN` cross-reference against that map.
 | Master epic | `#1` |
 | Phase epics | P0 `#3` · P1 `#4` · P2 `#5` · P2-IN `#6` · P3 `#7` · P4 `#8` · P5 `#10` · P6 `#11` |
 | The 143 filed tasks | **`#12`–`#154`** |
+| Round 5's task | **`#163`** — `P1-22`, the built-screen correction for `D-14` item 8 |
 | Round 4's six task issues | **`#156`–`#161`, closed as duplicates** — `#156`→`#33` · `#157`→ ten hosts, `FR-468` in `#54` · `#158`→`#48` · `#159`→`#133` · `#160`→`#146` · `#161`→`#139`; no task file |
 
 **The six round-4 files were filed, then folded.** `#156`–`#161` were created from `p3-25` and
@@ -84,7 +85,7 @@ a *different* repository; **`--sync` / `--check` are what you use from here on.*
 1. creates the **22 labels** the files name — there is no other create-label step anywhere
 2. master epic
 3. **8 phase epics** — P0 · P1 · P2 · **P2-IN** · P3 · P4 · P5 · P6, each linked back to the master
-4. **143 task issues**, each linked back to its phase epic
+4. **144 task issues**, each linked back to its phase epic
 5. phase epics patched with their real task checklists
 6. master epic patched with the real phase-epic numbers
 7. writes `issues/CREATED.md` — the map `tools/check-design-set.py` check 5 resolves every `#NN`
@@ -157,7 +158,7 @@ Two rules the script enforces, both learned the hard way:
 | `07-EPIC-p5.md` | **P5** 3PL, channels and reverse logistics · **v2** |
 | `08-EPIC-p6.md` | **P6** Optimisation, planning and the logistics seam · **v3** |
 | `p0-01.md` … `p0-17.md` | **17** P0 tasks |
-| `p1-01.md` … `p1-21.md` | **21** P1 tasks |
+| `p1-01.md` … `p1-22.md` | **22** P1 tasks |
 | `p2-01.md` … `p2-29.md` | **29** P2 tasks |
 | `p2in-01.md` … `p2in-04.md` | **4** P2-IN tasks — phase **`P2-IN`**, epic `04-EPIC-p2in.md`, placeholder `__P2IN__` |
 | `p3-01.md` … `p3-24.md` | **24** P3 tasks — round 4's `p3-25` was folded into `p1-03` |
@@ -173,7 +174,7 @@ so the two phases stay separate by construction.
 
 ## Task ids are phase-prefixed, and that is deliberate
 
-`P0-01` … `P6-12`, matching the filenames — **143 ids**, `ls issues/p*.md | wc -l`. The ids must never
+`P0-01` … `P6-12`, matching the filenames — **144 ids**, `ls issues/p*.md | wc -l`. The ids must never
 collide with anything else in this design set. `DECISIONS.md` §6 fixes the namespaces:
 
 > Tasks `P0-01`… · Requirements `FR-001`… · Decisions `D-1`… · Open decisions `OD-1`… · Invariants
@@ -193,7 +194,7 @@ file and verified in context, and by declaring `IRR-`, `WS-` and the `T-n`/`T-nn
 
 - **`## Scope`** — the build list
 - the **module** it lands in and its **pre-allocated migration numbers**, on the header line, so
-  parallel work cannot collide. **858 migration numbers are allocated across 143 tasks with zero
+  parallel work cannot collide. **861 migration numbers are allocated across 144 tasks with zero
   duplicates and none outside its module's band** (823 before round 4, which claimed twenty-nine and
   released `V500061`; the 2026-09-10 fold added seven, `V500072`–`V500077` and `V510223`, when former
   `P5-24`'s two migrations were split across the tasks that own their parent tables) — the computed figure and the script that produces
@@ -233,8 +234,8 @@ Run these after any change to the backlog. Each audit round of the accounting pr
 the *previous* round's findings were indexed and not traced; indexing feels like closure and is not.
 
 ```bash
-# 143 tasks, and the plan's §2 table agrees in both directions
-ls issues/p*.md | wc -l                                                  # 143
+# 144 tasks, and the plan's §2 table agrees in both directions
+ls issues/p*.md | wc -l                                                  # 144
 python3 tools/check-design-set.py --check 8                              # pass
 
 # every requirement is owned by exactly one task
@@ -247,29 +248,29 @@ grep -ohE '\b[QHUYZKOJ]-[0-9]{3}\b' issues/p*.md | sort -u | wc -l        #  46 
 grep -ohE '\bR[GHJKL]-[0-9]{3}\b' issues/p*.md | sort -u | wc -l         #  82 of  83  (round 4)
 
 # scenarios, screens and tables the tasks reach for
-grep -ohE '\bWH-SC-[0-9]{3}\b' issues/p*.md | sort -u | wc -l            # 327 (catalogue: 327, §3.22 landed)
-grep -ohE '\bWS-[0-9]{3}\b'    issues/p*.md | sort -u | wc -l            # 244 (237 + seven round-3/round-4 ids, one of them reserved)
+grep -ohE '\bWH-SC-[0-9]{3}\b' issues/p*.md | sort -u | wc -l            # 330 (catalogue: 330, §3.23 landed)
+grep -ohE '\bWS-[0-9]{3}\b'    issues/p*.md | sort -u | wc -l            # 245 (237 + seven round-3/round-4 ids, one of them reserved, + WS-245 from P1-21)
 grep -ohE '\b(whb|wh3|whin|wha[a-z]|wh)_[a-z0-9_]+\b' issues/p*.md | sort -u | wc -l   # 391
 
 # the whole gate
 python3 tools/check-design-set.py --summary                              # 0 violations, exit 0
 ```
 
-<!-- check-design-set: scenario-citations begin WH-SC-328 - the allocation marker named as the subject of this paragraph, not cited as a scenario -->
-<!-- check-design-set: screen-citations begin WS-242 WS-245 - WS-242 is reserved for p5-13's marketplace-claim queue and WS-245 is the next free screen id; both are named as the subject of this paragraph, not cited as screens -->
+<!-- check-design-set: scenario-citations begin WH-SC-331 - the allocation marker named as the subject of this paragraph, not cited as a scenario -->
+<!-- check-design-set: screen-citations begin WS-242 WS-246 - WS-242 is reserved for p5-13's marketplace-claim queue and WS-246 is the next free screen id; both are named as the subject of this paragraph, not cited as screens -->
 
 **Re-run after the 2026-09-10 fold: scenarios 327, round-4 findings 82 of 83; the rest unchanged.**
 **The figures above were first computed on 2026-09-10 against the P-LATE tree, before the other three round-4
 fold partitions merged. Re-run them after the merge** (`GAP-REGISTER-R4.md` §4.1 rule 3). The
 scenario, round-2 and table figures move when the other partitions' task files land.
 
-Read those last three the way the checker does. **The scenario marker is now `WH-SC-328`.** Round 4
+Read those last three the way the checker does. **The scenario marker is now `WH-SC-331`.** Round 4
 took `WH-SC-306`–`WH-SC-327` for §3.22 and moved the marker, just as round 2 took
-`WH-SC-301`–`WH-SC-305` for §3.21. That movement is the reason the marker exists. `WH-SC-170` and `WH-SC-204` were the last two cited by no
+`WH-SC-301`–`WH-SC-305` for §3.21; `P1-21` then took `WH-SC-328`–`WH-SC-330` for §3.23. That movement is the reason the marker exists. `WH-SC-170` and `WH-SC-204` were the last two cited by no
 task; `X-041` closed them on 2026-09-02 into `P2-01` and `P2-14`, so **every scenario in the
-catalogue is now walked by a task**. **244
+catalogue is now walked by a task**. **245
 screen ids** is 237 real ones, plus `WS-240` (`P5-08`) and `WS-241` (`P2-23`) from round 4, plus
-`WS-238`, `WS-239`, `WS-243`, `WS-244` and the reserved `WS-242` from round 3. **The screen marker was then `WS-242`.** `p5-13` claimed `WS-238` for the marketplace-claim
+`WS-238`, `WS-239`, `WS-243`, `WS-244` and the reserved `WS-242` from round 3, plus `WS-245` (`P1-21`). **The screen marker was then `WS-242`.** `p5-13` claimed `WS-238` for the marketplace-claim
 queue before `BUILD-SPEC-SCREENS.md` §1 allocates it — **the table it also needed now exists**
 (`wh_marketplace_claims`, `WH-115`, `V510215`). But `GAP-REGISTER-R4.md` §4.0 **reserves `WS-238` and
 `WS-239`** for round 3's `RA-001` and `RA-002`. The two claims on `WS-238` collide, and the next screen
@@ -278,6 +279,7 @@ allocation must settle it. That is recorded here, not decided.
 (`P1-18`); `p5-13`'s marketplace-claim queue takes a new id from the marker when its lane folds.
 **The second lane (`W0-1b`, same day)** reserved **`WS-242`** for that queue, allocated `WS-239`
 (`P2-25`), `WS-243` (`P6-02`) and `WS-244` (`P2-21`), and moved **the screen marker to `WS-245`**.
+`P1-21` then took `WS-245` *Master Merge Log* (2026-09-16) and moved the marker to **`WS-246`**.
 **391 table names** is up from 345: the round-4 files name the junctions and side tables
 `GAP-REGISTER-R4.md` §4.2 owes to `DATA-MODEL.md` §2, plus two fenced counter-examples (`whb_rfid_reads` in `p3-24`, `wh_damage_claims` in `p5-23`)
 which are named **so they are not built** and are excluded from check-3 by their own fences.

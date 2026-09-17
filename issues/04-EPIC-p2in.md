@@ -50,8 +50,9 @@ print layouts are **data**.
 later.** `INDIA-LOCALISATION-PACK.md` §2.2 numbers **24 hook columns across 8 tables, all wave 1** —
 `company_id` and `warehouse_id` on the movement · **`hsn_code` snapshotted on the line** ·
 `duty_status` on the line **and in the `L-5` position key** · `reason_code_id` on header **and** line
-· `itc_treatment` and `statutory_category` on the reason code · `legal_entity_id`,
-`tax_registration_id` and `state_code` on the warehouse · `tax_classification_code` on the item ·
+· `itc_treatment` and `statutory_category` on the reason code · `state_code` on the warehouse (its
+`legal_entity_id` and `tax_registration_id` are dropped; tax identity reads through the `REGISTERED`
+link, `D-14`) · `tax_classification_code` on the item ·
 `gst_uqc_code` and `unece_rec20_code` on the UoM · the five Legal-Metrology columns on the lot · and
 the six transfer columns including **`is_taxable_supply`, derived at creation and frozen**.
 

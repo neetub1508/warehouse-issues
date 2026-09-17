@@ -288,13 +288,16 @@ are still unsupported**.
 all 83 findings and the full fold plan are in [`GAP-REGISTER-R4.md`](GAP-REGISTER-R4.md).
 
 1. **Every association between two independent masters is an effective-dated many-to-many junction.**
+   *(Narrowed 2026-09-14 by item 8: dates only where history is read; a pure link-set is edited from a
+   row action.)*
    It carries `is_primary`, or a role, where a default is needed. **Two kinds of row stay scalar**:
    composition, where a line belongs to its parent document, and ledger fact rows, which record what
    happened and are never re-pointed. The junction shape is R22 §1.3: `effective_from`/`effective_to`,
    one current row per key enforced by an `EXCLUDE` constraint, and no `is_active` on a dated junction.
    R22's six KEEP-SCALAR findings (`RG-022`…`RG-027`) mark the edge of this rule.
 2. **A warehouse is linked to platform branches through `whb_warehouse_branches`.** At every instant it
-   has **exactly one `REGISTERED` link**. That branch supplies the site's GSTIN, its branch-scoped
+   has **exactly one `REGISTERED` link**. *(Narrowed 2026-09-14 by item 8g: at most one, and a site with
+   none is refused when used, not at create.)* That branch supplies the site's GSTIN, its branch-scoped
    statutory numbering, and its tax attribution. `whb_warehouses` loses `branch_id`,
    `tax_registration_id` and `legal_entity_id`.
    - `SERVING` links grant visibility and let the branch draw stock.
@@ -331,6 +334,94 @@ all 83 findings and the full fold plan are in [`GAP-REGISTER-R4.md`](GAP-REGISTE
    substance stands — useful-but-not-day-one work is still tracked and still versioned later — but it is
    tracked as a *v1.1* or *v2 increment* inside an existing task, not as a new task file.
    `GAP-REGISTER-R4.md` §4.6 has the mapping.
+8. **Round-5 amendment, 2026-09-14 (user decision): follow the existing pages, and go no heavier than the
+   need.** Items 1–7 stand except where this item narrows them.
+   - **a. Dates only where history is read.** A junction carries `effective_from`/`effective_to` and an
+     `EXCLUDE` only when something must answer *"which link held at a past instant"* — a movement's
+     `occurred_at`, a filed return, a custody shortage. That is `whb_warehouse_branches`,
+     `whb_company_branches`, `whb_warehouse_companies`, `whb_owner_companies`,
+     `whb_location_user_assignments`, `whin_gstin_profile_branches`, and the dated junctions already
+     specified (category assignments, supplier sources, lot parties). **Any other association between two
+     masters uses the plain junction of the existing pages**: `(parent_id, child_id, is_active,
+     display_order)`, plus `is_primary` where a default is needed, and `uk(parent_id, child_id)` — as
+     dealer `pdi_stock_yard_branches` (`V20123`), `pdi_stock_yard_companies` (`V20121`) and automotive
+     `company_branches` (`V10014`). The undated junctions already in `DATA-MODEL.md` stay as specified.
+     Item 1's *"every association is effective-dated"* is narrowed to this.
+   - **b. A pure link-set is maintained from a row action, not from a sub-grid.** Where a parent's
+     association with another master carries nothing but the link (role, primary, dates), the parent's
+     list has a **row action button** that opens `<Parent><Children>Modal` — one file per link, copied from
+     its twin (item 8h): current list + available list, add several, remove one;
+     `Modal size="xl" resizable minWidth={800}`, `lazyModal()` + `Suspense`, mounted only when open. The
+     backend is `GET /{id}/<children>`, `POST /{id}/<children>` (a list of ids) and
+     `DELETE /{id}/<children>/{childId}` on the parent's controller, gated on the parent's `:edit` — **no
+     new permission, no new screen id, no grid of its own**. On a dated junction *remove* is **End link**
+     (`PATCH /{id}/<children>/{linkId}/end` sets `effective_to`, never deletes). **Copy these, do not
+     redesign them** (classic repo):
+     - platform Users — `platform/frontend/src/components/userManagement/UserManagementTable.tsx:695-701`
+       (the button), `platform/frontend/src/app/dashboard/admin/users/page.tsx:22,423,1006-1012`,
+       `UserBranchesModal.tsx`
+     - dealer PDI Stock Yards — `dealer/frontend/src/components/pdi-stock-yards/PdiStockYardManagementTable.tsx:599-611`,
+       `dealer/frontend/src/app/dealers/pdi-stock-yards/page.tsx:20-21,668-698,1019-1032`,
+       `PdiStockYardCompaniesModal.tsx`, `PdiStockYardBranchesModal.tsx`,
+       `dealer/backend/src/main/java/ai/dealer/controller/PdiStockYardController.java:535-632`
+     - automotive Companies — `automotive/frontend/src/components/companies/CompanyBranchesModal.tsx` over
+       `CompanyAssignmentModal.tsx`, `automotive/backend/src/main/java/ai/automotive/controller/CompanyController.java:423-464`
+       *(its backend endpoints only since item 8h — the generic `CompanyAssignmentModal` is not copied)*
+
+     A tab that edits a record's **own child rows** stays a child editor, as on the existing pages:
+     counterparty roles, addresses and tax registrations (WS-021), item identifiers, packaging and
+     category-per-scheme (WS-023), lot parties (WS-036). A lifecycle transition keeps its own modal
+     (*Change registration*). **The rule applies to WS-015 *Branches*, WS-016 *Branches* and *Companies*,
+     WS-017 *Custody*, WS-019 *Companies*, WS-173 *Places of business*, and every future pure link-set.**
+   - **c. A warehouse and an owner link to companies; neither carries `company_id`.**
+     `whb_warehouse_companies` (`OPERATOR`/`STOCK_HOLDER`, one current `OPERATOR`) and
+     `whb_owner_companies` (`HOUSE`/`SERVICED_BY`, one current `HOUSE` owner per company) move from v2
+     to **v1**, and `whb_warehouses.company_id` and `whb_owners.company_id` are dropped once backfilled.
+     Create writes no company link and no `REGISTERED` branch (item 8g).
+     The movement company assertion (`RG-012`) reads a `STOCK_HOLDER` link at `occurred_at`, and a
+     transfer's two sites must both hold a current link to its company (`RK-007`). This takes the
+     warehouse and owner parts of `FR-468` into v1.
+   - **d. Codes are unique across the install** on `whb_warehouses` and `whb_owners` — `uk(code)`, as
+     platform `branches.branch_code` is. This supersedes `RL-004` for these two tables only; locations
+     stay `uk(warehouse_id, code)` and LPNs stay install-wide. House owners sharing the seeded code `HOUSE`
+     are renamed `HOUSE-<company code>` before the key is added (a single-company install keeps `HOUSE`),
+     and the migration refuses to run while any other duplicate code exists.
+   - **e. A branch belongs to one company at a time.** `whb_company_branches` gains
+     `EXCLUDE (branch_id =, range &&)`. The round-4 constraint only refused the same pair twice, while
+     WS-016's branch options and `422 WAREHOUSE_BRANCH_COMPANY_MISMATCH` already read *"the branch's
+     company now"* as one answer.
+   - **f. Built work is corrected by one task, `P1-22`**, because closed tasks are never reopened. Its
+     migrations are forward-only — `V500073` (reassigned from `P0-06`), `V500078`, `V500079`, `V500080`
+     (drops `V500012`'s at-least-one `REGISTERED` triggers and function, item 8g) — and no applied
+     migration is edited.
+   - **g. Links are never picked on create** (user decision, 2026-09-14), as on the existing pages:
+     dealer `PdiStockYardModal` and automotive `CompanyModal` pick no branch or company. *Add Warehouse*
+     (WS-016) has no *Company*, *Registered Branch* or *Registered From*; *Add Owner* (WS-019) has no
+     *Company*. Every company link and every non-`REGISTERED` branch link comes from the row actions of
+     item 8b. **The `REGISTERED` branch is set — the first time, now that create writes none — and
+     changed only through the existing *Change registration* row action**, under item 4's maker–checker
+     rules. The *Branches* popup neither offers `REGISTERED` nor ends it; an attempt is refused with a
+     field-level `422`. A site with no
+     current `REGISTERED` branch or `OPERATOR` company, or an owner with no current company, is refused
+     with a field-level `422` **when it is used** — number series, documents, periods, import, stocking —
+     not at create. Every other current link can be ended from its popup. There is at most one current
+     `REGISTERED`, `OPERATOR` and `HOUSE` link; `OPERATOR` and `HOUSE` are replaced by adding one in the
+     *Companies* popups, which ends the current one in the same save. This replaces *"a site cannot
+     exist without its `REGISTERED` link"* (R22 §1.2.2 guard 1 as applied to create, and its deferred
+     at-least-one trigger) and the *"last link cannot be ended"* rule. `I-22` still refuses a movement at
+     an instant with no `REGISTERED` link.
+     *Why:* a create form that picks links is a second place to maintain them, and the existing pages
+     keep one, the row action. Refusing at use puts the check where the link is read, so a site or owner
+     can be set up before its branch or company is settled, with no trigger blocking the save.
+   - **h. Link popups are one file per link, a line-by-line copy of the existing twin** (user decision,
+     2026-09-14): branches ← platform `UserBranchesModal` / dealer `PdiStockYardBranchesModal`;
+     companies ← dealer `PdiStockYardCompaniesModal`; custody users ← platform `GroupUsersModal`. There is
+     **no shared generic assignment modal** and **no date field** in the popups — a link starts now, and
+     *Remove* ends it. The only addition is a per-row role column, copied from dealer
+     `CustomerDocumentTypeAssignmentModal`. This supersedes the generic `WhbAssignmentModal<T>` that
+     `P1-22` first specified.
+     *Why:* a copy is reviewed by diffing it against its twin; a new generic modal has no twin to diff
+     against, and a date field is exactly what the twins do not have.
 
 ### D-15 · A posted moving average is never restated; a backdated receipt inserts a layer
 
@@ -495,7 +586,7 @@ and not know which won.
 
 ## 6. Id namespaces — disjoint by construction
 
-<!-- check-design-set: screen-citations begin WS-242 WS-245 — the BUILD-SPEC-SCREENS.md §1 allocation marker and the id reserved ahead of it: WS-242 reserved for P5-13's marketplace-claim queue, WS-245 the next free. Neither has a row yet; named so a new screen takes the marker instead of reusing another screen's grid -->
+<!-- check-design-set: screen-citations begin WS-242 WS-246 — the BUILD-SPEC-SCREENS.md §1 allocation marker and the id reserved ahead of it: WS-242 reserved for P5-13's marketplace-claim queue, WS-246 the next free. Neither has a row yet; named so a new screen takes the marker instead of reusing another screen's grid -->
 
 The accounting set's most expensive defect was three different things sharing one namespace, which a
 late rename could not repair because a blanket search-and-replace corrupted the decisions table twice.
@@ -511,7 +602,7 @@ That cannot happen here.
 | Enforceable constraints | **`I-1` … `I-20`** — plus **`I-21`, allocated 2026-09-03** by `OD-14` as `L-15`'s database guard and **owed into `DATA-MODEL.md` §6.3**, which still stops at `I-20`. Allocating it here rather than there is deliberate: §6 is the allocation, and an id claimed in two places is the collision this table exists to prevent. **`I-22`, `I-23`, `I-24`** were **allocated 2026-09-10** by `GAP-REGISTER-R4.md` §4.0 and are owed into §6.3 after `I-21`: `I-22`, a movement at an instant with no `REGISTERED` link is refused (`V500030`); `I-23`, the `REGISTERED` history is exclusive and append-only (`V500037`); `I-24`, a rule row that a reservation or task references is immutable (`V500031`, `V500033`, `V510017`) | `DATA-MODEL.md` §invariants-as-SQL |
 | Irreversible rows | **`IRR-01` … `IRR-63`** — plus **`IRR-64` … `IRR-67`, allocated 2026-09-10** by `GAP-REGISTER-R4.md` §4.0 and owed into `IRREVERSIBLE.md` §2: registration history, v1 junction history, the outbox event schema, and non-ledger partitioning at `CREATE`. The next free is `IRR-68` | `IRREVERSIBLE.md` §2 |
 | Scenarios | **`WH-SC-001` …** | `SCENARIO-CATALOGUE.md` |
-| Screens | **`WS-001` … `WS-237`** — **`WS-238`** *Warehouse Grants* was **allocated 2026-09-11** to round 3's `RA-001` (`P1-18`). The same day's second fold (lane `W0-1b`) allocated **`WS-239`** *Item Prices* (`RA-002`, `P2-25`), **`WS-243`** *Location Utilisation* (`RC-009`, `P6-02`) and **`WS-244`** *Metric Targets* (`RC-007`, `P2-21`), and **reserved `WS-242`** for `P5-13`'s marketplace-claim queue. **`WS-240`** *Trade Portal* and **`WS-241`** *Approval Levels* were **allocated 2026-09-10** by `GAP-REGISTER-R4.md` §4.0 | `BUILD-SPEC-SCREENS.md` §1 — the index is the allocation; the next free is `WS-245` |
+| Screens | **`WS-001` … `WS-237`** — **`WS-238`** *Warehouse Grants* was **allocated 2026-09-11** to round 3's `RA-001` (`P1-18`). The same day's second fold (lane `W0-1b`) allocated **`WS-239`** *Item Prices* (`RA-002`, `P2-25`), **`WS-243`** *Location Utilisation* (`RC-009`, `P6-02`) and **`WS-244`** *Metric Targets* (`RC-007`, `P2-21`), and **reserved `WS-242`** for `P5-13`'s marketplace-claim queue. **`WS-240`** *Trade Portal* and **`WS-241`** *Approval Levels* were **allocated 2026-09-10** by `GAP-REGISTER-R4.md` §4.0. **`WS-245`** *Master Merge Log* was **allocated 2026-09-16** by `P1-21` | `BUILD-SPEC-SCREENS.md` §1 — the index is the allocation; the next free is `WS-246` |
 | Findings — R1 codebase reality | **`C-001` … `C-050`** | `reviews/R1` |
 | Findings — R2 tier-1 WMS | **`T-001` … `T-097`** | `reviews/R2` |
 | Findings — R3 ERP / mid-market | **`E-001` … `E-090`** | `reviews/R3` |
@@ -641,7 +732,7 @@ collision.
   accounting decisions table twice.
 - **`WS-nnn` — screens.** 237 ids, resolvable by the checker and never declared here. **The index in
   `BUILD-SPEC-SCREENS.md` §1 is the allocation**: a screen that is not a row there does not exist, and a
-  new screen takes the next free id (`WS-245` at the time of writing) rather than reusing another
+  new screen takes the next free id (`WS-246` at the time of writing) rather than reusing another
   screen's grid.
 - **`T-n` and `T-nnn` — two trap/finding registers under one prefix, deliberately not renumbered.**
   R1 §8's traps are **`T-1`…`T-18`, unpadded**; R2's findings are **`T-001`…`T-097`, three digits**.

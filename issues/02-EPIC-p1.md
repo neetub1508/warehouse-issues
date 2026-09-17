@@ -55,9 +55,10 @@ references `whb_counterparties`, and `whb_owners` is `V500007` while `whb_counte
 
 `WH-SC-045` … `WH-SC-052` run **in order**:
 
-1. **`WH-SC-045`** — create a warehouse with its `REGISTERED` branch link, a structured address and a
-   timezone; the GSTIN is **read from that branch**, never duplicated. A second current `REGISTERED`
-   link is refused and `SERVING` is offered (`FR-460`, `D-14`).
+1. **`WH-SC-045`** — create a warehouse with a structured address, a timezone and no link, then add its
+   `REGISTERED` branch through the *Change registration* row action (maker–checker) — the **Branches**
+   popup does not offer it; the GSTIN is **read from that branch**, never duplicated. A second approved
+   *Change registration* ends the first (`FR-460`, `D-14` item 8g).
 2. **`WH-SC-046`** — generate **1,152 bins** from a format mask, with the **count and the first and
    last codes previewed before anything is written**.
 3. **`WH-SC-047`** — import an item master where the dry run reports **per-row, per-cell** errors.
@@ -109,7 +110,7 @@ That command is the authority; re-run it after any header change.
 - `V500076` — `P1-02` **v2 increment**: `whb_uom_scheme_codes` (`RG-020`, folded from former `P5-24`)
 - ★ `V500011` — `P1-08` counterparty roles, counterparties, role links, external refs **+ the `whb_owners` FK**
 - ★ `V500012` `V500013` — `P1-05` warehouses · locations, location external refs **and the virtual-location seed**
-- `V500070` — `P1-05` **v2 increment**: `whb_warehouse_companies`, `whb_location_owner_dedications` (`RG-012`, `RG-014`, `FR-468`, folded from former `P5-24`)
+- `V500070` — `P1-05` **v2 increment**: `whb_location_owner_dedications` (`RG-014`, `FR-468`, folded from former `P5-24`; `whb_warehouse_companies`, `RG-012`, moved to `P1-22` at v1)
 - ★ `V500014` `V500015` — `P1-01` categories and variant axes · **`whb_items`, `PNR-4`**
 - `V500075` — `P1-01` **v2 increment**: `whb_item_uom_defaults`, `whb_item_tax_classifications` (`RG-010`, `RG-020`, folded from former `P5-24`)
 - ★ `V500018` `V500035` — `P1-07` **lots, serials (`PNR-4`), LPNs** · transformations
@@ -121,8 +122,13 @@ That command is the authority; re-run it after any header change.
 - `V500069` `V500077` — `P1-03` **v1.1 increment**: the ABC cut-offs and previous class (`RK-003`, folded from former `P3-25`) · **v2 increment**: `warehouse_id` on supplier sources (`RG-011`, folded from former `P5-24`)
 - `V500071` — `P1-19` **v2 increment**: `whb_registry_translations` (`RL-015`, folded from former `P5-28`)
 - `V500055` — `P1-21` **`whb_master_merges`** — the round-2 master-merge task (`FR-451`, `Z-007`)
-- `V500051` `V500052` `V500054` — `P1-11` channels · transport details · the `whb_activity_history` **view**
-- `V501050`–`V501069` — `P1-20` base grid configuration, **wave 2**
+- `V500073` — `P1-22` **`whb_owner_companies`** (v1, reassigned from `P0-06`; drops `whb_owners.company_id`, `uk(code)`, `RG-013`, `D-14` item 8)
+- `V500078` — `P1-22` **`whb_warehouse_companies`** (v1; drops `whb_warehouses.company_id`, `uk(code)`, `RG-012`, `D-14` item 8)
+- `V500079` — `P1-22` one company per branch — `EXCLUDE` on `whb_company_branches` (`D-14` item 8e)
+- `V500080` — `P1-22` drops `V500012`'s at-least-one `REGISTERED` triggers and function — a site saves with no link (`D-14` item 8g)
+- `V500058` — `P1-14` seed correction: the `REJECTED` stock status and the `REJECT` disposition (claimed 2026-09-14 from the `V500058`–`V500059` gap because `V500005`/`V500010` are applied; `RQP-OPEN-12`)
+- `V500051` `V500052` `V500054` `V500059` — `P1-11` channels · transport details · the `whb_activity_history` **view** · `whb_stock_movements.channel_id` (claimed 2026-09-15 from the `V500059` gap; user decision)
+- `V501050`–`V501069` — **released 2026-09-16 and unallocated** (C6 fix 2): `P1-20`'s base grid-configuration *wave 2* does not exist and is not wanted. Every base grid ships its `grid_column_definitions`, `filter_definitions` and `grid_preferences` in the migration that CREATES its own table — verified over 57 base grid identifiers. No file may be written in this range (`IMPLEMENTATION-PLAN.md` §7.2 row 1; `p1-20.md`)
 
 **`warehouse` band:**
 
@@ -134,7 +140,7 @@ That command is the authority; re-run it after any header change.
 - `V510017` — `P1-15` putaway rules and tasks
 - `V510018` — `P1-16` receipt reversals and lines
 - `V510031` — `P1-17` transfer orders and lines — **schema only**
-- `V511000` `V511001` `V511010` `V511020`–`V511059` `V511200` — `P1-20` app permissions, dependencies, menus, app grids wave 1, admin settings
+- `V511000` `V511001` `V511010` `V511200` — `P1-20` app permissions, dependencies, menus, admin settings (its *app grids wave 1*, `V511020`–`V511059`, was **released 2026-09-16 and is unallocated** — C6 fix 2: each app grid's configuration is its own screen task's acceptance, in that task's table migration, `P1-13` `P1-14` `P1-16`; `IMPLEMENTATION-PLAN.md` §7.2 row 2)
 
 `P1-19`'s v1 work writes **no migration** (its `V500071` is the v2 increment above); that is not a
 defect — it is content and registration. `P1-18` writes one, `V500047` (`RA-001`, round 3).
@@ -144,7 +150,7 @@ defect — it is content and registration. `P1-18` writes one, `V500047` (`RA-00
 __TASKS__
 
 **Order:** `{P1-01, P1-05, P1-08, P1-09} → {P1-02, P1-07} → P1-03 → P1-04 → P0-02 → … → P1-06 →
-P1-12 → P1-13 → {P1-14, P1-15, P1-16} → P1-17`. `P1-10` follows `P1-01`; `P1-18`, `P1-19` and
+P1-12 → P1-13 → {P1-14, P1-15, P1-16} → P1-17`. `P1-10` follows `P1-01`; `P1-22` follows `P1-05`; `P1-18`, `P1-19` and
 `P1-20` follow `P0-15`.
 
 - **The six starred masters' migrations come first**, before `P0-02`; **their screens and services

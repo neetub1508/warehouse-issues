@@ -20,7 +20,8 @@
 | **Sources** | `issues/DEFECTS-FOUND.md` (29 entries, three authoring passes) · `docs/DEFECTS-FOUND.md` (9 entries, the P5/P6 pass) — **both deleted on merge** |
 | **New in the merge** | `X-039`…`X-053`, filed while writing [`GAP-REGISTER.md`](GAP-REGISTER.md) |
 | **New in review round 2** | `X-054` and `X-055`, filed 2026-09-02 — while regenerating `DATA-MODEL.md` §8.4, and while authoring `WH-SC-301`. **55 entries in total** — `ls` is not the count; `grep -c '^### `X-0' docs/DESIGN-SET-DEFECTS.md` is |
-| **Total** | **55** defects — **7** BLOCKER · **28** MAJOR · **20** MINOR. *The row previously read 53 / 8 / 25 / 20, which summed correctly to 53 but matched no count in the file; recomputed 2026-09-02 with the command below* |
+| **New in wave C6** | `X-056`, filed 2026-09-16 in **§7** — a platform-code follow-up found while settling `P1-20`. **56 entries in total** |
+| **Total** | **56** defects — **7** BLOCKER · **28** MAJOR · **21** MINOR. *Was 55 / 7 / 28 / 20 until `X-056` was filed 2026-09-16; before that the row read 53 / 8 / 25 / 20, which summed correctly to 53 but matched no count in the file; recomputed 2026-09-02 with the command below* |
 | **Severity command** | ``awk '/^### `X-/{if(f)print s; f=1; s=""} f{if(s=="" && match($0,/(BLOCKER\|MAJOR\|MINOR)/)) s=substr($0,RSTART,RLENGTH)} END{if(f)print s}' docs/DESIGN-SET-DEFECTS.md \| sort \| uniq -c`` — **entries `X-039`…`X-053` carry their severity in the heading and the rest carry it in the quote block**, so a grep of `> **Severity**` alone returns 39, not 55. The `f` flag matters too: without it the §0 total row above is itself counted as a BLOCKER |
 | **Companion** | [`GAP-REGISTER.md`](GAP-REGISTER.md) — §3 of that document is where the computed failures below come from |
 
@@ -1558,7 +1559,7 @@ it was **the second block that was not re-derived**.
 
 ### `X-055` · The quality-inspection mixed-result rollup is `CONDITIONAL` in the FRD and the exit scenario, and `PARTIAL` in the data model, the screen spec and the task — **MAJOR, and it is the column's stored value**
 
-> **Severity** MAJOR · **Status** **OPEN — a naming decision, deliberately not taken here.** Found 2026-09-02 by review round 2 while authoring `WH-SC-301` for `Q-006`
+> **Severity** MAJOR · **Status** **FIXED 2026-09-14 — `PARTIAL`**, on ratifying `docs/contracts/receipt-qc-putaway.contract.md` (`RQP-OPEN-01`): `FR-133` and `WH-SC-070` amended in the same change; `DATA-MODEL.md`, WS-080 and `issues/p1-14.md` already read `PARTIAL` · Found 2026-09-02 by review round 2 while authoring `WH-SC-301` for `Q-006`
 
 **Claim.** `FR-133` states the rollup as *"all pass → `PASS`, all fail → `FAIL`, anything mixed or
 partial → `CONDITIONAL`"*, and `WH-SC-070` — a **P1 acceptance scenario** — asserts the same word.
@@ -1971,3 +1972,39 @@ not lost:
 - **No count was asserted.** `DATA-MODEL.md` §8.2, §8.4 and `IMPLEMENTATION-PLAN.md` §8.1, §8.3 were
   re-run with the documents' own commands and their stated outputs replaced with what those commands
   actually produced.
+
+---
+
+## §7 · Filed after the merge — wave C6, 2026-09-16
+
+Added under the preamble's *"append-only from here — add a section, never rewrite one"*. This section
+carries defects found **in platform code** while settling a warehouse task: real, outside this design
+set's remit to fix, and recorded here so they are not rediscovered.
+
+### `X-056` · Global Settings never re-fetches after a `409`, so every save retry re-conflicts until the administrator reloads by hand — **MINOR**
+
+> **Severity** MINOR · **Status** OPEN — **platform code, not a design-set document**; the owner is the platform module, not `P1-20` · **Found** 2026-09-16, while proving `CONFIG-CASE-02` for `P1-20` (wave C6 fix 3)
+
+**Claim.** `P1-20` fixed the stale-revision retry on the **Admin Settings** page. The sibling **Global
+Settings** page carries the same revision-guarded save and the same `409 CONFIG_CONFLICT`, and did
+**not** get the fix.
+
+**Evidence.**
+- `platform/frontend/src/app/dashboard/admin-settings/page.tsx:454-462` — the save `catch` calls
+  `fetchSettings()` when `isConfigConflict(error)`, with the reason in a comment: *"The revision this
+  screen holds is the one the conflict was refused against, so every retry would conflict again until
+  the administrator reloaded by hand."* The unsaved changes stay, so the retry re-applies them.
+- `platform/frontend/src/app/dashboard/admin-settings/global-settings/page.tsx:250-255` — the same save
+  `catch` logs and sets a message (`describeSaveFailure`, which *does* recognise the `409` at
+  `:196-201` and tells the administrator to reload) and **never re-fetches**. The screen keeps the
+  revision the conflict was refused against, sent again by the next save from the `revisions` map built
+  at `:122-137`.
+
+**Impact.** After one concurrent save, the Global Settings screen is stuck: every retry re-conflicts
+with the same stale revision, and only a manual page reload clears it. The message tells the
+administrator to reload, so it is a usability defect rather than data loss — which is why it is MINOR
+and not MAJOR.
+
+**Not fixed here.** The screen belongs to **platform**, not to `P1-20` or to any warehouse task, and
+this wave's remit was the design set only. The fix is the four lines the Admin Settings page already
+has, applied to the Global Settings `catch`.
