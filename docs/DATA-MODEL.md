@@ -3298,13 +3298,15 @@ from the *identity key*, and conflating them is how the wrong constraint gets wr
 #### `I-20` — gapless document numbering · `V500020`
 
 ```sql
-CREATE UNIQUE INDEX uk_whb_number_series_issued_value  ON whb_number_series_issued (series_id, issued_value);
+CREATE UNIQUE INDEX uk_whb_number_series_issued_value  ON whb_number_series_issued (series_id, period_key, issued_value);  -- Z-002
 CREATE UNIQUE INDEX uk_whb_number_series_issued_number ON whb_number_series_issued (series_id, formatted_number);  -- RL-004
 ```
 
 `whb_next_document_number(series_id)` takes `SELECT … FOR UPDATE` on the series row, increments,
 inserts the issue row and returns — all in the caller's transaction, so a rollback releases the number
-and gaplessness holds. A nightly job asserts `MAX(issued_value) = COUNT(*)` per series.
+and gaplessness holds. A nightly job asserts `MAX(issued_value) = COUNT(*)` per `(series_id, period_key)` —
+a YEARLY/MONTHLY series restarts at 1 in each period, so a per-series assertion would be false for every
+resetting series (`Z-002`; amended 2026-09-17, P0-13 C9 fix).
 
 **Do not build this on the platform's existing code generator**: it is scan-based, explicitly not
 gapless and racy (`C-019`), and a missing GRN number is an audit question.
