@@ -1433,8 +1433,10 @@ accounting-base 660, accounting 660).
 >    the token `whad_`, `whas_`, `whaf_`, `whaa_`, `wh3_`, `whin_`, `log_`, `accessory_`, `pdi_`,
 >    `service_` or `asset_` inside a `REFERENCES` clause.
 > 3. **Every base-band FK targets a `whb_` table or an asserted platform whitelist** (`users`,
->    `user_details`, `branches`, `documents`). **The whitelist is itself asserted**, so widening it
->    is a reviewed act rather than a diff nobody notices.
+>    `branches`, `documents`, `currencies`). **The whitelist is itself asserted**, so widening it
+>    is a reviewed act rather than a diff nobody notices. *(P0-14 build, 2026-09-17: the whitelist is
+>    asserted exactly AND asserted used. `currencies` is referenced by `V500001`, `V500023` and
+>    `V500030`; `user_details` is referenced by no base migration and is not carried.)*
 > 4. **No `CHECK (… IN (…))` on any of the thirteen registry columns of §7.2.** The test names the
 >    thirteen `table.column` pairs **explicitly**.
 > 5. **The scanners self-test.** Copy the shape at
@@ -1447,6 +1449,17 @@ accounting-base 660, accounting 660).
 > 7. **No `(registry, code)` pair is inserted by two `owning_module` values** across every
 >    warehouse-family band (`D-2`), reason codes compared on `(context, code)`. `PC-66`'s guard
 >    catches a collision in one install; this catches it in the reactor (`RL-003`).
+>
+> *As built (P0-14, 2026-09-17).* `issues/p0-14.md` ratified **six** assertions, and those are what
+> `WarehouseBaseCouplingTest` carries: items 1, 2+3 (one rule, plus a scan of every `warehouse*`
+> module for `ALTER TABLE whb_* … REFERENCES` a non-base table), 4, the migration-band check, the
+> `IRREVERSIBLE.md` §3.6 header check, and the scanner self-test (`ScannerIntegrity`), with P0-15's
+> §10.2 verb-coverage hand-off beside them. **Items 6 and 7 are not built as tests:** item 6 is
+> asserted at migrate by `V500002`'s verification (`ACCESSORIES` unclaimable); item 7 has no
+> reactor-level test — `PC-66`'s per-install `RL-003` guard in each seeding migration is the only
+> check. Warehouse modules are found by directory name, never by a list, so adding an adapter needs
+> no commit here; an adapter's own migration and import rules live in its own
+> `ArchitectureInvariantsTest` (`AdapterContractRule`).
 
 ### Layer 2 — `warehouse-adapter-example`, a fixture adapter in the repo
 
