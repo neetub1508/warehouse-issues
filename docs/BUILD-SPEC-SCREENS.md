@@ -1633,7 +1633,7 @@ through a document screen. A create form here would be a second writer, and `FR-
 one.
 **Default sort:** `occurredAt` descending, then `sequenceNo` descending
 (`e.occurred_at DESC, e.sequence_no DESC`).
-**Statistics strip (filter-aware, uncached):** movements today · pending approval · pending handover ·
+**Statistics:** four tiles, filter-aware and uncached — movements today · pending approval · pending handover ·
 rejected handovers · reversed today.
 **Mobile:** none — warehouse has no mobile app (user scope rule, 2026-09-11; `MPR-OPEN-13`).
 
@@ -1701,7 +1701,7 @@ comparison for the filtered scope and writes findings to WS-043; the nightly job
 unattended).
 **Default sort:** *By location* `itemCode`, `warehouseName`, `locationCode` ascending; *By item*
 `itemCode`, `warehouseName` ascending.
-**Statistics strip (filter-aware, uncached):** distinct items · total on hand · total available ·
+**Statistics:** tiles, filter-aware and uncached — distinct items · total on hand · total available ·
 negative signed-balance rows (visible shortage); negative ATP rows (must be 0) · rows drifted at last rebuild.
 **Mobile:** none — warehouse has no mobile app (user scope rule, 2026-09-11; `MPR-OPEN-13`).
 
@@ -1850,7 +1850,7 @@ says which) · **Close short**. There is no Reopen in v1: `CLOSED` and `CANCELLE
 **Actions.** Row: View (WS-073) · Edit (`:edit` **and** `status = DRAFT`) · Submit · Approve
 (`wh_purchase_orders:approve`) · Cancel · Receive against (routes to WS-075 pre-filled) ·
 Print PO. Toolbar: Add · Import · Export · Grid config · Help.
-**Statistics strip:** open POs · overdue · fully received this month · value on order.
+**Statistics:** four tiles, filter-aware and uncached — open POs · overdue · fully received this month · value on order.
 **WS-073, the detail, is the lifecycle command centre** (`FR-125`) — a route, not a modal, with
 sub-tabs: **Lines** · **GRNs** · **QC results** · **Putaways** · **Invoices / three-way match** ·
 **Returns** · **Exceptions** (reconciliation cases) · **Movements** (the ledger lineage query of
@@ -1966,7 +1966,14 @@ The export is this set, `actions` excluded, and **the audit pair is in it becaus
 **Actions:** Add (multi-tab modal: header + line editor over `wh_stock_adjustment_lines`, **one
 `location_id`, one status, one owner per line** — the from/to shape is not re-homed) · Submit ·
 **Approve / Reject** (`wh_stock_adjustments:approve`; **the threshold is expressed by value as well
-as by quantity**, and the approver may not be the actor) · Post · Cancel · Print.
+as by quantity**, and the approver may not be the actor) · Post · Cancel · **~~Print~~** — *struck
+2026-09-18 (P2-01 review): no warehouse screen implements a print action, module-wide, and none is
+built here. Document rendering and reprint are `P2-14`'s own screens (`WS-130`/`WS-131`), so a Print
+button on this grid would be a second mechanism for the same job. If it is wanted it becomes its own
+task.* · **Approval policies** — the `RA-008` ladder's rungs are maintained from **this toolbar**, not
+from a screen id of their own: `GET/POST/PUT/PATCH
+/warehouse/inventory/adjustments/approval-policies` under `wh_adjustment_approval_policies:view` and
+`:manage`, with the **Test resolution** modal (`WS-051`'s shape) on `POST /approval-policies/test`.
 Every adjustment carries a **mandatory catalogue reason code**, and the reason's
 `affects_demand_history` flag decides whether the movement inflates the reorder point (`FR-146`).
 
@@ -1976,14 +1983,26 @@ adjustment is raised on this screen by an operator, so an empty grid means nobod
 is neither `out of scope` (the module is installed or the route would not resolve) nor `never
 populated` (nothing upstream has to happen first — the Add button is right there).
 
+**Thresholds, as built (2026-09-18, P2-01 review).** The resolved rung, its two thresholds and the row
+that supplied it are shown on the record because `requires_approval` is stored, not recomputed. Both
+axes compare **`|figure| >= threshold`, absolute, either one routing** — one method for the whole rule.
+The all-null rung is seeded `threshold_value = 0` (`warehouse.adjustment.default_threshold_value`,
+`V501100`) with `threshold_quantity` **NULL**, so out of the box **every adjustment carrying a value
+impact routes to approval**, exactly as that setting's own description says (*"Zero makes every valued
+adjustment need approval"*); *posts on submit* begins at the first rung given a non-zero value.
+
 **Statistics:** four tiles — **open** · **awaiting approval** · **posted this period** · **net value
 impact this period**. **No `statistics.*` cache name is registered** for this strip: it is computed
 from the same search and filters as the rows (`FR-395`), so a cache name would cache nothing while
 reading as though it did — `CacheConfiguration.java:190-196` records that exact mistake with its issue
 numbers (`classic#790`, `#791`). Asserted by `NonFunctionalFoundationsTest` §1c.
 
-**Mobile:** `screens/whStockAdjustment` — create and submit; **approval is desk-only** and the mobile
-screen says so rather than hiding the button.
+**Mobile:** `none` in v1. ~~`screens/whStockAdjustment` — create and submit; **approval is desk-only**
+and the mobile screen says so rather than hiding the button.~~ **SUPERSEDED** by the standing decision
+that warehouse ships no mobile app (user scope rule 2026-09-11, `warehouse-base/INSTALL.md` §11,
+asserted by `warehouseMobileDecisionGate.test.ts`), so `P2-01`'s mobile acceptance row is **waived**
+rather than met. The screen stays recorded as the intended surface for the day the decision is
+reversed, which means editing `INSTALL.md` first.
 
 #### WS-090 · Transfer Orders
 
@@ -2136,7 +2155,7 @@ WHERE released_at IS NULL`; occupancy is derived at read time and deliberately n
 | `holdNumber` | Hold No. | string | Y | Y | `hold_number` — **required column**, never hideable; issued from the gapless `HOLD` series through `WhbDocumentNumberIssuer` (`FR-426`), and a deferred constraint trigger refuses a committed hold without one |
 | `holdTypeName` | Hold Type | string | Y | Y | `wh_hold_types.name` via `hold_type_code` |
 | `subjectType` | Subject Type | string | Y | Y | `subject_type` — the `HOLD_SCOPE` vocabulary again, un-`CHECK`ed, reached by `(subject_type_list, subject_type)`; it is **the hold type's own scope**, never chosen independently |
-| `subjectLabel` | Subject | string | **N** | Y | **resolved on read** through `WarehouseDocumentDisplayRegistry` (`FR-357`), one resolve per distinct subject per page, falling back to `"<TYPE> <id>"` and never to blank. `is_sortable = false`: there is no label column to ORDER BY |
+| `subjectLabel` | Subject | string | **N** | Y | **resolved on read** through `WarehouseDocumentDisplayRegistry` (`FR-357`), one resolve per distinct subject per page, falling back to `"<TYPE> <id>"` and never to blank. `is_sortable = false`: there is no label column to ORDER BY. **In v1 the fallback is what every row shows**, deliberately: the registry dispatches on a `whb_document_types` code and the key passed here is a `HOLD_SCOPE` value, so until a module registers a resolver keyed on `LOT` / `ORDER` / `LOCATION` / `ITEM` / `SHIPMENT` the cell reads `LOT <id>`. `P2-07` and `P5-14`, which need a lot number on screen, are where that resolver belongs |
 | `reasonCodeName` | Reason | string | Y | Y | `whb_reason_codes.name` via `reason_code_id`, in the `HOLD` context |
 | `placedByName` | Placed By | string | **N** | Y | `UserDetails.getFullName()` via `placed_by` — resolved, so nothing to ORDER BY |
 | `placedAt` | Placed | date | Y | Y | `placed_at` (`TIMESTAMPTZ`) — the grid's default sort, `desc` |
@@ -2153,6 +2172,12 @@ table, so an audit pair would put one fact in two columns. `WhHoldExportService`
 `isLedgerStyle() = true` and `ExportServiceContractTest` checks the claim against this seed rather than
 taking it on trust. The export is the twelve keys above, `actions` excluded, under the grid's sort and
 the caller's filters.
+
+**Pickers are served by THIS screen's controller**, under `wh_holds:view`: the hold types
+(`GET /holds/hold-types`, carrying each type's `holdScope` and `requiresReason`), both reason contexts and
+the Placed By options. **Not** by WS-091's endpoints — a user holding `wh_holds:view` and `:place`, exactly
+what `V511242` says those verbs imply, would otherwise face an empty Hold Type picker and could place
+nothing. `requiresReason` also rides on the hold response, so Release reads no second resource.
 
 **Filters** — the `WAREHOUSE_HOLD` scope's six keys, contiguous from position 1, each one also a
 `COMMON_FILTER_CONFIGS.WAREHOUSE_HOLD` entry and a forwarded API-service parameter: `holdTypeCode`
@@ -2174,6 +2199,12 @@ authority from holding one) · Export · Grid config; row View · **Release** (`
 the type's own `release_permission`, `Q-001`, which is why the response carries `canRelease` and the
 button reads that rather than the permission alone). **There is no Edit and no Delete.**
 
+**`wh_holds:mass` is a SECOND authority, never a substitute.** A mass release demands
+`wh_holds:release` as well, checked in the service and not only on the controller, because the mass
+endpoint is one route that both holds and releases: without that check a holder of `:mass` alone could
+release five hundred holds of a type naming no permission of its own while being refused a single release
+of the very same hold.
+
 **Mass hold / release writes one `wh_holds` row per subject, with a reason, and moves nothing**
 (`RJ-008`). It is never `whb_lots.status_code`, which keeps job-set lifecycle states such as `EXPIRED`,
 and it is **not a status-change movement**: `FR-152`'s balanced two-line movement is for **physical
@@ -2192,8 +2223,11 @@ hold — the number that answers "how much of the warehouse is frozen", which a 
 because two holds on one lot is normal). All five are **filter-aware**, computed in the same statement
 as the count, and therefore carry **no `statistics.*` cache name** (`FR-395`, `RC-004`).
 
-**Mobile:** `screens/whHold` — place and release from the floor. Stated already in the section's Mobile
-line and repeated here because this block is now the screen's own.
+**Mobile:** `none` in v1. `screens/whHold` — place and release from the floor — is the intended surface and
+is **waived** by the standing decision that warehouse ships no mobile screens (2026-09-11), so p2-03's
+mobile acceptance criterion is waived rather than met. (Sibling warehouse migrations tag that decision
+`RB-001`; that citation is wrong — `RB-001` is the round-3 finding that mobile date filters ARE supported
+(`GAP-REGISTER-R3.md:227`) and says nothing about whether mobile screens exist.)
 
 #### WS-096 · Insufficient Stock & Lost Sales
 
@@ -2236,12 +2270,35 @@ stock or a lost sale is captured". It is not `empty`: there is no Add button, so
 either — the guard is always on; `WAREHOUSE_ALLOW_NEGATIVE_STOCK` changes what it does, never
 whether it logs.
 
-**Statistics:** `none`. `P2-01` names no tile for this screen and one cannot be justified from the
-task body: the grid's own total already answers "how many breaches", and every other question a
-controller asks of it (by item, by policy, by lost-sale flag) is a filter, not a tile. No
-`statistics.*` cache name, here or anywhere in warehouse v1 (`FR-395`).
+**Statistics:** five tiles — **breaches** (the rows under the caller's filters) · **lost sales**
+(`is_lost_sale`) · **blocked** · **warned** · **allowed** (the three `policy_applied` modes).
+**Amended 2026-09-18 (P2-01 review):** this block said `none` while the screen ships the strip, and the
+strip is what stays — five tiles is the house convention every other warehouse grid follows (§9.6
+point 3), and the three policy tiles answer the one question the log exists to answer, *how often is
+the switch letting stock go negative rather than refusing it*, which no single filter shows side by
+side. **Filter-aware, computed in the same statement as the count, therefore no `statistics.*` cache
+name** — here or anywhere in warehouse v1 (`FR-395`, `RC-004`): a cache name would cache nothing while
+reading as though it did.
 
-**Mobile:** `none`, stated as a decision — it is a controller report read at a desk.
+**The `POST` that has no caller on this screen is not dead code.** `POST
+/warehouse/inventory/insufficient-stock` under `wh_insufficient_stock_log:create` is the **integration
+point for the counter and the job-issue screens** — the lost-sale capture of `WH-SC-283`, raised by
+`P2-25`'s counter sale (`whadCounterSale`) and `P2-26`'s material issue, where the operator is
+standing when the sale is lost. This screen is contractually **read-only + Export** and calls it from
+nowhere; the sufficiency guard's own rows arrive through `WhbInsufficientStockRecorder` instead
+(`MPR-T4-10`), never over HTTP. Stated so the next reviewer reads an unwired endpoint as a seam and
+not as a leftover.
+
+**Open vocabularies render the registry, not an i18n map (decision, 2026-09-18).** `sourceType` is an
+open registry value (`FR-039`/`FR-382`): the cell and the filter option show the registry row's own
+`name`, falling back to its `code`, with **no i18n child map** — an adapter that seeds a source type
+must not need a translation release before its rows are legible, and a map would silently render blank
+for every code it does not list. The closed vocabularies on this screen (`policyApplied`, the
+booleans) **do** carry i18n maps, and that asymmetry is the rule, not an omission.
+
+**Mobile:** `none`, stated as a decision — it is a controller report read at a desk. (`P2-01` already
+said `none` here, so nothing is superseded; the warehouse-wide no-mobile decision of 2026-09-11
+reaches the same answer.)
 
 #### WS-097 · Blocked Movements Queue
 
@@ -2284,14 +2341,41 @@ messages this is **`never populated`** — "this fills in the first time the sys
 An empty queue is the good state and the message must read as one; `empty` ("nothing here yet")
 would imply a missing action, and there is no Add path onto this screen at all.
 
-**Statistics:** `none`. `P2-01` names no tile for this screen. The one number a supervisor watches —
-unresolved rows older than `warehouse.blocked_movement.alert_minutes` — is delivered as an **alert**
-from the scheduled job (`FR-165`, `FR-398`, `WhbJobCatalogue` + a `whb_job_runs` row per run), not as
-a tile, and the `unresolvedOnly` filter (default true) already scopes the grid to the working set. No
-`statistics.*` cache name, here or anywhere in warehouse v1 (`FR-395`).
+**Statistics:** four tiles — **pending** · **forced** · **resolved** · **discarded** (the
+`resolution_action` outcomes, with pending being the unresolved rows). **Amended 2026-09-18 (P2-01
+review):** this block said `none` while the screen ships the strip, and the strip is what stays. The
+**Pending** tile is the very number this section already says a supervisor watches; the point of a
+queue screen is that the count is on it. The **alert** from the scheduled job stays the escalation
+path for rows older than `warehouse.blocked_movement.alert_minutes` (`FR-165`, `FR-398`,
+`WhbJobCatalogue` + a `whb_job_runs` row per run) — a tile is read by whoever opens the screen, an
+alert reaches whoever has not. The `unresolvedOnly` filter (default true) still scopes the grid; the
+three outcome tiles are what it hides. **Filter-aware, computed in the same statement as the count,
+therefore no `statistics.*` cache name** (`FR-395`, `RC-004`).
 
-**Mobile:** `screens/whBlockedMovement` — the operator who was refused must be able to see why and
-raise the force request. Approving a force is desk-only.
+**Who writes the rows (amendment 2026-09-18, P2-01 review).** *"A physical move the system rejected"*
+names no producer, and a queue with no producer never fills. The producer is a port in
+`MPR-T4-10`'s split-delivery shape: `warehouse-base` declares **`WhbBlockedMovementRecorder`** and
+hands it every refused physical move — attempted movement type, attempted payload (`TEXT`), the
+`FR-039` rejection code and detail, the actor and the device — as the refusal leaves the writer, and
+`warehouse` implements the adapter that writes the `wh_blocked_movements` row, mirroring
+`WhbInsufficientStockRecorder` / `WhInsufficientStockRecorderAdapter` bean for bean. Zero or more
+beans: with none registered the refusal is audit-logged and no row is written, so a refusal is never
+silent. Recorded in `docs/contracts/movement-post-reverse.contract.md` §6's `FR-028` row and §7.
+
+**Open vocabularies render the registry, not an i18n map (decision, 2026-09-18).**
+`attemptedMovementTypeCode` and `rejectionCode` are open registries (`FR-039`/`FR-382`): both the cell
+and the filter's options show the registry row's own `name`, falling back to its `code`, with **no
+i18n child map**. An adapter that seeds a movement type or a rejection code must not need a
+translation release before its rows are legible, and a map would render blank for every code it does
+not list. The closed vocabularies here — `status`, `resolutionAction` — **do** carry i18n maps, and
+that asymmetry is the rule, not an omission.
+
+**Mobile:** `none` in v1. ~~`screens/whBlockedMovement` — the operator who was refused must be able to
+see why and raise the force request. Approving a force is desk-only.~~ **SUPERSEDED** by the standing
+decision that warehouse ships no mobile app (user scope rule 2026-09-11, `warehouse-base/INSTALL.md`
+§11, asserted by `warehouseMobileDecisionGate.test.ts`), so `P2-01`'s mobile acceptance row is
+**waived** rather than met. The screen stays recorded as the intended surface for the day the decision
+is reversed, which means editing `INSTALL.md` first.
 
 #### WS-098 · Reconciliation Exceptions
 
@@ -2426,7 +2510,7 @@ reason-coded** and cancels un-started tasks, `FR-171`).
 `wh_order_edit_rules` matrix allows it — WS-128) · Allocate · Release · Hold · Cancel · Pick (WS-102)
 · Pack (WS-103) · Ship (WS-105) · Print pick list · Print packing slip.
 Toolbar: Add · Import · Export · Grid config · Help.
-**Statistics strip:** open · allocated · picking · packed · shipped today · late against promise ·
+**Statistics:** tiles, filter-aware and uncached — open · allocated · picking · packed · shipped today · late against promise ·
 on hold.
 **WS-100 detail tabs:** Lines · Allocations (the `whb_reservations` holding this order) · Tasks ·
 Shipments · Cartons · Holds · Movements · Documents · Audit.
