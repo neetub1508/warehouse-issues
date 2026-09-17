@@ -2027,7 +2027,7 @@ there is exactly one reservation path (`RJ-003`). A cross-company transfer reach
 the handheld; creation is available, and so is **Request**, because the counter clerk at the destination
 raises it (`RK-001`). Approve / Reject and the challan action are not.
 
-#### WS-091 … WS-098 · Holds, counting and the exception queues
+#### WS-091 … WS-095 · Holds, counting and the exception queues
 
 | id | Table · Scope | Ref | Key columns | Filters | Actions & notes | FR |
 |---|---|---|---|---|---|---|
@@ -2040,16 +2040,17 @@ raises it (`RK-001`). Approve / Reject and the challan action are not.
 | WS-097 | `wh_blocked_movements` · `WAREHOUSE_BLOCKED_MOVEMENT` | SV | `warehouseName`, `attemptedMovementTypeCode`, `rejectionCode`, `rejectionDetail`, `actorUserName`, `deviceId`, `occurredAt`, `resolvedAt`, `resolutionAction`, `ageMinutes` | `warehouseId` → `rejectionCode` select · `unresolvedOnly` boolean (default true) · `actorUserId` typeahead · `occurredFrom`/`To` | View attempted payload (`TEXT`) · **Force with approval** (`wh_blocked_movements:force`, mandatory reason + approver) · Resolve · Discard. **A physical move the system rejected is a first-class object** — refusing the transaction does not un-move the goods, so the queue holds the goods in `PENDING_RESOLUTION` and routes to a supervisor | `FR-028` |
 | WS-098 | `wh_reconciliation_exceptions` · `WAREHOUSE_RECONCILIATION_EXCEPTION` | SV | `exceptionType`, `warehouseName`, `subjectKeyText`, `detectedAt`, `ownerUserName`, `ageDays`, `status`, `resolvedAt`, `resolutionNote` | `exceptionType` select → `status` select · `warehouseId` · `ownerUserId` typeahead · `ageOverDays` select · `detectedFrom`/`To` | Assign · Resolve. Exposes ledger-vs-position drift, position-vs-allocation drift and orphaned reservations **with an owner and an ageing clock** — an exception nobody owns is an exception nobody clears | `FR-163` |
 
-> **WS-096 and WS-097 have their own blocks below.** `P2-01` builds both, so their rows here stay as
-> the index and their §9.6 form — column table, `emptyMessage`, statistics — lives in the two `####`
-> blocks that follow this section. The other six rows are still bare comma lists and still on the
-> §9.6.1 register, which is exactly the state §9.6 means by *"not ready to build"*.
+> **WS-096, WS-097 and WS-098 have their own blocks below.** `P2-01` builds the first two and
+> `P2-06` the third, so their rows here stay as the index and their §9.6 form — column table,
+> `emptyMessage`, statistics — lives in the three `####` blocks that follow this section. The other
+> five rows are still bare comma lists and still on the §9.6.1 register, which is exactly the state
+> §9.6 means by *"not ready to build"*.
 
 **Mobile:** WS-092 `screens/whHold` (place and release from the floor); WS-094/WS-095 → **WS-235 RF
 Cycle Count** is the entry surface and the web grid is the controller's; WS-097
 `screens/whBlockedMovement` — the operator who was refused must be able to see why and raise the
-force request. `none` for WS-091 (registry), WS-093 (programme configuration), WS-096 and WS-098
-(controller reports).
+force request. `none` for WS-091 (registry), WS-093 (programme configuration) and WS-096
+(a controller report). WS-098 states its own, below.
 
 #### WS-096 · Insufficient Stock & Lost Sales
 
@@ -2148,6 +2149,66 @@ a tile, and the `unresolvedOnly` filter (default true) already scopes the grid t
 
 **Mobile:** `screens/whBlockedMovement` — the operator who was refused must be able to see why and
 raise the force request. Approving a force is desk-only.
+
+#### WS-098 · Reconciliation Exceptions
+
+`/warehouse/inventory/reconciliation-exceptions` · **Service Vehicle** · `wh_reconciliation_exceptions` ·
+`WAREHOUSE_RECONCILIATION_EXCEPTION` · v1 · P2 · `FR-163` `FR-395`. **Drift with an owner and an
+action, not a log line.** The rebuild job (`P0-03`) and the chain verifier (`P0-13`) already find
+divergence; until this screen they wrote it to a job run nobody reads. An exception nobody owns is an
+exception nobody clears, so every row carries an owner, a state and an ageing clock.
+
+**Columns** — transcribed from `V510035`'s `grid_column_definitions` seed, key for key
+(`{wh_reconciliation_exceptions}.` implied on a bare source):
+
+| key | label | type | sortable | default-visible | source |
+|---|---|---|---|---|---|
+| `exceptionType` | Exception | string | Y | Y | `exception_type` — **required column**, never hideable. `POSITION_DRIFT` / `RESERVATION_DRIFT` / `ORPHANED_RESERVATION` / `LEDGER_CHAIN_BREAK`, **un-`CHECK`ed** (`D-10`), so the select's options are fetched |
+| `warehouseName` | Site | string | Y | Y | `whb_warehouses.name` via `warehouse_id` |
+| `subjectKeyText` | Subject | string | Y | Y | `subject_key_text` — the divergence's own key, rendered by the finder that wrote it |
+| `detectedAt` | Detected | date | Y | Y | `detected_at` |
+| `ownerUserName` | Owner | string | Y | Y | `UserDetails.getFullName()` via `owner_user_id` — blank until the row is assigned |
+| `ageDays` | Age (days) | number | N | Y | **computed on read, never stored** (`RJ-012`) — `detected_at` to now (or to `resolved_at` once resolved), off the injected `Clock`. There is no `age_days` column; it is `is_sortable = false` in `V510035` precisely because there is nothing to sort on in SQL (§0.5's four sort gates) |
+| `status` | Status | string | Y | Y | `status` — `OPEN` / `ASSIGNED` / `RESOLVED`, `OPEN` on insert |
+| `resolvedAt` | Resolved | date | Y | N | `resolved_at` |
+| `resolutionNote` | Resolution | string | N | N | `resolution_note` (`TEXT`) |
+| `actions` | Actions | string | N | Y | not a column — View · Assign · Resolve |
+
+**This grid is ledger-style: there are no audit columns on it and none in the export** (§0.5 names
+`wh_reconciliation_exceptions` in the list). The export is this set, `actions` excluded — nine keys,
+`ageDays` among them, computed the same way on both paths — under the grid's own sort and the
+caller's filters.
+
+**Filters** — the `WAREHOUSE_RECONCILIATION_EXCEPTION` scope's seven keys, contiguous from position
+1: `exceptionType` select · `status` select · `warehouseId` searchable-select · `ownerUserId`
+searchable-select · `ageOverDays` select · `detectedFrom` / `detectedTo` `date` pair. `ageOverDays`
+is a **dropdown of named buckets — 7 · 15 · 30 · 60 · 90 · 180 · 365 days, `RB-008`'s one ageing
+list**, not a free number, so the same filter works on a handheld; the backend turns the bucket into
+a `detected_at < :cutoff` bound off the `Clock`, so it rides `idx(status, detected_at)` instead of
+computing an age per row. The pair is `date`, not `dateOnly`: `detected_at` is `TIMESTAMPTZ`.
+
+**Modals:** view = `ViewModalBase` with a `StatusCard` and `InfoSection`s for the divergence, the
+owner and the resolution. Assign and Resolve are **one transition modal** (`Modal size="lg"`,
+`minWidth={500}`, `resizable`), as WS-089's reversal modal is — the two transitions ride the same
+`wh_reconciliation_exceptions:edit` (`RJ-005` grants this table no verb permission of its own).
+Resolve requires a note; Assign requires an active user.
+
+**Actions:** row View · Assign (`OPEN` → `ASSIGNED`) · Resolve (`OPEN` or `ASSIGNED` → `RESOLVED`,
+terminal). Toolbar Export / Grid config / Help. **No Add and no Delete**: rows are written by the two
+jobs, never by hand, and a resolved exception is the audit trail of the drift.
+
+**Empty state:** `emptyMessage` = `warehouse:reconciliationException.empty`. Of §9.6 point 2's three
+messages this is **`never populated`** — "this fills the first time a reconciliation job finds
+drift". An empty queue is the good state and the message must read as one.
+
+**Statistics:** five tiles — open `POSITION_DRIFT`, open `RESERVATION_DRIFT`, open
+`ORPHANED_RESERVATION`, open `LEDGER_CHAIN_BREAK`, and the **oldest open age in days** (the one
+number that says whether anybody is working the queue). All five are **filter-aware**, computed in
+the same statement as the count, and therefore carry **no `statistics.*` cache name** (`FR-395`,
+`RC-004`) — here or anywhere in warehouse v1.
+
+**Mobile:** `none` — a controller report. Assigning and resolving drift is a desk task, and the
+handheld surfaces for the movements behind it are already stated on their own screens.
 
 #### WS-241 · Approval Levels — v2 · P5
 
@@ -2851,7 +2912,7 @@ WS-048 WS-049 WS-050 WS-051 WS-052 WS-053 WS-055 WS-056 WS-057 WS-058
 WS-059 WS-060 WS-061 WS-062 WS-063 WS-064 WS-065 WS-066 WS-067 WS-068
 WS-069 WS-070 WS-072 WS-074 WS-075 WS-076 WS-078 WS-079 WS-080 WS-081
 WS-082 WS-083 WS-084 WS-085 WS-086 WS-087 WS-088 WS-090 WS-091 WS-092
-WS-093 WS-094 WS-098 WS-099 WS-101 WS-102 WS-103 WS-104 WS-105 WS-107
+WS-093 WS-094 WS-099 WS-101 WS-102 WS-103 WS-104 WS-105 WS-107
 WS-108 WS-109 WS-110 WS-111 WS-112 WS-113 WS-114 WS-115 WS-116 WS-117
 WS-118 WS-119 WS-120 WS-121 WS-122 WS-123 WS-124 WS-125 WS-126 WS-127
 WS-128 WS-129 WS-130 WS-131 WS-132 WS-133 WS-134 WS-135 WS-136 WS-137
