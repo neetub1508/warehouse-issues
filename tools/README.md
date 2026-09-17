@@ -30,7 +30,7 @@ checker that gets skipped.
 
 ---
 
-## The twelve checks, and the specific failure each one prevents
+## The thirteen checks, and the specific failure each one prevents
 
 | # | Invariant | Authority | The failure it prevents |
 |---|---|---|---|
@@ -46,6 +46,7 @@ checker that gets skipped.
 | 10 | every `FR-nnn` is owned by **exactly one** task, both unowned and double-owned | plan §2 `Closes` column + each task's `## Requirements closed` | a requirement that reads as covered and is owned by nobody |
 | 11 | no id is used for two different kinds of thing | the id registers + `DECISIONS.md` §6 | the accounting set's worst structural defect, repeated — see **Why check 11** |
 | 12 | every `WS-nnn` cited resolves | `docs/BUILD-SPEC-SCREENS.md` §1 | a task whose screen was never specced, and a screen id silently allocated twice |
+| 13 | every screen with `G` = Y in §1 carries §9.6's three statements — the `\| key \| label \| type \| sort \| vis \| source \|` table, an `emptyMessage` key, and its statistics tiles or `none` | `docs/BUILD-SPEC-SCREENS.md` §1 `G` column, §9.6, and §9.6.1's shrink-only register | a grid specified as a bare comma list and built anyway — `P2-29` §9.6 was prose that no tool read, so the form it required was applied on the days a reviewer happened to look |
 
 ### Why check 1 — dangling `FR` citations, and the 19 that resolved to the *wrong* requirement
 

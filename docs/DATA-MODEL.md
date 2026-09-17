@@ -3417,6 +3417,21 @@ Every one of these is covered by a test, and the tests are named in the task fil
    edited in place (`FR-374`). Menu inserts are guarded with `WHERE NOT EXISTS`, not
    `ON CONFLICT DO NOTHING`, because the menu table has no unique constraint on the natural key
    (`FR-410`).
+7. **The grid-config bands sort BELOW numbers that are already applied, and that is deliberate — but
+   it makes every P2 grid migration an OUT-OF-ORDER insert.** Recorded 2026-09-18 (`P2-29` round-3
+   review, F7). `WHB-74`'s band ends at `V501099` and `WHB-75`'s `V501100` and the reserve above it are
+   released; `WH-203`'s band ends at `V511199` and `WH-204`'s `V511200` is released. A grid migration
+   claimed inside either band therefore arrives with a version LOWER than rows already in
+   `flyway_schema_history` on any install that has run the earlier waves. **Nothing is renumbered** —
+   rule 3 (DDL before config) and rule 1 (a task uses its own block) are the reason the bands sit where
+   they do, and moving them would break both. What is required instead:
+   - **`spring.flyway.out-of-order` must be `true`** wherever a warehouse install is upgraded rather
+     than created fresh. With it `false`, Flyway fails the boot with *"Detected resolved migration not
+     applied to database"* and the backend **crash-loops**, which is a known live failure mode in this
+     repository's own local stack (a `.env` value overrides `application.yml`).
+   - A fresh install is unaffected: one ordered stream, applied once.
+   - Each task claiming a number inside `V501020`–`V501099` or `V511020`–`V511199` states this
+     dependency in its own header, as `P2-29`'s does.
 
 ### 7.2 `warehouse-base` — V500000 to V509999
 

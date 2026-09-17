@@ -875,6 +875,15 @@ this family.
 `updatedByName`, `createdAt`, `updatedAt` — a strict superset, and the audit pair **is** present
 because the grid shows it.
 
+**Empty state:** `emptyMessage` = `warehouseBase:<entityCamel>.empty` — one key per catalogue, the
+convention the module's tables already use (`warehouseBase:counterpartyRole.empty`). A catalogue is a
+master grid, so the platform default (`never`, §9.6 point 2) is the right one of the three messages:
+it is seeded on install and empty only until someone adds a row.
+
+**Statistics:** `none`. A catalogue's counts are read from the grid's own total, and a strip over a
+fourteen-row table earns nothing. No `statistics.*` cache name, here or anywhere in warehouse v1
+(`FR-395`).
+
 **Modals:** Add/Edit `Modal size="lg" minWidth={500} resizable` — single tab (never more than six
 field groups): *Identity* (`code`, `name`, `description`) · *Behaviour* (the flags) · *Ownership*
 (`owning_module`, `is_system` read-only) · *Status* (`is_active`). View = `ViewModalBase` with
@@ -2398,6 +2407,16 @@ special-cased screens. What differs is three things:
 transaction open** (`FR-400`, `FR-422`). CSV needs a UTF-8 BOM; phone-shaped and code-shaped columns
 are text-pinned so Excel does not mangle them.
 
+> **Which export streams, and which stays capped — stated rather than assumed** (recorded 2026-09-18,
+> `P2-29` round-3 review, F8). `WhbStreamingExportService` ships with **no production subclass**: the
+> streaming CSV path exists, is tested, and nothing uses it yet. **WS-209's report export is the first
+> subclass**, because the movement register at line grain is the 100,000-row case the path was built
+> for. **The WS-040 `whb_stock_movements` GRID export stays on `BaseExportService` and stays capped at
+> `DEFAULT_MAX_EXPORT_ROWS = 10_000`** — a grid is a paged screen with a filter strip, its export is
+> what the operator is looking at, and 10,000 rows is a deliberate ceiling rather than an oversight.
+> Migrating the grid export is not this phase's work, and a reader who finds a cap where they expected
+> a stream should find this paragraph rather than a defect.
+
 | id | Report | `gridIdentifier` · Scope | Reads | Columns | Filters and parameters | Exportable | FR |
 |---|---|---|---|---|---|---|---|
 | WS-208 | Stock on Hand | `wh_rpt_stock_on_hand` · `WAREHOUSE_RPT_STOCK_ON_HAND` | `whb_stock_positions` + masters | **two tabs.** *By item*: `itemCode`, `itemName`, `categoryName`, `ownerName`, `warehouseName`, `onHand`, `reserved`, `available`, `inTransit`, `onOrder`, `baseUomCode`, `value`. *By location*: the full nine-member grain plus quantities | `warehouseId` → `locationId` → `itemId` · `ownerId` · `itemCategoryId` · `stockStatusCode` multiselect · `dutyStatus` select · `lotId` · `nonZeroOnly` boolean (default true) · `expiringWithinDays` select. Branch grouping follows rule 4 (`REGISTERED` at the report date) | Yes | `FR-384` |
@@ -2655,11 +2674,56 @@ cheap to write and expensive to reconstruct afterwards:
    scope entry paired with a **`date`** `filter_definitions` row, and every from→to pair is **two**
    keys — there is no range type.
 
-**What is asserted, and where.** Legs 1 and 2 of point 4, plus §9.1 and §9.2, are ratcheted by
-`ai.warehousebase.architecture.WhbGridConfigContractTest` and
-`ai.warehouse.architecture.WhGridConfigContractTest` over each module's own migrations. The export
-half of the contract is ratcheted by each module's own `ExportServiceContractTest` — see §0.5 and
-`X-057`: platform's copy scans `ai.platform` and **cannot** be widened to see a module.
+**What is asserted, and where.** Corrected 2026-09-18: the earlier version of this paragraph said
+legs 1 **and 2** of point 4 were ratcheted by the Java contract tests, while those tests' own javadoc
+said the frontend registries were asserted by the Jest suites. Both statements were false and each
+made the other look verified. What is true now:
+
+| what | asserted by |
+|---|---|
+| Leg 1 (`filter_definitions` row), §9.1, §9.2 — per **VALUES row**, not per statement | `ai.warehousebase.architecture.WhbGridConfigContractTest` · `ai.warehouse.architecture.WhGridConfigContractTest` |
+| Leg 2 (`COMMON_FILTER_CONFIGS` scope entry) · leg 3 (the API-service parameter) · `DATE` → `dateOnly` | `warehouse-base/frontend/src/__tests__/whbGridFilterParity.test.ts` · `warehouse/frontend/src/__tests__/whGridFilterParity.test.ts` — they READ `filterUtils.ts` and never write it |
+| Export ⊇ the grid's `default_visible` columns, and the audit columns are exactly the grid's | each module's `ExportServiceContractTest`, through the export service's `gridIdentifier()` declaration on `WhbExportService` — see §0.5 and `X-057`: platform's copy scans `ai.platform` and **cannot** be widened to see a module |
+| Points 1–3 of this section (the column table, the `emptyMessage` key, the statistics tiles) | `tools/check-design-set.py` check 13, over this file |
+
+### 9.6.1 The blocks not yet in §9.6 form — a shrink-only register
+
+Check 13 reads §1's `G` column — the spec's own statement of which screens own a configured grid —
+and requires each one's block to carry the three statements above. **The rule was written after most
+of these blocks were**, so the blocks below are registered rather than rewritten in one pass: the task
+that builds a grid puts its own block in the form on the way past, which is exactly what point 1 means
+by *"a grid whose spec row is still a bare comma list is not ready to build"*. **This list may shrink
+and never grow** — a screen that becomes compliant and stays listed fails check 13 too.
+
+The worked example is §2.1, the fourteen catalogues: a `| key | label | type | sortable |
+default-visible | source |` table, an `emptyMessage` key and a `**Statistics:**` statement. Copy that
+shape. Thirteen of the ids below (`WS-123`–`WS-126`, `WS-129`, `WS-166`–`WS-168`, `WS-203`–`WS-207`)
+have **no block at all** — they are named in §1 and nowhere else, which is a separate debt the phase
+that builds them has to settle first.
+
+```check-13-todo
+WS-015 WS-016 WS-017 WS-019 WS-020 WS-021 WS-022 WS-023 WS-024 WS-025
+WS-026 WS-027 WS-028 WS-029 WS-030 WS-031 WS-032 WS-034 WS-035 WS-036
+WS-037 WS-038 WS-039 WS-040 WS-042 WS-043 WS-044 WS-045 WS-046 WS-047
+WS-048 WS-049 WS-050 WS-051 WS-052 WS-053 WS-055 WS-056 WS-057 WS-058
+WS-059 WS-060 WS-061 WS-062 WS-063 WS-064 WS-065 WS-066 WS-067 WS-068
+WS-069 WS-070 WS-072 WS-074 WS-075 WS-076 WS-078 WS-079 WS-080 WS-081
+WS-082 WS-083 WS-084 WS-085 WS-086 WS-087 WS-088 WS-089 WS-090 WS-091
+WS-092 WS-093 WS-094 WS-096 WS-097 WS-098 WS-099 WS-101 WS-102 WS-103
+WS-104 WS-105 WS-107 WS-108 WS-109 WS-110 WS-111 WS-112 WS-113 WS-114
+WS-115 WS-116 WS-117 WS-118 WS-119 WS-120 WS-121 WS-122 WS-123 WS-124
+WS-125 WS-126 WS-127 WS-128 WS-129 WS-130 WS-131 WS-132 WS-133 WS-134
+WS-135 WS-136 WS-137 WS-138 WS-139 WS-140 WS-141 WS-142 WS-143 WS-144
+WS-145 WS-146 WS-147 WS-148 WS-149 WS-150 WS-151 WS-152 WS-155 WS-156
+WS-157 WS-158 WS-159 WS-160 WS-161 WS-162 WS-163 WS-164 WS-165 WS-166
+WS-167 WS-168 WS-169 WS-170 WS-171 WS-173 WS-174 WS-175 WS-176 WS-177
+WS-178 WS-179 WS-180 WS-181 WS-182 WS-183 WS-184 WS-185 WS-186 WS-187
+WS-188 WS-189 WS-190 WS-191 WS-192 WS-193 WS-194 WS-195 WS-196 WS-197
+WS-198 WS-199 WS-200 WS-201 WS-202 WS-203 WS-204 WS-205 WS-206 WS-207
+WS-208 WS-209 WS-210 WS-211 WS-212 WS-213 WS-214 WS-215 WS-216 WS-217
+WS-218 WS-219 WS-220 WS-221 WS-222 WS-223 WS-224 WS-225 WS-226 WS-227
+WS-238 WS-239 WS-240 WS-241 WS-243 WS-244 WS-245
+```
 
 ## 10. Permissions
 

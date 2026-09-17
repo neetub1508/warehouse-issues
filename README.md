@@ -114,7 +114,7 @@ found in `neetub1508/classic-issues`:
 | Scenarios | **300** `WH-SC-nnn` — the acceptance criteria, in Given/When/Then |
 | Screens | **237** build blocks, each naming its canonical reference page, gridIdentifier, filter scope, caches and permissions |
 | Backlog | **143 tasks** in 8 phases, plus 8 phase epics and a master epic |
-| Integrity | `tools/check-design-set.py` — 12 checks, run in CI |
+| Integrity | `tools/check-design-set.py` — 13 checks, run in CI |
 | Prior art | earlier warehouse/supply-chain design exists in `neetub1508/classic-issues`. It is **input, not gospel** — every premise was re-verified and eleven were found false. See [`docs/reviews/R6-prior-art-triage.md`](docs/reviews/R6-prior-art-triage.md). That repository is not modified by this one |
 | Code | none |
 

@@ -30,6 +30,7 @@ Checks
   10  every FR-nnn is owned by exactly one task
   11  no id is used for two different kinds of thing
   12  every screen id (WS-nnn) cited resolves to BUILD-SPEC-SCREENS.md
+  13  every grid-bearing screen block states its columns table, empty state and statistics tiles
 
 Self-declared exemptions
   Some citations are *deliberately* unresolvable and reporting them buries the live defects and
@@ -242,6 +243,7 @@ CHECK_TITLES = {
     10: "every FR-nnn is owned by exactly one task",
     11: "no id is used for two different kinds of thing",
     12: "WS-nnn citations resolve to BUILD-SPEC-SCREENS.md",
+    13: "grid blocks state columns, empty state and statistics tiles (P2-29 §9.6)",
 }
 
 # rule name -> the check it exempts. A directive naming any other rule is a violation of the
@@ -1385,6 +1387,187 @@ def check_id_collisions(root, scanner):
 # driver
 # --------------------------------------------------------------------------
 
+# --------------------------------------------------------------------------
+# check 13 — the §9.6 form of a grid-bearing screen block (P2-29, RB-006, Q-005)
+# --------------------------------------------------------------------------
+
+# The column table §9.6 point 1 requires: | key | label | type | sort | vis | source |, however the
+# last three are spelled ("sortable", "default-visible", "vis").
+COLUMN_TABLE_RE = re.compile(
+    r"^\|\s*key\s*\|\s*label\s*\|\s*type\s*\|\s*sort\w*[\s-]*\|\s*(?:default[\s-]*)?vis\w*\s*\|\s*source\s*\|",
+    re.IGNORECASE)
+EMPTY_MESSAGE_RE = re.compile(r"emptyMessage")
+STATISTICS_RE = re.compile(r"\*\*Statistics(?:\s+tiles)?:?\*\*", re.IGNORECASE)
+SCREEN_ROW_RE = re.compile(r"^\|\s*WS-(\d{3})\s*\|")
+SCREEN_HEADING_RE = re.compile(r"^(#{2,4})\s+(.*)$")
+TODO_FENCE = "check-13-todo"
+
+
+def screen_index(lines):
+    """{WS-nnn: True/False} from §1's `G` column — Y means the screen owns a configured grid."""
+    index = {}
+    in_index = False
+    for lineno, text in enumerate(lines, start=1):
+        if text.startswith("## "):
+            in_index = text.startswith("## 1.")
+            continue
+        if not in_index:
+            continue
+        m = SCREEN_ROW_RE.match(text)
+        if m:
+            cells = [c.strip() for c in text.split("|")]
+            index["WS-%s" % m.group(1)] = len(cells) > 6 and cells[6].upper() == "Y"
+    return index
+
+
+def screen_blocks(lines, index_end):
+    """{WS-nnn: (first line, last line)} — the region of the spec that OWNS each screen.
+
+    A screen is owned by the heading region whose title names it (`#### WS-015 · Companies`), or,
+    failing that, by its own row in a section table after §1. A screen named by neither has no block
+    at all, which is itself a finding: there is nowhere for §9.6's four statements to live.
+    """
+    blocks = {}
+    headings = []
+    for lineno, text in enumerate(lines, start=1):
+        m = SCREEN_HEADING_RE.match(text)
+        if m:
+            headings.append((lineno, len(m.group(1)), m.group(2)))
+    regions = []
+    for i, (lineno, level, title) in enumerate(headings):
+        end = len(lines)
+        for later_line, later_level, _ in headings[i + 1:]:
+            if later_level <= level:
+                end = later_line - 1
+                break
+        named = ["WS-%s" % n for n in re.findall(r"WS-(\d{3})", title)]
+        regions.append((lineno, end, level, named))
+        for screen in named:
+            blocks.setdefault(screen, (lineno, end))
+
+    for lineno, text in enumerate(lines, start=1):
+        if lineno <= index_end:
+            continue
+        m = SCREEN_ROW_RE.match(text)
+        if not m:
+            continue
+        screen = "WS-%s" % m.group(1)
+        if screen in blocks:
+            continue
+        # A row inside a heading region that names screens belongs to THAT block, not to itself:
+        # "### 2.1 The fourteen catalogues - WS-001 ... WS-014" states one form for all fourteen and
+        # the delta table under it is part of that statement. A row under a heading that names no
+        # screen (a section table of unrelated screens) is its own block.
+        owner = None
+        for start, end, _level, named in regions:
+            if start <= lineno <= end and named:
+                owner = (start, end)
+        blocks[screen] = owner if owner else (lineno, lineno)
+    return blocks
+
+
+def todo_register(lines):
+    """The shrink-only list of blocks not yet in §9.6 form, read from its fenced code block."""
+    ids = set()
+    anchor = 0
+    inside = False
+    for lineno, text in enumerate(lines, start=1):
+        if text.startswith("```"):
+            if TODO_FENCE in text:
+                inside = True
+                anchor = lineno
+                continue
+            if inside:
+                inside = False
+            continue
+        if inside:
+            ids.update("WS-%s" % n for n in re.findall(r"WS-(\d{3})", text))
+    return ids, anchor
+
+
+def check_screen_blocks(root):
+    """§9.6 was prose with no gate: it stated the form a grid block takes and nothing read it.
+
+    A rule that only a reviewer applies is applied on the days a reviewer looks. This check reads
+    §1's `G` column - the spec's own statement of which screens own a configured grid - and requires
+    each one's block to carry the three statements §9.6 asks for:
+
+      1. the column table `| key | label | type | sort | vis | source |` (point 1);
+      2. an `emptyMessage` i18n key (point 2, `RB-006`);
+      3. its statistics tiles, or `none` (point 3, `RC-004`).
+
+    Blocks that predate the rule are listed in §9.6.1's fenced register. That list may SHRINK and
+    never grow: the task that builds a grid converts its block on the way past, which is exactly
+    what §9.6 means by "a grid whose spec row is still a bare comma list is not ready to build".
+    A screen that becomes compliant and stays on the list is a violation too - a baseline that
+    outlives its debt stops being a ratchet.
+    """
+    lines = read_lines(root, SCREENS)
+    index = screen_index(lines)
+    if not index:
+        die("no screen index rows found in %s §1 - the parser is out of date" % SCREENS)
+
+    index_end = len(lines)
+    for lineno, text in enumerate(lines, start=1):
+        if text.startswith("## 2."):
+            index_end = lineno
+            break
+
+    blocks = screen_blocks(lines, index_end)
+    todo, todo_anchor = todo_register(lines)
+    if not todo_anchor:
+        die("no ```%s fenced register found in %s §9.6 - the parser is out of date"
+            % (TODO_FENCE, SCREENS))
+
+    out = []
+    compliant = set()
+    for screen in sorted(index):
+        if not index[screen]:
+            continue
+        block = blocks.get(screen)
+        missing = []
+        if block is None:
+            missing.append("no block at all")
+        else:
+            body = lines[block[0] - 1:block[1]]
+            if not any(COLUMN_TABLE_RE.match(line) for line in body):
+                missing.append("no `| key | label | type | sort | vis | source |` table")
+            if not any(EMPTY_MESSAGE_RE.search(line) for line in body):
+                missing.append("no emptyMessage key")
+            if not any(STATISTICS_RE.search(line) for line in body):
+                missing.append("no **Statistics:** statement")
+        if not missing:
+            compliant.add(screen)
+            if screen in todo:
+                out.append(Violation(13, SCREENS, todo_anchor,
+                                     "%s is now in §9.6 form - delete it from the §9.6.1 register, "
+                                     "which may shrink and never grow" % screen))
+            continue
+        if screen not in todo:
+            where = block[0] if block else todo_anchor
+            out.append(Violation(13, SCREENS, where,
+                                 "%s owns a configured grid (§1 `G` = Y) but its block states %s. "
+                                 "Put the block in §9.6 form, or add the screen to the §9.6.1 "
+                                 "register and say so." % (screen, "; ".join(missing))))
+
+    for screen in sorted(todo):
+        if screen not in index:
+            out.append(Violation(13, SCREENS, todo_anchor,
+                                 "the §9.6.1 register names %s, which is not a screen in §1"
+                                 % screen))
+        elif not index[screen]:
+            out.append(Violation(13, SCREENS, todo_anchor,
+                                 "the §9.6.1 register names %s, which owns no grid (§1 `G` is not "
+                                 "Y) - the rule does not apply to it" % screen))
+
+    if not compliant:
+        # Every rule above would pass with an empty register and a spec in which nothing complies.
+        die("check 13 found no screen block in §9.6 form at all - with none, the check proves "
+            "nothing. %s must carry at least one worked example." % SCREENS)
+
+    return sorted(out, key=lambda v: v.key())
+
+
 def run(root, selected):
     files = markdown_files(root)
     ledger = ExemptionLedger()
@@ -1417,6 +1600,8 @@ def run(root, selected):
         results[11] = check_id_collisions(root, scanner)
     if 12 in selected:
         results[12] = check_screens(root, scanner)
+    if 13 in selected:
+        results[13] = check_screen_blocks(root)
     return results, ledger, notes, directives
 
 
@@ -1425,7 +1610,7 @@ def main():
         description="Design-set integrity checker for the Classic Warehouse design set.")
     parser.add_argument("--summary", action="store_true", help="print counts only")
     parser.add_argument("--check", type=int, action="append", choices=sorted(CHECK_TITLES),
-                        metavar="N", help="run only this check (repeatable, 1-12)")
+                        metavar="N", help="run only this check (repeatable, 1-13)")
     parser.add_argument("--root", default=os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                         help="repository root (default: the checkout this script lives in)")
     parser.add_argument("--no-advisory", action="store_true",
