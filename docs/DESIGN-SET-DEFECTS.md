@@ -21,7 +21,8 @@
 | **New in the merge** | `X-039`…`X-053`, filed while writing [`GAP-REGISTER.md`](GAP-REGISTER.md) |
 | **New in review round 2** | `X-054` and `X-055`, filed 2026-09-02 — while regenerating `DATA-MODEL.md` §8.4, and while authoring `WH-SC-301`. **55 entries in total** — `ls` is not the count; `grep -c '^### `X-0' docs/DESIGN-SET-DEFECTS.md` is |
 | **New in wave C6** | `X-056`, filed 2026-09-16 in **§7** — a platform-code follow-up found while settling `P1-20`. **56 entries in total** |
-| **Total** | **56** defects — **7** BLOCKER · **28** MAJOR · **21** MINOR. *Was 55 / 7 / 28 / 20 until `X-056` was filed 2026-09-16; before that the row read 53 / 8 / 25 / 20, which summed correctly to 53 but matched no count in the file; recomputed 2026-09-02 with the command below* |
+| **New in wave 1 of P2** | `X-057` and `X-058`, filed 2026-09-17 in **§8** while building `P2-29`. **58 entries in total** |
+| **Total** | **58** defects — **7** BLOCKER · **29** MAJOR · **22** MINOR. *Was 55 / 7 / 28 / 20 until `X-056` was filed 2026-09-16; before that the row read 53 / 8 / 25 / 20, which summed correctly to 53 but matched no count in the file; recomputed 2026-09-02 with the command below* |
 | **Severity command** | ``awk '/^### `X-/{if(f)print s; f=1; s=""} f{if(s=="" && match($0,/(BLOCKER\|MAJOR\|MINOR)/)) s=substr($0,RSTART,RLENGTH)} END{if(f)print s}' docs/DESIGN-SET-DEFECTS.md \| sort \| uniq -c`` — **entries `X-039`…`X-053` carry their severity in the heading and the rest carry it in the quote block**, so a grep of `> **Severity**` alone returns 39, not 55. The `f` flag matters too: without it the §0 total row above is itself counted as a BLOCKER |
 | **Companion** | [`GAP-REGISTER.md`](GAP-REGISTER.md) — §3 of that document is where the computed failures below come from |
 
@@ -2008,3 +2009,55 @@ and not MAJOR.
 **Not fixed here.** The screen belongs to **platform**, not to `P1-20` or to any warehouse task, and
 this wave's remit was the design set only. The fix is the four lines the Admin Settings page already
 has, applied to the Global Settings `catch`.
+
+---
+
+## §8 · Filed while building `P2-29`, 2026-09-17
+
+### `X-057` · `P2-29`'s ratchet instruction asks for a platform test edit that the module graph forbids — **MAJOR**
+
+> **Severity** MAJOR · **Status** CLOSED — corrected in `issues/p2-29.md` and built the only way it can be · **Found** 2026-09-17, while building `P2-29` (`RB-005`)
+
+**Claim.** `issues/p2-29.md`'s round-3 fold states: *"`ExportServiceContractTest.java:137` scans
+`ai.platform` only, so it discovers no warehouse export service. The scan takes a **package list**,
+and warehouse's packages join it. That is a platform test edit, which `D-10`'s corollary already
+concedes."* **The package list cannot reach warehouse from platform, and no concession makes it
+possible.**
+
+**Evidence.**
+- `platform/backend/src/test/java/ai/platform/service/ExportServiceContractTest.java:136` calls
+  `findCandidateComponents("ai.platform")`. Widening the argument to include `ai.warehousebase`
+  changes nothing: `ClassPathScanningCandidateComponentProvider` can only find classes **on the
+  classpath it runs with**.
+- Every module's `pom.xml` depends on `platform-backend`; platform depends on no module. So no
+  warehouse class is ever on platform's test classpath, and the scan would return an empty set for
+  the added packages — passing vacuously, which is worse than not being asserted at all.
+- `classic-issues#990` already settled this for the other twelve modules on 2026-09-11: each module
+  carries `<module>/backend/src/test/java/ai/<pkg>/service/ExportServiceContractTest.java`, scanning
+  its own package, with its own frozen baselines. The accounting modules took the same route for
+  `ArchitectureInvariantsTest`.
+
+**What was built instead.** `warehouse-base` and `warehouse` each carry a copy of the contract test
+scanning their own package — 59 and 9 concrete export services respectively. The acceptance's
+substance is met in full and its `WITHOUT_AUDIT_COLUMNS` clause is met more strongly than written:
+the set is **empty** in both copies, and an audit-columnless export declares itself by overriding the
+new `BaseExportService.isLedgerStyle()` hook. That hook is the one stated exception to *"`BaseExportService`
+is unedited"*, and it is the whole platform edit this task makes.
+
+**Why it matters beyond this task.** The same sentence pattern — *"widen the platform test's package
+list"* — appears wherever a module-owned rule is asserted from platform. It reads as a small edit and
+is in fact impossible, so a task that follows it literally ships a green test that checks nothing.
+
+### `X-058` · `P2-29` files its reading in a file that no longer exists — **MINOR**
+
+> **Severity** MINOR · **Status** CLOSED — filed here instead · **Found** 2026-09-17, while building `P2-29`
+
+**Claim.** `issues/p2-29.md` §Scope ends *"Filed in `DEFECTS-FOUND.md` as the reading taken."*
+Both `issues/DEFECTS-FOUND.md` and `docs/DEFECTS-FOUND.md` were **deleted on merge** into this file
+on 2026-09-02, as §0 of this document records. The instruction points at nothing.
+
+**Impact.** Small, but it is the exact class of stale citation §4 of this document exists to catch: a
+task that follows it either creates a third defect log or silently skips the step.
+
+**Corrected.** `issues/p2-29.md` now names `docs/DESIGN-SET-DEFECTS.md`, and `X-057` above is the
+reading.

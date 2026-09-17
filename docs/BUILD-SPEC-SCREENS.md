@@ -2624,6 +2624,43 @@ migration is never edited in place (`FR-374`).
 
 ---
 
+### 9.6 What a grid block must state before its migration is written — the `P2-29` gate
+
+`P2-29` owns the two bands, the two rules, the streaming export path and the ratchets; **it does not
+author the eighty grid migrations**. Each grid's migration is written by the task that creates its
+table, claiming one number inside `V501070`–`V501099` (`warehouse-base`) or `V511060`–`V511139`
+(`warehouse`) and recording it in that task's header. What `P2-29` fixes is the **form** a grid block
+takes, so that a grid is either ready to build or visibly not ready. Four statements, all of them
+cheap to write and expensive to reconstruct afterwards:
+
+1. **The screen row is a table, not a comma list** (`Q-005`). `| key | label | type | sort | vis |
+   source |`, one row per column. A block whose columns are still a bare comma list is **not ready to
+   build**: the type decides the export's rendering rule, `sort` decides whether the four sort gates
+   need aligning, and `source` is what proves a column is not invented.
+2. **The block names an `emptyMessage` i18n key** (`RB-006`). The six workflow-gating grids state
+   three *distinguishable* messages — `empty` ("nothing here yet"), `out of scope` ("this install
+   does not do that") and `never populated` ("this fills in once X happens"). A master grid may state
+   `never`, the platform default. A grid that renders the same blank panel for all three teaches its
+   user nothing.
+3. **The block states its statistics tiles, or `none`** — and **no tile carries a `statistics.*`
+   cache name** (`FR-395`, `RC-004`). Every warehouse strip in v1 is computed from the same search and
+   filters as the rows, so a cache name would cache nothing while reading as though it did; platform's
+   own registry records that mistake with its issue numbers (`CacheConfiguration.java:190-196`,
+   `classic#790`, `#791`). `dropdown.*` names are fine and **must** be registered — an unregistered
+   one throws on the **first call**, not at startup. Asserted by
+   `warehouse-base/…/nonfunctional/NonFunctionalFoundationsTest` §1c.
+4. **Three-way filter parity, named per filter** — the `COMMON_FILTER_CONFIGS` scope entry, the
+   `filter_definitions` row, and the API-service parameter. A scope entry plus a row plus an
+   unforwarded parameter is still a filter that does nothing. A SQL `DATE` column is a **`dateOnly`**
+   scope entry paired with a **`date`** `filter_definitions` row, and every from→to pair is **two**
+   keys — there is no range type.
+
+**What is asserted, and where.** Legs 1 and 2 of point 4, plus §9.1 and §9.2, are ratcheted by
+`ai.warehousebase.architecture.WhbGridConfigContractTest` and
+`ai.warehouse.architecture.WhGridConfigContractTest` over each module's own migrations. The export
+half of the contract is ratcheted by each module's own `ExportServiceContractTest` — see §0.5 and
+`X-057`: platform's copy scans `ai.platform` and **cannot** be widened to see a module.
+
 ## 10. Permissions
 
 ### 10.1 The shape
