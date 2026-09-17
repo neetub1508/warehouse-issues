@@ -2027,12 +2027,12 @@ there is exactly one reservation path (`RJ-003`). A cross-company transfer reach
 the handheld; creation is available, and so is **Request**, because the counter clerk at the destination
 raises it (`RK-001`). Approve / Reject and the challan action are not.
 
-#### WS-091 … WS-095 · Holds, counting and the exception queues
+#### Holds, counting and the exception queues
 
 | id | Table · Scope | Ref | Key columns | Filters | Actions & notes | FR |
 |---|---|---|---|---|---|---|
 | WS-091 | `wh_hold_types` · `WAREHOUSE_HOLD_TYPE` | D | `code`, `name`, `owningModule`, `holdScope` (ORDER/LOT/LOCATION/ITEM/SHIPMENT), `blocksAllocation`, `blocksPick`, `blocksShip`, `requiresReason`, `releasePermission`, `isActive` | `holdScope` select · `blocksAllocation`/`blocksPick`/`blocksShip` booleans · `isActive` | `D-10`'s twelfth registry, **living in the application** because holds are an application concern. Same catalogue block as §2.1 | `FR-151` |
-| WS-092 | `wh_holds` · `WAREHOUSE_HOLD` | SV | `holdNumber`, `holdTypeCode`, `subjectType`, `subjectId`, `subjectLabel` (through the display resolver), `reasonCodeName`, `placedByName`, `placedAt`, `releasedByName`, `releasedAt`, `releaseReasonName`, `note` | `holdTypeCode` select → `subjectType` select · `activeOnly` boolean (default true) · `placedBy` typeahead · `placedFrom`/`To` `date` pair | Place · **Release** (gated on the hold type's `release_permission`) · **Mass hold / release** by lot, LPN, location, supplier, item or date range — its own modal, and **each posts a balanced status-change movement** (`FR-152`). **Two holds at once is the normal case**, so this is a record with a release audit, never a status column | `FR-151` `FR-152` |
+| WS-092 | `wh_holds` · `WAREHOUSE_HOLD` | SV | `holdNumber`, `holdTypeCode`, `subjectType`, `subjectId`, `subjectLabel` (through the display resolver), `reasonCodeName`, `placedByName`, `placedAt`, `releasedByName`, `releasedAt`, `releaseReasonName`, `note` | `holdTypeCode` select → `subjectType` select · `activeOnly` boolean (default true) · `placedBy` typeahead · `placedFrom`/`To` `date` pair | Place · **Release** (gated on the hold type's `release_permission`) · **Mass hold / release** by lot, LPN, location, supplier, item or date range — its own modal, which **writes one `wh_holds` row per subject, with a reason, and moves nothing** (`RJ-008`); `FR-152`'s balanced status-change movement is the **other** half of that requirement, for physical segregation only. **Two holds at once is the normal case**, so this is a record with a release audit, never a status column | `FR-151` `FR-152` |
 | WS-093 | `wh_count_programs` · `WAREHOUSE_COUNT_PROGRAM` | C | `code`, `name`, `warehouseName`, `programType` (ABC/RANDOM/FULL/ZONE/ITEM/DISCREPANCY_TRIGGERED), `frequencyDays`, `scheduleCron`, `nextScheduledDate` (`dateOnly`), `isBlindCount`, `recountThresholdPct`, `approvalThresholdPct`, `scopeCount`, `isActive` | `warehouseId` → `programType` select · `isBlindCount` boolean · `nextScheduledFrom`/`To` `dateOnly` pair · `isActive` | Add/Edit with a child editor over `wh_count_program_scopes` — **rows replacing `scope_*_ids JSONB`** · **Generate counts now**. **`programType = ABC` is labelled *"uses manually maintained classes"* until v1.1**, when `P1-03`'s v1.1 increment, the simple recompute (`FR-463`), fills the class. A v1 screen must not imply a computation that does not exist (`RK-003`) | `FR-156` `FR-383` |
 | WS-094 | `wh_counts` · `WAREHOUSE_COUNT` | SV | `countNumber`, `programName`, `warehouseName`, `countType` (CYCLE/FULL_PHYSICAL/ZERO_STOCK/SPOT), `status`, `isBlind`, `freezeStartedAt`, `freezeEndedAt`, `bookSnapshotTakenAt`, `lineCount`, `countedLines`, `varianceLines`, `varianceValue`, `approvedByName`, `approvedAt`, `postedAt`, audit | `warehouseId` → `programId` → `countType` select · `status` **multiselect** · `isBlind` boolean · `hasVariance` boolean · `createdFrom`/`To` `date` pair | Generate · **Freeze** · Assign zones (child `wh_count_zone_assignments`) · Enter counts (WS-095) · Recount · **Approve** (`wh_counts:approve`; **the counter may not approve their own count**, `FR-408`) · **Post** · Cancel · Print count sheet. **A count is a document that proposes an adjustment and never writes on-hand**; the book quantity is frozen at count start and stored even when the count is blind | `FR-153` `FR-154` `FR-155` `FR-157` `FR-159` |
 | WS-095 | count entry route (no grid) | — | the `wh_count_lines` editor: `itemCode`, `locationCode`, `lotCode`, `serialNumber`, `lpnCode`, `ownerName`, `stockStatusCode`, `dutyStatus`, **`countSnapshotQuantity`** (hidden when `is_blind`), `countedQuantity`, `varianceQuantity`, `variancePct`, `unitCost`, `varianceValue`, `isWithinTolerance`, `recountSequence`, `countedByName` | — | **Tolerance gates posting** by quantity percentage **and** by value: lines inside tolerance post automatically, lines outside route to approval. Posting emits **one movement per non-zero variance line**, carrying the count's reason code | `FR-155` `FR-159` |
@@ -2040,17 +2040,160 @@ raises it (`RK-001`). Approve / Reject and the challan action are not.
 | WS-097 | `wh_blocked_movements` · `WAREHOUSE_BLOCKED_MOVEMENT` | SV | `warehouseName`, `attemptedMovementTypeCode`, `rejectionCode`, `rejectionDetail`, `actorUserName`, `deviceId`, `occurredAt`, `resolvedAt`, `resolutionAction`, `ageMinutes` | `warehouseId` → `rejectionCode` select · `unresolvedOnly` boolean (default true) · `actorUserId` typeahead · `occurredFrom`/`To` | View attempted payload (`TEXT`) · **Force with approval** (`wh_blocked_movements:force`, mandatory reason + approver) · Resolve · Discard. **A physical move the system rejected is a first-class object** — refusing the transaction does not un-move the goods, so the queue holds the goods in `PENDING_RESOLUTION` and routes to a supervisor | `FR-028` |
 | WS-098 | `wh_reconciliation_exceptions` · `WAREHOUSE_RECONCILIATION_EXCEPTION` | SV | `exceptionType`, `warehouseName`, `subjectKeyText`, `detectedAt`, `ownerUserName`, `ageDays`, `status`, `resolvedAt`, `resolutionNote` | `exceptionType` select → `status` select · `warehouseId` · `ownerUserId` typeahead · `ageOverDays` select · `detectedFrom`/`To` | Assign · Resolve. Exposes ledger-vs-position drift, position-vs-allocation drift and orphaned reservations **with an owner and an ageing clock** — an exception nobody owns is an exception nobody clears | `FR-163` |
 
-> **WS-096, WS-097 and WS-098 have their own blocks below.** `P2-01` builds the first two and
-> `P2-06` the third, so their rows here stay as the index and their §9.6 form — column table,
-> `emptyMessage`, statistics — lives in the three `####` blocks that follow this section. The other
-> five rows are still bare comma lists and still on the §9.6.1 register, which is exactly the state
-> §9.6 means by *"not ready to build"*.
+> **WS-091, WS-092, WS-096, WS-097 and WS-098 have their own blocks below.** `P2-03` builds the first
+> two, `P2-01` the next two and `P2-06` the last, so their rows here stay as the index and their §9.6
+> form — column table, `emptyMessage`, statistics — lives in the five `####` blocks that follow this
+> section. **This section's own heading deliberately names no screen id**: a heading that named one
+> would make its region the owning block for every row in the table under it, and check 13 would read
+> one screen's form as five screens' form. The remaining three rows (WS-093, WS-094, WS-095) are still
+> bare comma lists and still on the §9.6.1 register, which is exactly the state §9.6 means by *"not
+> ready to build"*.
 
 **Mobile:** WS-092 `screens/whHold` (place and release from the floor); WS-094/WS-095 → **WS-235 RF
 Cycle Count** is the entry surface and the web grid is the controller's; WS-097
 `screens/whBlockedMovement` — the operator who was refused must be able to see why and raise the
 force request. `none` for WS-091 (registry), WS-093 (programme configuration) and WS-096
 (a controller report). WS-098 states its own, below.
+
+#### WS-091 · Hold Types
+
+`/warehouse/inventory/hold-types` · **Department** · `wh_hold_types` · `WAREHOUSE_HOLD_TYPE` · v1 · P2 ·
+`FR-151` `FR-395`. `D-10`'s twelfth registry, **living in the application** because a hold is an
+application concern and not a stock fact. A type states what kind of subject it may be placed on, what
+an open hold of it stops, and who may release it.
+
+**Columns** — transcribed from `V510032`'s `grid_column_definitions` seed, key for key
+(`{wh_hold_types}.` implied on a bare source):
+
+| key | label | type | sortable | default-visible | source |
+|---|---|---|---|---|---|
+| `code` | Code | string | Y | Y | `code` — **required column**, never hideable; uppercased on write and disabled on edit |
+| `name` | Name | string | Y | Y | `name` |
+| `holdScope` | Scope | string | Y | Y | `hold_scope` — `ORDER` / `LOT` / `LOCATION` / `ITEM` / `SHIPMENT`, seeded into the `HOLD_SCOPE` `whb_code_lists` vocabulary and reached by the composite FK `(hold_scope_list, hold_scope)`. **Un-`CHECK`ed, no Java enum, no TypeScript union** (`OD-5`, `FR-380`), so the select's options are fetched |
+| `blocksAllocation` | Blocks Allocation | boolean | Y | Y | `blocks_allocation` |
+| `blocksPick` | Blocks Pick | boolean | Y | Y | `blocks_pick` |
+| `blocksShip` | Blocks Ship | boolean | Y | Y | `blocks_ship` |
+| `requiresReason` | Requires Reason | boolean | Y | Y | `requires_reason` — read by Place AND by Release, so a type that demands a reason demands one at both ends |
+| `releasePermission` | Release Permission | string | Y | Y | `release_permission` — the permission a releaser needs **on top of** `wh_holds:release` (`Q-001`). It must resolve to a `permissions.name`, which `V510032` and `V511212` both assert |
+| `owningModule` | Owning Module | string | Y | Y | `owning_module` — server-set, never taken from the request |
+| `holdCount` | Holds | number | **N** | Y | **computed on read, never stored** — `wh_holds` rows carrying this code, open and released, batched once per page. `is_sortable = false` in `V510032`: there is no `hold_count` column to ORDER BY (§0.5's four sort gates) |
+| `isSystem` | System | boolean | Y | Y | `is_system` — server-set. A system type may be amended and neither retired nor deleted |
+| `isActive` | Status | boolean | Y | Y | `is_active` with `status` |
+| `description` | Description | string | N | N | `description` (`TEXT`) |
+| `createdByName` | Created By | string | N | N | `UserDetails.getFullName()` via `created_by` |
+| `updatedByName` | Updated By | string | N | N | `UserDetails.getFullName()` via `updated_by` |
+| `createdAt` | Created | date | Y | N | `created_at` |
+| `updatedAt` | Updated | date | Y | N | `updated_at` |
+| `actions` | Actions | string | N | Y | not a column — View · Edit · Retire / Activate · Delete |
+
+**This grid defines the audit four and the export carries them**: seventeen keys, `actions` excluded,
+hidden-but-exported exactly as §2.1's catalogue block states — the export is a strict superset of the
+visible set, under the grid's own sort and the caller's filters.
+
+**Filters** — the `WAREHOUSE_HOLD_TYPE` scope's six keys, contiguous from position 1, each one also a
+`COMMON_FILTER_CONFIGS.WAREHOUSE_HOLD_TYPE` entry and a forwarded API-service parameter (point 4's
+three legs): `code` text · `name` text · `holdScope` select (**options fetched**, never a union) ·
+`blocksAllocation` boolean · `isSystem` boolean · `isActive` boolean. `is_filterable = true` on
+exactly these six columns and on no others — a filterable column with no `filter_definitions` row is a
+filter the strip never offers.
+
+**Modals:** add/edit = `Modal size="lg"`, `minWidth={500}`, `minHeight={400}`, `resizable`, three tabs
+(Identity · Behaviour · System) on `TabNavigation` + `useModalTabState`, with debounced uniqueness on
+`code` and `name`. View = `ViewModalBase` with the same three tabs, in the same order and under the
+same labels, plus System Information last.
+
+**Actions:** Add · row View · Edit · Retire / Activate · Delete. **Retire and Delete are refused for a
+system type**, and Delete is refused once any hold references the code — the plan-shaped rule
+(`WS-079`), because a hold type carries no gapless number and so is genuinely deletable until it is
+used.
+
+**Empty state:** `emptyMessage` = `warehouse:holdType.empty`. Of §9.6 point 2's three messages this is
+plain **`empty`** — "nothing here yet". A registry is populated by hand, so an empty one is a
+configuration task and not a condition to explain.
+
+**Statistics:** five tiles — total, active, retired, **blocking allocation** (the number of types that
+stop the allocator, which is the one operational fact about a hold type) and **system**. All five are
+**filter-aware**, computed in the same statement as the count, and therefore carry **no `statistics.*`
+cache name** (`FR-395`, `RC-004`).
+
+**Mobile:** `none` — a registry, configured at a desk.
+
+#### WS-092 · Holds
+
+`/warehouse/inventory/holds` · **Service Vehicle** · `wh_holds` · `WAREHOUSE_HOLD` · v1 · P2 · `FR-151`
+`FR-152` `FR-395`. **A hold is a record with a release audit, never a status column.** Two holds on one
+subject at once is the normal case, so the table is append-only: Release writes `released_at`,
+`released_by` and a release reason and **keeps the row** (`C-033`, `WH-SC-185`, the
+`pdi_storage_slot_assignments` shape), and the gate still blocks while any other open hold stands
+(`WH-SC-098`). Exclusivity is a **partial unique index** on `(hold_type_code, subject_type, subject_id)
+WHERE released_at IS NULL`; occupancy is derived at read time and deliberately not cached.
+
+**Columns** — transcribed from `V510032`'s `grid_column_definitions` seed, key for key
+(`{wh_holds}.` implied on a bare source):
+
+| key | label | type | sortable | default-visible | source |
+|---|---|---|---|---|---|
+| `holdNumber` | Hold No. | string | Y | Y | `hold_number` — **required column**, never hideable; issued from the gapless `HOLD` series through `WhbDocumentNumberIssuer` (`FR-426`), and a deferred constraint trigger refuses a committed hold without one |
+| `holdTypeName` | Hold Type | string | Y | Y | `wh_hold_types.name` via `hold_type_code` |
+| `subjectType` | Subject Type | string | Y | Y | `subject_type` — the `HOLD_SCOPE` vocabulary again, un-`CHECK`ed, reached by `(subject_type_list, subject_type)`; it is **the hold type's own scope**, never chosen independently |
+| `subjectLabel` | Subject | string | **N** | Y | **resolved on read** through `WarehouseDocumentDisplayRegistry` (`FR-357`), one resolve per distinct subject per page, falling back to `"<TYPE> <id>"` and never to blank. `is_sortable = false`: there is no label column to ORDER BY |
+| `reasonCodeName` | Reason | string | Y | Y | `whb_reason_codes.name` via `reason_code_id`, in the `HOLD` context |
+| `placedByName` | Placed By | string | **N** | Y | `UserDetails.getFullName()` via `placed_by` — resolved, so nothing to ORDER BY |
+| `placedAt` | Placed | date | Y | Y | `placed_at` (`TIMESTAMPTZ`) — the grid's default sort, `desc` |
+| `releasedByName` | Released By | string | **N** | Y | `UserDetails.getFullName()` via `released_by` — blank while the hold is open |
+| `releasedAt` | Released | date | Y | Y | `released_at` — `NULL` is exactly what "open" means |
+| `releaseReasonName` | Release Reason | string | Y | Y | `whb_reason_codes.name` via `release_reason_code_id`, in the `RELEASE` context — a **different** context from the one Place reads |
+| `isOpen` | Open | boolean | **N** | N | **derived** from `released_at IS NULL` (`FR-151`). Defined so the export's Open column is one a reader can also switch on; not sortable, because sorting by Released does the same job |
+| `note` | Note | string | N | N | `note` (`TEXT`) — Place and Release each append to it |
+| `actions` | Actions | string | N | Y | not a column — View · Release |
+
+**This grid is ledger-style: there are no audit columns on it and none in the export** (§0.5).
+That is not an omission — `created_by` **is** `placed_by` and `updated_by` **is** `released_by` on this
+table, so an audit pair would put one fact in two columns. `WhHoldExportService` declares
+`isLedgerStyle() = true` and `ExportServiceContractTest` checks the claim against this seed rather than
+taking it on trust. The export is the twelve keys above, `actions` excluded, under the grid's sort and
+the caller's filters.
+
+**Filters** — the `WAREHOUSE_HOLD` scope's six keys, contiguous from position 1, each one also a
+`COMMON_FILTER_CONFIGS.WAREHOUSE_HOLD` entry and a forwarded API-service parameter: `holdTypeCode`
+select → `subjectType` select (both fetched) · `activeOnly` boolean, **defaulting to open** · `placedBy`
+`searchable-select` over the users who have actually placed a hold · `placedFrom`/`placedTo`. The pair
+is **`date`, not `dateOnly`**: `placed_at` is `TIMESTAMPTZ`, and it is **two keys**, because there is no
+range type (point 4).
+
+**Modals:** Place, Release and Mass hold / release are each `Modal size="lg"`, `minWidth={500}`,
+`minHeight={400}`, `resizable`. Place derives `subjectType` from the chosen type and shows it read-only
+— a type holds one kind of thing. Release states, in an `AlertBox`, that the row is kept and that the
+subject's other open holds are unaffected, because an operator who expects the row to vanish will
+report its presence as a bug. View = `ViewModalBase` with the Place modal's sections in its order and
+under its labels, plus the release audit, **the subject's other open holds** — the whole point of
+`FR-151` — and System Information last.
+
+**Actions:** toolbar Place (`wh_holds:place`) · **Mass hold / release** (`wh_holds:mass` — a different
+authority from holding one) · Export · Grid config; row View · **Release** (`wh_holds:release` **plus**
+the type's own `release_permission`, `Q-001`, which is why the response carries `canRelease` and the
+button reads that rather than the permission alone). **There is no Edit and no Delete.**
+
+**Mass hold / release writes one `wh_holds` row per subject, with a reason, and moves nothing**
+(`RJ-008`). It is never `whb_lots.status_code`, which keeps job-set lifecycle states such as `EXPIRED`,
+and it is **not a status-change movement**: `FR-152`'s balanced two-line movement is for **physical
+segregation only** — stock whose `stock_status_code` really changes, such as a quarantine — and this
+task owns the first half of `FR-152`, the recall workflow that drives mass action from a lot being
+`P5-14`. A mass action is bounded at 500 subjects, and a subject already carrying (or not carrying) the
+hold is **skipped and reported**, never silently counted.
+
+**Empty state:** `emptyMessage` = `warehouse:hold.empty`. Of §9.6 point 2's three messages this is
+plain **`empty`** — "nothing here yet". With `activeOnly` defaulting to open, an empty grid reads as
+"nothing is held", which is the good state and needs no explanation.
+
+**Statistics:** five tiles — total, **open**, released, **blocking allocation** (open holds whose type
+stops the allocator) and **held subjects** (distinct `(subject_type, subject_id)` pairs under an open
+hold — the number that answers "how much of the warehouse is frozen", which a row count does not,
+because two holds on one lot is normal). All five are **filter-aware**, computed in the same statement
+as the count, and therefore carry **no `statistics.*` cache name** (`FR-395`, `RC-004`).
+
+**Mobile:** `screens/whHold` — place and release from the floor. Stated already in the section's Mobile
+line and repeated here because this block is now the screen's own.
 
 #### WS-096 · Insufficient Stock & Lost Sales
 
@@ -2911,7 +3054,7 @@ WS-037 WS-038 WS-039 WS-040 WS-042 WS-043 WS-044 WS-045 WS-046 WS-047
 WS-048 WS-049 WS-050 WS-051 WS-052 WS-053 WS-055 WS-056 WS-057 WS-058
 WS-059 WS-060 WS-061 WS-062 WS-063 WS-064 WS-065 WS-066 WS-067 WS-068
 WS-069 WS-070 WS-072 WS-074 WS-075 WS-076 WS-078 WS-079 WS-080 WS-081
-WS-082 WS-083 WS-084 WS-085 WS-086 WS-087 WS-088 WS-090 WS-091 WS-092
+WS-082 WS-083 WS-084 WS-085 WS-086 WS-087 WS-088 WS-090
 WS-093 WS-094 WS-099 WS-101 WS-102 WS-103 WS-104 WS-105 WS-107
 WS-108 WS-109 WS-110 WS-111 WS-112 WS-113 WS-114 WS-115 WS-116 WS-117
 WS-118 WS-119 WS-120 WS-121 WS-122 WS-123 WS-124 WS-125 WS-126 WS-127
