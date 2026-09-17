@@ -1123,6 +1123,7 @@ trivial; **the start date is the irreversible part**, which is why it is v1 and 
 |---|---|---|---|---|---|---|
 | `whb_stock_periods` | The stock period. **Separate from the accounting period and closes earlier** | `company_id`, `warehouse_id` (nullable = all sites), `period_code`, `start_date`, `end_date`, `status` (`OPEN`/`SOFT_CLOSED`/`CLOSED`), `closed_by`, `closed_at`, `reopened_by`, `reopened_at` | uk(`company_id`,`warehouse_id`,`period_code`) `NULLS NOT DISTINCT`; idx(`company_id`,`start_date`,`end_date`) | `company_id → whb_companies`; `warehouse_id → whb_warehouses` | `FR-020` `FR-021` `FR-251` `IRR-22` | v1 |
 | `whb_stock_period_overrides` | The soft-close override audit. A `SOFT_CLOSED` period admits a movement **only** with an approved override, and the approval is a row | `period_id`, `movement_id`, `requested_by`, `approved_by`, `approved_at`, `reason_code_id`, `justification` | idx(`period_id`); idx(`movement_id`) | `period_id → whb_stock_periods`; `reason_code_id → whb_reason_codes`; `movement_id` **bare UUID** | `FR-020` `IRR-22` `L-8` | v1 |
+| `whb_stock_period_override_requests` | **The override a `PENDING` movement requests** (`V500086`, WH-SC-022, user decision 2026-09-17). The poster sends `period_override { reason_code_id, justification }`; the row is written just before the `PENDING` header and is what lets `I-10` admit it. The checker's approval writes the approved `whb_stock_period_overrides` row from it. Kept after reject and withdraw as the audit trail; no screen | `period_id`, `movement_id`, `requested_by`, `reason_code_id`, `justification` | uk(`movement_id`); idx(`period_id`); idx(`requested_by`); `CHECK (length(btrim(justification)) > 0)` | `period_id → whb_stock_periods`; `reason_code_id → whb_reason_codes`; `requested_by → users`; `movement_id` **bare UUID** | `FR-020` `FR-408` `L-8` `MPR-GRD-10` `MPR-T4-06` | v1 |
 
 #### 2.1.10 Reservations and allocation
 
@@ -2704,7 +2705,7 @@ Enforcement layers: **C** = DB `CHECK` · **U** = DB unique index or constraint 
 | **I-7** | `L-4` Positions are a cache — rebuild reproduces exactly | | | | | ● | job + `V500045` |
 | **I-8** | `L-7` Base UoM and the frozen factor; zero-quantity mirror | ● | | | | ● | `V500030` |
 | **I-9** | `L-7` Base stocking UoM immutable once stock exists | | | ● | | ● | `V500036` |
-| **I-10** | `L-8` Period-bound posting into the period of `posting_date` for the movement's company and site, with session-GUC-gated override | | | ● | | ● | `V500032` + `V500049` |
+| **I-10** | `L-8` Period-bound posting into the period of `posting_date` for the movement's company and site, with session-GUC-gated override; a requested `PENDING` insert admitted, and its approval checked | | | ● | | ● | `V500032` + `V500049` + `V500086` |
 | **I-11** | `L-9` Idempotent ingestion — `(source_system, idempotency_key)` unique **across months** on the non-partitioned `whb_movement_idempotency_keys` registry, never server-generated | | ● | | | ● | `V500030` |
 | **I-12** | `L-10` Allocation is an open-item ledger with a holder quad | ● | | ● | | ● | `V500033` |
 | **I-13** | `L-13` Three timestamps, and the line's `occurred_at` mirrors its header's | ● | | ● | | ● | `V500030` |
@@ -3070,7 +3071,7 @@ CREATE TRIGGER trg_whb_items_base_uom_immutable
 layer"*, and §5.4 explains why: the base UoM choice is what keeps the rounding-away-from-zero case out
 of the ledger, and it is the one decision that must be taken once.
 
-#### `I-10` — period-bound posting, with a gated override · `V500032` + `V500049`
+#### `I-10` — period-bound posting, with a gated override · `V500032` + `V500049` + `V500086`
 
 ```sql
 CREATE OR REPLACE FUNCTION whb_assert_period_open() RETURNS TRIGGER AS $$
@@ -3125,9 +3126,10 @@ may not be the actor). `is_local` means the grant dies with the transaction; a s
 would silently open the period for every subsequent statement on that connection, and connection
 pooling makes that "every subsequent statement by anyone".
 
-`I-10` fires on `INSERT` only, so a `PENDING` movement is checked when it is submitted. Approving it
-after its period has closed is refused by the service: `409 PERIOD_CLOSED_SINCE_SUBMISSION` on
-`posting_date`, message *"withdraw and resubmit current-dated"* (`RA-004`, `MPR-GRD-20`).
+~~`I-10` fires on `INSERT` only~~ — **superseded by `V500086`, below.** A `PENDING` movement is checked
+when it is submitted. Approving it after its period has closed is refused by the service: `409
+PERIOD_CLOSED_SINCE_SUBMISSION` on `posting_date`, message *"withdraw and resubmit current-dated"*
+(`RA-004`, `MPR-GRD-20`).
 
 **Which period, corrected by `V500049`.** The sketch above first read only `NEW.period_id`, and so did
 `V500032`: a writer defect or a direct insert naming an `OPEN` period's id for a `posting_date` inside a
@@ -3137,6 +3139,25 @@ after its period has closed is refused by the service: `409 PERIOD_CLOSED_SINCE_
 KEEP-SCALAR rule (`RG-026`, `WAREHOUSE_AMBIGUOUS_PERIOD`) with the same predicate, so the backstop refuses
 exactly what the resolver refuses. The shipped body also reads the override through
 `NULLIF(current_setting(…), '')` and asserts the override is an approved override of this period (`V500032`).
+
+**The soft-close override rides on the movement's approval, `V500086` (WH-SC-022, user decision
+2026-09-17).** Before it, no approver was known at submission, so no caller could ever post into a
+`SOFT_CLOSED` period. Now:
+
+- the poster sends `period_override { reason_code_id, justification }`; the writer records it in
+  `whb_stock_period_override_requests` (§2.1.9) just before inserting the header, and the movement is
+  `PENDING` whatever its type;
+- on `INSERT` into a `SOFT_CLOSED` period, a `PENDING` row with a request row for this movement and this
+  period is admitted; otherwise the GUC rule above is unchanged;
+- the trigger is now `BEFORE INSERT OR UPDATE OF approval_status`. On `UPDATE` it returns at once unless
+  the row goes to `APPROVED` from anything else, so reject, withdraw, reversal stamping and sequence
+  issuance are untouched. For the approval: `OPEN` passes, `CLOSED` refuses, and `SOFT_CLOSED` requires the
+  GUC to name an **approved** `whb_stock_period_overrides` row of this period **with `movement_id` = this
+  movement**. The approval writes and flushes that row (`requested_by` = poster, `approved_by` = checker ≠
+  poster, holding `whb_stock_periods:override`) and only then sets the GUC (`MPR-T4-06`).
+
+A period reopened to `OPEN` before approval approves ordinarily with no override row. The request row
+is kept after reject and withdraw.
 
 #### `I-11` — idempotent ingestion · `V500030`
 
@@ -3478,7 +3499,8 @@ Every one of these is covered by a test, and the tests are named in the task fil
 | `P1-22` | `V500079` | `EXCLUDE USING gist (branch_id =, range &&)` on `whb_company_branches` — one company per branch at a time (`D-14` item 8e). Creates no table | v1 |
 | `P1-22` | `V500080` | Drops `V500012`'s at-least-one `REGISTERED` guard — `trg_whb_warehouses_assert_registered`, `trg_whb_warehouse_branches_assert_registered` and `whb_warehouses_assert_registered()` — so a site saves with no link (`D-14` item 8g). Keeps the one-open-`REGISTERED` index and the history `EXCLUDE`. Creates no table | v1 |
 | `P0-13` | `V500081` | **K-001 liveness** — `whb_job_runs.instance_id` + `heartbeat_at`: a RUNNING row is reclaimed only when its heartbeat is stale, so overlapping processes (replicas, a deploy that starts the new container before stopping the old) never free a live run's `uk_whb_job_runs_single_running` lock (user decision 2026-09-17, C9 re-verify N1). The first number of the plain gap after `WHB-80` | v1 |
-| — | `V500082`–`V500099` | *gap* — post-v1 base DDL. (`V500067` is `WHB-69`'s, below; the earlier gap row starting at `V500067` was stale) | — |
+| `P0-02` | `V500086` | `whb_stock_period_override_requests` + **forward-only correction of `V500032`/`V500049`**: `whb_assert_period_open()` admits a `PENDING` insert with its override request and checks the approval on `UPDATE OF approval_status` → `APPROVED` (`I-10`, `MPR-GRD-10`, `MPR-T4-06`; CL-1 defect WH-SC-022, user decision 2026-09-17) | v1 |
+| — | `V500082`–`V500099` | *gap* — post-v1 base DDL (`V500083`–`V500086` since taken by `P0-02`). (`V500067` is `WHB-69`'s, below; the earlier gap row starting at `V500067` was stale) | — |
 | WHB-66 | `V500100` | `whb_stock_movements_archive`, `whb_stock_movement_lines_archive`, `whb_movement_line_attributes_archive` (`P6-01`). **The archive-run record is not allocated here** — §2.1.14 states why | v3 |
 | — | `V500101`–`V500199` | *gap* — post-v1 base DDL, 99 numbers remaining | — |
 | WHB-69 | `V500067` | `whb_retention_policies` (`P4-09`, `Z-006`). **`WHB-68` is deliberately skipped** — it is reserved for `P6-01`'s archive-run record, per `DESIGN-SET-DEFECTS.md` §6.4 `R-3` | v1 |
@@ -3999,6 +4021,7 @@ whb_stock_movement_lines
 whb_stock_movement_lines_archive
 whb_stock_movements
 whb_stock_movements_archive
+whb_stock_period_override_requests
 whb_stock_period_overrides
 whb_stock_periods
 whb_stock_position_snapshots
@@ -4487,6 +4510,7 @@ whb_stock_movement_lines v1
 whb_stock_movement_lines_archive v3
 whb_stock_movements v1
 whb_stock_movements_archive v3
+whb_stock_period_override_requests v1
 whb_stock_period_overrides v1
 whb_stock_periods v1
 whb_stock_position_snapshots v1

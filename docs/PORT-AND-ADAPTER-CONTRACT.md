@@ -245,6 +245,7 @@ POST /api/warehouse/movements
 | `handover_id` · `posting_status` | UUID · VARCHAR(20) | S | the accounting seam (`D-6`) | `NOT_APPLICABLE` · `PENDING` · `POSTED` · `REJECTED`, default `NOT_APPLICABLE`. Pre-integration movements have no marker, so *"does the stock ledger tie to the GL"* is unanswerable **for the audited period**. `IRR-41` |
 | `approval_status` · `approved_by` · `approved_at` | — | S | for types with `requires_approval` | Scrap and write-down. `FR-027` |
 | `posted_at` · `notes` | TIMESTAMPTZ · TEXT | S · O | — | — |
+| `period_override` | object `{ reason_code_id` UUID FK → `whb_reason_codes`, `justification` TEXT `}` | O / conditionally **R** | required to post into a `SOFT_CLOSED` period (`PC-26`); both members required when sent, **no approver member** | **Not a header column** — it is recorded in `whb_stock_period_override_requests` against the movement id, the movement goes `PENDING`, and the checker's approval writes the approved `whb_stock_period_overrides` row (`MPR-GRD-10`, `MPR-T4-06`, `V500086`, WH-SC-022 user decision 2026-09-17). Part of the received body, so it joins the `PC-17` hash. Ignored for an `OPEN` period |
 | audit columns | `created_by`, `created_at`, `updated_by`, `updated_at`, `version` | S | house convention | `updated_*` exist and are **never written after post** (`L-2`) |
 
 **Deliberately not on the header** — stated so it is not "discovered" later as a gap: `owner_id` (it
@@ -566,7 +567,24 @@ stated rather than discovered by the first consumer that syncs a shift.
 > **`PC-26`** · `posting_date` in an **`OPEN`** period: accepted. In a **`SOFT_CLOSED`** period:
 > requires the override permission and **records the override with the overriding user**. In a
 > **`CLOSED`** period: refused, `PERIOD_CLOSED`, **including a reversal**. *(`L-8`, `FR-020`,
-> `F-085`.)* A trigger with session-GUC gating is the backstop; the service rejects first, in the
+> `F-085`.)*
+>
+> **The soft-close path, as built (WH-SC-022, user decision 2026-09-17).** The post carries
+> `period_override { reason_code_id, justification }` (§2.4) and the poster holds
+> `whb_stock_movements:post_backdated` **and** `whb_stock_periods:override`; either permission missing,
+> or no `period_override`, is `403 PERIOD_OVERRIDE_FORBIDDEN` on `posting_date`. The movement is then
+> accepted **`PENDING`** — never posted directly, whatever its type — with the request recorded in
+> `whb_stock_period_override_requests`. Its checker approves it through the existing approve endpoint:
+> the checker is not the poster (`422 PERIOD_OVERRIDE_SELF_APPROVED`, checked before
+> `MOVEMENT_SELF_APPROVED`) and holds `whb_stock_periods:override` (else `403`). That approval writes the
+> `whb_stock_period_overrides` row (`period_id`, `movement_id`, `requested_by` = poster, `approved_by` =
+> checker, reason code, justification) **before** the GUC is set, and then the movement takes effect;
+> the row appears on WS-046. *"Records the override with the overriding user"* and `WH-SC-022`'s
+> *"recorded on the movement"* are that row and its `movement_id`. A period hard-closed since submission
+> refuses the approval `409 PERIOD_CLOSED_SINCE_SUBMISSION`; one reopened to `OPEN` approves as an
+> ordinary movement with no override row. `POST /movements/simulate` runs the same path and reports the
+> same refusals (`PC-27`). No new endpoint and no new screen (`MPR-GRD-10`, `MPR-GRD-20`, `MPR-T4-06`,
+> `V500086`). A trigger with session-GUC gating is the backstop; the service rejects first, in the
 > transaction, with a field-level error. **A trigger firing in production is an incident, not a
 > validation** (`DECISIONS.md` §4).
 
@@ -654,8 +672,8 @@ Marked as **additions**, each with the clause that makes it necessary. They are 
 | `RETRY_AFTER` | 429 | **yes** — after the interval | `RD-004` — reserved from v1 so a producer's retry logic can branch on it; `P5-22` builds the limiter (v2) |
 | `OCCURRED_AT_BEFORE_RETENTION` | 422 | no | `Y-008` — an `occurred_at` older than the oldest live ledger partition (`MPR-GRD-06`, contract G1) |
 | `UNREGISTERED_INSTANT` | 422 | no | `RG-001` — the site has no `REGISTERED` link covering `occurred_at` (`MPR-GRD-07`, contract G1) |
-| `PERIOD_OVERRIDE_FORBIDDEN` | 403 | no | `RA-007` / `PC-26` — posting into a `SOFT_CLOSED` period without the override permissions (`MPR-GRD-10`; built precedent) |
-| `PERIOD_OVERRIDE_SELF_APPROVED` | 422 | no | `RA-007` — the override's approver is the poster (`MPR-GRD-10`; built precedent) |
+| `PERIOD_OVERRIDE_FORBIDDEN` | 403 | no | `RA-007` / `PC-26` — posting into a `SOFT_CLOSED` period without both override permissions or without a `period_override`, or approving such a movement without `whb_stock_periods:override` (`MPR-GRD-10`; built precedent) |
+| `PERIOD_OVERRIDE_SELF_APPROVED` | 422 | no | `RA-007` — the poster approves their own soft-closed movement, i.e. the override's approver is the poster (`MPR-GRD-10`; built precedent) |
 | `MOVEMENT_NOT_PENDING` | 409 | no | `RA-004` — Approve, Reject or Withdraw on a row that is not `PENDING` (`MPR-GRD-28`) |
 | `MOVEMENT_SELF_APPROVED` | 403 | no | `FR-408` — the approver or rejecter is the movement's actor (`MPR-GRD-19`) |
 | `NEGATIVE_STOCK_OVERRIDE_FORBIDDEN` | 403 | no | `FR-015` — a `WARN` acknowledgement without `whb_negative_stock_policies:override` (`MPR-GRD-16`, contract G2) |
@@ -683,7 +701,7 @@ tables above.
 > | `warehouse:movements:reverse` | `POST /movements/{id}/reverse` |
 > | `warehouse:movements:view` | `GET /movements/{id}`, the lineage query |
 > | `warehouse:movements:simulate` | `POST /movements/simulate` |
-> | `whb_stock_movements:post_backdated` | posting into a `SOFT_CLOSED` period (`PC-26`), together with `whb_stock_periods:override` and an approved override row whose approver is not the poster (`RA-007`) |
+> | `whb_stock_movements:post_backdated` | posting into a `SOFT_CLOSED` period (`PC-26`), together with `whb_stock_periods:override` and a `period_override`; the movement goes `PENDING` and its approver — not the poster, holding `whb_stock_periods:override` and `whb_stock_movements:approve` — writes the approved override row (`RA-007`, `MPR-T4-06`) |
 > | `warehouse:stock:view` | `GET /stock`, `GET /stock/as-at` |
 > | `warehouse:reservations:hold` · `:release` | §5 |
 > | `warehouse:outbox:replay` · `:view` | §4.6, the dead-letter grid |
