@@ -1930,9 +1930,36 @@ desk), WS-087 and WS-088 (v2, finance and planning).
 
 `/warehouse/inventory/adjustments` · **Service Vehicle** · `wh_stock_adjustments` ·
 `WAREHOUSE_STOCK_ADJUSTMENT` · v1 · P2 · `FR-145` `FR-146` `FR-164` `FR-408`.
-**Columns:** `adjustmentNumber`, `warehouseName`, `ownerName`, `adjustmentType`
-(POSITIVE/NEGATIVE/MIXED), `reasonCodeName`, `totalLines`, **`totalValueImpact`**,
-`requiresApproval`, `approvedByName`, `approvedAt`, `status`, `postedMovementSequenceNo`, audit.
+
+**Columns** — transcribed from `V510030`'s `grid_column_definitions` seed, key for key
+(`{wh_stock_adjustments}.` implied on a bare source):
+
+| key | label | type | sortable | default-visible | source |
+|---|---|---|---|---|---|
+| `adjustmentNumber` | Adjustment No. | string | Y | Y | `adjustment_number` — **required column**, never hideable |
+| `warehouseName` | Site | string | Y | Y | `whb_warehouses.name` via `warehouse_id` |
+| `ownerName` | Owner | string | N | Y | `whb_owners.name` via `owner_id` |
+| `adjustmentType` | Type | string | Y | Y | `adjustment_type` (POSITIVE/NEGATIVE/MIXED) |
+| `reasonCodeName` | Reason | string | Y | Y | `whb_reason_codes.name` via `reason_code_id` |
+| `totalLines` | Lines | number | Y | Y | `total_lines` |
+| `totalValueImpact` | Value Impact | number | Y | Y | `total_value_impact` (`DECIMAL(19,4)`) |
+| `requiresApproval` | Needs Approval | boolean | Y | Y | `requires_approval` |
+| `approvedByName` | Approved By | string | N | Y | `UserDetails.getFullName()` via `approved_by` |
+| `approvedAt` | Approved | date | Y | Y | `approved_at` |
+| `status` | Status | string | Y | Y | `status` (the §0.11 ladder) |
+| `postedMovementSequenceNo` | Movement No. | number | N | Y | `whb_stock_movements.sequence_no` via `posted_movement_id` |
+| `totalVarianceQuantity` | Variance Qty | number | Y | N | `total_variance_quantity` |
+| `thresholdValueApplied` | Threshold | number | N | N | `threshold_value_applied` — the policy value resolved at submit |
+| `submittedByName` | Submitted By | string | N | N | `UserDetails.getFullName()` via `submitted_by` |
+| `submittedAt` | Submitted | date | Y | N | `submitted_at` |
+| `createdByName` | Created By | string | N | N | `UserDetails.getFullName()` via `created_by` |
+| `updatedByName` | Updated By | string | N | N | `UserDetails.getFullName()` via `updated_by` |
+| `createdAt` | Raised | date | Y | N | `created_at` |
+| `updatedAt` | Updated | date | Y | N | `updated_at` |
+| `actions` | Actions | string | N | Y | not a column — the row action set below |
+
+The export is this set, `actions` excluded, and **the audit pair is in it because the grid defines it**
+(§0.5).
 **Filters:** `warehouseId` → `ownerId` → `reasonCodeId` · `adjustmentType` select ·
 `status` **multiselect** · `requiresApproval` boolean · `approvedBy` typeahead ·
 `createdFrom`/`createdTo` `date` pair · `valueImpactMin`/`valueImpactMax` number pair.
@@ -1942,7 +1969,19 @@ desk), WS-087 and WS-088 (v2, finance and planning).
 as by quantity**, and the approver may not be the actor) · Post · Cancel · Print.
 Every adjustment carries a **mandatory catalogue reason code**, and the reason's
 `affects_demand_history` flag decides whether the movement inflates the reorder point (`FR-146`).
-**Statistics strip:** open · awaiting approval · posted this period · net value impact this period.
+
+**Empty state:** `emptyMessage` = `warehouse:stockAdjustment.empty`. This is a workflow grid, so §9.6
+point 2's three messages are distinguishable and this one is **`empty`** — "nothing here yet". An
+adjustment is raised on this screen by an operator, so an empty grid means nobody has raised one; it
+is neither `out of scope` (the module is installed or the route would not resolve) nor `never
+populated` (nothing upstream has to happen first — the Add button is right there).
+
+**Statistics:** four tiles — **open** · **awaiting approval** · **posted this period** · **net value
+impact this period**. **No `statistics.*` cache name is registered** for this strip: it is computed
+from the same search and filters as the rows (`FR-395`), so a cache name would cache nothing while
+reading as though it did — `CacheConfiguration.java:190-196` records that exact mistake with its issue
+numbers (`classic#790`, `#791`). Asserted by `NonFunctionalFoundationsTest` §1c.
+
 **Mobile:** `screens/whStockAdjustment` — create and submit; **approval is desk-only** and the mobile
 screen says so rather than hiding the button.
 
@@ -2001,11 +2040,114 @@ raises it (`RK-001`). Approve / Reject and the challan action are not.
 | WS-097 | `wh_blocked_movements` · `WAREHOUSE_BLOCKED_MOVEMENT` | SV | `warehouseName`, `attemptedMovementTypeCode`, `rejectionCode`, `rejectionDetail`, `actorUserName`, `deviceId`, `occurredAt`, `resolvedAt`, `resolutionAction`, `ageMinutes` | `warehouseId` → `rejectionCode` select · `unresolvedOnly` boolean (default true) · `actorUserId` typeahead · `occurredFrom`/`To` | View attempted payload (`TEXT`) · **Force with approval** (`wh_blocked_movements:force`, mandatory reason + approver) · Resolve · Discard. **A physical move the system rejected is a first-class object** — refusing the transaction does not un-move the goods, so the queue holds the goods in `PENDING_RESOLUTION` and routes to a supervisor | `FR-028` |
 | WS-098 | `wh_reconciliation_exceptions` · `WAREHOUSE_RECONCILIATION_EXCEPTION` | SV | `exceptionType`, `warehouseName`, `subjectKeyText`, `detectedAt`, `ownerUserName`, `ageDays`, `status`, `resolvedAt`, `resolutionNote` | `exceptionType` select → `status` select · `warehouseId` · `ownerUserId` typeahead · `ageOverDays` select · `detectedFrom`/`To` | Assign · Resolve. Exposes ledger-vs-position drift, position-vs-allocation drift and orphaned reservations **with an owner and an ageing clock** — an exception nobody owns is an exception nobody clears | `FR-163` |
 
+> **WS-096 and WS-097 have their own blocks below.** `P2-01` builds both, so their rows here stay as
+> the index and their §9.6 form — column table, `emptyMessage`, statistics — lives in the two `####`
+> blocks that follow this section. The other six rows are still bare comma lists and still on the
+> §9.6.1 register, which is exactly the state §9.6 means by *"not ready to build"*.
+
 **Mobile:** WS-092 `screens/whHold` (place and release from the floor); WS-094/WS-095 → **WS-235 RF
 Cycle Count** is the entry surface and the web grid is the controller's; WS-097
 `screens/whBlockedMovement` — the operator who was refused must be able to see why and raise the
 force request. `none` for WS-091 (registry), WS-093 (programme configuration), WS-096 and WS-098
 (controller reports).
+
+#### WS-096 · Insufficient Stock & Lost Sales
+
+`/warehouse/inventory/insufficient-stock` · **Customer** · `wh_insufficient_stock_log` ·
+`WAREHOUSE_INSUFFICIENT_STOCK` · v1 · P2 · `FR-015` `FR-257`. Read-only + Export; the rows are written
+by the sufficiency guard and the counter's lost-sale capture, never by this screen.
+
+**Columns** — transcribed from `V510034`'s `grid_column_definitions` seed, key for key
+(`{wh_insufficient_stock_log}.` implied on a bare source):
+
+| key | label | type | sortable | default-visible | source |
+|---|---|---|---|---|---|
+| `warehouseName` | Site | string | Y | Y | `whb_warehouses.name` via `warehouse_id` |
+| `itemCode` | Item | string | Y | Y | `whb_items.code` via `item_id` — **required column**, never hideable |
+| `ownerName` | Owner | string | N | Y | `whb_owners.name` via `owner_id` |
+| `requestedQuantity` | Requested | number | Y | Y | `requested_quantity` |
+| `availableQuantity` | Available | number | Y | Y | `available_quantity` |
+| `sourceType` | Source | string | Y | Y | `source_type` |
+| `sourceId` | Source Ref. | string | N | Y | `source_id` — a **bare** reference string, no FK (`FR-039` shape) |
+| `actorUserName` | Actor | string | N | Y | `UserDetails.getFullName()` via `actor_user_id` |
+| `occurredAt` | Occurred | date | Y | Y | `occurred_at` |
+| `policyApplied` | Policy | string | Y | Y | `policy_applied` (BLOCK/WARN/ALLOW) |
+| `isLostSale` | Lost Sale | boolean | Y | Y | `is_lost_sale` |
+| `itemName` | Item Name | string | N | N | `whb_items.name` via `item_id` |
+| `locationCode` | Location | string | N | N | `whb_locations.code` via `location_id` |
+| `lostSaleReasonName` | Lost Sale Reason | string | N | N | `whb_reason_codes.name` via `lost_sale_reason_code_id` |
+| `capturedManually` | Captured By Hand | boolean | Y | N | `captured_manually` |
+| `actions` | Actions | string | N | Y | not a column — View only |
+
+**This grid is ledger-style: there are no audit columns on it and none in the export.** The table
+carries `created_at` and no `created_by` / `updated_by` / `updated_at` at all, because a log row is
+written once by the guard and never edited. Grid↔export parity is the rule, not a fixed column list
+(§0.5), so the export is the sixteen keys above minus `actions` and **adds no `createdByName` /
+`updatedByName`** — an audit column here would emit a column no reader can select.
+
+**Empty state:** `emptyMessage` = `warehouse:insufficientStock.empty`. Of §9.6 point 2's three
+messages this is **`never populated`** — "this fills in the first time a request is refused for
+stock or a lost sale is captured". It is not `empty`: there is no Add button, so telling a controller
+"nothing here yet" would imply they are meant to put something here. It is not `out of scope`
+either — the guard is always on; `WAREHOUSE_ALLOW_NEGATIVE_STOCK` changes what it does, never
+whether it logs.
+
+**Statistics:** `none`. `P2-01` names no tile for this screen and one cannot be justified from the
+task body: the grid's own total already answers "how many breaches", and every other question a
+controller asks of it (by item, by policy, by lost-sale flag) is a filter, not a tile. No
+`statistics.*` cache name, here or anywhere in warehouse v1 (`FR-395`).
+
+**Mobile:** `none`, stated as a decision — it is a controller report read at a desk.
+
+#### WS-097 · Blocked Movements Queue
+
+`/warehouse/inventory/blocked-movements` · **Service Vehicle** · `wh_blocked_movements` ·
+`WAREHOUSE_BLOCKED_MOVEMENT` · v1 · P2 · `FR-028` `FR-165` `FR-398`. A physical move the system
+rejected is a first-class object: refusing the transaction does not un-move the goods, so the queue
+holds them in `PENDING_RESOLUTION` and routes to a supervisor.
+
+**Columns** — transcribed from `V510034`'s `grid_column_definitions` seed, key for key
+(`{wh_blocked_movements}.` implied on a bare source):
+
+| key | label | type | sortable | default-visible | source |
+|---|---|---|---|---|---|
+| `warehouseName` | Site | string | Y | Y | `whb_warehouses.name` via `warehouse_id` |
+| `attemptedMovementTypeCode` | Attempted Move | string | Y | Y | `attempted_movement_type_code` → `whb_movement_types.code` — **required column**, never hideable |
+| `rejectionCode` | Rejection | string | Y | Y | `rejection_code` — **un-`CHECK`ed** (`FR-039`), so the select's options are fetched |
+| `rejectionDetail` | Detail | string | N | Y | `rejection_detail` (`TEXT`) |
+| `actorUserName` | Actor | string | N | Y | `UserDetails.getFullName()` via `actor_user_id` |
+| `deviceId` | Device | string | Y | Y | `device_id` |
+| `occurredAt` | Occurred | date | Y | Y | `occurred_at` |
+| `ageMinutes` | Age (min) | number | N | Y | **computed on read, never stored** — `occurred_at` to now (or to `resolved_at` once resolved), in the requesting user's timezone. There is no `age_minutes` column; it is `is_sortable = false` in `V510034` precisely because there is nothing to sort on in SQL (§0.5's four sort gates) |
+| `resolvedAt` | Resolved | date | Y | Y | `resolved_at` |
+| `resolutionAction` | Resolution | string | Y | Y | `resolution_action` (FORCED/RESOLVED/DISCARDED) |
+| `status` | Status | string | Y | N | `status` — `PENDING_RESOLUTION` by default |
+| `forceReasonName` | Force Reason | string | N | N | `whb_reason_codes.name` via `force_reason_code_id` |
+| `forceApprovedByName` | Force Approver | string | N | N | `UserDetails.getFullName()` via `force_approved_by` |
+| `resultingMovementSequenceNo` | Movement No. | number | N | N | `whb_stock_movements.sequence_no` via `resulting_movement_id` — set only when the resolution is `FORCED` |
+| `createdByName` | Created By | string | N | N | `UserDetails.getFullName()` via `created_by` |
+| `updatedByName` | Updated By | string | N | N | `UserDetails.getFullName()` via `updated_by` |
+| `createdAt` | Recorded | date | Y | N | `created_at` |
+| `updatedAt` | Updated | date | Y | N | `updated_at` |
+| `actions` | Actions | string | N | Y | not a column — View payload · Force with approval · Resolve · Discard |
+
+The export is this set, `actions` excluded, and **the audit pair is in it because the grid defines
+it** — unlike WS-096, this row is edited (resolved, forced, discarded), so it carries the pair.
+`attemptedPayload` (`TEXT`) is a modal, never a grid column.
+
+**Empty state:** `emptyMessage` = `warehouse:blockedMovement.empty`. Of §9.6 point 2's three
+messages this is **`never populated`** — "this fills in the first time the system refuses a move".
+An empty queue is the good state and the message must read as one; `empty` ("nothing here yet")
+would imply a missing action, and there is no Add path onto this screen at all.
+
+**Statistics:** `none`. `P2-01` names no tile for this screen. The one number a supervisor watches —
+unresolved rows older than `warehouse.blocked_movement.alert_minutes` — is delivered as an **alert**
+from the scheduled job (`FR-165`, `FR-398`, `WhbJobCatalogue` + a `whb_job_runs` row per run), not as
+a tile, and the `unresolvedOnly` filter (default true) already scopes the grid to the working set. No
+`statistics.*` cache name, here or anywhere in warehouse v1 (`FR-395`).
+
+**Mobile:** `screens/whBlockedMovement` — the operator who was refused must be able to see why and
+raise the force request. Approving a force is desk-only.
 
 #### WS-241 · Approval Levels — v2 · P5
 
@@ -2708,21 +2850,21 @@ WS-037 WS-038 WS-039 WS-040 WS-042 WS-043 WS-044 WS-045 WS-046 WS-047
 WS-048 WS-049 WS-050 WS-051 WS-052 WS-053 WS-055 WS-056 WS-057 WS-058
 WS-059 WS-060 WS-061 WS-062 WS-063 WS-064 WS-065 WS-066 WS-067 WS-068
 WS-069 WS-070 WS-072 WS-074 WS-075 WS-076 WS-078 WS-079 WS-080 WS-081
-WS-082 WS-083 WS-084 WS-085 WS-086 WS-087 WS-088 WS-089 WS-090 WS-091
-WS-092 WS-093 WS-094 WS-096 WS-097 WS-098 WS-099 WS-101 WS-102 WS-103
-WS-104 WS-105 WS-107 WS-108 WS-109 WS-110 WS-111 WS-112 WS-113 WS-114
-WS-115 WS-116 WS-117 WS-118 WS-119 WS-120 WS-121 WS-122 WS-123 WS-124
-WS-125 WS-126 WS-127 WS-128 WS-129 WS-130 WS-131 WS-132 WS-133 WS-134
-WS-135 WS-136 WS-137 WS-138 WS-139 WS-140 WS-141 WS-142 WS-143 WS-144
-WS-145 WS-146 WS-147 WS-148 WS-149 WS-150 WS-151 WS-152 WS-155 WS-156
-WS-157 WS-158 WS-159 WS-160 WS-161 WS-162 WS-163 WS-164 WS-165 WS-166
-WS-167 WS-168 WS-169 WS-170 WS-171 WS-173 WS-174 WS-175 WS-176 WS-177
-WS-178 WS-179 WS-180 WS-181 WS-182 WS-183 WS-184 WS-185 WS-186 WS-187
-WS-188 WS-189 WS-190 WS-191 WS-192 WS-193 WS-194 WS-195 WS-196 WS-197
-WS-198 WS-199 WS-200 WS-201 WS-202 WS-203 WS-204 WS-205 WS-206 WS-207
-WS-208 WS-209 WS-210 WS-211 WS-212 WS-213 WS-214 WS-215 WS-216 WS-217
-WS-218 WS-219 WS-220 WS-221 WS-222 WS-223 WS-224 WS-225 WS-226 WS-227
-WS-238 WS-239 WS-240 WS-241 WS-243 WS-244 WS-245
+WS-082 WS-083 WS-084 WS-085 WS-086 WS-087 WS-088 WS-090 WS-091 WS-092
+WS-093 WS-094 WS-098 WS-099 WS-101 WS-102 WS-103 WS-104 WS-105 WS-107
+WS-108 WS-109 WS-110 WS-111 WS-112 WS-113 WS-114 WS-115 WS-116 WS-117
+WS-118 WS-119 WS-120 WS-121 WS-122 WS-123 WS-124 WS-125 WS-126 WS-127
+WS-128 WS-129 WS-130 WS-131 WS-132 WS-133 WS-134 WS-135 WS-136 WS-137
+WS-138 WS-139 WS-140 WS-141 WS-142 WS-143 WS-144 WS-145 WS-146 WS-147
+WS-148 WS-149 WS-150 WS-151 WS-152 WS-155 WS-156 WS-157 WS-158 WS-159
+WS-160 WS-161 WS-162 WS-163 WS-164 WS-165 WS-166 WS-167 WS-168 WS-169
+WS-170 WS-171 WS-173 WS-174 WS-175 WS-176 WS-177 WS-178 WS-179 WS-180
+WS-181 WS-182 WS-183 WS-184 WS-185 WS-186 WS-187 WS-188 WS-189 WS-190
+WS-191 WS-192 WS-193 WS-194 WS-195 WS-196 WS-197 WS-198 WS-199 WS-200
+WS-201 WS-202 WS-203 WS-204 WS-205 WS-206 WS-207 WS-208 WS-209 WS-210
+WS-211 WS-212 WS-213 WS-214 WS-215 WS-216 WS-217 WS-218 WS-219 WS-220
+WS-221 WS-222 WS-223 WS-224 WS-225 WS-226 WS-227 WS-238 WS-239 WS-240
+WS-241 WS-243 WS-244 WS-245
 ```
 
 ## 10. Permissions
