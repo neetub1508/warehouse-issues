@@ -651,13 +651,23 @@ period lock that closes ahead of accounting's (`FR-251`).
 | **WH-SC-329** | `BRK-8840` is lot-controlled. `BRK-8840-X`, a duplicate with the same owner and base unit, is not | `mgr1` opens *Merge* on `BRK-8840-X` and chooses `BRK-8840` as the survivor, then posts the same merge directly to the API | The pre-check shows the refusal and *Merge* stays disabled. The direct post is refused `409` `MERGE_COLUMN_DIFFERS` on `lot_control_mode`, naming the column. Merging an uncontrolled item into a lot-controlled one would destroy the lot dimension of every future balance, and no transfer can reconcile it. Nothing posts, no `whb_master_merges` row is written, and both items stay active. A difference in `base_uom_code` or `serial_control_mode` is refused the same way | `FR-451` | — | base | v1·P1 | error |
 | **WH-SC-330** | `SUP-X2` is a duplicate of supplier `SUP-X`. `PO-2026-00410` from `SUP-X2` for `SITE-A` is open, and `SUP-X2` has a counterparty-scoped identifier | `mgr1` opens *Merge* on `SUP-X2`, chooses `SUP-X` as the survivor and merges; later the order is closed and the merge is tried again | The pre-check lists `PO-2026-00410` under *open documents* as refusing the merge, and the merge is refused `409` `MERGE_OPEN_DOCUMENTS` naming the order. **An open document is never re-pointed**: the supplier on an order it has already acknowledged does not change behind its back. Once the order is closed, the merge succeeds. The scoped identifier is re-pointed to `SUP-X` and `SUP-X2` is inactive. No movement posts, so `moved_stock_movement_id` stays null, and `whb_master_merges` records a `COUNTERPARTY` row. The closed order still names `SUP-X2`, because that is history | `FR-451` | — | base·app | v1·P1 | error |
 
+### 3.24 Counter pricing
+
+> Authored by `P2-25` (`RA-002`). A price level resolves to a unit price on the adapter's own document, from the
+> adapter's own `whad_item_prices`; the price never enters the port, and base learns nothing about selling. The
+> cast is §2's.
+
+| # | Given | When | Then | FR | L | Mod | V·Ph | Type |
+|---|---|---|---|---|---|---|---|---|
+| **WH-SC-331** | `warehouse-adapter-dealer` installed. Price level `TRADE` is active. `whad_item_prices` holds `OF-1120` at `TRADE` = `420.000000 INR` effective from `2026-04-01` with no end date, and **no** `TRADE` row for `BRK-8840`. An `OPEN` counter sale at `SITE-A`, priced at `TRADE`, dated `2026-09-18` | The counter hand scans `OF-1120`'s barcode, types quantity `2` and presses Enter; then scans `BRK-8840` | The first line resolves its price from the price book, not from the keyboard: `unit_price` `420.000000`, the line records the `whad_item_prices` row it used, `line_total` `840.0000`, and the sale's subtotal is `840.0000`. The second scan is refused `422` `WHAD_PRICE_NOT_FOUND` on `priceLevelCode`: no line is added, no stock is reserved, and **a line is never priced at zero**. At Complete, the `SALE_ISSUE` envelope carries quantities only. **The price is on the adapter's document; it never enters the port** | `FR-359` `FR-358` | — | adapter | v1·P2 | happy |
+
 ---
 
 ## 4 · Coverage
 
 ### 4.1 Area × version × scenario count
 
-**330 scenarios.** Computed with the commands in §1.2; the version column is the scenario row's
+**331 scenarios.** Computed with the commands in §1.2; the version column is the scenario row's
 `V·Ph` value, so a scenario appears in exactly one version column.
 
 ```bash
@@ -698,18 +708,19 @@ awk -F'|' '/^\| \*\*WH-SC-/ {if (NF!=11) print "NF="NF" "$2}' SCENARIO-CATALOGUE
 | **3.21** Round-2 additions — the non-happy paths seven v1 tasks lacked | 5 | — | 1 | 2 | 2 | — | — | — | — | 4 | 1 | — |
 | **3.22** Round-4 additions | 22 | 2 | 3 | 7 | 2 | 1 | 1 | 6 | 10 | 7 | 4 | 1 |
 | **3.23** Master merge | 3 | — | 3 | — | — | — | — | — | 1 | 2 | — | — |
-| **Total** | **330** | **98** | **78** | **110** | **9** | **18** | **4** | **13** | **176** | **65** | **75** | **14** |
-**What to read from this table.** 295 of 330 scenarios are v1 — 98 in `P0` (the ledger foundation),
-78 in `P1` (masters and inbound), 110 in `P2` (outbound, counting, valuation, returns, printing,
+| **3.24** Counter pricing | 1 | — | — | 1 | — | — | — | — | 1 | — | — | — |
+| **Total** | **331** | **98** | **78** | **111** | **9** | **18** | **4** | **13** | **177** | **65** | **75** | **14** |
+**What to read from this table.** 296 of 331 scenarios are v1 — 98 in `P0` (the ledger foundation),
+78 in `P1` (masters and inbound), 111 in `P2` (outbound, counting, valuation, returns, printing,
 reports) and 9 in `P2-IN` (the India movement documents). That mirrors the FRD's own shape, where
 338 of 469 requirements are v1 and the majority of those are `P0`/`P1` columns, keys and registries
 with no v1 screen. **The 43 scenarios in §3.1 are 13% of the catalogue against 7% of the
 requirements**, deliberately: an invariant that is only *stated* is an invariant that is not
 enforced, and the ledger is the one part of this product that cannot be repaired after it has rows.
 
-154 of 330 are **not** happy paths — 65 error, 75 edge, 14 concurrency. A catalogue that is mostly
+154 of 331 are **not** happy paths — 65 error, 75 edge, 14 concurrency. A catalogue that is mostly
 happy paths tests that the feature exists; it does not test that the guard fires. **The five added in
-round 2 are §3.21**, and **the twenty-two added in round 4 are §3.22**, and **the three `P1-21` authored are §3.23**. The finding that produced round 2's five (`Q-006`) is the reason the mix is measured
+round 2 are §3.21**, and **the twenty-two added in round 4 are §3.22**, and **the three `P1-21` authored are §3.23**, and **the one `P2-25` authored is §3.24**. The finding that produced round 2's five (`Q-006`) is the reason the mix is measured
 per *task* and not only per catalogue: a set that is 45% non-happy overall said nothing about the
 seven v1 tasks whose own acceptance was 100% happy.
 
@@ -767,7 +778,7 @@ v1 scope, not holes in its stated exit.
 
 ## 5 · How these are used
 
-<!-- check-design-set: scenario-citations begin WH-SC-331 — the SCENARIO-CATALOGUE.md §5 rule 3 allocation marker — the next free scenario id, which by definition has no row yet. Named here so a parallel task does not silently take it twice; it is never a citation of a scenario that exists -->
+<!-- check-design-set: scenario-citations begin WH-SC-332 — the SCENARIO-CATALOGUE.md §5 rule 3 allocation marker — the next free scenario id, which by definition has no row yet. Named here so a parallel task does not silently take it twice; it is never a citation of a scenario that exists -->
 
 1. **A task issue names its scenarios.** `issues/pN-nn.md` carries a *Scenarios closed* list of
    `WH-SC-nnn` ids. A task with no scenarios is either infrastructure with an architecture test
@@ -775,8 +786,8 @@ v1 scope, not holes in its stated exit.
 2. **"Done" means walked, not compiled.** `FR-435`'s seven-layer definition of done and
    `WH-SC-248` govern the tick. A backend that exists with no reachable UI has closed no scenario.
 3. **A defect found in the field becomes a scenario before it becomes a fix.** New ids continue
-   from **`WH-SC-331`**; ids are never reused and never renumbered. `WH-SC-301`–`WH-SC-305` were
-   taken by review round 2 (§3.21), `WH-SC-306`–`WH-SC-327` by review round 4 (§3.22) and `WH-SC-328`–`WH-SC-330` by `P1-21` (§3.23); the marker moves with every allocation and is the only place to
+   from **`WH-SC-332`**; ids are never reused and never renumbered. `WH-SC-301`–`WH-SC-305` were
+   taken by review round 2 (§3.21), `WH-SC-306`–`WH-SC-327` by review round 4 (§3.22) `WH-SC-328`–`WH-SC-330` by `P1-21` (§3.23) and `WH-SC-331` by `P2-25` (§3.24); the marker moves with every allocation and is the only place to
    read the next free id.
 4. **`tools/check-design-set.py` enforces §1.2.** Contiguity, zero dangling `FR` citations, and the
    §4.2 unproven list matching what the commands actually produce. A coverage table that has drifted

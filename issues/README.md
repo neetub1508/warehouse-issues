@@ -256,7 +256,7 @@ grep -ohE '\b(whb|wh3|whin|wha[a-z]|wh)_[a-z0-9_]+\b' issues/p*.md | sort -u | w
 python3 tools/check-design-set.py --summary                              # 0 violations, exit 0
 ```
 
-<!-- check-design-set: scenario-citations begin WH-SC-331 - the allocation marker named as the subject of this paragraph, not cited as a scenario -->
+<!-- check-design-set: scenario-citations begin WH-SC-332 - the allocation marker named as the subject of this paragraph, not cited as a scenario -->
 <!-- check-design-set: screen-citations begin WS-242 WS-246 - WS-242 is reserved for p5-13's marketplace-claim queue and WS-246 is the next free screen id; both are named as the subject of this paragraph, not cited as screens -->
 
 **Re-run after the 2026-09-10 fold: scenarios 327, round-4 findings 82 of 83; the rest unchanged.**
@@ -264,9 +264,9 @@ python3 tools/check-design-set.py --summary                              # 0 vio
 fold partitions merged. Re-run them after the merge** (`GAP-REGISTER-R4.md` §4.1 rule 3). The
 scenario, round-2 and table figures move when the other partitions' task files land.
 
-Read those last three the way the checker does. **The scenario marker is now `WH-SC-331`.** Round 4
+Read those last three the way the checker does. **The scenario marker is now `WH-SC-332`.** Round 4
 took `WH-SC-306`–`WH-SC-327` for §3.22 and moved the marker, just as round 2 took
-`WH-SC-301`–`WH-SC-305` for §3.21; `P1-21` then took `WH-SC-328`–`WH-SC-330` for §3.23. That movement is the reason the marker exists. `WH-SC-170` and `WH-SC-204` were the last two cited by no
+`WH-SC-301`–`WH-SC-305` for §3.21; `P1-21` then took `WH-SC-328`–`WH-SC-330` for §3.23, and `P2-25` took `WH-SC-331` for §3.24. That movement is the reason the marker exists. `WH-SC-170` and `WH-SC-204` were the last two cited by no
 task; `X-041` closed them on 2026-09-02 into `P2-01` and `P2-14`, so **every scenario in the
 catalogue is now walked by a task**. **245
 screen ids** is 237 real ones, plus `WS-240` (`P5-08`) and `WS-241` (`P2-23`) from round 4, plus
