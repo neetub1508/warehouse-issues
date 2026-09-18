@@ -389,7 +389,7 @@ Appendix A itself says. A guard is inferred from the cited source, and the task 
 | `wh_receipt_reversals` | `APPROVED` | `POSTED` | Post | `wh_receipt_reversals:post` | generates the `REVERSAL` movement | **yes** |
 | `wh_stock_adjustments` | — | `DRAFT` | Create | `wh_stock_adjustments:create` | — | no |
 | `wh_stock_adjustments` | `DRAFT` | `SUBMITTED` | Submit | `wh_stock_adjustments:submit` | at least one line; mandatory reason code | no |
-| `wh_stock_adjustments` | `SUBMITTED` | `APPROVED` | Approve · *(auto-approve below the threshold, `RA-008`)* | `wh_stock_adjustments:approve` | **approver ≠ actor**; the threshold is by value as well as by quantity | no |
+| `wh_stock_adjustments` | `SUBMITTED` | `APPROVED` | Approve · *(auto-approve below the threshold, `RA-008`, only with `warehouse.adjustment.auto_post_below_thresholds` on — decision 2026-09-18)* | `wh_stock_adjustments:approve` | **approver ≠ actor**; the threshold is by value as well as by quantity | no |
 | `wh_stock_adjustments` | `SUBMITTED` | `REJECTED` | Reject | `wh_stock_adjustments:reject` | **approver ≠ actor**; reason recorded | **yes** |
 | `wh_stock_adjustments` | `APPROVED` | `POSTED` | Post | `wh_stock_adjustments:post` | period `OPEN` (`L-8`) | **yes** |
 | `wh_stock_adjustments` | `DRAFT` · `SUBMITTED` | `CANCELLED` | Cancel | `wh_stock_adjustments:cancel` | — | **yes** |
@@ -1990,6 +1990,20 @@ The all-null rung is seeded `threshold_value = 0` (`warehouse.adjustment.default
 `V501100`) with `threshold_quantity` **NULL**, so out of the box **every adjustment carrying a value
 impact routes to approval**, exactly as that setting's own description says (*"Zero makes every valued
 adjustment need approval"*); *posts on submit* begins at the first rung given a non-zero value.
+
+**Posts on submit is an install setting, default OFF (user decision 2026-09-18, P2-01 #18).**
+`ADJUST_UP` / `ADJUST_DOWN` are `requires_approval = true` and the movement approval demands approver
+≠ actor (`MPR-GRD-19`), so a self-approved adjustment has no ledger checker. `V510224` seeds
+`warehouse.adjustment.auto_post_below_thresholds` (`BOOLEAN`, default `false`, Warehouse tab →
+Operations). **Off:** below both thresholds *Submit* still stores `requires_approval = true` and the
+record waits in `SUBMITTED` for a second user; *Post* then completes the movement's ledger approval as
+that approver. **On:** *Submit* approves and posts in one transaction through `ADJUST_UP_AUTO` /
+`ADJUST_DOWN_AUTO` — the twins of `ADJUST_UP` / `ADJUST_DOWN` with `requires_approval = false` and
+`reason_context = ADJUSTMENT`, so availability and the negative-stock policy run at the post. A post of
+either `_AUTO` type from anywhere else is refused inside the writer, `403
+ADJUSTMENT_AUTO_POST_TYPE_RESTRICTED`. Either way the record never shows `POSTED` unless its movement(s)
+reached ledger effect, and a `BLOCK` / `WARN` refusal reaches the operator with nothing posted. The
+setting needs no screen change: the Warehouse settings tab renders every `WAREHOUSE` row it is given.
 
 **Statistics:** four tiles — **open** · **awaiting approval** · **posted this period** · **net value
 impact this period**. **No `statistics.*` cache name is registered** for this strip: it is computed

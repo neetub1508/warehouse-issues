@@ -3613,7 +3613,8 @@ named in that migration's row.
 | `P5-08` | `V510221` | `wh_trade_portal_users` (dated) | v2 |
 | `P2-23` | `V510222` | `wh_approval_levels` | v2 |
 | `P5-21` | `V510223` | `wh_print_template_scopes` (`RG-018`) — fold split of former `P5-24` | v2 |
-| — | `V510224`–`V510999` | **Reserved: 776 numbers** for DDL corrections during the app build | — |
+| `P2-01` | `V510224` | Seed rows, no DDL: the `ADJUST_UP_AUTO` / `ADJUST_DOWN_AUTO` movement types and `warehouse.adjustment.auto_post_below_thresholds` (decision 2026-09-18) — carved from the correction reserve | v1 |
+| — | `V510225`–`V510999` | **Reserved: 775 numbers** for DDL corrections during the app build | — |
 | WH-200 | `V511000` | `permissions` + verb permissions for the app resources; ADMIN and AUDITOR grants | v1 |
 | WH-201 | `V511001` | `permission_dependencies` — `INSERT` only | v1 |
 | WH-202 | `V511010` | Menu tree, `menu_translations` en/fr/hi, `menu_permissions`, `WHERE NOT EXISTS`-guarded | v1 |
