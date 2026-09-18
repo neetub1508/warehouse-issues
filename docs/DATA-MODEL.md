@@ -3624,6 +3624,7 @@ named in that migration's row.
 | WH-202 | `V511010` | Menu tree, `menu_translations` en/fr/hi, `menu_permissions`, `WHERE NOT EXISTS`-guarded | v1 |
 | WH-203 | `V511020`–`V511199` | Grid configuration — one migration per grid | v1 |
 | `P2-05` | `V511060` | The `WS-221` grid `wh_rpt_expiry` (§7's fourteen columns, eight filters), `wh_rpt_expiry:view` / `:view:all` / `:view:branch` / `:export` / `:notify` (`:notify` is the near-expiry recipient set) and the menu leaf under `warehouse_inventory`; the `LOT_EXPIRY` document type; `warehouse.expiry.register_bucket_days`; `wh_holds.placed_by` nullable, `placed_by_actor_type`, `chk_wh_holds_placer` (job-placed `RETEST_DUE` holds, `RJ-012`) — the first number of `P2-29`'s warehouse grid band, claimed 2026-09-18 | v1 |
+| `P2-23` | `V511062` | DDL, no seed: `alert_raised_at` on `wh_stock_adjustments` and `wh_counts` - the `WHB_PENDING_APPROVAL_ALERT` episode stamp (one alert per pending episode, measured from `submitted_at`; `CONFIG-CASE-14`) and a partial index on each table's pending rows. Claimed from the warehouse grid band; `P2-29` now starts at `V511063` | v1 |
 | `P2-23` | `V511180` | The `WS-241` grid configuration — one grid migration inside `WH-203`'s range, left free by `P3-04` | v2 |
 | WH-204 | `V511200` | `admin_settings` seed, category `WAREHOUSE` (app-owned keys) | v1 |
 | WH-205 | — | **No migration.** Cache names in `CacheConfiguration.java`; filter scopes in `filterUtils.ts` | v1 |
