@@ -288,7 +288,7 @@ and no account codes (`AHO-OPEN-02`). This contract records the built behaviour 
 | Date | Row IDs affected | Change | Found by |
 |---|---|---|---|
 | 2026-09-19 | all | v0 derived from the design set at `a424481` and from `classic` (`P0-12`, `P2-22`, `P2-17`, `P1-20` code); unratified | `functional-reviewer`, derive mode |
-| 2026-09-19 | all | v1 ratified by the user: OPEN rows kept OPEN; STANDALONE scope for P2-18; WS-219 migration V511066 claimed (AHO-OPEN-09); FR-244 two numbers built with P1-17 ahead of P2-18 (AHO-OPEN-06) | driver, on the user's ruling |
+| 2026-09-19 | all | v1 ratified by the user: OPEN rows kept OPEN; STANDALONE scope for P2-18; WS-219 migration V511065 claimed (AHO-OPEN-09); FR-244 two numbers built with P1-17 ahead of P2-18 (AHO-OPEN-06) | driver, on the user's ruling |
 
 ---
 
