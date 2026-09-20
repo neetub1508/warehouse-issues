@@ -1260,35 +1260,43 @@ Two structural rules that hold for every row below. **No `CHECK (x IN (…))` on
 `wh_` table gains a foreign key to a `whin_` table**, in either direction (`D-11`,
 `MODULE-INTEGRATION.md:889`); cross-module references are stable string keys or external-ref rows.
 
-### 11.1 Wave 1 — v1 / P2-IN — **14 tables** — V540000–V540999
+### 11.1 Wave 1 — v1 / P2-IN — **14 tables** — allocated by `DATA-MODEL.md` §7.6
 
 | # | Table | Key columns | Block |
 |---|---|---|---|
-| 1 | `whin_gstin_profiles` | `id`, `company_id`, `gstin` uk, `legal_name`, `trade_name`, `state_code`, `registration_type` (catalogue: REGULAR · COMPOSITION · SEZ_UNIT · SEZ_DEVELOPER · CASUAL · NON_RESIDENT · UNREGISTERED), `effective_from`, `effective_to`, `is_active`, `certificate_document_id` | V540000–V540009 |
-| 2 | `whin_gst_state_codes` | `state_code` (2 digits) uk, `state_name`, `state_type` (STATE·UT), `is_active` — **36 seed rows** | V540010–V540019 |
-| 3 | `whin_hsn_codes` | `code` uk, `description`, `chapter`, `digit_length`, `effective_from`, `effective_to`, `uqc_default` — **seed** | V540020–V540029 |
-| 4 | `whin_uqc_codes` | `uqc_code` uk (`NOS`, `KGS`, `LTR`, `MTR`, …), `description`, `unece_rec20_code` — **seed**, plus the `whb_uoms.gst_uqc_code` mapping seed | V540030–V540039 |
-| 5 | `whin_delivery_challans` | §4.1's field table: identity · `challan_type` FK · both ends with pincode and state code · declared value and basis · status · cancellation · `source_document_ref` quad. uk(`company_id`,`series_id`,`challan_number`); `from_gstin_profile_id` is the profile of the issuing site's `REGISTERED` branch at `challan_date` | V540100–V540119 |
-| 6 | `whin_delivery_challan_lines` | `challan_id`, `line_no`, `item_id`, `lot_id`, `serial_id`, `quantity`, `uom_code`, **`gst_uqc_code` snapshot**, **`tax_classification_code` snapshot**, `unit_value`, `taxable_value`, **`expected_return_date`**, **`deemed_supply_due_date`**, `quantity_returned`, `closed_at`, `job_work_type` | V540100–V540119 |
-| 7 | `whin_eway_bills` | `id`, `company_id`, `source_document_type`, `source_document_id`, `ewb_number`, `ewb_date`, `supply_type`, `sub_type`, `part_a_status`, `part_b_status`, `generated_at`, `valid_until`, `distance_km`, `status` (catalogue), `cancelled_at`, `cancel_reason_code_id`, `consolidated_ewb_id` nullable, `idempotency_key` uk, `provider_document_id` | V540200–V540229 |
-| 8 | `whin_eway_bill_lines` | **the filed snapshot**: `eway_bill_id`, `line_no`, `hsn_code`, `description`, `quantity`, `uqc_code`, `taxable_value`, `cgst_rate`, `sgst_rate`, `igst_rate`, `cess_rate` | V540200–V540229 |
-| 9 | `whin_eway_bill_events` | append-only lifecycle log: `eway_bill_id`, `event_type` (catalogue — wave 1 admits `PART_A_GENERATED`, `PART_B_UPDATED`, `CANCELLED`; wave 2 adds `EXTENDED`, `CONSOLIDATED`, `REJECTED_BLOCKED_GSTIN`), `occurred_at`, `actor_id`, `vehicle_number`, `transport_document_ref`, `provider_reference`, `raw_response_document_id` | V540200–V540229 |
-| 10 | `whin_compliance_providers` | `code` uk, `name`, `capabilities` (EWB·IRN·both), `is_active` — the vendor-agnostic layer (`P-044`) | V540300–V540349 |
-| 11 | `whin_compliance_provider_environments` | `provider_id`, `environment` (SANDBOX·PRODUCTION), `base_url`, `timeout_ms`, `is_active` | V540300–V540349 |
-| 12 | `whin_compliance_credentials` | `provider_environment_id`, `gst_registration_id`, **encrypted** credential ref via the platform's admin-settings secret masking, `credential_spec_id`, `valid_until`, `last_rotated_at` — **never plaintext in this table** | V540300–V540349 |
-| 13 | `whin_compliance_documents` | `id`, `document_kind` (EWB·IRN), `source_document_type`, `source_document_id`, `provider_id`, `external_reference`, `ack_number`, `ack_date`, `signed_qr_document_id`, `locks_document`, `cancellable_until`, `status` | V540300–V540349 |
-| 14 | `whin_compliance_api_logs` | `id`, `provider_environment_id`, `operation`, `request_document_id`, `response_document_id` — **both encrypted at rest**, per §4.2's non-goal #1 — `http_status`, `duration_ms`, `created_at` **indexed**, `correlation_id` | V540300–V540349 |
-| — | permissions · menus · grid column definitions · `filter_definitions` · `grid_preferences` (`default_filters` **and** `default_columns`) · `permission_dependencies` | seed only, no new table | V540400–V540499 |
+| 1 | `whin_gstin_profiles` | `id`, `company_id`, `gstin` uk, `legal_name`, `trade_name`, `state_code`, `registration_type` (catalogue: REGULAR · COMPOSITION · SEZ_UNIT · SEZ_DEVELOPER · CASUAL · NON_RESIDENT · UNREGISTERED), `effective_from`, `effective_to`, `is_active`, `certificate_document_id` | `V540010` (§7.6 `WIN-01`) |
+| 2 | `whin_gst_state_codes` | `state_code` (2 digits) uk, `state_name`, `state_type` (STATE·UT), `is_active` — **36 seed rows** | §7.6 `WIN-12` (`V540110`, **wave 2**) — divergence, `X-011`/`X-012` |
+| 3 | `whin_hsn_codes` | `code` uk, `description`, `chapter`, `digit_length`, `effective_from`, `effective_to`, `uqc_default` — **seed** | §7.6 `WIN-12` as `whin_hsn_tax_master` (`V540110`, **wave 2**) — `X-011` |
+| 4 | `whin_uqc_codes` | `uqc_code` uk (`NOS`, `KGS`, `LTR`, `MTR`, …), `description`, `unece_rec20_code` — **seed**, plus the `whb_uoms.gst_uqc_code` mapping seed | no §7.6 row — orphan, `X-012` |
+| 5 | `whin_delivery_challans` | §4.1's field table: identity · `challan_type` FK · both ends with pincode and state code · declared value and basis · status · cancellation · `source_document_ref` quad. uk(`company_id`,`series_id`,`challan_number`); `from_gstin_profile_id` is the profile of the issuing site's `REGISTERED` branch at `challan_date` | `V540020` (§7.6 `WIN-04`) |
+| 6 | `whin_delivery_challan_lines` | `challan_id`, `line_no`, `item_id`, `lot_id`, `serial_id`, `quantity`, `uom_code`, **`gst_uqc_code` snapshot**, **`tax_classification_code` snapshot**, `unit_value`, `taxable_value`, **`expected_return_date`**, **`deemed_supply_due_date`**, `quantity_returned`, `closed_at`, `job_work_type` | `V540020` (§7.6 `WIN-04`) |
+| 7 | `whin_eway_bills` | `id`, `company_id`, `source_document_type`, `source_document_id`, `ewb_number`, `ewb_date`, `supply_type`, `sub_type`, `part_a_status`, `part_b_status`, `generated_at`, `valid_until`, `distance_km`, `status` (catalogue), `cancelled_at`, `cancel_reason_code_id`, `consolidated_ewb_id` nullable, `idempotency_key` uk, `provider_document_id` | `V540030` (§7.6 `WIN-05`) |
+| 8 | `whin_eway_bill_lines` | **the filed snapshot**: `eway_bill_id`, `line_no`, `hsn_code`, `description`, `quantity`, `uqc_code`, `taxable_value`, `cgst_rate`, `sgst_rate`, `igst_rate`, `cess_rate` | `V540030` (§7.6 `WIN-05`) |
+| 9 | `whin_eway_bill_events` | append-only lifecycle log: `eway_bill_id`, `event_type` (catalogue — wave 1 admits `PART_A_GENERATED`, `PART_B_UPDATED`, `CANCELLED`; wave 2 adds `EXTENDED`, `CONSOLIDATED`, `REJECTED_BLOCKED_GSTIN`), `occurred_at`, `actor_id`, `vehicle_number`, `transport_document_ref`, `provider_reference`, `raw_response_document_id` | `V540030` (§7.6 `WIN-05`) |
+| 10 | `whin_compliance_providers` | `code` uk, `name`, `capabilities` (EWB·IRN·both), `is_active` — the vendor-agnostic layer (`P-044`) | `V540011` (§7.6 `WIN-02`) |
+| 11 | `whin_compliance_provider_environments` | `provider_id`, `environment` (SANDBOX·PRODUCTION), `base_url`, `timeout_ms`, `is_active` | `V540011` (§7.6 `WIN-02`) |
+| 12 | `whin_compliance_credentials` | `provider_environment_id`, `gst_registration_id`, **encrypted** credential ref via the platform's admin-settings secret masking, `credential_spec_id`, `valid_until`, `last_rotated_at` — **never plaintext in this table** | `V540011` (§7.6 `WIN-02`) |
+| 13 | `whin_compliance_documents` | `id`, `document_kind` (EWB·IRN), `source_document_type`, `source_document_id`, `provider_id`, `external_reference`, `ack_number`, `ack_date`, `signed_qr_document_id`, `locks_document`, `cancellable_until`, `status` | `V540012` (§7.6 `WIN-03`) |
+| 14 | `whin_compliance_api_logs` | `id`, `provider_environment_id`, `operation`, `request_document_id`, `response_document_id` — **both encrypted at rest**, per §4.2's non-goal #1 — `http_status`, `duration_ms`, `created_at` **indexed**, `correlation_id` | `V540012` (§7.6 `WIN-03`) |
+| — | permissions · menus · grid column definitions · `filter_definitions` · `grid_preferences` (`default_filters` **and** `default_columns`) · `permission_dependencies` | seed only, no new table | `V541000`–`V541049` (§7.6 `WIN-30`, sub-allocated by `IMPLEMENTATION-PLAN.md` §2.9) |
 
 **Outside `whin_`, same wave:** `wh_transport_details` in `warehouse` (`V510000–V519999`, §4.2),
 and the 24 columns of §2.2 in `warehouse-base` (`V500000–V509999`) and `warehouse`.
 
-### 11.2 Wave 2 — v2 / P4 — **42 tables** — V541000–V548999
+### 11.2 Wave 2 — v2 / P4 — **42 tables** — allocated by `DATA-MODEL.md` §7.6
+
+**`DATA-MODEL.md` §7.6 is the single allocation authority for this band, and the Block column below
+cites it rather than allocating independently.** Where the two differ, §7.6 wins. In particular
+**`V541000`–`V541199` is §7.6's `WIN-30` configuration block** — permissions,
+`permission_dependencies`, menus, grid configuration and `admin_settings`, shared by both waves — and
+is **not available to wave 2**. Groups **A** and **B** previously claimed it; they now cite §7.6's own
+numbers for the same tables (`WIN-14`, `WIN-15`). This closes `X-010`/`X-033`. The remaining groups
+sit inside §7.6's `V541200`–`V549999` reserve, which no `WIN-nn` row owns.
 
 | Group | Tables | Key content | Block |
 |---|---|---|---|
-| **A · Job work & ITC-04** (3) | `whin_job_work_returns` · `whin_itc04_runs` · `whin_itc04_lines` | return receipts against a challan **line**; the filed return snapshot with period, registration, quantities sent and received | V541000–V541099 |
-| **B · Rule 56 stock account** (2) | `whin_stock_account_runs` · `whin_stock_account_lines` | per registration, per period, in the mandated categories; opening · receipts · supplies · lost · stolen · destroyed · written off · gift · free sample · closing; separately raw material / finished / scrap / wastage; plus goods at a job worker | V541100–V541199 |
+| **A · Job work & ITC-04** (3) | `whin_job_work_returns` · `whin_itc04_runs` · `whin_itc04_lines` | return receipts against a challan **line**; the filed return snapshot with period, registration, quantities sent and received | `V540120` (§7.6 `WIN-14`) |
+| **B · Rule 56 stock account** (2) | `whin_stock_account_runs` · `whin_stock_account_lines` | per registration, per period, in the mandated categories; opening · receipts · supplies · lost · stolen · destroyed · written off · gift · free sample · closing; separately raw material / finished / scrap / wastage; plus goods at a job worker | `V540130` (§7.6 `WIN-15`) |
 | **C · HSN summary & ITC reversal** (3) | `whin_hsn_summary_runs` · `whin_hsn_summary_lines` · `whin_itc_reversals` | HSN × UQC × quantity × taxable value as filed; reversal with reason, statutory category, original ITC, movement and lot reference | V541200–V541299 |
 | **D · Scrap & TCS** (1) | `whin_tcs_sections` | section, rate, threshold, effective dates — **seed** | V541300–V541399 |
 | **E · Approval / sale or return** (0) | — | **no new table**: a challan type plus the wave-1 clock columns | — |

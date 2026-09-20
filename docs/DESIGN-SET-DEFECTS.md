@@ -388,7 +388,7 @@ register reconstructible by `grep` from `issues/` if it is never written.
 
 ### `X-010` · **Migration-block collision** — `INDIA-LOCALISATION-PACK.md` §11.2 against `DATA-MODEL.md` §7.6 and `BUILD-SPEC-SCREENS.md` §0.9
 
-> **Severity** BLOCKER · **Status** **OPEN** — a duplicate Flyway version is a backend **startup failure**, not a merge conflict. Someone must edit one document. Same defect as `X-033` · **Originally** `D-P4-1`, from `issues/DEFECTS-FOUND.md`
+> **Severity** BLOCKER · **Status** **FIXED, 2026-09-20** — `INDIA-LOCALISATION-PACK.md` §11.2 no longer allocates independently: its Block column now cites `DATA-MODEL.md` §7.6, groups **A** and **B** carry §7.6's own numbers (`WIN-14` `V540120`, `WIN-15` `V540130`) instead of `V541000`–`V541199`, and the heading states that §7.6 is the single allocation authority. `V541000`–`V541199` is `WIN-30`'s configuration block and nothing else. Closed with `X-033` by `P2-IN` `PRE-1`. Same defect as `X-033` · **Originally** `D-P4-1`, from `issues/DEFECTS-FOUND.md`
 
 `INDIA-LOCALISATION-PACK.md` §11.2 allocates **wave-2 DDL** to `V541000`–`V548999`, group by group:
 A = `V541000`–`V541099`, B = `V541100`–`V541199`, C = `V541200`–`V541299`, D = `V541300`–`V541399`,
@@ -902,7 +902,7 @@ A `P2-16` author reading `IRREVERSIBLE.md` first would re-open a closed decision
 
 ### `X-033` · `INDIA-LOCALISATION-PACK.md` §11's migration blocks collide with `DATA-MODEL.md` §7.6
 
-> **Severity** BLOCKER · **Status** **OPEN** — the same block collision as `X-010`, found independently by the P2-IN pass with a fuller table. Both entries are preserved · **Originally** `D-P2-07`, from `issues/DEFECTS-FOUND.md`
+> **Severity** BLOCKER · **Status** **FIXED, 2026-09-20** — every row of this table is closed. §11.2's groups **A** and **B** moved off `WIN-30` (see `X-010`), and §11.1's Block column was re-pointed at §7.6 in the same pass: challans `V540020` (`WIN-04`), e-way bills `V540030` (`WIN-05`), the provider stack `V540011`/`V540012` (`WIN-02`/`WIN-03`), wave-1 config `V541000`–`V541049` (`WIN-30`). **The three remaining §11.1 rows are not block collisions** — `whin_gst_state_codes`, `whin_hsn_codes` and `whin_uqc_codes` differ from §7.6 in *wave and name*, not in number; they are annotated in place and remain owned by `X-011`/`X-012`, which stay **OPEN**. Closed with `X-010` by `P2-IN` `PRE-1`. The same block collision as `X-010`, found independently by the P2-IN pass with a fuller table. Both entries are preserved · **Originally** `D-P2-07`, from `issues/DEFECTS-FOUND.md`
 
 | Object | India pack §11 | `DATA-MODEL.md` §7.6 | Collision |
 |---|---|---|---|

@@ -85,7 +85,7 @@ escalated · 1 unowned BLOCKER (`S-035`) escalated · 17 `OD-` rows · 0 rows de
 | **`S-035`** | Pharma: serve regulated goods, or decline the segment? | **ESCALATED** | Not ours. The design set's only unowned BLOCKER; silence is the option that fails |
 | **OD-1** | The reciprocal accounting edits | **ESCALATED** | Owed to a different repository. Deadline **corrected** to accounting **P1**, and a **fourth** reciprocal edit folded in |
 | **OD-3** | One database per customer, or shared multi-tenancy? | **ESCALATED** | Gates `P5-01`, the first task of P5 |
-| **OD-9** | Does `warehouse` carry a tax engine? | **ESCALATED** | Gates `P2-IN-01` **and** `P4-01` — the first task of two phases |
+| **OD-9** | Does `warehouse` carry a tax engine? | **RESOLVED 2026-09-20** | **No — warehouse never computes tax.** Recommendation on the record taken by the owner; drops group **K**'s 6 conditional tables, India pack is **50** tables. See §3.4 |
 | **OD-8** | How does an out-of-process consumer authenticate to the port? | **ESCALATED**, fallback adopted | The recommendation is a platform build. The v1 fallback is adopted so `P0-08` proceeds |
 | **OD-2** | Does dealer vehicle inventory migrate onto the ledger? | **OPEN — v3** | Left open deliberately; deadline restated |
 | **OD-4** | Who owns the shared counterparty master long-term? | **OPEN — v3** | Left open deliberately; deadline restated |
@@ -714,6 +714,25 @@ deadline governs, and §3 is corrected to carry it in this edit. `U-003` additio
 v1 counter-sale walkthrough already **contradicts** `OD-9` by computing `tax_amount` on a v1 screen —
 so the rejected option is being built while the decision is open, which is the strongest argument for
 answering it now.
+
+**ANSWERED — 2026-09-20.** The owner took **the recommendation on the record: `warehouse` never
+computes tax.** It captures the tax-relevant facts — HSN, place of supply, `is_taxable_supply` frozen
+at creation, taxable value — and hands them over; **accounting or the compliance provider computes.**
+`FR-325`'s reading loses; `FR-294` and `R3 D4` win.
+
+**What the answer decides, concretely:**
+
+| Consequence | Value |
+|---|---|
+| India pack table count | **50**, not 56 |
+| Group **K** — the 6 conditional relational-tax-engine tables (`whin_tax_entity_types`, `whin_tax_components`, `whin_tax_rules`, `whin_tax_rule_components`, `whin_tax_rule_conditions`, `whin_tax_resolution_audit`; §7.6 `WIN-13`, `INDIA-LOCALISATION-PACK.md` §11.2 group K and §11.4) | **dropped** |
+| `P2-IN-01`'s scope | the 50-table shape — no tax engine scaffolded |
+| `P4-01` | builds the GST reference **masters** only, not an engine |
+| `P2-25`'s v1 counter sale computing `tax_amount` and taking payment inside a warehouse module (`U-003`) | **the losing side.** Flagged to `BATCH-WAREHOUSE-P2.md`; `RA-002`'s contingent amendment is now determined |
+
+**This unblocks `P2-IN-01`,** which was the only task this decision gated inside P2-IN, and it
+determines — rather than resolves — the `P2-25` amendment, which belongs to the P2 stream and is not
+edited here.
 
 ### 3.5 `OD-8` — how does an out-of-process consumer authenticate to the port?
 
