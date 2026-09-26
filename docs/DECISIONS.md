@@ -503,6 +503,13 @@ limit). No platform security allow-list entry and no unauthenticated path were a
 mentions one, because the adopted `OD-8` forbids an API-key shortcut to the port identity. Screens WS-246 / WS-247
 (`BUILD-SPEC-SCREENS.md` §2.8); scenarios `WH-SC-337`–`WH-SC-340` (`SCENARIO-CATALOGUE.md` §3.26).
 
+**Open interface — `P5-22` → `P3-22` (gate round 1, 2026-09-26).** `whb_api_clients.max_clock_skew_seconds`
+(0–3600, default 300) is stored **per API client** and nothing in `P5-22` reads it. Under `OD-8` no inbound replay
+window is owed: the user's JWT and the port's idempotency keys cover replay. The tolerance is applied by the
+**receiver of signed deliveries**, which is `P3-22`'s. Deliveries are **per subscription**, and nothing today links an
+outbox subscription to an API client, so `P3-22` owes that link (or names another source for the tolerance) before
+it can honour "reuses `P5-22`'s `max_clock_skew_seconds`". Recorded in `issues/p3-22.md` § Hand-offs from `P5-22`.
+
 ### 3.3 Open by schedule — v3, and deliberately not decided in a v1 wave
 
 | # | Decision | Deadline | Recommendation |
