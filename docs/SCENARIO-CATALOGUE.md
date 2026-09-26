@@ -797,3 +797,16 @@ v1 scope, not holes in its stated exit.
    walked, that version has not shipped.
 
 <!-- check-design-set: scenario-citations end -->
+
+## Reserved id blocks — warehouse P5 wave 2 (driver, 2026-09-26)
+Each block is owned by one task; the task replaces its reservation line with numbered scenarios. Unused ids stay reserved (never reassigned).
+- WH-SC-333 – WH-SC-336 · P5-07 #44 (SLA)
+- WH-SC-337 – WH-SC-340 · P5-22 #119 (API clients — numbers its existing prose bullets)
+- WH-SC-341 – WH-SC-344 · P5-13 #72 (grading / returns)
+- WH-SC-345 – WH-SC-348 · P5-16 #86 (NRV)
+- WH-SC-349 – WH-SC-352 · P5-17 #91 (weighing / labour)
+- WH-SC-353 – WH-SC-356 · P5-18 #96 (replenishment)
+- WH-SC-357 – WH-SC-360 · P5-19 #101 (genealogy / VAS)
+- WH-SC-361 – WH-SC-364 · P5-21 #114 (owner print / packaging)
+- WH-SC-365 – WH-SC-368 · P5-23 #123 (supplier claims — numbers its existing prose bullets)
+- WH-SC-369 – WH-SC-372 · P4-10 #68 (compliance tasks / client GST), only if its body calls for new ids
