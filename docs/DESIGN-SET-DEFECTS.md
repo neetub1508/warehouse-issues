@@ -177,6 +177,8 @@ replaced by `X-010`. Nothing else in any heading changed.
 >
 > - **FIXED** in `issues/p5-13.md`; in `DATA-MODEL.md` — `wh_marketplace_claims` is a real row (§2.1.9, `WH-115`, `V510215`, `grep -c '`wh_marketplace_claims`' docs/DATA-MODEL.md` → **3**); and in `IMPLEMENTATION-PLAN.md` §2.7, whose `P5-13` row now reads `` `V510210` · `V510215` ``.
 > - **STILL OPEN** in `BUILD-SPEC-SCREENS.md` §1 (`grep -c 'WS-238' docs/BUILD-SPEC-SCREENS.md` → **0**), in its §8.4 count (**237**, which must become 238 in the same edit), and in `IMPLEMENTATION-PLAN.md` §2.7's screens cell, still `` `WS-137` `WS-138` ``. Round 2 did not touch any of the three. `WS-238` is exempted in six files and is the subject of §6.4 **`R-1`** — that entry, not this one, is the live to-do.
+>
+> - **CLOSED 2026-09-26** (P5 wave 2 R2, `P5-13` #72). The screen half landed: the queue is `WS-242` *Marketplace Claims* (`/warehouse/inbound/marketplace-claims`, `SV`, `G = Y`), with its `BUILD-SPEC-SCREENS.md` §1 row in place of the reserved allocation marker and its §3.5 block in §9.6 form; `IMPLEMENTATION-PLAN.md` §2.7's `P5-13` screens cell now reads `` `WS-137` `WS-138` `WS-242` ``. `V510215` builds `wh_marketplace_claims`; `wh_return_receipts.claim_due_at` was never created, so the due date lives on the claim (`due_date`, fixed at receipt). `FR-279` is proved by `SCENARIO-CATALOGUE.md` §3.29 `WH-SC-344`.
 
 **Claim.** `IMPLEMENTATION-PLAN.md` §2.7 assigns `FR-279` (the marketplace return-claim window) to
 `P5-13`, whose migrations are `V510210` and whose screens are `WS-137` and `WS-138`.

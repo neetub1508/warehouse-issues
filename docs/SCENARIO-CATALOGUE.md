@@ -694,10 +694,10 @@ period lock that closes ahead of accounting's (`FR-251`).
 
 | # | Given | When | Then | FR | L | Mod | V·Ph | Type |
 |---|---|---|---|---|---|---|---|---|
-| **WH-SC-345** | Lot `L-2611` of item `OF-1120` at site `SITE-A`, owner `HOUSE`, 100 units on an open layer at 10.00 a unit; the lot is near expiry and appears on the NRV candidates report as EXPIRED | Assessor A raises an NRV write-down to 6.00 a unit, basis EXPIRED; A tries to approve it; approver B approves it | The write-down is DRAFT with one line (100 × 10.00 → 6.00, −400.0000) computed by the server; A's approval is refused (403, maker-checker); B's approval posts ONE `WRITE_DOWN` value-only movement (quantity 0, −400.0000, `VALUE_OFFSET` counter side, reason `NRV_WRITE_DOWN`) and the layer carries 600.0000. No journal is written by warehouse | `FR-241` | `L-15` | app | v2·P5 | happy |
-| **WH-SC-346** | WH-SC-345's write-down is POSTED; 40 of the 100 units have since been sold (60 held at 6.00) | The cause ceases: assessor C raises its reversal with a revised NRV of 12.00, basis MARKET_PRICE; D approves it; C tries to reverse the same write-down again | The reversal is a NEW row linked to the original (neither edits the other) with its own assessor and date; it gives back +240.0000 — capped at the original's write-down pro rata to the 60 units still held and at the pre-write-down 10.00 a unit, never 12.00. The register shows both rows, each naming the other. A second reversal is refused (409) | `FR-241` | — | app | v2·P5 | happy |
+| **WH-SC-345** | Lot `L-2611` of item `OF-1120` at site `SITE-A`, owner `HOUSE`, 100 units on an open layer at 10.00 a unit; the lot is near expiry and appears on the NRV candidates report as EXPIRED | Assessor A raises an NRV write-down to 6.00 a unit, basis EXPIRED; A tries to approve it; approver B approves it | The write-down is DRAFT with one line (100 × 10.00 → 6.00, −400.00) computed by the server; A's approval is refused (403, maker-checker); B's approval posts ONE `WRITE_DOWN` value-only movement (quantity 0, −400.00, `VALUE_OFFSET` counter side, reason `NRV_WRITE_DOWN`) and the layer carries 600.00. No journal is written by warehouse | `FR-241` | `L-15` | app | v2·P5 | happy |
+| **WH-SC-346** | WH-SC-345's write-down is POSTED; 40 of the 100 units have since been sold (60 held at 6.00) | The cause ceases: assessor C raises its reversal with a revised NRV of 12.00, basis MARKET_PRICE; D approves it; C tries to reverse the same write-down again | The reversal is a NEW row linked to the original (neither edits the other) with its own assessor and date; it gives back +240.00 — capped at the original's write-down pro rata to the 60 units still held and at the pre-write-down 10.00 a unit, never 12.00. The register shows both rows, each naming the other. A second reversal is refused (409) | `FR-241` | — | app | v2·P5 | happy |
 | **WH-SC-347** | Owner `SUP-CONSIGN-01` (`CONSIGNOR`, non-house) holds stock of `OF-1120` at `SITE-A` | An assessor raises an NRV write-down against `SUP-CONSIGN-01`'s stock (through the API, since the Add modal offers owner `HOUSE`s only); a direct INSERT names the same owner | The service refuses it first with a field-level error on `ownerId` (422 `NRV_OWNER_NOT_OWN`) — non-own stock is never valued, so never written down; the INSERT is refused by the database trigger. No row, no movement | `FR-241` | `L-14` | app | v2·P5 | error |
-| **WH-SC-348** | One SALES shipment worth 1,234.5600 of own stock is despatched three times over three installs, with `warehouse.cogs.recognition_point` set to DISPATCH, DELIVERY and INVOICE in turn | Each shipment is dispatched, then delivered, then invoiced; after the DELIVERY-point despatch the setting is changed to DISPATCH | DISPATCH: the row is SOLD / cost of sales and recognised at dispatch. DELIVERY: IN_TRANSIT / goods-in-transit at dispatch, recognised at delivery. INVOICE: in transit through delivery, recognised by the invoice event with its reference. Three hand-over moments, one identical total. The setting change does not restate the row already written (point snapshotted with its source level). With no ledger owner installed the rows queue (`QUEUED`) and export from the configured grid | `FR-243` | `L-14` | app | v2·P5 | happy |
+| **WH-SC-348** | One SALES shipment worth 1,234.56 of own stock is despatched three times over three installs, with `warehouse.cogs.recognition_point` set to DISPATCH, DELIVERY and INVOICE in turn | Each shipment is dispatched, then delivered, then invoiced; after the DELIVERY-point despatch the setting is changed to DISPATCH | DISPATCH: the row is SOLD / cost of sales and recognised at dispatch. DELIVERY: IN_TRANSIT / goods-in-transit at dispatch, recognised at delivery. INVOICE: in transit through delivery, recognised by the invoice event with its reference. Three hand-over moments, one identical total. The setting change does not restate the row already written (point snapshotted with its source level). With no ledger owner installed the rows queue (`QUEUED`) and export from the configured grid | `FR-243` | `L-14` | app | v2·P5 | happy |
 
 ### 3.28 Weighing instruments and timed labour
 
@@ -712,13 +712,26 @@ period lock that closes ahead of accounting's (`FR-251`).
 | **WH-SC-351** | `WB-01` certificate ends 2026-10-20; alert lead is 30 days; two holders of `wh_weighing_instruments:edit` scoped to `SITE-A`, one to `SITE-B` | `WHB_WEIGHING_CERTIFICATE_EXPIRY` runs daily from 2026-09-20 | On the first run inside the window the two `SITE-A` holders are notified once, the certificate is stamped `expiry_alert_sent_for = 2026-10-20`, and a `whb_job_runs` row records read/written. Later runs do not re-notify; renewing the certificate (new `verified_to`) re-arms it. The `SITE-B` holder is never told | `FR-223` `FR-165` | — | base·app | v2·P5 | happy |
 | **WH-SC-352** | Picker P holds a RUNNING labour task on putaway `PT-0091` | P pauses 4 min, resumes, ends with 12 units; P tries to start a second task while one is open; another user tries to pause P's task | Duration = elapsed − 240 s paused, shown only once ENDED; the ENDED row is final (trigger). The second open task is refused (one open task per user), and pausing another's timer is refused `403`. No standard, target, rate or pay exists anywhere on the record or screen | `FR-227` `FR-228` | — | app | v2·P5 | edge |
 
+### 3.29 Grading, obsolescence returns and marketplace claims
+
+> Authored by `P5-13` (ids from the driver's reserved block 341–344). A grade records a condition and moves
+> nothing; the disposition moves the stock. Obsolescence and marketplace settlements reach accounting by
+> reference only (`OD-1`). The cast is §2's.
+
+| # | Given | When | Then | FR | L | Mod | V·Ph | Type |
+|---|---|---|---|---|---|---|---|---|
+| **WH-SC-341** | Return `RR-000310` (CUSTOMER) is POSTED at `SITE-A`; line 1 is undispositioned | `stores1`, holding `wh_return_gradings:grade`, uses Grade on the Return Receipts grid, grades line 1 `USED_FAIR` (grade B) with a photograph, packaging not intact, recommended QUARANTINE | One `wh_return_gradings` row with the photo in `documents` (ON DELETE NO ACTION); no stock moves and no owner changes; the Return Gradings grid shows it; Disposition is still required to move the unit to QUARANTINE, a non-available status. Re-grading replaces the row; grading after the disposition movement is refused | `FR-272` | `L-11` | app | v2·P5 | happy |
+| **WH-SC-342** | Return `RR-000311` has return_type RECALL, and line 1 of a CUSTOMER return `RR-000312` is lot `VB-4401` of `VAC-2210`, under open recall `RCL-000007` | `stores1` opens Grade on each | Neither line is offered a restocking disposition. A forced `RESTOCK_SELLABLE` is refused 422 on `dispositionCode` (`GRADING_DISPOSITION_NOT_OFFERED`, or `GRADING_LOT_RECALLED` naming `RCL-000007`) before `trg_wh_return_gradings_assert_window` | `FR-272` | — | app | v2·P5 | error |
+| **WH-SC-343** | OEM return `OBR-000042` at `SITE-A`: window 2026-08-27 to 2026-10-10, allowance 5000.00, fee 10%; eligible lines total 1005.00; lead 14 days | `WH_OBSOLESCENCE_WINDOW_WARNING` and `WH_OBSOLESCENCE_CANDIDATES` run on 2026-09-26 | Claimed shows 1005.00 − 100.50 = 904.50 (≤ allowance). Holders of `wh_obsolescence_returns:submit` at `SITE-A` are warned once ("14 day(s) left", stamp `window_warning_sent_for = 2026-10-10`), and the candidates report names the items idle ≥ 12 months with the remaining allowance. Submit on 2026-10-11 is refused 409 `OBSOLESCENCE_WINDOW_CLOSED` | `FR-276` `FR-165` | — | app | v2·P5 | happy |
+| **WH-SC-344** | Window setting is 30 days; MARKETPLACE return `RR-000313` whose demand order names channel `AMZ-IN` is received 2026-09-25 20:00 UTC at `SITE-A` (Asia/Kolkata) | The return is POSTED; the setting is later changed to 45; nothing is submitted | An OPEN claim is created with due_date 2026-10-26 (site day 26th + 30), unchanged by the new setting. It ages onto the queue (sorted by due date) and alerts `wh_marketplace_claims:submit` holders 3 days before. Submit on 2026-10-27 is refused `MARKETPLACE_CLAIM_PAST_DUE`, and `WH_MARKETPLACE_CLAIM_WINDOW` expires it that morning | `FR-279` `FR-165` | — | app | v2·P5 | happy |
+
 ---
 
 ## 4 · Coverage
 
 ### 4.1 Area × version × scenario count
 
-**347 scenarios.** Computed with the commands in §1.2; the version column is the scenario row's
+**351 scenarios.** Computed with the commands in §1.2; the version column is the scenario row's
 `V·Ph` value, so a scenario appears in exactly one version column.
 
 ```bash
@@ -764,8 +777,9 @@ awk -F'|' '/^\| \*\*WH-SC-/ {if (NF!=11) print "NF="NF" "$2}' SCENARIO-CATALOGUE
 | **3.26** API clients and integration health | 4 | — | — | — | — | — | — | 4 | 2 | 2 | — | — |
 | **3.27** NRV and the COGS recognition point | 4 | — | — | — | — | — | — | 4 | 3 | 1 | — | — |
 | **3.28** Weighing instruments and timed labour | 4 | — | — | — | — | — | — | 4 | 2 | 1 | 1 | — |
-| **Total** | **347** | **98** | **78** | **111** | **9** | **18** | **4** | **29** | **185** | **71** | **77** | **14** |
-**What to read from this table.** 296 of 347 scenarios are v1 — 98 in `P0` (the ledger foundation),
+| **3.29** Grading, obsolescence returns and marketplace claims | 4 | — | — | — | — | — | — | 4 | 3 | 1 | — | — |
+| **Total** | **351** | **98** | **78** | **111** | **9** | **18** | **4** | **33** | **188** | **72** | **77** | **14** |
+**What to read from this table.** 296 of 351 scenarios are v1 — 98 in `P0` (the ledger foundation),
 78 in `P1` (masters and inbound), 111 in `P2` (outbound, counting, valuation, returns, printing,
 reports) and 9 in `P2-IN` (the India movement documents). That mirrors the FRD's own shape, where
 338 of 469 requirements are v1 and the majority of those are `P0`/`P1` columns, keys and registries
@@ -773,32 +787,32 @@ with no v1 screen. **The 43 scenarios in §3.1 are 12% of the catalogue against 
 requirements**, deliberately: an invariant that is only *stated* is an invariant that is not
 enforced, and the ledger is the one part of this product that cannot be repaired after it has rows.
 
-162 of 347 are **not** happy paths — 71 error, 77 edge, 14 concurrency. A catalogue that is mostly
+163 of 351 are **not** happy paths — 72 error, 77 edge, 14 concurrency. A catalogue that is mostly
 happy paths tests that the feature exists; it does not test that the guard fires. **The five added in
-round 2 are §3.21**, and **the twenty-two added in round 4 are §3.22**, and **the three `P1-21` authored are §3.23**, and **the one `P2-25` authored is §3.24**, and **the four each `P5-07` and `P5-22` authored are §3.25 and §3.26**, and **the four each `P5-16` and `P5-17` authored are §3.27 and §3.28**. The finding that produced round 2's five (`Q-006`) is the reason the mix is measured
+round 2 are §3.21**, and **the twenty-two added in round 4 are §3.22**, and **the three `P1-21` authored are §3.23**, and **the one `P2-25` authored is §3.24**, and **the four each `P5-07` and `P5-22` authored are §3.25 and §3.26**, and **the four each `P5-16` and `P5-17` authored are §3.27 and §3.28**, and **the four `P5-13` authored are §3.29**. The finding that produced round 2's five (`Q-006`) is the reason the mix is measured
 per *task* and not only per catalogue: a set that is 45% non-happy overall said nothing about the
 seven v1 tasks whose own acceptance was 100% happy.
 
 ### 4.2 Requirement coverage, and the requirements no scenario proves
 
 ```bash
-awk -F'|' '/^\| \*\*WH-SC-/ {print $6}' SCENARIO-CATALOGUE.md | grep -oE 'FR-[0-9]{3}' | sort -u   # -> 395
+awk -F'|' '/^\| \*\*WH-SC-/ {print $6}' SCENARIO-CATALOGUE.md | grep -oE 'FR-[0-9]{3}' | sort -u   # -> 398
 grep -oE '^\| \*\*FR-[0-9]{3}\*\*' WAREHOUSE-FUNCTIONAL-REQUIREMENTS.md | grep -oE 'FR-[0-9]{3}' | sort -u  # -> 471
 ```
 
-**395 of 471 requirements (83.9%) are proved by at least one scenario. 76 are not**, and the list
+**398 of 471 requirements (84.5%) are proved by at least one scenario. 73 are not**, and the list
 below is complete rather than convenient. `DECISIONS.md` §7 rule 3 exists because the accounting
 set's first two rounds carried 25 dangling `FR` citations of which 19 resolved to a *different* real
 requirement, so live gaps read as closed. **The honest list is the deliverable here**; padding it
 with scenarios nobody could run would be the same failure in a new costume.
 
-By version, the 76 break down as **6 v1 · 18 v1.1 · 41 v2 · 14 v3** (a row spanning two versions is
+By version, the 73 break down as **6 v1 · 18 v1.1 · 38 v2 · 14 v3** (a row spanning two versions is
 counted in each). **The count moved 71 → 84 in review round 2**, which added `FR-447`–`FR-459` and no
 scenarios: every one of the thirteen is unproven on the day it was written, and §6.27 below says so
 rather than leaving the total to drift. **It moved 84 → 85 in review round 4.** The ten §6.28
 requirements, `FR-460`–`FR-469`, are each proved by a §3.22 row. The split of `WH-SC-135` (`RJ-013`)
 un-proved `FR-266`, because the kit half of that trace needs v1.1 work orders. **It moved 85 → 84 with
-`P1-21`**, whose §3.23 rows prove `FR-451`. **It moved 84 → 81 on 2026-09-26**: the FRD grew to 471 with `FR-470`(v1) and `FR-471`(v3), both unproven and not yet placed in the table below, and `P5-07`'s §3.25 and `P5-22`'s §3.26 prove `FR-181` `FR-297` `FR-298` `FR-299` `FR-458`. **It moved 81 → 76 the same day** (P5 wave 2 R2): `P5-16`'s §3.27 proves `FR-241` `FR-243` and `P5-17`'s §3.28 proves `FR-223` `FR-227` `FR-228`.
+`P1-21`**, whose §3.23 rows prove `FR-451`. **It moved 84 → 81 on 2026-09-26**: the FRD grew to 471 with `FR-470`(v1) and `FR-471`(v3), both unproven and not yet placed in the table below, and `P5-07`'s §3.25 and `P5-22`'s §3.26 prove `FR-181` `FR-297` `FR-298` `FR-299` `FR-458`. **It moved 81 → 76 the same day** (P5 wave 2 R2): `P5-16`'s §3.27 proves `FR-241` `FR-243` and `P5-17`'s §3.28 proves `FR-223` `FR-227` `FR-228`. **It moved 76 → 73 the same day** (P5 wave 2 R2 pass 2): `P5-13`'s §3.29 proves `FR-272` `FR-276` `FR-279`.
 
 | Area | Unproven `FR` | Why |
 |---|---|---|
@@ -810,7 +824,7 @@ un-proved `FR-266`, because the kit half of that trace needs v1.1 work orders. *
 | 6.13 Valuation | `FR-250`(v2) | The second tax-basis value, which depends on accounting-side decisions. The NRV register and the COGS recognition point (`FR-241` `FR-243`) are proved by `P5-16`'s §3.27 |
 | 6.14 Replenishment | `FR-254` `FR-259`(v2) `FR-255`(v1.1) `FR-258`(v3) | Sister-branch transfer proposals, emergency/opportunistic/break-case replenishment, pick-face replenishment tasks, and the computed stocking level |
 | 6.15 Kitting and VAS | `FR-266`(v2) `FR-267`(v2) `FR-268`(v3) | Lot genealogy across a kit boundary — the kit half of `WH-SC-135`, split off by `RJ-013` and authored by `P3-11`/`P5-19` per §5 rule 3; VAS priced by the labour minute; and multi-level BOM with routings, which is **deliberately not built** — its scenario is the stated re-entry path, not a flow |
-| 6.16 Returns | `FR-272` `FR-276`–`FR-279`(v2) | Grading at receipt, OEM obsolescence returns, cores, warranty scrap-and-hold and the marketplace claim window. All v2 reverse logistics |
+| 6.16 Returns | `FR-277` `FR-278`(v2) | Cores and warranty scrap-and-hold, both v2 reverse logistics. Grading at receipt, OEM obsolescence returns and the marketplace claim window (`FR-272` `FR-276` `FR-279`) are proved by `P5-13`'s §3.29 |
 | 6.17 Third-party logistics | `FR-293` `FR-295` `FR-301` `FR-303`(v2) `FR-302`(v3) | Disputes, freight-billing modes, client GST registrations, tenancy and client profitability. SLA objects, the portal performance tab and SLA credits (`FR-297` `FR-298` `FR-299`) left this list with §3.25 |
 | 6.18 India | `FR-317` `FR-322`–`FR-325` `FR-329`(v2) | Scrap as a supply, goods on approval, bonded/MOOWR, EPR reporting, the relational tax engine and the two retention clocks — the whole `P4` statutory wave beyond the two v2 exit-criterion scenarios |
 | 6.19 Events and the logistics seam | `FR-334`(v1.1) `FR-338` `FR-343`(v2) `FR-347` `FR-348`(v3) | Adapter subscriptions, tyre/equipment fitments, returnable-packaging balances, and the two v3 pre-flight enumerations, which are **documents rather than behaviours** |
@@ -857,7 +871,7 @@ v1 scope, not holes in its stated exit.
 Scenario-id numbers (prefix WH-SC) reserved; each block is owned by one task; the task replaces its reservation line with numbered scenarios. Unused ids stay reserved (never reassigned).
 - ids 333–336 · P5-07 #44 (SLA) — taken, §3.25
 - ids 337–340 · P5-22 #119 (API clients) — taken, §3.26
-- ids 341–344 · P5-13 #72 (grading / returns)
+- ids 341–344 · P5-13 #72 (grading / returns) — taken, §3.29
 - ids 345–348 · P5-16 #86 (NRV) — taken, §3.27
 - ids 349–352 · P5-17 #91 (weighing / labour) — taken, §3.28
 - ids 353–356 · P5-18 #96 (replenishment)

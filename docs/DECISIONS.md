@@ -600,7 +600,6 @@ and not know which won.
 
 ## 6. Id namespaces — disjoint by construction
 
-<!-- check-design-set: screen-citations begin WS-242 WS-246 — the BUILD-SPEC-SCREENS.md §1 allocation marker and the id reserved ahead of it: WS-242 reserved for P5-13's marketplace-claim queue, WS-246 the next free. Neither has a row yet; named so a new screen takes the marker instead of reusing another screen's grid -->
 
 The accounting set's most expensive defect was three different things sharing one namespace, which a
 late rename could not repair because a blanket search-and-replace corrupted the decisions table twice.
@@ -761,7 +760,6 @@ collision.
 
 ---
 
-<!-- check-design-set: screen-citations end -->
 
 ## 7. Rules every author of this design set follows
 

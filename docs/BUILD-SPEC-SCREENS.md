@@ -559,8 +559,8 @@ failed"***.
 
 ```bash
 f=docs/BUILD-SPEC-SCREENS.md
-grep -cE '^\| WS-[0-9]{3} \|' $f                       # screens        → 246 (237 + WS-240, WS-241, round 4; WS-238, WS-239, WS-243, WS-244, round 3; WS-245, P1-21; WS-246, WS-247, P5-22)
-awk -F'|' '/^\| WS-[0-9]{3} \|/ && $7 ~ /Y/' $f | wc -l # configured grids → 223 (214 + WS-240, WS-241, WS-238, WS-239, WS-243, WS-244, WS-245, WS-246, WS-247)
+grep -cE '^\| WS-[0-9]{3} \|' $f                       # screens        → 247 (237 + WS-240, WS-241, round 4; WS-238, WS-239, WS-243, WS-244, round 3; WS-245, P1-21; WS-246, WS-247, P5-22; WS-242, P5-13)
+awk -F'|' '/^\| WS-[0-9]{3} \|/ && $7 ~ /Y/' $f | wc -l # configured grids → 224 (214 + WS-240, WS-241, WS-238, WS-239, WS-243, WS-244, WS-245, WS-246, WS-247, WS-242)
 ```
 
 | id | Screen | Module | Route | Ref | G | Ver · Ph |
@@ -806,18 +806,19 @@ awk -F'|' '/^\| WS-[0-9]{3} \|/ && $7 ~ /Y/' $f | wc -l # configured grids → 2
 | WS-239 | Item Prices | dealer | `/warehouse/dealer/item-prices` | D | Y | v1 · P2 |
 | WS-240 | Trade Portal | app | `/warehouse/outbound/trade-portal` | C | Y | v2 · P5 |
 | WS-241 | Approval Levels | app | `/warehouse/inventory/approval-levels` | D | Y | v2 · P5 |
+| WS-242 | Marketplace Claims | app | `/warehouse/inbound/marketplace-claims` | SV | Y | v2 · P5 |
 | WS-243 | Location Utilisation | app | `/warehouse/reports/location-utilisation` | C | Y | v3 · P6 |
 | WS-244 | Metric Targets | app | `/warehouse/reports/metric-targets` | D | Y | v1 · P2 |
 | WS-245 | Master Merge Log | base | `/warehouse/masters/master-merges` | C | Y | v1 · P1 |
 | WS-246 | API Clients | base | `/warehouse/platform/api-clients` | C | Y | v2 · P5 |
 | WS-247 | API Client Keys | base | `/warehouse/platform/api-client-keys` | C | Y | v2 · P5 |
 
-<!-- check-design-set: screen-citations begin WS-242 WS-248 — the §1 allocation marker: WS-242 is reserved for P5-13's marketplace-claim queue and has no row until that task's PR adds one; WS-248 is the next free id -->
+<!-- check-design-set: screen-citations begin WS-248 — the §1 allocation marker: WS-248 is the next free id -->
 **The allocation marker.** `WS-238` *Warehouse Grants* took its row on 2026-09-11, when round 3's `RA-001`
 was folded into `P1-18`. The same day's second fold (lane `W0-1b`):
 - gave `WS-239` *Item Prices* to `RA-002` (`P2-25`);
 - **reserved `WS-242`** for `P5-13`'s marketplace-claim queue, whose table has existed since `X-001`. It
-  has no row until that task's PR adds one;
+  took its row on 2026-09-26, allocated by `P5-13` (*Marketplace Claims*, `V510215`);
 - allocated `WS-243` *Location Utilisation* (`RC-009`, `P6-02`, v3) and `WS-244` *Metric Targets*
   (`RC-007`, `P2-21`).
 
@@ -2738,6 +2739,39 @@ WS-137–139 (v2 and desk-bound), WS-140/141 (a buyer's screen), WS-143 (a repor
 WS-147–149 (finance), WS-150–152 (implementation), WS-153/154 (**a supervisor console with four
 queues and a drag-and-drop board does not fit a handheld; the supervisor uses a tablet browser** —
 recorded as a decision, not an omission).
+
+#### WS-242 · Marketplace Claims — v2 · P5 (`P5-13`, `FR-279`)
+
+`wh_marketplace_claims` · scope `WAREHOUSE_MARKETPLACE_CLAIM` · grid `wh_marketplace_claims`, seeded by `V510215`
+(`X-001`). The marketplace return-claim window: one claim is opened by the Post of a `MARKETPLACE` return receipt,
+its `due_date` fixed at receipt (site received day + `claim_window_days`, a snapshot of
+`warehouse.marketplace_claims.window_days`) and aged by `WH_MARKETPLACE_CLAIM_WINDOW`. The queue sorts by
+`dueDate` ascending. **Actions:** View / Submit (claim type, reference, amounts, evidence document; refused
+`MARKETPLACE_CLAIM_PAST_DUE` after the due date) / Settle / Reject / Export; no Add and no Delete. Statuses OPEN,
+SUBMITTED, SETTLED, REJECTED, EXPIRED, CANCELLED. Settlement reaches accounting by reference only (`OD-1`).
+
+| key | label | type | sortable | default-visible | source |
+|---|---|---|---|---|---|
+| `returnNumber` | Return No. | string | Y | Y | `wh_return_receipts` via `return_receipt_id` |
+| `channelName` | Channel | string | Y | Y | `whb_channels` via `channel_id` |
+| `claimType` | Claim Type | string | Y | Y | `wh_marketplace_claims.claim_type` (`MARKETPLACE_CLAIM_TYPE` code list) |
+| `claimReference` | Claim Ref. | string | Y | Y | `wh_marketplace_claims.claim_reference` |
+| `claimWindowDays` | Window (days) | number | Y | N | `wh_marketplace_claims.claim_window_days` (snapshot) |
+| `dueDate` | Due Date | date | Y | Y | `wh_marketplace_claims.due_date` |
+| `claimedAmount` | Claimed | number | Y | Y | `wh_marketplace_claims.claimed_amount` |
+| `restockingFeeAmount` | Restocking Fee | number | Y | Y | `wh_marketplace_claims.restocking_fee_amount` |
+| `settledAmount` | Settled | number | Y | Y | `wh_marketplace_claims.settled_amount` |
+| `status` | Status | string | Y | Y | `wh_marketplace_claims.status` |
+| `warehouseName` | Site | string | Y | N | `whb_warehouses` via `warehouse_id` |
+| `ownerName` | Owner | string | Y | N | `whb_owners` via `owner_id` |
+| `submittedAt` · `settledAt` | Submitted · Settled On | date | Y | N | `wh_marketplace_claims.submitted_at`, `settled_at` |
+| `createdByName` · `updatedByName` | Created By · Updated By | string | N | N | `users` |
+| `createdAt` · `updatedAt` | Created · Updated | date | Y | N | audit columns |
+
+**Filters:** `search` · `warehouseId` searchable-select · `channelId` select · `status` multiselect · `claimType` select ·
+`dueDateFrom`/`To` (DATE, `dateOnly`). `emptyMessage` = `warehouse:marketplaceClaim.empty`.
+**Statistics:** filter-aware — open, due soon (within `warehouse.marketplace_claims.due_alert_lead_days`), submitted,
+settled, expired. Export = the grid's columns.
 
 ---
 

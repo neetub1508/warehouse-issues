@@ -1,7 +1,6 @@
 # GAP-REGISTER-R4 — the disposition of every round-4 finding, and the fold plan
 
 <!-- check-design-set: scenario-citations file WH-SC-306 WH-SC-307 WH-SC-308 WH-SC-309 WH-SC-310 WH-SC-311 WH-SC-312 WH-SC-313 WH-SC-314 WH-SC-315 WH-SC-316 WH-SC-317 WH-SC-318 WH-SC-319 WH-SC-320 WH-SC-321 WH-SC-322 WH-SC-323 WH-SC-324 WH-SC-325 WH-SC-326 WH-SC-327 WH-SC-328 — allocated by §4.0 from the SCENARIO-CATALOGUE.md §5 rule 3 marker; the rows are owed to §3.22 by the P-CORE fold, and WH-SC-328 is the marker's new position -->
-<!-- check-design-set: screen-citations file WS-238 WS-239 WS-240 WS-241 WS-242 — WS-238 and WS-239 are the two ids GAP-REGISTER-R3.md §4.4 recommends for the unfolded round-3 screens (RA-001, RA-002) and are reserved here, not taken; WS-240 and WS-241 are allocated by §4.0 and owed to BUILD-SPEC-SCREENS.md §1; WS-242 is the next-free marker -->
 
 > **What this document is for.** `GAP-REGISTER.md`, `-R2` and `-R3` disposition rounds 1–3 (575 + 62 + 52
 > findings). This one dispositions the **83** findings of round 4 — five lenses, `reviews/R22`–`R26`,

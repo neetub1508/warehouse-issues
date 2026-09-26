@@ -257,7 +257,6 @@ python3 tools/check-design-set.py --summary                              # 0 vio
 ```
 
 <!-- check-design-set: scenario-citations begin WH-SC-332 - the allocation marker named as the subject of this paragraph, not cited as a scenario -->
-<!-- check-design-set: screen-citations begin WS-242 WS-246 - WS-242 is reserved for p5-13's marketplace-claim queue and WS-246 is the next free screen id; both are named as the subject of this paragraph, not cited as screens -->
 
 **Re-run after the 2026-09-10 fold: scenarios 327, round-4 findings 82 of 83; the rest unchanged.**
 **The figures above were first computed on 2026-09-10 against the P-LATE tree, before the other three round-4
@@ -300,7 +299,6 @@ their hosts on 2026-09-10, whose `## Closes` blocks now carry the ids: `RK-003` 
 `RL-015` (`P1-19`). Requirements now run to
 `FR-469`, and the screen marker is `WS-242`.
 
-<!-- check-design-set: screen-citations end -->
 <!-- check-design-set: scenario-citations end -->
 
 ## Before you file
