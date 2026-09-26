@@ -559,8 +559,8 @@ failed"***.
 
 ```bash
 f=docs/BUILD-SPEC-SCREENS.md
-grep -cE '^\| WS-[0-9]{3} \|' $f                       # screens        → 244 (237 + WS-240, WS-241, round 4; WS-238, WS-239, WS-243, WS-244, round 3; WS-245, P1-21)
-awk -F'|' '/^\| WS-[0-9]{3} \|/ && $7 ~ /Y/' $f | wc -l # configured grids → 221 (214 + WS-240, WS-241, WS-238, WS-239, WS-243, WS-244, WS-245)
+grep -cE '^\| WS-[0-9]{3} \|' $f                       # screens        → 246 (237 + WS-240, WS-241, round 4; WS-238, WS-239, WS-243, WS-244, round 3; WS-245, P1-21; WS-246, WS-247, P5-22)
+awk -F'|' '/^\| WS-[0-9]{3} \|/ && $7 ~ /Y/' $f | wc -l # configured grids → 223 (214 + WS-240, WS-241, WS-238, WS-239, WS-243, WS-244, WS-245, WS-246, WS-247)
 ```
 
 | id | Screen | Module | Route | Ref | G | Ver · Ph |
@@ -809,8 +809,10 @@ awk -F'|' '/^\| WS-[0-9]{3} \|/ && $7 ~ /Y/' $f | wc -l # configured grids → 2
 | WS-243 | Location Utilisation | app | `/warehouse/reports/location-utilisation` | C | Y | v3 · P6 |
 | WS-244 | Metric Targets | app | `/warehouse/reports/metric-targets` | D | Y | v1 · P2 |
 | WS-245 | Master Merge Log | base | `/warehouse/masters/master-merges` | C | Y | v1 · P1 |
+| WS-246 | API Clients | base | `/warehouse/platform/api-clients` | C | Y | v2 · P5 |
+| WS-247 | API Client Keys | base | `/warehouse/platform/api-client-keys` | C | Y | v2 · P5 |
 
-<!-- check-design-set: screen-citations begin WS-242 WS-246 — the §1 allocation marker: WS-242 is reserved for P5-13's marketplace-claim queue and has no row until that task's PR adds one; WS-246 is the next free id -->
+<!-- check-design-set: screen-citations begin WS-242 WS-248 — the §1 allocation marker: WS-242 is reserved for P5-13's marketplace-claim queue and has no row until that task's PR adds one; WS-248 is the next free id -->
 **The allocation marker.** `WS-238` *Warehouse Grants* took its row on 2026-09-11, when round 3's `RA-001`
 was folded into `P1-18`. The same day's second fold (lane `W0-1b`):
 - gave `WS-239` *Item Prices* to `RA-002` (`P2-25`);
@@ -820,7 +822,8 @@ was folded into `P1-18`. The same day's second fold (lane `W0-1b`):
   (`RC-007`, `P2-21`).
 
 `WS-240` and `WS-241` were allocated by `GAP-REGISTER-R4.md` §4.0. `WS-245` *Master Merge Log* took its row on
-2026-09-16, allocated by `P1-21`'s PR (warehouse-issues#148). **The next free id is `WS-246`.** The
+2026-09-16, allocated by `P1-21`'s PR (warehouse-issues#148). `WS-246` *API Clients* and `WS-247` *API Client
+Keys* took their rows on 2026-09-26, allocated by `P5-22` (§2.8). **The next free id is `WS-248`.** The
 pure link-sets are row-action assignment modals on existing screens: WS-015, WS-016, WS-017, WS-019 and
 WS-173 (`D-14` item 8b); WS-021 and WS-023 keep their child editors.
 <!-- check-design-set: screen-citations end -->
@@ -1773,6 +1776,60 @@ scheduled job that reads it is a defect at the moment it is merged.**
 
 **Mobile:** `none` for all six. Stated per `FR-218`: these are support and integration surfaces; an
 operator has no action on them and a handheld cannot render a payload.
+
+#### WS-246 · API Clients — v2 · P5 (`P5-22`, `FR-458`)
+
+`whb_api_clients` (+ `_endpoints`, `_companies`) · scope `WAREHOUSE_API_CLIENT` · grid `whb_api_clients`, seeded by
+`V500066`. The named integrations that call the movement port. A key only **narrows** a caller the user's JWT
+already authenticated — endpoint scope, company scope and a per-client rate limit (`OD-8`); there is no
+unauthenticated path. **Actions:** Add / Edit / View / Revoke–Reinstate (the status toggle, `:edit`) / Export; no
+Delete. Reinstatement is refused while the client's home company is retired.
+
+| key | label | type | sortable | default-visible | source |
+|---|---|---|---|---|---|
+| `clientCode` | Client Code | string | Y | Y | `whb_api_clients.client_code` |
+| `name` | Name | string | Y | Y | `whb_api_clients.name` |
+| `companyName` | Home Company | string | Y | Y | `whb_companies` via `company_id` (RH-004) |
+| `contactEmail` | Contact Email | string | Y | N | `whb_api_clients.contact_email` |
+| `rateLimitPerMinute` | Rate Limit / min | number | Y | Y | `whb_api_clients.rate_limit_per_minute` |
+| `maxClockSkewSeconds` | Clock Skew (s) | number | Y | Y | `whb_api_clients.max_clock_skew_seconds` (stored, enforced by `P3-22`) |
+| `endpointCodes` | Endpoints | string | N | Y | `whb_api_client_endpoints` (`API_ENDPOINT` code list) |
+| `lastUsedAt` | Last Used | date | N | Y | latest `whb_api_client_keys.last_used_at` of the client's keys, batch-loaded per page (written at most once a minute) |
+| `isActive` | Status | boolean | Y | Y | `whb_api_clients.is_active` |
+| `revokedAt` | Revoked | date | Y | N | `whb_api_clients.revoked_at` |
+| `createdByName` · `updatedByName` | Created By · Updated By | string | N | N | `users` |
+| `createdAt` · `updatedAt` | Created · Updated | date | Y | N | audit columns |
+
+**Filters:** `companyId` select · `isActive`. `emptyMessage` = `warehouseBase:apiClient.empty`.
+**Statistics:** filter-aware — total, active, revoked. Export = the grid's columns.
+
+#### WS-247 · API Client Keys — v2 · P5 (`P5-22`, `FR-458`)
+
+`whb_api_client_keys` · scope `WAREHOUSE_API_CLIENT_KEY` · grid `whb_api_client_keys`, seeded by `V500066`. The keys
+issued to API clients — **never their secret**: only `key_hash` (SHA-256) and `key_prefix` are stored, the
+plaintext is shown once in a modal and cleared when it closes (`WH-SC-337`). **Actions:** Issue / Rotate (overlap
+window 1–10080 minutes, `WH-SC-338`) / Revoke / View / Export; never created or edited. Statuses ACTIVE, SUPERSEDED,
+REVOKED, EXPIRED — EXPIRED is derived from `expires_at` on read; one ACTIVE key per client (partial unique index).
+
+| key | label | type | sortable | default-visible | source |
+|---|---|---|---|---|---|
+| `keyPrefix` | Key Prefix | string | Y | Y | `whb_api_client_keys.key_prefix` |
+| `clientCode` | Client | string | Y | Y | `whb_api_clients.client_code` |
+| `clientName` | Client Name | string | Y | N | `whb_api_clients.name` |
+| `status` | Status | string | Y | Y | effective status (EXPIRED derived) |
+| `issuedAt` | Issued | date | Y | Y | `whb_api_client_keys.issued_at` |
+| `issuedByName` | Issued By | string | N | Y | `users` |
+| `expiresAt` | Expires | date | Y | Y | `whb_api_client_keys.expires_at` |
+| `lastUsedAt` | Last Used | date | Y | Y | `whb_api_client_keys.last_used_at` |
+| `revokedAt` | Revoked | date | Y | N | `whb_api_client_keys.revoked_at` |
+| `revokedByName` | Revoked By | string | N | N | `users` |
+| `createdByName` · `updatedByName` | Created By · Updated By | string | N | N | `users` |
+
+**Filters:** `clientId` select · `status` select (the effective status, a fetched code). `emptyMessage` =
+`warehouseBase:apiClientKey.empty`.
+**Statistics:** filter-aware — total, active, superseded, revoked, expired. Export = the grid's columns.
+
+**Mobile:** `none` for both — integration surfaces, per `FR-218`.
 
 ---
 

@@ -497,6 +497,12 @@ it is not renumbered here, because a finding is a dated record. See [`OPEN-DECIS
 | **OD-3** | **One database per customer, or shared multi-tenancy?** `grep -ril "tenant" platform/backend/src/main/java` → **0 files**. Classic is one-DB-per-customer today, which is why a 3PL's clients must be an **owner dimension**, not tenants | Before `warehouse-3pl` P5 starts | **RESOLVED 2026-09-11.** One database per customer installation. A 3PL client is an owner with enforced row scope, never a database tenant. Configuration export/import is supported through the existing task with identifier remapping and no secrets. [Contract](GLOBAL-SETTINGS-DECISIONS.md). |
 | **OD-8** | **How does an out-of-process consumer authenticate to the port?** `PORT-AND-ADAPTER-CONTRACT.md` `PC-33`: a `logistics` module deployed separately has nothing to authenticate with. There is no API-key table in platform (grep → 0); the only API-key path in the repo is per-handler inside the boom-barrier webhook | Before `P0` builds the port, because the auth model shapes the endpoint | **RESOLVED 2026-09-11.** Use existing authenticated users and movement permissions in v1. Separate service consumers remain capability-gated to the v3 identity adapter with revocation, scope and audit tests. No anonymous/API-key shortcut and no warehouse-owned duplicate identity store. [Contract](GLOBAL-SETTINGS-DECISIONS.md). |
 
+**Build note — `P5-22` / `OD-8` (2026-09-26).** API-client keys travel in `X-Whb-Api-Key` on a request already
+authenticated by the user's JWT. The key only **narrows** the caller (endpoint scope, company scope, per-client rate
+limit). No platform security allow-list entry and no unauthenticated path were added, although the task acceptance
+mentions one, because the adopted `OD-8` forbids an API-key shortcut to the port identity. Screens WS-246 / WS-247
+(`BUILD-SPEC-SCREENS.md` §2.8); scenarios `WH-SC-337`–`WH-SC-340` (`SCENARIO-CATALOGUE.md` §3.26).
+
 ### 3.3 Open by schedule — v3, and deliberately not decided in a v1 wave
 
 | # | Decision | Deadline | Recommendation |
