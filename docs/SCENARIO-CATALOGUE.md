@@ -687,13 +687,38 @@ period lock that closes ahead of accounting's (`FR-251`).
 | **WH-SC-339** | `ERP-1` is revoked; `ERP-2` has a limit of N requests a minute | `ERP-1` posts a movement with its key; `ERP-2` sends N+1 requests in one minute | A revoked client's request is refused immediately, and the refusal names neither the key nor the hash (`403` `API_CLIENT_REFUSED`). A client over its rate limit receives a refusal with a retry hint (`429` `RETRY_AFTER`, `retry_after_seconds`); a client under it is unaffected | `FR-458` | — | base | v2·P5 | error |
 | **WH-SC-340** | A subscriber delivering 300 events a minute against 900 a minute of production; another subscription disabled and forgotten | The WS-223 health job runs | A subscriber delivering 300 events a minute against 900 a minute of production shows a rising lag on `WS-057` and crosses the health threshold (`OUTBOX_LAG_OVER_THRESHOLD` FAILING) — **with zero `RETRY` and zero `DEAD` rows**. A subscription is disabled and forgotten; the "no attempt in N minutes" signal (`OUTBOX_SUBSCRIPTION_SILENT`) names it | `FR-458` | — | base | v2·P5 | error |
 
+### 3.27 NRV and the COGS recognition point
+
+> Authored by `P5-16` (ids from the driver's reserved block 345–348). Warehouse posts the movement and hands
+> over the valued row; the ledger owner posts the entry (`D-6`). The cast is §2's.
+
+| # | Given | When | Then | FR | L | Mod | V·Ph | Type |
+|---|---|---|---|---|---|---|---|---|
+| **WH-SC-345** | Lot `L-2611` of item `OF-1120` at site `SITE-A`, owner `HOUSE`, 100 units on an open layer at 10.00 a unit; the lot is near expiry and appears on the NRV candidates report as EXPIRED | Assessor A raises an NRV write-down to 6.00 a unit, basis EXPIRED; A tries to approve it; approver B approves it | The write-down is DRAFT with one line (100 × 10.00 → 6.00, −400.0000) computed by the server; A's approval is refused (403, maker-checker); B's approval posts ONE `WRITE_DOWN` value-only movement (quantity 0, −400.0000, `VALUE_OFFSET` counter side, reason `NRV_WRITE_DOWN`) and the layer carries 600.0000. No journal is written by warehouse | `FR-241` | `L-15` | app | v2·P5 | happy |
+| **WH-SC-346** | WH-SC-345's write-down is POSTED; 40 of the 100 units have since been sold (60 held at 6.00) | The cause ceases: assessor C raises its reversal with a revised NRV of 12.00, basis MARKET_PRICE; D approves it; C tries to reverse the same write-down again | The reversal is a NEW row linked to the original (neither edits the other) with its own assessor and date; it gives back +240.0000 — capped at the original's write-down pro rata to the 60 units still held and at the pre-write-down 10.00 a unit, never 12.00. The register shows both rows, each naming the other. A second reversal is refused (409) | `FR-241` | — | app | v2·P5 | happy |
+| **WH-SC-347** | Owner `SUP-CONSIGN-01` (`CONSIGNOR`, non-house) holds stock of `OF-1120` at `SITE-A` | An assessor raises an NRV write-down against `SUP-CONSIGN-01`'s stock (through the API, since the Add modal offers owner `HOUSE`s only); a direct INSERT names the same owner | The service refuses it first with a field-level error on `ownerId` (422 `NRV_OWNER_NOT_OWN`) — non-own stock is never valued, so never written down; the INSERT is refused by the database trigger. No row, no movement | `FR-241` | `L-14` | app | v2·P5 | error |
+| **WH-SC-348** | One SALES shipment worth 1,234.5600 of own stock is despatched three times over three installs, with `warehouse.cogs.recognition_point` set to DISPATCH, DELIVERY and INVOICE in turn | Each shipment is dispatched, then delivered, then invoiced; after the DELIVERY-point despatch the setting is changed to DISPATCH | DISPATCH: the row is SOLD / cost of sales and recognised at dispatch. DELIVERY: IN_TRANSIT / goods-in-transit at dispatch, recognised at delivery. INVOICE: in transit through delivery, recognised by the invoice event with its reference. Three hand-over moments, one identical total. The setting change does not restate the row already written (point snapshotted with its source level). With no ledger owner installed the rows queue (`QUEUED`) and export from the configured grid | `FR-243` | `L-14` | app | v2·P5 | happy |
+
+### 3.28 Weighing instruments and timed labour
+
+> Authored by `P5-17` (ids from the driver's reserved block 349–352). A weighing outside its instrument's
+> certificate is flagged and acknowledged, never silently accepted; a labour task records time and nothing
+> else (`FR-228`). The cast is §2's.
+
+| # | Given | When | Then | FR | L | Mod | V·Ph | Type |
+|---|---|---|---|---|---|---|---|---|
+| **WH-SC-349** | Weighbridge `WB-01` at `SITE-A` holds certificate `LM/2025/0917` valid 2025-10-01 to 2026-09-30 | A storekeeper records a weighing of GRN `GRN-A-0412` on 2026-10-02 (site day) without acknowledging | Refused `422` `OUT_OF_VERIFICATION_NOT_ACKNOWLEDGED` on `acknowledgeOutOfVerification`, naming the instrument and certificate. With the acknowledgement and a note, the weighing records FLAGGED (`is_out_of_verification = true`) with the certificate snapshot, and is acknowledged by that person at that time — never silently accepted | `FR-223` | — | app | v2·P5 | error |
+| **WH-SC-350** | A DEVICE posts a weighing on `WB-01` after its certificate lapsed; GRN `GRN-A-0412` has 3 weighings | A goods-receipt viewer opens the receipt; a supervisor with `wh_weighing_records:acknowledge` acknowledges with a note | The receipt shows "1 of 3 weighings ... not valid on the weighing day" with 1 awaiting acknowledgement, readable through `wh_goods_receipts:view` alone. After acknowledgement the weighing stays flagged, now carrying who acknowledged it and when; a second acknowledgement is refused `409` | `FR-223` | — | app | v2·P5 | happy |
+| **WH-SC-351** | `WB-01` certificate ends 2026-10-20; alert lead is 30 days; two holders of `wh_weighing_instruments:edit` scoped to `SITE-A`, one to `SITE-B` | `WHB_WEIGHING_CERTIFICATE_EXPIRY` runs daily from 2026-09-20 | On the first run inside the window the two `SITE-A` holders are notified once, the certificate is stamped `expiry_alert_sent_for = 2026-10-20`, and a `whb_job_runs` row records read/written. Later runs do not re-notify; renewing the certificate (new `verified_to`) re-arms it. The `SITE-B` holder is never told | `FR-223` `FR-165` | — | base·app | v2·P5 | happy |
+| **WH-SC-352** | Picker P holds a RUNNING labour task on putaway `PT-0091` | P pauses 4 min, resumes, ends with 12 units; P tries to start a second task while one is open; another user tries to pause P's task | Duration = elapsed − 240 s paused, shown only once ENDED; the ENDED row is final (trigger). The second open task is refused (one open task per user), and pausing another's timer is refused `403`. No standard, target, rate or pay exists anywhere on the record or screen | `FR-227` `FR-228` | — | app | v2·P5 | edge |
+
 ---
 
 ## 4 · Coverage
 
 ### 4.1 Area × version × scenario count
 
-**339 scenarios.** Computed with the commands in §1.2; the version column is the scenario row's
+**347 scenarios.** Computed with the commands in §1.2; the version column is the scenario row's
 `V·Ph` value, so a scenario appears in exactly one version column.
 
 ```bash
@@ -737,41 +762,43 @@ awk -F'|' '/^\| \*\*WH-SC-/ {if (NF!=11) print "NF="NF" "$2}' SCENARIO-CATALOGUE
 | **3.24** Counter pricing | 1 | — | — | 1 | — | — | — | — | 1 | — | — | — |
 | **3.25** Service levels | 4 | — | — | — | — | — | — | 4 | 1 | 2 | 1 | — |
 | **3.26** API clients and integration health | 4 | — | — | — | — | — | — | 4 | 2 | 2 | — | — |
-| **Total** | **339** | **98** | **78** | **111** | **9** | **18** | **4** | **21** | **180** | **69** | **76** | **14** |
-**What to read from this table.** 296 of 339 scenarios are v1 — 98 in `P0` (the ledger foundation),
+| **3.27** NRV and the COGS recognition point | 4 | — | — | — | — | — | — | 4 | 3 | 1 | — | — |
+| **3.28** Weighing instruments and timed labour | 4 | — | — | — | — | — | — | 4 | 2 | 1 | 1 | — |
+| **Total** | **347** | **98** | **78** | **111** | **9** | **18** | **4** | **29** | **185** | **71** | **77** | **14** |
+**What to read from this table.** 296 of 347 scenarios are v1 — 98 in `P0` (the ledger foundation),
 78 in `P1` (masters and inbound), 111 in `P2` (outbound, counting, valuation, returns, printing,
 reports) and 9 in `P2-IN` (the India movement documents). That mirrors the FRD's own shape, where
 338 of 469 requirements are v1 and the majority of those are `P0`/`P1` columns, keys and registries
-with no v1 screen. **The 43 scenarios in §3.1 are 13% of the catalogue against 7% of the
+with no v1 screen. **The 43 scenarios in §3.1 are 12% of the catalogue against 7% of the
 requirements**, deliberately: an invariant that is only *stated* is an invariant that is not
 enforced, and the ledger is the one part of this product that cannot be repaired after it has rows.
 
-159 of 339 are **not** happy paths — 69 error, 76 edge, 14 concurrency. A catalogue that is mostly
+162 of 347 are **not** happy paths — 71 error, 77 edge, 14 concurrency. A catalogue that is mostly
 happy paths tests that the feature exists; it does not test that the guard fires. **The five added in
-round 2 are §3.21**, and **the twenty-two added in round 4 are §3.22**, and **the three `P1-21` authored are §3.23**, and **the one `P2-25` authored is §3.24**, and **the four each `P5-07` and `P5-22` authored are §3.25 and §3.26**. The finding that produced round 2's five (`Q-006`) is the reason the mix is measured
+round 2 are §3.21**, and **the twenty-two added in round 4 are §3.22**, and **the three `P1-21` authored are §3.23**, and **the one `P2-25` authored is §3.24**, and **the four each `P5-07` and `P5-22` authored are §3.25 and §3.26**, and **the four each `P5-16` and `P5-17` authored are §3.27 and §3.28**. The finding that produced round 2's five (`Q-006`) is the reason the mix is measured
 per *task* and not only per catalogue: a set that is 45% non-happy overall said nothing about the
 seven v1 tasks whose own acceptance was 100% happy.
 
 ### 4.2 Requirement coverage, and the requirements no scenario proves
 
 ```bash
-awk -F'|' '/^\| \*\*WH-SC-/ {print $6}' SCENARIO-CATALOGUE.md | grep -oE 'FR-[0-9]{3}' | sort -u   # -> 390
+awk -F'|' '/^\| \*\*WH-SC-/ {print $6}' SCENARIO-CATALOGUE.md | grep -oE 'FR-[0-9]{3}' | sort -u   # -> 395
 grep -oE '^\| \*\*FR-[0-9]{3}\*\*' WAREHOUSE-FUNCTIONAL-REQUIREMENTS.md | grep -oE 'FR-[0-9]{3}' | sort -u  # -> 471
 ```
 
-**390 of 471 requirements (82.8%) are proved by at least one scenario. 81 are not**, and the list
+**395 of 471 requirements (83.9%) are proved by at least one scenario. 76 are not**, and the list
 below is complete rather than convenient. `DECISIONS.md` §7 rule 3 exists because the accounting
 set's first two rounds carried 25 dangling `FR` citations of which 19 resolved to a *different* real
 requirement, so live gaps read as closed. **The honest list is the deliverable here**; padding it
 with scenarios nobody could run would be the same failure in a new costume.
 
-By version, the 81 break down as **6 v1 · 18 v1.1 · 45 v2 · 15 v3** (a row spanning two versions is
+By version, the 76 break down as **6 v1 · 18 v1.1 · 41 v2 · 14 v3** (a row spanning two versions is
 counted in each). **The count moved 71 → 84 in review round 2**, which added `FR-447`–`FR-459` and no
 scenarios: every one of the thirteen is unproven on the day it was written, and §6.27 below says so
 rather than leaving the total to drift. **It moved 84 → 85 in review round 4.** The ten §6.28
 requirements, `FR-460`–`FR-469`, are each proved by a §3.22 row. The split of `WH-SC-135` (`RJ-013`)
 un-proved `FR-266`, because the kit half of that trace needs v1.1 work orders. **It moved 85 → 84 with
-`P1-21`**, whose §3.23 rows prove `FR-451`. **It moved 84 → 81 on 2026-09-26**: the FRD grew to 471 with `FR-470`(v1) and `FR-471`(v3), both unproven and not yet placed in the table below, and `P5-07`'s §3.25 and `P5-22`'s §3.26 prove `FR-181` `FR-297` `FR-298` `FR-299` `FR-458`.
+`P1-21`**, whose §3.23 rows prove `FR-451`. **It moved 84 → 81 on 2026-09-26**: the FRD grew to 471 with `FR-470`(v1) and `FR-471`(v3), both unproven and not yet placed in the table below, and `P5-07`'s §3.25 and `P5-22`'s §3.26 prove `FR-181` `FR-297` `FR-298` `FR-299` `FR-458`. **It moved 81 → 76 the same day** (P5 wave 2 R2): `P5-16`'s §3.27 proves `FR-241` `FR-243` and `P5-17`'s §3.28 proves `FR-223` `FR-227` `FR-228`.
 
 | Area | Unproven `FR` | Why |
 |---|---|---|
@@ -779,8 +806,8 @@ un-proved `FR-266`, because the kit half of that trace needs v1.1 work orders. *
 | 6.7 Counterparties | `FR-121`(v3) | The trigger for extracting a shared `party-base` is *recorded* rather than built. There is no v1 behaviour to walk — the requirement is a stated deadline, and its scenario is *"the third module needing an authoritative GSTIN has appeared"* |
 | 6.8 Inbound | `FR-136`(v1.1) `FR-140`(v2) `FR-142`(v3) | ASN as a document, the three-way match allocation junction, and supplier-scorecard evidence emission. All three are later-phase and none is exercised by a v1 flow |
 | 6.11 Outbound | `FR-192` `FR-194` `FR-197` `FR-198` `FR-200`–`FR-204` `FR-207` `FR-208`–`FR-211` (14) | The carrier, channel and parcel surface. **`FR-207` is the one genuinely v1 gap in this list** — the channel master's v1 half is a base table the ledger's source lineage and the item alias both reference, and no scenario asserts it exists in a v1 install. **This is a finding: it needs a scenario before `P1` closes.** The other thirteen are v1.1/v2 rate shopping, serviceability, AWB pools, NDR, COD, tracking, channel import and publish |
-| 6.12 Execution and printing | `FR-223` `FR-226`(v2) `FR-227`(v2) `FR-228` `FR-229`(v3) | Legal-metrology instrument verification, per-owner print templates, labour timing, engineered standards (deliberately not built before a year of our own data) and automation interfaces |
-| 6.13 Valuation | `FR-241` `FR-243` `FR-250`(v2) | NRV write-down register, configurable COGS recognition point, and the second tax-basis value. All three are v2 and all three depend on accounting-side decisions |
+| 6.12 Execution and printing | `FR-226`(v2) `FR-229`(v3) | Per-owner print templates and automation interfaces. Instrument verification, labour timing and the no-engineered-standards rule (`FR-223` `FR-227` `FR-228`) are proved by `P5-17`'s §3.28 |
+| 6.13 Valuation | `FR-250`(v2) | The second tax-basis value, which depends on accounting-side decisions. The NRV register and the COGS recognition point (`FR-241` `FR-243`) are proved by `P5-16`'s §3.27 |
 | 6.14 Replenishment | `FR-254` `FR-259`(v2) `FR-255`(v1.1) `FR-258`(v3) | Sister-branch transfer proposals, emergency/opportunistic/break-case replenishment, pick-face replenishment tasks, and the computed stocking level |
 | 6.15 Kitting and VAS | `FR-266`(v2) `FR-267`(v2) `FR-268`(v3) | Lot genealogy across a kit boundary — the kit half of `WH-SC-135`, split off by `RJ-013` and authored by `P3-11`/`P5-19` per §5 rule 3; VAS priced by the labour minute; and multi-level BOM with routings, which is **deliberately not built** — its scenario is the stated re-entry path, not a flow |
 | 6.16 Returns | `FR-272` `FR-276`–`FR-279`(v2) | Grading at receipt, OEM obsolescence returns, cores, warranty scrap-and-hold and the marketplace claim window. All v2 reverse logistics |
@@ -815,7 +842,7 @@ v1 scope, not holes in its stated exit.
    `WH-SC-248` govern the tick. A backend that exists with no reachable UI has closed no scenario.
 3. **A defect found in the field becomes a scenario before it becomes a fix.** New ids continue
    from **`WH-SC-332`**; ids are never reused and never renumbered. `WH-SC-301`–`WH-SC-305` were
-   taken by review round 2 (§3.21), `WH-SC-306`–`WH-SC-327` by review round 4 (§3.22) `WH-SC-328`–`WH-SC-330` by `P1-21` (§3.23) and `WH-SC-331` by `P2-25` (§3.24), and `WH-SC-333`–`WH-SC-340` by `P5-07` / `P5-22` (§3.25, §3.26) out of the driver's reserved blocks (below — 332 is still the next free unreserved id, so defined ids now skip it); the marker moves with every allocation and is the only place to
+   taken by review round 2 (§3.21), `WH-SC-306`–`WH-SC-327` by review round 4 (§3.22) `WH-SC-328`–`WH-SC-330` by `P1-21` (§3.23) and `WH-SC-331` by `P2-25` (§3.24), and `WH-SC-333`–`WH-SC-340` by `P5-07` / `P5-22` (§3.25, §3.26) and `WH-SC-345`–`WH-SC-352` by `P5-16` / `P5-17` (§3.27, §3.28) out of the driver's reserved blocks (below — 332 is still the next free unreserved id, so defined ids now skip it); the marker moves with every allocation and is the only place to
    read the next free id.
 4. **`tools/check-design-set.py` enforces §1.2.** Contiguity, zero dangling `FR` citations, and the
    §4.2 unproven list matching what the commands actually produce. A coverage table that has drifted
@@ -831,8 +858,8 @@ Scenario-id numbers (prefix WH-SC) reserved; each block is owned by one task; th
 - ids 333–336 · P5-07 #44 (SLA) — taken, §3.25
 - ids 337–340 · P5-22 #119 (API clients) — taken, §3.26
 - ids 341–344 · P5-13 #72 (grading / returns)
-- ids 345–348 · P5-16 #86 (NRV)
-- ids 349–352 · P5-17 #91 (weighing / labour)
+- ids 345–348 · P5-16 #86 (NRV) — taken, §3.27
+- ids 349–352 · P5-17 #91 (weighing / labour) — taken, §3.28
 - ids 353–356 · P5-18 #96 (replenishment)
 - ids 357–360 · P5-19 #101 (genealogy / VAS)
 - ids 361–364 · P5-21 #114 (owner print / packaging)
