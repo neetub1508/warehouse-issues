@@ -2132,6 +2132,10 @@ eight.
 ten that reconciles to the declared pack quantity. The acceptance's substance — one movement, N variant lines, the sum
 reconciling to the pack — is unchanged.
 
+**Amended 2026-09-27 (W3 gate).** Acceptance 2 said *"one movement with **eight** variant lines"* and acceptance 3
+*"one line to the customer and **eight** to the ledger"*; both now read **six signed variant grains** in
+`issues/p5-20.md`, so the acceptance and `WH-SC-385` no longer disagree.
+
 ### `X-063` · A pack "whose line quantities do not sum to its declared pack quantity" — but the template declares none — **MAJOR**
 
 > **Severity** MAJOR · **Status** CLOSED — `pack_quantity` added in `V500090` · **Found** 2026-09-26, while building `P5-20`
