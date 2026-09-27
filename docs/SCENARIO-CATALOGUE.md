@@ -774,13 +774,79 @@ period lock that closes ahead of accounting's (`FR-251`).
 | **WH-SC-367** | OEM obsolescence authorisation `OBR-000042` (WH-SC-343) is SUBMITTED with 904.50 claimed | `buyer1` raises the supplier claim from it; the claim is later settled | An `OBSOLESCENCE` claim is created carrying the authorisation as its source document, never over its claimed amount, and the authorisation points at it through `supplier_claim_id`. The authorisation cannot be cancelled while a live claim carries it, and it reaches SETTLED only when its claim settles. Its deprecated settlement columns are **never written** — the settled figure and reference are read from the claim — and there is no settle action on the authorisation | `FR-459` `FR-276` | — | app | v2·P5 | edge |
 | **WH-SC-368** | A SUBMITTED `SHORT_SHIPMENT` claim against `SUP-BOSCH`, not yet decided | `buyer1` withdraws it, first with no note, then with a note; later tries to withdraw a decided claim | Withdrawal without a note is refused (`SUPPLIER_CLAIM_WITHDRAW_NOTE_REQUIRED`); with a note the claim is `WITHDRAWN`, **leaves the ageing report and stays in the register**, its number never reused. A decided claim cannot be withdrawn: the refusal names the transition it refused (`SUPPLIER_CLAIM_TRANSITION_REFUSED`, "cannot move from S to T") | `FR-459` | — | app | v2·P5 | error |
 
+### 3.34 The billable-event meter
+
+> Authored by `P5-03` (ids from the driver's reserved block 373–376). The meter is append-only and reversible,
+> exactly like the stock ledger: a reversal is a mirror row, an exclusion a recorded decision, and nothing is
+> deleted. The reversal half of `WH-SC-234` is proved here; shipment-cancel rating and billing belong to `P5-05`.
+> The cast is §2's.
+
+| # | Given | When | Then | FR | L | Mod | V·Ph | Type |
+|---|---|---|---|---|---|---|---|---|
+| **WH-SC-373** | Client `CL-ORION` is LIVE with `go_live_date` 2026-10-01; its pick line posts `pick.line.confirmed` on outbox cursor N | The `WH3_BILLING_METER` subscriber is delivered cursor N twice, or the subscription is replayed from 0 | Exactly **one** `wh3_billable_events` row exists, keyed (`WHB_OUTBOX`, "N") with `outbox_cursor` N, charge code `OUT_PICK_UNIT`. An event of the operator's own stock, of a SUSPENDED or PROSPECT client, or posted before `go_live_date` is never metered, and re-delivering it skips it again. A `carton.packed` event with no quantity meters 1 of its charge code's unit | `FR-285` | — | 3pl | v2·P5 | edge |
+| **WH-SC-374** | A METERED, unbilled shipment event of `CL-ORION` | `ops1` clicks **Reverse** on WS-160 | A new row appears with quantity negated, `reversal_of_event_id` = the original, key + `#REVERSAL`, occurred now and `posting_date` = the site's today. Both rows show `REVERSED`, and the original's other columns are unchanged. A second Reverse, a Reverse of the reversing row, and a Reverse of a BILLED or EXCLUDED event are each `409`. Deleting a row, or an UPDATE of a column off the allowlist, is refused by the database trigger | `FR-285` | — | 3pl | v2·P5 | happy |
+| **WH-SC-375** | A METERED event of `CL-ORION` | `ops1` sends `PATCH /{id}/exclude` with a blank reason, then an unknown or inactive reason code, then `GOODWILL` | The blank reason is refused `422 EXCLUSION_REASON_REQUIRED` on `exclusionReasonCode`; the unknown or inactive code `422 EXCLUSION_REASON_UNKNOWN`. `GOODWILL` sets status `EXCLUDED` and stamps the reason and `updated_by`: the row stays, and `EXCLUDED` is terminal — an exclusion is a recorded credit decision, never a delete | `FR-285` | — | 3pl | v2·P5 | error |
+| **WH-SC-376** | The meter's subscription is pinned to `event_version` 1; `ops2` holds no owner grant on `CL-ORION` and a branch tier without `SITE-B` | An outbox event arrives with `event_version` 2; `ops2` opens, reverses and excludes a `CL-ORION` event, filters WS-160 on `CL-ORION`, and opens an event at `SITE-B` | The subscriber throws on version 2, so the cursor stops and dead-letters visibly rather than metering a shape it does not know. Every one of `ops2`'s calls is a coded `403` — never an empty page — and the `SITE-B` event is `403 BILLABLE_EVENT_SITE_NOT_PERMITTED`. For a permitted user the grid, the statistics and the export return the same filtered set | `FR-285` `FR-406` | — | 3pl | v2·P5 | error |
+
+### 3.35 Freight billing
+
+> Authored by `P5-06` (ids from the driver's reserved block 377–380). One rule in force per client on any day;
+> every amount is rounded once, HALF_UP, to 2dp; the client's own carrier account is an absent charge, not a
+> zero one. The cast is §2's.
+
+| # | Given | When | Then | FR | L | Mod | V·Ph | Type |
+|---|---|---|---|---|---|---|---|---|
+| **WH-SC-377** | Client CL-ORION, one shipment quoted ₹1,000.00 at 12.5 kg; one rule per run for each mode | The shipment is metered | AT_COST 1,000.00; COST_PLUS_PERCENT 12.5% → 1,125.00 (333.33 → 375.00, rounded once HALF_UP 2dp); COST_PLUS_FIXED ₹75 → 1,075.00; OWN_TARIFF card FRT-PUB SHP_FREIGHT ₹48/kg → 600.00 whatever the carrier cost; CLIENT_OWN_ACCOUNT → no charge | `FR-295` | — | 3pl | v2·P5 | happy |
+| **WH-SC-378** | COST_PLUS_PERCENT 10% rule; shipment metered at quote ₹1,000 → 1,100.00, run closed | The carrier invoice lands at ₹1,340 (₹340 above quote) | A delta event of 374.00 (rule(1,340) − rule(1,000)) is posted into the current open run; the original 1,100.00 event and the closed run are unchanged; original + delta = 1,474.00 | `FR-295` | — | 3pl | v2·P5 | edge |
+| **WH-SC-379** | Client rule CLIENT_OWN_ACCOUNT with carrier account ORION-DEL-01 | The shipment is metered, then the carrier invoice lands | No billable event at all: the charge is absent, not zero, and reconciliation posts nothing; the rate resolver is never called | `FR-295` | — | 3pl | v2·P5 | edge |
+| **WH-SC-380** | Client has an AT_COST rule from 2026-10-01 with no end | A second rule for the same client starting 2026-10-25 is saved | 409 FREIGHT_RULE_OVERLAP on field effectiveFrom, naming "AT_COST rule from 2026-10-01 with no end"; if it bypasses the service, ex_wh3_freight_billing_rules_overlap refuses it and the error maps to the same field error | `FR-295` | — | 3pl | v2·P5 | error |
+
+### 3.36 Channel accounts, order import, publish rules, tracking links and cross-dock
+
+> Authored by `P5-09` (ids from the driver's reserved block 381–384). Import is idempotent on the pair plus a
+> version; publish computes from `available` derived at read time; the tracking link is the only unauthenticated
+> warehouse surface. `WH-SC-326` (drop-shipment, `FR-467`) is the task's existing row. The cast is §2's.
+
+| # | Given | When | Then | FR | L | Mod | V·Ph | Type |
+|---|---|---|---|---|---|---|---|---|
+| **WH-SC-381** | Channel account `AMZ-IN-01` (owner 1, FULFIL from site 1) and no import yet for external order `402-1187` | The integration posts `402-1187` version `3` twice — the second a network retry of the first | The first post logs `CREATED` and creates **one** demand order carrying `channel_account_id` and `external_order_ref = 402-1187`. The second returns the **same** import row unchanged — no second log row, no second demand order; `wh_demand_orders`' uk(`channel_account_id`, `external_order_ref`) is the database's last guard. WS-124 filtered on `402-1187` shows one row and names the order | `FR-208` | `L-10` | app | v2·P5 | happy |
+| **WH-SC-382** | `402-1187` version `5` has been applied (`UPDATED`, the ship-to changed) | The marketplace re-polls and sends version `4` | A new log row records `IGNORED_STALE` with `applied_version = 5` and a reason naming both versions; the demand order keeps version 5's address and quantities. A version `6` then logs `UPDATED` against the same order. A version whose item code no longer resolves logs `REJECTED` with `failed_field` naming the line's item, is filterable on WS-124, and **Re-run** after the listing code is fixed turns the same row `UPDATED` (`attempt_count = 2`) | `FR-208` | — | app | v2·P5 | edge |
+| **WH-SC-383** | Publish rule on `AMZ-IN-01`, item `BRK-PAD-220`, basis `AVAILABLE_MINUS_BUFFER`, buffer `2`, maximum `50`, floor `5`; site 1 holds on-hand `9` with `3` in open reservations | `sup1` runs **Publish** | Available is derived at read time as `9 − 3 = 6` (never a stored counter); computed `6 − 2 = 4` is below the floor `5`, so the log row records computed `4`, **published `0`**, `below_floor = true`, `ack_status = PENDING`, and the push goes out through the outbox. When the channel answers, **Acknowledge** stamps `ACKNOWLEDGED` with the channel's quantity and reference; a channel that drops the push leaves the row `PENDING` — the oversell trail | `FR-209` | `L-6` | app | v2·P5 | edge |
+| **WH-SC-384** | Shipment `SHP-000412` is dispatched; a tracking link was issued with a 30-day expiry and the consignee received it by WhatsApp through the platform's existing provider | An anonymous visitor opens the link; later the same link after expiry; then the token with one character changed; then a revoked link | The live link shows status milestones, carrier and tracking number only — no owner, client, cost, address or other shipment. The expired, tampered and revoked tokens each return the **same neutral 404**. The DISPATCHED notification is logged once per shipment × event × channel, so a repeated dispatch hook never sends twice | `FR-210` | — | app | v2·P5 | error |
+
+### 3.37 Variant axes and ratio packs
+
+> Authored by `P5-20` (ids from the driver's reserved block 385–388). A ratio pack is one scan and one movement
+> of signed variant grains; an ordered axis is a scale, read by `sort_order` and never alphabetically. The cast
+> is §2's.
+
+| # | Given | When | Then | FR | L | Mod | V·Ph | Type |
+|---|---|---|---|---|---|---|---|---|
+| **WH-SC-385** | Ratio pack `RP-2S4M4L` over style `TSHIRT-CREW` declares `pack_quantity` 10 with lines `S` 2, `M` 4, `L` 4; `SITE-A` receiving location `RECV-01`; `recv1` holds `warehouse:movements:post` | `recv1` scans one carton: `POST /warehouse/movements/ratio-pack`, movement type `RECEIPT`, one pack line `+1` at `RECV-01` and its counter pack line `−1` at `SITE-A`'s `SUPPLIER` virtual location, both `source_line_ref` `ASN-7-L1` | **One** `RECEIPT` movement carrying **six** signed variant grains — `+2 S`, `+4 M`, `+4 L` at `RECV-01` and `−2`, `−4`, `−4` at the virtual location (`is_counter_side`) — each in the variant's base unit and each carrying `source_line_ref` `ASN-7-L1`. The positive side sums to **10**, the pack's declared quantity; positions rise by 2 / 4 / 4. No line names the pack as an item and no second movement exists. The port persists the rewritten request on `whb_inbound_messages` before it posts, and a replay of the same idempotency key against the unchanged pack returns the same movement | `FR-445` `FR-044` | `L-1` | base | v2·P5 | happy |
+| **WH-SC-386** | WH-SC-385's stock is staged at `STG-01` against a customer order whose line 1 is one `RP-2S4M4L` carton | The despatch posts `ISSUE` through the same endpoint: one pack line `−1` at `STG-01` and its counter pack line `+1` at the `CUSTOMER` virtual location, `source_line_ref` `SO-9-L1`. Then a second request whose pack line also names `item_id`, and a third naming a movement type that balances `MUST_BALANCE_PER_MOVEMENT` | The shipment explodes **identically**: one `ISSUE` movement, six signed variant grains `−2/−4/−4` and `+2/+4/+4`, every one carrying `SO-9-L1` — so the customer's document shows **one** line and the ledger six. The second request is refused `422` on `lines[0].item_id` — *"A pack line takes its items, quantities and units from the ratio pack - 'item_id' cannot be sent on it."* (`RATIO_PACK_LINE_FIELD_NOT_ALLOWED`) — and the third on `movement_type_code` — *"A ratio pack posts under a movement type that balances MUST_BALANCE_PER_OWNER_ITEM - each variant is a different item and must balance on its own; <code> balances MUST_BALANCE_PER_MOVEMENT."* (`RATIO_PACK_MOVEMENT_TYPE_NOT_PER_OWNER_ITEM`). Nothing is posted in either case, and nothing reaches `whb_inbound_messages`: a pack line is refused before the port records the request. `V500090` raises if `RECEIPT` or `ISSUE` is ever re-seeded as anything but `MUST_BALANCE_PER_OWNER_ITEM` | `FR-445` | `L-1` | base | v2·P5 | happy |
+| **WH-SC-387** | `cat1` holds `whb_ratio_pack_templates:create` for owner `HOUSE` only | `cat1` saves a new pack on WS-033 for `TSHIRT-CREW` declaring 10 with cells `S` 2, `M` 4, `L` 3; then one naming a variant of the same style that belongs to another owner; then opens a style of an owner she holds no grant on; then imports a WS-033 transfer file carrying the same 2/4/3 pack through Import Batches | The first is refused `422` (`RATIO_PACK_SUM_MISMATCH`) with a field error on **the line** — `lines[2].quantity`: *"Line 3 (TSHIRT-CREW-L): the lines sum to 9 but the pack declares 10 - 1 unit short"* — and on `packQuantity`: *"Pack quantity 10 does not match its lines: the lines sum to 9 but the pack declares 10 - 1 unit short"*, and nothing is saved; had the service been bypassed, the deferred constraint trigger refuses the same at commit. The second is refused on `lines[i].variantItemId`: *"Variant <SKU> belongs to another owner than style TSHIRT-CREW - a ratio pack for two owners is two packs."* The third is a coded `403 OWNER_NOT_PERMITTED`, never an empty matrix. The import row (`WHB_RATIO_PACK_TEMPLATE`) is refused on its `Lines` cell with *"the lines sum to 9 but the pack declares 10 - 1 unit short"* and nothing is created | `FR-445` `FR-406` `FR-416` | — | base | v2·P5 | error |
+| **WH-SC-388** | `SIZE` is created on WS-032 as an ordered axis with its values keyed in the order `XL` (40), `S` (10), `L` (30), `M` (20) | `cat1` opens WS-032 and WS-033 for `TSHIRT-CREW` in English, French and Hindi | WS-032's *Value Order* column and view modal, and WS-033's matrix columns, read **`S, M, L, XL`** — by `sort_order`, never alphabetically (`L, M, S, XL`) — in all three locales. The matrix reads the style's axes from `whb_style_variant_axes` in `sequence` order and each variant's value from `whb_item_variant_values`; no code path reads a `variant_axis_N_value_id` column (`RG-009`; `V500090` raises if one exists). WS-032 ships columns, `filter_definitions` and `grid_preferences` with both defaults; WS-033 ships none (`V500090` raises otherwise). A second value with the same `sort_order` on an ordered axis is refused on `values[i].sortOrder`: *"Sort order 10 is already taken by S - an ordered axis is a scale and needs a strict order."* | `FR-443` `FR-444` | — | base | v2·P5 | happy |
+
+### 3.38 Regulated goods — licences, ceilings and the Schedule H1 register
+
+> Authored by `P4-13` (ids from the driver's reserved block 389–392). The despatch guard is inert under
+> `regulated_profile = NONE`; consumption against a ceiling is read from the ledger, never a counter; a register
+> rebuild supersedes and never deletes. The cast is §2's.
+
+| # | Given | When | Then | FR | L | Mod | V·Ph | Type |
+|---|---|---|---|---|---|---|---|---|
+| **WH-SC-389** | `warehouse.regulated_profile` holds a validated profile; item `DRUG-AMOX-500` carries `REGULATED_LICENCE_TYPE = DRUG_WHOLESALE` and is lot-controlled; consignee `CUST-MEDPLUS` holds drug licence `DL-20B-4471`, valid to 2026-09-30; demand order `DO-000912` is staged | `picker1` despatches `DO-000912` on 2026-10-02 (the site's day) | The despatch is **refused** before any movement posts, and the refusal names the consignee, licence `DL-20B-4471` and its expiry 2026-09-30. After a renewed licence valid to 2027-09-30 is recorded on WS-253, the same despatch succeeds. Under `regulated_profile = NONE` the guard is inert and the first despatch would have succeeded | `FR-456` | — | india | v2·P4 | error |
+| **WH-SC-390** | Same profile; our own `DRUG_WHOLESALE` licence at `WH-BLR-01` was retired, and the type gates despatch | `picker1` despatches a regulated order from `WH-BLR-01` | Refused: the site holds no live licence of the type on the site's day, and the refusal names the latest one it held and when that expired. An item whose `REGULATED_LICENCE_TYPE` names a type that has no registry row is refused **fail-closed**, and a regulated item with lot control `NONE` is refused, never despatched untraced | `FR-456` | — | india | v2·P4 | error |
+| **WH-SC-391** | `CUST-MEDPLUS`'s narcotic licence carries a QUARTER ceiling of 500 on `NARC-CODEINE-SYR`; 460 was despatched to it this Indian-FY quarter and 10 of that was reversed | `picker1` despatches 60 more | Consumption is read **from the ledger**: 460 − 10 = 450, so 450 + 60 > 500 and the despatch is refused, stating that 50 remain. WS-254 shows the same consumed (450) and remaining (50) figures. A despatch of 50 succeeds and leaves 0 remaining, and the ceiling counts as exhausted in the strip | `FR-456` | — | india | v2·P4 | edge |
+| **WH-SC-392** | `WH-BLR-01` despatched `SCHEDULE_H1` items in August 2026; the site's day is 2026-09-03 | `compliance1` builds the August Schedule H1 register, then a late reversal dated in August posts, and the register is rebuilt; `compliance1` also tries to build September | August builds from the ledger (one line per despatch or reversal line, with the consignee's licence in force on the posting date). The rebuild keeps the first run as `SUPERSEDED`, lines intact and never deleted, and the new `CURRENT` run carries the reversal. Rebuilding again with no ledger change produces identical lines. September is refused because the month has not closed on the site's day | `FR-457` | — | india | v2·P4 | happy |
+
 ---
 
 ## 4 · Coverage
 
 ### 4.1 Area × version × scenario count
 
-**367 scenarios.** Computed with the commands in §1.2; the version column is the scenario row's
+**387 scenarios.** Computed with the commands in §1.2; the version column is the scenario row's
 `V·Ph` value, so a scenario appears in exactly one version column.
 
 ```bash
@@ -831,8 +897,13 @@ awk -F'|' '/^\| \*\*WH-SC-/ {if (NF!=11) print "NF="NF" "$2}' SCENARIO-CATALOGUE
 | **3.31** Genealogy across the kit boundary and VAS by the labour minute | 4 | — | — | — | — | — | — | 4 | 3 | 1 | — | — |
 | **3.32** Per-owner print templates, equipment and returnable packaging | 4 | — | — | — | — | — | — | 4 | 3 | — | 1 | — |
 | **3.33** Supplier claims | 4 | — | — | — | — | — | — | 4 | 2 | 1 | 1 | — |
-| **Total** | **367** | **98** | **78** | **111** | **9** | **18** | **4** | **49** | **199** | **74** | **80** | **14** |
-**What to read from this table.** 296 of 367 scenarios are v1 — 98 in `P0` (the ledger foundation),
+| **3.34** The billable-event meter | 4 | — | — | — | — | — | — | 4 | 1 | 2 | 1 | — |
+| **3.35** Freight billing | 4 | — | — | — | — | — | — | 4 | 1 | 1 | 2 | — |
+| **3.36** Channel accounts, order import, publish rules, tracking links and cross-dock | 4 | — | — | — | — | — | — | 4 | 1 | 1 | 2 | — |
+| **3.37** Variant axes and ratio packs | 4 | — | — | — | — | — | — | 4 | 3 | 1 | — | — |
+| **3.38** Regulated goods — licences, ceilings and the Schedule H1 register | 4 | — | — | — | — | — | 4 | — | 1 | 2 | 1 | — |
+| **Total** | **387** | **98** | **78** | **111** | **9** | **18** | **8** | **65** | **206** | **81** | **86** | **14** |
+**What to read from this table.** 296 of 387 scenarios are v1 — 98 in `P0` (the ledger foundation),
 78 in `P1` (masters and inbound), 111 in `P2` (outbound, counting, valuation, returns, printing,
 reports) and 9 in `P2-IN` (the India movement documents). That mirrors the FRD's own shape, where
 338 of 469 requirements are v1 and the majority of those are `P0`/`P1` columns, keys and registries
@@ -840,53 +911,52 @@ with no v1 screen. **The 43 scenarios in §3.1 are 12% of the catalogue against 
 requirements**, deliberately: an invariant that is only *stated* is an invariant that is not
 enforced, and the ledger is the one part of this product that cannot be repaired after it has rows.
 
-168 of 367 are **not** happy paths — 74 error, 80 edge, 14 concurrency. A catalogue that is mostly
+181 of 387 are **not** happy paths — 81 error, 86 edge, 14 concurrency. A catalogue that is mostly
 happy paths tests that the feature exists; it does not test that the guard fires. **The five added in
-round 2 are §3.21**, and **the twenty-two added in round 4 are §3.22**, and **the three `P1-21` authored are §3.23**, and **the one `P2-25` authored is §3.24**, and **the four each `P5-07` and `P5-22` authored are §3.25 and §3.26**, and **the four each `P5-16` and `P5-17` authored are §3.27 and §3.28**, and **the four `P5-13` authored are §3.29**, and **the four each `P5-18`, `P5-19`, `P5-21` and `P5-23` authored are §3.30–§3.33**. The finding that produced round 2's five (`Q-006`) is the reason the mix is measured
+round 2 are §3.21**, and **the twenty-two added in round 4 are §3.22**, and **the three `P1-21` authored are §3.23**, and **the one `P2-25` authored is §3.24**, and **the four each `P5-07` and `P5-22` authored are §3.25 and §3.26**, and **the four each `P5-16` and `P5-17` authored are §3.27 and §3.28**, and **the four `P5-13` authored are §3.29**, and **the four each `P5-18`, `P5-19`, `P5-21` and `P5-23` authored are §3.30–§3.33**, and **the four each `P5-03`, `P5-06`, `P5-09`, `P5-20` and `P4-13` authored are §3.34–§3.38**. The finding that produced round 2's five (`Q-006`) is the reason the mix is measured
 per *task* and not only per catalogue: a set that is 45% non-happy overall said nothing about the
 seven v1 tasks whose own acceptance was 100% happy.
 
 ### 4.2 Requirement coverage, and the requirements no scenario proves
 
 ```bash
-awk -F'|' '/^\| \*\*WH-SC-/ {print $6}' SCENARIO-CATALOGUE.md | grep -oE 'FR-[0-9]{3}' | sort -u   # -> 407
+awk -F'|' '/^\| \*\*WH-SC-/ {print $6}' SCENARIO-CATALOGUE.md | grep -oE 'FR-[0-9]{3}' | sort -u   # -> 414
 grep -oE '^\| \*\*FR-[0-9]{3}\*\*' WAREHOUSE-FUNCTIONAL-REQUIREMENTS.md | grep -oE 'FR-[0-9]{3}' | sort -u  # -> 471
 ```
 
-**407 of 471 requirements (86.4%) are proved by at least one scenario. 64 are not**, and the list
+**414 of 471 requirements (87.9%) are proved by at least one scenario. 57 are not**, and the list
 below is complete rather than convenient. `DECISIONS.md` §7 rule 3 exists because the accounting
 set's first two rounds carried 25 dangling `FR` citations of which 19 resolved to a *different* real
 requirement, so live gaps read as closed. **The honest list is the deliverable here**; padding it
 with scenarios nobody could run would be the same failure in a new costume.
 
-By version, the 64 break down as **6 v1 · 17 v1.1 · 30 v2 · 14 v3** (a row spanning two versions is
+By version, the 57 break down as **6 v1 · 17 v1.1 · 23 v2 · 14 v3** (a row spanning two versions is
 counted in each). **The count moved 71 → 84 in review round 2**, which added `FR-447`–`FR-459` and no
 scenarios: every one of the thirteen is unproven on the day it was written, and §6.27 below says so
 rather than leaving the total to drift. **It moved 84 → 85 in review round 4.** The ten §6.28
 requirements, `FR-460`–`FR-469`, are each proved by a §3.22 row. The split of `WH-SC-135` (`RJ-013`)
 un-proved `FR-266`, because the kit half of that trace needs v1.1 work orders. **It moved 85 → 84 with
-`P1-21`**, whose §3.23 rows prove `FR-451`. **It moved 84 → 81 on 2026-09-26**: the FRD grew to 471 with `FR-470`(v1) and `FR-471`(v3), both unproven and not yet placed in the table below, and `P5-07`'s §3.25 and `P5-22`'s §3.26 prove `FR-181` `FR-297` `FR-298` `FR-299` `FR-458`. **It moved 81 → 76 the same day** (P5 wave 2 R2): `P5-16`'s §3.27 proves `FR-241` `FR-243` and `P5-17`'s §3.28 proves `FR-223` `FR-227` `FR-228`. **It moved 76 → 73 the same day** (P5 wave 2 R2 pass 2): `P5-13`'s §3.29 proves `FR-272` `FR-276` `FR-279`. **It moved 73 → 64 the same day** (P5 wave 2 R3): `P5-18`'s §3.30 proves `FR-254` `FR-255` `FR-259`, `P5-19`'s §3.31 `FR-266` `FR-267`, `P5-21`'s §3.32 `FR-226` `FR-338` `FR-343` and `P5-23`'s §3.33 `FR-459`.
+`P1-21`**, whose §3.23 rows prove `FR-451`. **It moved 84 → 81 on 2026-09-26**: the FRD grew to 471 with `FR-470`(v1) and `FR-471`(v3), both unproven and not yet placed in the table below, and `P5-07`'s §3.25 and `P5-22`'s §3.26 prove `FR-181` `FR-297` `FR-298` `FR-299` `FR-458`. **It moved 81 → 76 the same day** (P5 wave 2 R2): `P5-16`'s §3.27 proves `FR-241` `FR-243` and `P5-17`'s §3.28 proves `FR-223` `FR-227` `FR-228`. **It moved 76 → 73 the same day** (P5 wave 2 R2 pass 2): `P5-13`'s §3.29 proves `FR-272` `FR-276` `FR-279`. **It moved 73 → 64 the same day** (P5 wave 2 R3): `P5-18`'s §3.30 proves `FR-254` `FR-255` `FR-259`, `P5-19`'s §3.31 `FR-266` `FR-267`, `P5-21`'s §3.32 `FR-226` `FR-338` `FR-343` and `P5-23`'s §3.33 `FR-459`. **It moved 64 → 57 on 2026-09-27** (P5 wave 3): `P5-06`'s §3.35 proves `FR-295`, `P5-09`'s §3.36 `FR-208` `FR-209` `FR-210`, `P5-20`'s §3.37 `FR-445` and `P4-13`'s §3.38 `FR-456` `FR-457`; `P5-03`'s §3.34 adds rows to the already-proved `FR-285`.
 
 | Area | Unproven `FR` | Why |
 |---|---|---|
 | 6.1 The stock ledger | `FR-023`(v3) | Ledger archiving is **designed in v1, run in v3**. A scenario would have to archive a partition and re-prove `L-4` against the hot table alone, which needs v3's `OPENING_BALANCE`-at-cut-off transaction to exist. **Write it with the v3 task, not before** |
 | 6.7 Counterparties | `FR-121`(v3) | The trigger for extracting a shared `party-base` is *recorded* rather than built. There is no v1 behaviour to walk — the requirement is a stated deadline, and its scenario is *"the third module needing an authoritative GSTIN has appeared"* |
 | 6.8 Inbound | `FR-136`(v1.1) `FR-140`(v2) `FR-142`(v3) | ASN as a document, the three-way match allocation junction, and supplier-scorecard evidence emission. All three are later-phase and none is exercised by a v1 flow |
-| 6.11 Outbound | `FR-192` `FR-194` `FR-197` `FR-198` `FR-200`–`FR-204` `FR-207` `FR-208`–`FR-211` (14) | The carrier, channel and parcel surface. **`FR-207` is the one genuinely v1 gap in this list** — the channel master's v1 half is a base table the ledger's source lineage and the item alias both reference, and no scenario asserts it exists in a v1 install. **This is a finding: it needs a scenario before `P1` closes.** The other thirteen are v1.1/v2 rate shopping, serviceability, AWB pools, NDR, COD, tracking, channel import and publish |
+| 6.11 Outbound | `FR-192` `FR-194` `FR-197` `FR-198` `FR-200`–`FR-204` `FR-207` `FR-211` (11) | The carrier, channel and parcel surface. **`FR-207` is the one genuinely v1 gap in this list** — the channel master's v1 half is a base table the ledger's source lineage and the item alias both reference, and no scenario asserts it exists in a v1 install. **This is a finding: it needs a scenario before `P1` closes.** The other ten are v1.1/v2 rate shopping, serviceability, AWB pools, NDR and COD. Channel import, publish and tracking links (`FR-208` `FR-209` `FR-210`) are proved by `P5-09`'s §3.36 |
 | 6.12 Execution and printing | `FR-229`(v3) | Automation interfaces. Per-owner print templates (`FR-226`) are proved by `P5-21`'s §3.32; instrument verification, labour timing and the no-engineered-standards rule (`FR-223` `FR-227` `FR-228`) are proved by `P5-17`'s §3.28 |
 | 6.13 Valuation | `FR-250`(v2) | The second tax-basis value, which depends on accounting-side decisions. The NRV register and the COGS recognition point (`FR-241` `FR-243`) are proved by `P5-16`'s §3.27 |
 | 6.14 Replenishment | `FR-258`(v3) | The computed stocking level. Sister-branch transfer proposals, emergency/opportunistic/break-case replenishment and pick-face replenishment tasks (`FR-254` `FR-259` `FR-255`) are proved by `P5-18`'s §3.30 |
 | 6.15 Kitting and VAS | `FR-268`(v3) | Multi-level BOM with routings, which is **deliberately not built** — its scenario is the stated re-entry path, not a flow |
 | 6.16 Returns | `FR-277` `FR-278`(v2) | Cores and warranty scrap-and-hold, both v2 reverse logistics. Grading at receipt, OEM obsolescence returns and the marketplace claim window (`FR-272` `FR-276` `FR-279`) are proved by `P5-13`'s §3.29 |
-| 6.17 Third-party logistics | `FR-293` `FR-295` `FR-301` `FR-303`(v2) `FR-302`(v3) | Disputes, freight-billing modes, client GST registrations, tenancy and client profitability. SLA objects, the portal performance tab and SLA credits (`FR-297` `FR-298` `FR-299`) left this list with §3.25 |
+| 6.17 Third-party logistics | `FR-293` `FR-301` `FR-303`(v2) `FR-302`(v3) | Disputes, client GST registrations, tenancy and client profitability. SLA objects, the portal performance tab and SLA credits (`FR-297` `FR-298` `FR-299`) left this list with §3.25, and the freight-billing modes (`FR-295`) with §3.35 |
 | 6.18 India | `FR-317` `FR-322`–`FR-325` `FR-329`(v2) | Scrap as a supply, goods on approval, bonded/MOOWR, EPR reporting, the relational tax engine and the two retention clocks — the whole `P4` statutory wave beyond the two v2 exit-criterion scenarios |
 | 6.19 Events and the logistics seam | `FR-334`(v1.1) `FR-347` `FR-348`(v3) | Adapter subscriptions and the two v3 pre-flight enumerations, which are **documents rather than behaviours**. Equipment fitments and returnable-packaging balances (`FR-338` `FR-343`) are proved by `P5-21`'s §3.32 |
 | 6.20 Adapters | `FR-364`(v1.1) `FR-365` `FR-366`(v3) | The assets adapter, the dealer-vehicle-inventory decision test (`OD-2`) and the *logistics gets no adapter* rule |
 | 6.22 Reports | `FR-397`(v1.1) `FR-399`(v3) | The consolidated cross-inventory valuation view and the real-time widget dashboard |
 | 6.24 Import and migration | `FR-414` `FR-415` `FR-419` `FR-420`(v1.1) `FR-421`(v3) | Incumbent-product mapping profiles, demand-history import, the OEM price file, the OEM order interface, and the accessories absorption path — which is a **stated path, not a v1 or v2 behaviour** |
 | 6.25 Non-functional | `FR-424`(v1.1) `FR-441`(v2) | Scan-to-response under 300 ms (measurable only once RF screens exist) and retention-beats-erasure |
-| 6.26 Amendments | `FR-445`(v2) | Ratio and assortment packs. The v1 half of the variant model — the schema — **is** proved, by `WH-SC-270` |
-| 6.27 Round-2 amendments | `FR-447`–`FR-450`(v1) `FR-452`–`FR-455`(v1.1) `FR-456` `FR-457`(v2) — **ten of the thirteen** | Added by review round 2 on 2026-09-02, after the catalogue was written. **The v1 ones are a real gap, not a deferral**: delivery confirmation (`FR-447`), the reserved-stock status guard (`FR-448`), the de-stage path on cancel (`FR-449`) and cost visibility by actor (`FR-450`) are all v1 behaviours a builder can walk. Each is carried as an acceptance bullet in its owning task (`P2-10`, `P0-05`, `P2-09`, `P1-18`) and **the scenario is authored by that task**, per §5 rule 3 — the ids continue from the next free one rather than being pre-allocated here. The fifth, the master merge (`FR-451`), left this list when `P1-21` authored `WH-SC-328`–`WH-SC-330` (§3.23), and the integration surface (`FR-458`) when `P5-22` authored `WH-SC-337`–`WH-SC-340` (§3.26), and the supplier claim register (`FR-459`) when `P5-23` authored `WH-SC-365`–`WH-SC-368` (§3.33) |
+| 6.27 Round-2 amendments | `FR-447`–`FR-450`(v1) `FR-452`–`FR-455`(v1.1) — **eight of the thirteen** | Added by review round 2 on 2026-09-02, after the catalogue was written. **The v1 ones are a real gap, not a deferral**: delivery confirmation (`FR-447`), the reserved-stock status guard (`FR-448`), the de-stage path on cancel (`FR-449`) and cost visibility by actor (`FR-450`) are all v1 behaviours a builder can walk. Each is carried as an acceptance bullet in its owning task (`P2-10`, `P0-05`, `P2-09`, `P1-18`) and **the scenario is authored by that task**, per §5 rule 3 — the ids continue from the next free one rather than being pre-allocated here. The fifth, the master merge (`FR-451`), left this list when `P1-21` authored `WH-SC-328`–`WH-SC-330` (§3.23), and the integration surface (`FR-458`) when `P5-22` authored `WH-SC-337`–`WH-SC-340` (§3.26), and the supplier claim register (`FR-459`) when `P5-23` authored `WH-SC-365`–`WH-SC-368` (§3.33), and the regulated-goods pack (`FR-456` `FR-457`) when `P4-13` authored `WH-SC-389`–`WH-SC-392` (§3.38) |
 
 **Two actions fall out of this table.** `FR-207`'s v1 half needs a scenario before phase `P1`
 closes. And the four v1 requirements still in §6.27 need one each, written by their owning task before
@@ -909,7 +979,7 @@ v1 scope, not holes in its stated exit.
    `WH-SC-248` govern the tick. A backend that exists with no reachable UI has closed no scenario.
 3. **A defect found in the field becomes a scenario before it becomes a fix.** New ids continue
    from **`WH-SC-332`**; ids are never reused and never renumbered. `WH-SC-301`–`WH-SC-305` were
-   taken by review round 2 (§3.21), `WH-SC-306`–`WH-SC-327` by review round 4 (§3.22) `WH-SC-328`–`WH-SC-330` by `P1-21` (§3.23) and `WH-SC-331` by `P2-25` (§3.24), and `WH-SC-333`–`WH-SC-340` by `P5-07` / `P5-22` (§3.25, §3.26) and `WH-SC-345`–`WH-SC-352` by `P5-16` / `P5-17` (§3.27, §3.28), `WH-SC-341`–`WH-SC-344` by `P5-13` (§3.29) and `WH-SC-353`–`WH-SC-368` by `P5-18` / `P5-19` / `P5-21` / `P5-23` (§3.30–§3.33) out of the driver's reserved blocks (below — 332 is still the next free unreserved id, so defined ids now skip it); the marker moves with every allocation and is the only place to
+   taken by review round 2 (§3.21), `WH-SC-306`–`WH-SC-327` by review round 4 (§3.22) `WH-SC-328`–`WH-SC-330` by `P1-21` (§3.23) and `WH-SC-331` by `P2-25` (§3.24), and `WH-SC-333`–`WH-SC-340` by `P5-07` / `P5-22` (§3.25, §3.26) and `WH-SC-345`–`WH-SC-352` by `P5-16` / `P5-17` (§3.27, §3.28), `WH-SC-341`–`WH-SC-344` by `P5-13` (§3.29) and `WH-SC-353`–`WH-SC-368` by `P5-18` / `P5-19` / `P5-21` / `P5-23` (§3.30–§3.33) and `WH-SC-373`–`WH-SC-392` by `P5-03` / `P5-06` / `P5-09` / `P5-20` / `P4-13` (§3.34–§3.38) out of the driver's reserved blocks (below — 332 is still the next free unreserved id, so defined ids now skip it); the marker moves with every allocation and is the only place to
    read the next free id.
 4. **`tools/check-design-set.py` enforces §1.2.** Contiguity, zero dangling `FR` citations, and the
    §4.2 unproven list matching what the commands actually produce. A coverage table that has drifted
@@ -935,8 +1005,8 @@ Scenario-id numbers (prefix WH-SC) reserved; each block is owned by one task; th
 
 ## Reserved id blocks — warehouse P5 wave 3 (driver, 2026-09-26)
 Same rules as wave 2: each block is owned by one task, which replaces its reservation line with numbered scenarios; unused ids stay reserved.
-- ids 373–376 · P5-03 #26 (3PL freight billing)
-- ids 377–380 · P5-06 #39 (cross-dock / channels / tracking)
-- ids 381–384 · P5-09 #52
-- ids 385–388 · P5-20 #107 (variant axes / ratio packs)
-- ids 389–392 · P4-13 #88 (regulated-goods licence pack)
+- ids 373–376 · P5-03 #26 (billable-event meter) — taken, §3.34
+- ids 377–380 · P5-06 #39 (freight billing) — taken, §3.35
+- ids 381–384 · P5-09 #52 (channels / tracking / cross-dock) — taken, §3.36
+- ids 385–388 · P5-20 #107 (variant axes / ratio packs) — taken, §3.37
+- ids 389–392 · P4-13 #88 (regulated-goods licence pack) — taken, §3.38
