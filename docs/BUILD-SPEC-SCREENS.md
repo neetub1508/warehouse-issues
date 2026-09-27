@@ -559,8 +559,8 @@ failed"***.
 
 ```bash
 f=docs/BUILD-SPEC-SCREENS.md
-grep -cE '^\| WS-[0-9]{3} \|' $f                       # screens        → 247 (237 + WS-240, WS-241, round 4; WS-238, WS-239, WS-243, WS-244, round 3; WS-245, P1-21; WS-246, WS-247, P5-22; WS-242, P5-13)
-awk -F'|' '/^\| WS-[0-9]{3} \|/ && $7 ~ /Y/' $f | wc -l # configured grids → 224 (214 + WS-240, WS-241, WS-238, WS-239, WS-243, WS-244, WS-245, WS-246, WS-247, WS-242)
+grep -cE '^\| WS-[0-9]{3} \|' $f                       # screens        → 250 (237 + WS-240, WS-241, round 4; WS-238, WS-239, WS-243, WS-244, round 3; WS-245, P1-21; WS-246, WS-247, P5-22; WS-242, P5-13; WS-248, WS-249, WS-250, P5-23)
+awk -F'|' '/^\| WS-[0-9]{3} \|/ && $7 ~ /Y/' $f | wc -l # configured grids → 226 (214 + WS-240, WS-241, WS-238, WS-239, WS-243, WS-244, WS-245, WS-246, WS-247, WS-242, WS-248, WS-250)
 ```
 
 | id | Screen | Module | Route | Ref | G | Ver · Ph |
@@ -812,8 +812,11 @@ awk -F'|' '/^\| WS-[0-9]{3} \|/ && $7 ~ /Y/' $f | wc -l # configured grids → 2
 | WS-245 | Master Merge Log | base | `/warehouse/masters/master-merges` | C | Y | v1 · P1 |
 | WS-246 | API Clients | base | `/warehouse/platform/api-clients` | C | Y | v2 · P5 |
 | WS-247 | API Client Keys | base | `/warehouse/platform/api-client-keys` | C | Y | v2 · P5 |
+| WS-248 | Supplier Claims | app | `/warehouse/inbound/supplier-claims` | SV | Y | v2 · P5 |
+| WS-249 | Supplier Claim Detail | app | `/warehouse/inbound/supplier-claims/[claimId]` | — | N | v2 · P5 |
+| WS-250 | Supplier Claim Ageing | app | `/warehouse/reports/supplier-claim-ageing` | C | Y | v2 · P5 |
 
-<!-- check-design-set: screen-citations begin WS-248 — the §1 allocation marker: WS-248 is the next free id -->
+<!-- check-design-set: screen-citations begin WS-251 — the §1 allocation marker: WS-251 is the next free id -->
 **The allocation marker.** `WS-238` *Warehouse Grants* took its row on 2026-09-11, when round 3's `RA-001`
 was folded into `P1-18`. The same day's second fold (lane `W0-1b`):
 - gave `WS-239` *Item Prices* to `RA-002` (`P2-25`);
@@ -824,7 +827,9 @@ was folded into `P1-18`. The same day's second fold (lane `W0-1b`):
 
 `WS-240` and `WS-241` were allocated by `GAP-REGISTER-R4.md` §4.0. `WS-245` *Master Merge Log* took its row on
 2026-09-16, allocated by `P1-21`'s PR (warehouse-issues#148). `WS-246` *API Clients* and `WS-247` *API Client
-Keys* took their rows on 2026-09-26, allocated by `P5-22` (§2.8). **The next free id is `WS-248`.** The
+Keys* took their rows on 2026-09-26, allocated by `P5-22` (§2.8). `WS-248` *Supplier Claims*, `WS-249` *Supplier
+Claim Detail* and `WS-250` *Supplier Claim Ageing* took theirs the same day, allocated by `P5-23` (`V510216`, §3.5).
+**The next free id is `WS-251`.** The
 pure link-sets are row-action assignment modals on existing screens: WS-015, WS-016, WS-017, WS-019 and
 WS-173 (`D-14` item 8b); WS-021 and WS-023 keep their child editors.
 <!-- check-design-set: screen-citations end -->
@@ -2772,6 +2777,76 @@ SUBMITTED, SETTLED, REJECTED, EXPIRED, CANCELLED. Settlement reaches accounting 
 `dueDateFrom`/`To` (DATE, `dateOnly`). `emptyMessage` = `warehouse:marketplaceClaim.empty`.
 **Statistics:** filter-aware — open, due soon (within `warehouse.marketplace_claims.due_alert_lead_days`), submitted,
 settled, expired. Export = the grid's columns.
+
+#### WS-248 · Supplier Claims — v2 · P5 (`P5-23`, `FR-459`)
+
+`wh_supplier_claims` + `wh_supplier_claim_lines` · scope `WAREHOUSE_SUPPLIER_CLAIM` · grid `wh_supplier_claims`,
+seeded by `V510216`. One register for every claim against a supplier — `SHORT_SHIPMENT`, `DAMAGE_IN_TRANSIT`,
+`QUALITY_REJECT`, `OBSOLESCENCE`, `PRICE` — each line traced to the posted receipt line that evidences it. Ladder
+`DRAFT → SUBMITTED → ACKNOWLEDGED → APPROVED / PART_APPROVED / REJECTED → SETTLED`, plus `WITHDRAWN` (before the
+decision, with a note); a refused move is `409 SUPPLIER_CLAIM_TRANSITION_REFUSED` naming it. `claim_number` from
+`whb_number_series` (`CLM`). Raised from WS-077 (a receipt), WS-084 (a supplier return) or WS-138 (an obsolescence
+authorisation), pre-filled from the source. **Actions:** Add / View (WS-249) / Edit (DRAFT) / Submit / Acknowledge /
+Decide (per line, a reason for any rejected quantity) / Settle (mode `CREDIT_NOTE` · `REPLACEMENT` · `CASH` ·
+`WRITE_OFF`, a reference unless written off, a date between the claim date and the site's today, any unapproved
+balance written off explicitly) / Withdraw / Export; no Delete. Settlement reaches accounting by reference only
+(`FR-274`, `OD-1`).
+
+| key | label | type | sortable | default-visible | source |
+|---|---|---|---|---|---|
+| `claimNumber` | Claim No. | string | Y | Y | `wh_supplier_claims.claim_number` |
+| `claimType` | Claim Type | string | Y | Y | `wh_supplier_claims.claim_type` |
+| `supplierName` | Supplier | string | Y | Y | `whb_counterparties` via `supplier_counterparty_id` |
+| `warehouseName` | Site | string | Y | Y | `whb_warehouses` via `warehouse_id` |
+| `sourceDocumentType` | Source Type | string | Y | N | `wh_supplier_claims.source_document_type` |
+| `sourceDocumentRef` | Source Document | string | Y | Y | the source receipt, return or authorisation number |
+| `claimDate` | Claim Date | date | Y | Y | `wh_supplier_claims.claim_date` |
+| `ageDays` | Age (days) | number | N | Y | computed on read: the site's day − `claim_date` |
+| `currencyCode` | Currency | string | Y | N | `wh_supplier_claims.currency_code` |
+| `claimedValue` | Claimed | number | Y | Y | `wh_supplier_claims.claimed_value` (sum of the lines) |
+| `settledValue` | Agreed | number | Y | Y | `wh_supplier_claims.settled_value` (sum of the approved lines) |
+| `writtenOffValue` | Written Off | number | Y | N | `wh_supplier_claims.written_off_value` |
+| `status` | Status | string | Y | Y | `wh_supplier_claims.status` |
+| `settlementMode` · `settlementRef` | Settlement Mode · Settlement Ref. | string | Y | N | `wh_supplier_claims.settlement_mode`, `settlement_ref` |
+| `settlementDate` | Settled On | date | Y | Y | `wh_supplier_claims.settlement_date` |
+| `lineCount` | Lines | number | N | N | `wh_supplier_claim_lines` count |
+| `createdByName` · `updatedByName` | Created By · Updated By | string | N | N | `users` |
+| `createdAt` · `updatedAt` | Created · Updated | date | Y | N | audit columns |
+
+**Filters:** `search` · `warehouseId` searchable-select · `supplierCounterpartyId` searchable-select · `claimType`
+select · `status` multiselect · `claimDateFrom`/`To` (DATE, `dateOnly`). `emptyMessage` =
+`warehouse:supplierClaim.empty`.
+**Statistics:** filter-aware — draft, awaiting the supplier, awaiting settlement, settled, open value. Export = the
+grid's columns.
+
+#### WS-249 · Supplier Claim Detail — v2 · P5 (`P5-23`, `FR-459`)
+
+The claim's own page (`[claimId]`): header, source document, lines with the receipt line each traces to and the
+approved / rejected quantity per line, the settlement, and the linked obsolescence authorisation when there is one.
+The ladder's actions run from here as on WS-248. Not a grid.
+
+#### WS-250 · Supplier Claim Ageing — v2 · P5 (`P5-23`, `FR-459`)
+
+Read-only report · scope `WAREHOUSE_SUPPLIER_CLAIM_AGEING` · grid `wh_supplier_claim_ageing`, seeded by `V510216`.
+Open claims by supplier by bucket, as at a date: one row per supplier **per currency** (values are never added
+across currencies). A claim ages from `claim_date` on its site's day and leaves the open buckets on its
+`settlement_date`; a `WITHDRAWN` claim leaves the report and stays on WS-248. No job (`FR-165`). **Actions:** a row
+drills into WS-248 filtered to that supplier; Export.
+
+| key | label | type | sortable | default-visible | source |
+|---|---|---|---|---|---|
+| `supplierName` | Supplier | string | Y | Y | `whb_counterparties` via `supplier_counterparty_id` |
+| `supplierCode` | Supplier Code | string | Y | N | `whb_counterparties.code` |
+| `currencyCode` | Currency | string | Y | Y | `wh_supplier_claims.currency_code` |
+| `openClaimCount` | Open Claims | number | Y | Y | open claims as at the date |
+| `bucket0_30Value` · `bucket31_60Value` · `bucket61_90Value` · `bucket91_180Value` · `bucket181_365Value` · `bucketOver365Value` | 0-30 · 31-60 · 61-90 · 91-180 · 181-365 · Over 365 Days | number | Y | Y | open value per fixed ageing bucket |
+| `totalOpenValue` | Total Open | number | Y | Y | sum of the buckets |
+| `oldestClaimDate` | Oldest Claim | date | Y | Y | earliest open `claim_date` |
+
+**Filters:** `asOfDate` (DATE, `dateOnly`) · `warehouseId` searchable-select · `supplierCounterpartyId`
+searchable-select · `claimType` select. `emptyMessage` = `warehouse:supplierClaimAgeing.empty`.
+**Statistics:** filter-aware — suppliers, open claims, over 90 days, oldest age, total open value. Export = the
+grid's columns (ledger-style: no audit columns).
 
 ---
 
