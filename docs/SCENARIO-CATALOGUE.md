@@ -1010,3 +1010,10 @@ Same rules as wave 2: each block is owned by one task, which replaces its reserv
 - ids 381–384 · P5-09 #52 (channels / tracking / cross-dock) — taken, §3.36
 - ids 385–388 · P5-20 #107 (variant axes / ratio packs) — taken, §3.37
 - ids 389–392 · P4-13 #88 (regulated-goods licence pack) — taken, §3.38
+
+## Reserved id blocks — warehouse P5 wave 4 (driver, 2026-09-27)
+Same rules as wave 2: each block is owned by one task, which replaces its reservation line with numbered scenarios; unused ids stay reserved.
+- ids 393–396 · P5-04 #30 (storage billing periods) — reserved
+- ids 397–400 · P5-10 #58 (three-way match / working calendars) — reserved
+- ids 401–404 · P5-11 #62 (tracking events / carrier status) — reserved
+- ids 405–408 · P5-12 #67 (NDR console / COD remittances) — reserved
