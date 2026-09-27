@@ -2063,3 +2063,32 @@ task that follows it either creates a third defect log or silently skips the ste
 
 **Corrected.** `issues/p2-29.md` now names `docs/DESIGN-SET-DEFECTS.md`, and `X-057` above is the
 reading.
+
+## §9 · Filed while building `P5-21`, 2026-09-26
+
+### `X-059` · The packaging balance "reconciles to the sum of its entries", but the plan names no entry table — **MAJOR**
+
+> **Severity** MAJOR · **Status** CLOSED — named and built in `V500065` · **Found** 2026-09-26, while building `P5-21`
+
+**Claim.** `issues/p5-21.md` acceptance: *"the balance reconciles to the sum of its entries"*, and its trap: *"the
+movement-linked entry table this task's acceptance implies … is not named and not allocated"*. `DATA-MODEL.md`
+§2.1.4 carried `whb_packaging_balances` alone, and `IMPLEMENTATION-PLAN.md` §2.7 allocated `WHB-65` to it alone.
+
+**Impact.** A balance with no entries cannot reconcile to anything: it becomes the running total the rest of the
+design set forbids (a private ledger — R7 §2.2's `tms_equipment_inventory` failure), and a wrong balance has no
+history to be corrected from.
+
+**Corrected.** `whb_packaging_balance_entries` is named in `DATA-MODEL.md` §2.1.4, added to `WHB-65` in §7.2 and to
+the §8 inventories, and created by `V500065` alongside the balance. An `EXCHANGE` entry names exactly one port
+movement and derives its quantity from that movement's own lines; a `DEPOSIT` entry moves only money. Entries are
+append-only, and a deferred constraint trigger proves at commit that each running total equals the sum of its
+entries.
+
+### `X-060` · `P5-21` files its plan defect in a file that no longer exists — **MINOR**
+
+> **Severity** MINOR · **Status** CLOSED — filed here instead · **Found** 2026-09-26, while building `P5-21`
+
+**Claim.** `issues/p5-21.md` acceptance: *"the plan defect is recorded in `DEFECTS-FOUND.md`"*. That file was merged
+into this one on 2026-09-02 (§0), exactly as `X-058` found for `P2-29`.
+
+**Corrected.** `X-059` above is the record; `issues/p5-21.md` now names `docs/DESIGN-SET-DEFECTS.md`.

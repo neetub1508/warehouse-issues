@@ -771,6 +771,7 @@ is re-filed under this year's registration.
 | `whb_counterparty_tax_registrations` | **One registration per jurisdiction and state** — an Indian customer has one PAN and one GSTIN per state, and the challan and e-way bill must record which one was used (`RG-003`) | `counterparty_id`, `country_code`, `registration_scheme` (an **opaque string**, `D-8`), `registration_number`, `state_code`, `address_id`, `is_primary` (per country), `effective_from`, `effective_to` | uk(`registration_scheme`,`registration_number`,`effective_from`); one current primary per `(counterparty, country)` (partial uk) | `counterparty_id → whb_counterparties`; `address_id → whb_counterparty_addresses` | `FR-119` `FR-308` | v1 |
 | `whb_counterparty_external_refs` | The adapter join for parties | `counterparty_id`, `source_module` (opaque), `external_id`, `external_label` | uk(`source_module`,`external_id`) | `counterparty_id → whb_counterparties` | `FR-118` `IRR-25` `OD-4` | v1 |
 | `whb_packaging_balances` | **Returnable packaging is an open-item balance against a counterparty, not a stock position.** A pallet lent to a customer is not on hand and is not written off; the deposit is carried separately and a pallet exchange moves the balance without touching the deposit | `counterparty_id`, `packaging_item_id`, `owner_id`, `balance_quantity`, `deposit_amount`, `currency_code`, `last_movement_at` | uk(`counterparty_id`,`packaging_item_id`,`owner_id`) | `counterparty_id → whb_counterparties`; `packaging_item_id → whb_items`; `owner_id → whb_owners` | `FR-343` | v2 |
+| `whb_packaging_balance_entries` | **The movement-linked entries a packaging balance is the sum of** (`P5-21`, named here because the plan never did — `DESIGN-SET-DEFECTS.md` `X-059`). An `EXCHANGE` entry names exactly one port movement and moves the quantity, never the money; a `DEPOSIT` entry moves the money, never the quantity. Append-only, and a deferred trigger proves at commit that the balance equals the sum of its entries | `balance_id`, `entry_type` (`EXCHANGE`·`DEPOSIT`), `movement_id` (bare — the ledger is partitioned), `quantity_delta`, `deposit_delta`, `source_system`, `source_document_type`, `source_document_id` (the stop), `occurred_at`, `notes` | uk(`balance_id`,`movement_id`) where `movement_id` is set | `balance_id → whb_packaging_balances`; `source_system → whb_source_systems`; `source_document_type → whb_document_types` | `FR-343` | v2 |
 
 **What the counterparty deliberately does not carry** (`FR-119`), stated so it is not "discovered" as
 a gap: payment terms, credit limit, bank details, contacts and a scorecard. **Round 4 reversed the
@@ -3499,7 +3500,7 @@ Every one of these is covered by a test, and the tests are named in the task fil
 | WHB-62 | `V500062` | `whb_devices`, **`whb_device_assignments`** (`RG-018`) | v1.1 |
 | WHB-63 | `V500063` | `whb_alert_rules`, `whb_alert_rule_conditions`, `whb_alert_rule_recipients`, `whb_alert_events` | v1.1 |
 | WHB-64 | `V500064` | `whb_ratio_pack_templates`, `whb_ratio_pack_template_lines` (`P5-20`) | v2 |
-| WHB-65 | `V500065` | `whb_packaging_balances` (`P5-21`) | v2 |
+| WHB-65 | `V500065` | `whb_packaging_balances`, **`whb_packaging_balance_entries`** (`P5-21`; the entry table the plan never named, `X-059`) | v2 |
 | WHB-67 | `V500066` | `whb_api_clients`, `whb_api_client_keys`, **`whb_api_client_endpoints`, `whb_api_client_companies`** (`P5-22`, `RG-018`). **Numbered WHB-67, not WHB-66** — `WHB-66` is already `V500100` below and `DECISIONS.md` §7.4 forbids renumbering an allocated id | v2 |
 | `P3-06` | `V500068` | `whb_location_zone_memberships` (`RG-015`) | v1.1 |
 | `P1-03` | `V500069` | `abc_a_cutoff_pct`, `abc_b_cutoff_pct` on `whb_warehouses`; `previous_abc_class`, `abc_computed_at` on `whb_item_site_settings` (`RK-003`; folded from `P3-25`). Creates no table | v1.1 |
@@ -4030,6 +4031,7 @@ whb_owner_companies
 whb_owner_grants
 whb_owner_types
 whb_owners
+whb_packaging_balance_entries
 whb_packaging_balances
 whb_position_drift_findings
 whb_ratio_pack_template_lines
@@ -4519,6 +4521,7 @@ whb_owner_companies v1
 whb_owner_grants v1
 whb_owner_types v1
 whb_owners v1
+whb_packaging_balance_entries v2
 whb_packaging_balances v2
 whb_position_drift_findings v1
 whb_ratio_pack_template_lines v2
