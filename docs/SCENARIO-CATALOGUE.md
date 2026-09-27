@@ -932,3 +932,11 @@ Scenario-id numbers (prefix WH-SC) reserved; each block is owned by one task; th
 - ids 361–364 · P5-21 #114 (owner print / packaging) — taken, §3.32
 - ids 365–368 · P5-23 #123 (supplier claims — numbers its existing prose bullets) — taken, §3.33
 - ids 369–372 · P4-10 #68 (compliance tasks / client GST), only if its body calls for new ids
+
+## Reserved id blocks — warehouse P5 wave 3 (driver, 2026-09-26)
+Same rules as wave 2: each block is owned by one task, which replaces its reservation line with numbered scenarios; unused ids stay reserved.
+- ids 373–376 · P5-03 #26 (3PL freight billing)
+- ids 377–380 · P5-06 #39 (cross-dock / channels / tracking)
+- ids 381–384 · P5-09 #52
+- ids 385–388 · P5-20 #107 (variant axes / ratio packs)
+- ids 389–392 · P4-13 #88 (regulated-goods licence pack)
