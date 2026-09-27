@@ -210,7 +210,7 @@ need the screen.
 
 ### `X-002` · `FR-445`'s ratio-pack template has no table, and `P5-20` has no migration — **MAJOR**
 
-> **Severity** MAJOR · **Status** FIXED in `issues/p5-20.md` · **OPEN** in `DATA-MODEL.md` §7.2 · **Originally** `D-P5-2`, from `docs/DEFECTS-FOUND.md` (the P5/P6 authoring pass)
+> **Severity** MAJOR · **Status** CLOSED — built in `V500090` (not `V500064`, see `X-061`) and recorded in `DATA-MODEL.md` §7.2 row WHB-64, 2026-09-26 · **Originally** `D-P5-2`, from `docs/DEFECTS-FOUND.md` (the P5/P6 authoring pass)
 
 **Claim.** §2.7 gives `P5-20` (`FR-445`, ratio and assortment packs) migrations `—` and screens
 `WS-032`/`WS-033`.
@@ -1857,7 +1857,7 @@ literal or escaped `|` inside a §2 cell.**
 
   | Tables | §2 | §7 | Number | Reserve it came from | Task |
   |---|---|---|---|---|---|
-  | `whb_ratio_pack_templates`, `whb_ratio_pack_template_lines` | 2.1.5 | `WHB-64` | `V500064` | §7.2 post-v1 base DDL gap `V500064`–`V500199` | `P5-20` |
+  | `whb_ratio_pack_templates`, `whb_ratio_pack_template_lines` | 2.1.5 | `WHB-64` | `V500090` (`X-061`) | §7.2 post-v1 base DDL gap `V500064`–`V500199` | `P5-20` |
   | `whb_packaging_balances` | 2.1.4 | `WHB-65` | `V500065` | same gap | `P5-21` |
   | `whb_stock_movements_archive`, `whb_stock_movement_lines_archive`, `whb_movement_line_attributes_archive` | 2.1.14 | `WHB-66` | `V500100` | same gap | `P6-01` |
   | `wh_marketplace_claims` | 2.2.4 | `WH-115` | `V510215` | §7.3 correction reserve | `P5-13` |
@@ -2092,3 +2092,63 @@ entries.
 into this one on 2026-09-02 (§0), exactly as `X-058` found for `P2-29`.
 
 **Corrected.** `X-059` above is the record; `issues/p5-21.md` now names `docs/DESIGN-SET-DEFECTS.md`.
+
+## §10 · Filed while building `P5-20`, 2026-09-26
+
+### `X-061` · `P5-20`'s migration number `V500064` was taken by another task's remediation — **MAJOR**
+
+> **Severity** MAJOR · **Status** CLOSED — built at `V500090` · **Found** 2026-09-26, while building `P5-20`
+
+**Claim.** `issues/p5-20.md` line 5 and `DATA-MODEL.md` §7.2 row WHB-64 allocate `V500064` to `P5-20`.
+
+**Evidence.** `warehouse-base/…/db/migration/V500064__Add_the_alert_scope_tier_pair_V501000_expects.sql` (the `P3-16`
+remediation, 2026-09-23) exists and is applied in `flyway_schema_history`. Its header records "checked free … none is
+claimed by any BATCH-WAREHOUSE-*.md" — it checked the batch files but not `DATA-MODEL.md` §7.2 or the task bodies,
+which already held the number.
+
+**Impact.** A second `V500064` crash-loops Flyway on every install; an edit of the applied file is a checksum
+mismatch. Neither is recoverable in place.
+
+**Corrected.** `P5-20` claims `V500090` from the same declared `V500064`–`V500199` gap, which its acceptance line 1
+permits ("a number claimed inside `V500064`–`V500199`"). `V500090` was free in every module tree, in `DATA-MODEL.md`,
+in every `issues/*.md` and `BATCH-WAREHOUSE-*.md`, and in `flyway_schema_history`. `DATA-MODEL.md` §7.2 row WHB-64 and
+`issues/p5-20.md` now name it. **Lesson for later claims:** "free" means free in the migration trees, in §7.2, in the
+task bodies and in `flyway_schema_history` — all four.
+
+### `X-062` · `FR-445`'s "eight units of ledger truth" does not add up — **MINOR**
+
+> **Severity** MINOR · **Status** CLOSED — the scenarios state the real counts · **Found** 2026-09-26, while building `P5-20`
+
+**Claim.** `FR-445` and `issues/p5-20.md` scope and acceptance 2: a `2S/4M/4L` carton is *"one scan and eight units of
+ledger truth"* and produces *"one movement with eight variant lines"*.
+
+**Evidence.** 2 + 4 + 4 is **ten** units across **three** variants. The ledger is double-sided (`IRR-01`): every
+receipt line is a positive grain at the receiving location and its negation at the counterparty's virtual location
+(`WhGoodsReceiptPostingService`, MPR-GRD-26). A `2S/4M/4L` receipt is therefore **one movement of six signed variant
+grains** — `+2/+4/+4` and `−2/−4/−4` — whose positive side sums to the pack's **ten**. No reading of the carton yields
+eight.
+
+**Corrected.** `P5-20`'s receipt and shipment scenarios (ids 385 and 386 of the wave-3 reserved block, merged by the driver) assert one movement, three variant items, six signed grains and a positive side of
+ten that reconciles to the declared pack quantity. The acceptance's substance — one movement, N variant lines, the sum
+reconciling to the pack — is unchanged.
+
+### `X-063` · A pack "whose line quantities do not sum to its declared pack quantity" — but the template declares none — **MAJOR**
+
+> **Severity** MAJOR · **Status** CLOSED — `pack_quantity` added in `V500090` · **Found** 2026-09-26, while building `P5-20`
+
+**Claim.** `issues/p5-20.md` acceptance 4 refuses a template whose lines do not sum to *"its declared pack quantity"*.
+`DATA-MODEL.md` §2.1.5's `whb_ratio_pack_templates` row named no such column.
+
+**Corrected.** `whb_ratio_pack_templates.pack_quantity DECIMAL(18,4) NOT NULL CHECK (> 0)` is added in `V500090` and in
+the §2.1.5 row. The service refuses a mismatch first with a field-level error on the last line
+(`lines[k].quantity`) and on `packQuantity`; a deferred constraint trigger per table holds it at commit.
+
+### `X-064` · `P5-20` files its plan defect in a file that no longer exists — **MINOR**
+
+> **Severity** MINOR · **Status** CLOSED — filed here instead · **Found** 2026-09-26, while building `P5-20`
+
+**Claim.** `issues/p5-20.md` acceptance: *"the plan defect is recorded in `DEFECTS-FOUND.md`"*. That file was merged
+into this one on 2026-09-02 (§0), exactly as `X-058` and `X-060` found.
+
+**Corrected.** `X-002` (now CLOSED) and `X-061`–`X-063` above are the record; `issues/p5-20.md` now names
+`docs/DESIGN-SET-DEFECTS.md`.
