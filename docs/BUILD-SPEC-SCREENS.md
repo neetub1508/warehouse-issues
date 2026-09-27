@@ -559,8 +559,8 @@ failed"***.
 
 ```bash
 f=docs/BUILD-SPEC-SCREENS.md
-grep -cE '^\| WS-[0-9]{3} \|' $f                       # screens        → 250 (237 + WS-240, WS-241, round 4; WS-238, WS-239, WS-243, WS-244, round 3; WS-245, P1-21; WS-246, WS-247, P5-22; WS-242, P5-13; WS-248, WS-249, WS-250, P5-23)
-awk -F'|' '/^\| WS-[0-9]{3} \|/ && $7 ~ /Y/' $f | wc -l # configured grids → 226 (214 + WS-240, WS-241, WS-238, WS-239, WS-243, WS-244, WS-245, WS-246, WS-247, WS-242, WS-248, WS-250)
+grep -cE '^\| WS-[0-9]{3} \|' $f                       # screens        → 255 (237 + WS-240, WS-241, round 4; WS-238, WS-239, WS-243, WS-244, round 3; WS-245, P1-21; WS-246, WS-247, P5-22; WS-242, P5-13; WS-248, WS-249, WS-250, P5-23; WS-251–WS-255, P4-13)
+awk -F'|' '/^\| WS-[0-9]{3} \|/ && $7 ~ /Y/' $f | wc -l # configured grids → 231 (214 + WS-240, WS-241, WS-238, WS-239, WS-243, WS-244, WS-245, WS-246, WS-247, WS-242, WS-248, WS-250, WS-251, WS-252, WS-253, WS-254, WS-255)
 ```
 
 | id | Screen | Module | Route | Ref | G | Ver · Ph |
@@ -815,8 +815,13 @@ awk -F'|' '/^\| WS-[0-9]{3} \|/ && $7 ~ /Y/' $f | wc -l # configured grids → 2
 | WS-248 | Supplier Claims | app | `/warehouse/inbound/supplier-claims` | SV | Y | v2 · P5 |
 | WS-249 | Supplier Claim Detail | app | `/warehouse/inbound/supplier-claims/[claimId]` | — | N | v2 · P5 |
 | WS-250 | Supplier Claim Ageing | app | `/warehouse/reports/supplier-claim-ageing` | C | Y | v2 · P5 |
+| WS-251 | Licence Types | india | `/warehouse/india/licence-types` | C | Y | v2 · P4 |
+| WS-252 | Our Licences | india | `/warehouse/india/entity-licences` | C | Y | v2 · P4 |
+| WS-253 | Counterparty Licences | india | `/warehouse/india/counterparty-licences` | C | Y | v2 · P4 |
+| WS-254 | Quantity Ceilings | india | `/warehouse/india/licence-ceilings` | C | Y | v2 · P4 |
+| WS-255 | Recall Notifications | india | `/warehouse/india/recall-notifications` | C | Y | v2 · P4 |
 
-<!-- check-design-set: screen-citations begin WS-251 — the §1 allocation marker: WS-251 is the next free id -->
+<!-- check-design-set: screen-citations begin WS-256 — the §1 allocation marker: WS-256 is the next free id -->
 **The allocation marker.** `WS-238` *Warehouse Grants* took its row on 2026-09-11, when round 3's `RA-001`
 was folded into `P1-18`. The same day's second fold (lane `W0-1b`):
 - gave `WS-239` *Item Prices* to `RA-002` (`P2-25`);
@@ -829,7 +834,8 @@ was folded into `P1-18`. The same day's second fold (lane `W0-1b`):
 2026-09-16, allocated by `P1-21`'s PR (warehouse-issues#148). `WS-246` *API Clients* and `WS-247` *API Client
 Keys* took their rows on 2026-09-26, allocated by `P5-22` (§2.8). `WS-248` *Supplier Claims*, `WS-249` *Supplier
 Claim Detail* and `WS-250` *Supplier Claim Ageing* took theirs the same day, allocated by `P5-23` (`V510216`, §3.5).
-**The next free id is `WS-251`.** The
+`WS-251`–`WS-255`, the regulated-goods licence pack's five grids, took theirs on 2026-09-26, allocated by `P4-13`
+(`V541122`, §5.2). **The next free id is `WS-256`.** The
 pure link-sets are row-action assignment modals on existing screens: WS-015, WS-016, WS-017, WS-019 and
 WS-173 (`D-14` item 8b); WS-021 and WS-023 keep their child editors.
 <!-- check-design-set: screen-citations end -->
@@ -2930,10 +2936,135 @@ required and blocks only where one is legally required and absent. That gate liv
 | WS-191 | `whin_compliance_tasks` (+ `whin_compliance_rules`, `_rule_conditions`) · `WAREHOUSE_INDIA_COMPLIANCE_TASK` | SV | Scheduled compliance obligations and the **bounded rules** that raise them — whitelisted subject columns and operators, never a JSONB condition bag | `FR-326` `FR-383` |
 | WS-192 | `whin_tax_rules` (+ `_rule_components`, `_rule_conditions`, `whin_tax_components`, `whin_tax_entity_types`, `whin_tax_resolution_audit`) · `WAREHOUSE_INDIA_TAX_RULE` | — | The relational tax-rule workbench, **carried forward with its known defects fixed as blockers of the India pack, not deferred**. The resolution-audit grid is the surface that answers "why did it pick that rate" | `FR-325` |
 | WS-193 | `whin_hsn_tax_master`, `whin_sac_master`, `whin_gst_state_codes` · `WAREHOUSE_INDIA_TAX_REFERENCE` | D | Read-mostly reference. **The item still stores the classification code as a string, never an FK into this** (`FR-066`) | `FR-325` |
+| WS-251 | `whin_licence_types` · `WAREHOUSE_INDIA_LICENCE_TYPE` | C | The **open registry of regulated-goods regimes** — a row per regime, never a `CHECK` list (`L-4`); whether it gates despatch, whether it caps quantity, the renewal-alert horizon. **Ships empty** until an adviser confirms a regime (`X-067`) | `FR-456` |
+| WS-252 | `whin_entity_licences` · `WAREHOUSE_INDIA_ENTITY_LICENCE` | C | **Our** licence per site and type with a validity and a renewal clock (the `WS-185` shape). Toolbar opens the **Schedule H1 register** — a rebuildable run over the ledger for one site and closed month, older runs kept `SUPERSEDED` | `FR-456` `FR-457` |
+| WS-253 | `whin_counterparty_licences` · `WAREHOUSE_INDIA_COUNTERPARTY_LICENCE` | C | The consignee's licence — **the half that blocks a despatch** when the pack's profile is enabled | `FR-456` |
+| WS-254 | `whin_licence_quantity_ceilings` · `WAREHOUSE_INDIA_LICENCE_CEILING` | C | Per-period (month · quarter · Indian FY) quantity ceilings on a capping counterparty licence; consumed and remaining are **read live from the ledger**, never a counter | `FR-456` |
+| WS-255 | `whin_recall_notifications` · `WAREHOUSE_INDIA_RECALL_NOTIFICATION` | C | The regulator-notification half of a `P5-14` recall — who was told, when, under what reference. **No lot list**: the recall owns its lots | `FR-457` |
 
 **Mobile for §5:** `screens/whinEwayBill` — **Fill Part-B and Update vehicle only.** A driver whose
 vehicle changed at a transhipment point must update Part-B from the road; everything else in this
-module is a compliance desk. `none`, stated, for WS-173–178 and WS-180–193.
+module is a compliance desk. `none`, stated, for WS-173–178, WS-180–193 and WS-251–255.
+
+
+#### WS-251 · Licence Types — v2 · P4 (`P4-13`, `FR-456`)
+
+Install-wide registry · scope `WAREHOUSE_INDIA_LICENCE_TYPE` · grid `whin_licence_types`, seeded by `V541122`. A row
+per regime (drug, narcotic, explosive, pesticide...), never a `CHECK` list; **ships empty** (`X-067`). The code is
+immutable (licences name it); capping cannot be switched off under a live ceiling; a type under a live licence cannot
+be retired. No delete. **Actions:** View · Edit · Deactivate/Activate · Export.
+
+| key | label | type | sortable | default-visible | source |
+|---|---|---|---|---|---|
+| `code` | Code | string | Y | Y | `whin_licence_types.code` |
+| `name` | Name | string | Y | Y | `whin_licence_types.name` |
+| `regime` | Regime | string | Y | Y | `whin_licence_types.regime` (free text) |
+| `gatesDespatch` | Gates Despatch | boolean | Y | Y | `whin_licence_types.gates_despatch` |
+| `capsQuantity` | Caps Quantity | boolean | Y | Y | `whin_licence_types.caps_quantity` |
+| `renewalWindowDays` | Renewal Window | number | Y | Y | `whin_licence_types.renewal_window_days` |
+| `isActive` | Status | string | Y | Y | `whin_licence_types.is_active` |
+| `licenceFields` · `description` | Licence Fields · Description | string | N | N | `whin_licence_types` |
+| `createdByName` · `updatedByName` | Created By · Updated By | string | N | N | `users` |
+| `createdAt` · `updatedAt` | Created · Updated | date | Y | N | audit columns |
+
+**Filters:** `search` · `regime` text · `gatesDespatch` · `capsQuantity` · `isActive`. `emptyMessage` =
+`warehouseIndia:licenceType.empty`.
+**Statistics:** filter-aware — total, active, inactive, gating despatch, capping quantity. Export = the grid's columns.
+
+#### WS-252 · Our Licences — v2 · P4 (`P4-13`, `FR-456`, `FR-457`)
+
+Site-scoped (`:view:all` / `:view:branch`) · scope `WAREHOUSE_INDIA_ENTITY_LICENCE` · grid `whin_entity_licences`,
+seeded by `V541122` (the `WS-185` shape). One live licence per site and type on any date (EXCLUDE). The
+`WHIN_LICENCE_RENEWAL` job raises `LICENCE_RENEWAL_DUE` inside the type's renewal window, judged on the site's day.
+**Actions:** View · Edit · Deactivate/Activate · Export · toolbar **Schedule H1 Register** (build / rebuild a
+closed month, view the current run, export its lines).
+
+| key | label | type | sortable | default-visible | source |
+|---|---|---|---|---|---|
+| `licenceNumber` | Licence No | string | Y | Y | `whin_entity_licences.licence_number` |
+| `warehouseName` | Warehouse | string | N | Y | `whb_warehouses` via `warehouse_id` |
+| `licenceTypeName` | Licence Type | string | N | Y | `whin_licence_types.name` |
+| `issuingAuthority` | Issuing Authority | string | Y | Y | `whin_entity_licences.issuing_authority` |
+| `validFrom` · `validTo` | Valid From · Valid To | date | Y | Y | SQL `DATE`, rendered date-only |
+| `isActive` | Status | string | Y | Y | `whin_entity_licences.is_active` |
+| `renewalAlertSentFor` | Renewal Alert Sent For | date | Y | N | the `valid_to` the last delivered alert was for |
+| `createdByName` · `updatedByName` | Created By · Updated By | string | N | N | `users` |
+| `createdAt` · `updatedAt` | Created · Updated | date | Y | N | audit columns |
+
+**Filters:** `search` · `warehouseId` select · `licenceTypeCode` select · `expiringWithinDays` select · `isActive`.
+`emptyMessage` = `warehouseIndia:entityLicence.empty`.
+**Statistics:** filter-aware — total, active, inactive, renewal due, expired. Export = the grid's columns.
+
+#### WS-253 · Counterparty Licences — v2 · P4 (`P4-13`, `FR-456`)
+
+Install-wide · scope `WAREHOUSE_INDIA_COUNTERPARTY_LICENCE` · grid `whin_counterparty_licences`, seeded by
+`V541122`. The consignee's licence, read by the despatch guard once a validated profile is enabled. One live licence
+per counterparty and type on any date; not retired under a live ceiling. **Actions:** View · Edit ·
+Deactivate/Activate · Export.
+
+| key | label | type | sortable | default-visible | source |
+|---|---|---|---|---|---|
+| `licenceNumber` | Licence No | string | Y | Y | `whin_counterparty_licences.licence_number` |
+| `counterpartyName` | Counterparty | string | N | Y | `whb_counterparties` via `counterparty_id` |
+| `licenceTypeName` | Licence Type | string | N | Y | `whin_licence_types.name` |
+| `issuingAuthority` | Issuing Authority | string | Y | Y | `whin_counterparty_licences.issuing_authority` |
+| `validFrom` · `validTo` | Valid From · Valid To | date | Y | Y | SQL `DATE`, rendered date-only |
+| `isActive` | Status | string | Y | Y | `whin_counterparty_licences.is_active` |
+| `createdByName` · `updatedByName` | Created By · Updated By | string | N | N | `users` |
+| `createdAt` · `updatedAt` | Created · Updated | date | Y | N | audit columns |
+
+**Filters:** `search` · `counterpartyId` select · `licenceTypeCode` select · `expiringWithinDays` select ·
+`isActive`. `emptyMessage` = `warehouseIndia:counterpartyLicence.empty`.
+**Statistics:** filter-aware — total, active, inactive, expiring soon, expired. Export = the grid's columns.
+
+#### WS-254 · Quantity Ceilings — v2 · P4 (`P4-13`, `FR-456`)
+
+Install-wide · scope `WAREHOUSE_INDIA_LICENCE_CEILING` · grid `whin_licence_quantity_ceilings`, seeded by
+`V541122`. A per-period ceiling (month · quarter · Indian financial year) on a counterparty licence of a capping
+type, per item. Consumed and remaining are **read live from the ledger** (despatches less their reversals to that
+counterparty in the current period), never a counter. **Actions:** View · Edit · Deactivate/Activate · Export.
+
+| key | label | type | sortable | default-visible | source |
+|---|---|---|---|---|---|
+| `licenceNumber` | Licence No | string | Y | Y | `whin_counterparty_licences.licence_number` |
+| `counterpartyName` | Counterparty | string | N | Y | `whb_counterparties` via the licence |
+| `itemName` | Item | string | N | Y | `whb_items` via `item_id` |
+| `periodType` | Period | string | Y | Y | `whin_licence_quantity_ceilings.period_type` |
+| `ceilingQuantity` | Ceiling | number | Y | Y | `whin_licence_quantity_ceilings.ceiling_quantity` |
+| `consumedQuantity` | Consumed | number | N | Y | computed on read from the ledger for the current period |
+| `remainingQuantity` | Remaining | number | N | Y | ceiling − consumed |
+| `baseUomCode` | Unit | string | Y | N | the item's base unit at creation |
+| `isActive` | Status | string | Y | Y | `whin_licence_quantity_ceilings.is_active` |
+| `createdByName` · `updatedByName` | Created By · Updated By | string | N | N | `users` |
+| `createdAt` · `updatedAt` | Created · Updated | date | Y | N | audit columns |
+
+**Filters:** `search` · `counterpartyId` select · `periodType` select · `isActive`. `emptyMessage` =
+`warehouseIndia:licenceCeiling.empty`.
+**Statistics:** filter-aware — total, active, inactive, exhausted, items capped. Export = the grid's columns.
+
+#### WS-255 · Recall Notifications — v2 · P4 (`P4-13`, `FR-457`)
+
+Install-wide · scope `WAREHOUSE_INDIA_RECALL_NOTIFICATION` · grid `whin_recall_notifications`, seeded by `V541122`.
+The regulator-notification half of a `P5-14` recall: who was told, when, how, under what reference. **No lot list**
+— the recall owns its lots. A wrong entry is voided through the status toggle, never deleted. **Actions:** View ·
+Edit · Void/Restore · Export.
+
+| key | label | type | sortable | default-visible | source |
+|---|---|---|---|---|---|
+| `recallNumber` | Recall No | string | Y | Y | copied from `wh_recalls.recall_number` |
+| `regulatorName` | Regulator | string | Y | Y | `whin_recall_notifications.regulator_name` |
+| `regulatorReference` | Regulator Reference | string | Y | Y | `whin_recall_notifications.regulator_reference` |
+| `notifiedOn` | Notified On | date | Y | Y | SQL `DATE`, rendered date-only |
+| `notificationChannel` | Channel | string | Y | Y | `whin_recall_notifications.notification_channel` |
+| `contactPerson` | Contact Person | string | Y | Y | `whin_recall_notifications.contact_person` |
+| `isActive` | Status | string | Y | Y | `whin_recall_notifications.is_active` |
+| `notes` | Notes | string | N | N | `whin_recall_notifications.notes` |
+| `createdByName` · `updatedByName` | Created By · Updated By | string | N | N | `users` |
+| `createdAt` · `updatedAt` | Created · Updated | date | Y | N | audit columns |
+
+**Filters:** `search` · `recallId` select · `notifiedFrom`/`To` (DATE, `dateOnly`) · `isActive`. `emptyMessage` =
+`warehouseIndia:recallNotification.empty`.
+**Statistics:** filter-aware — total, active, voided, recalls notified, regulators. Export = the grid's columns.
 
 ---
 

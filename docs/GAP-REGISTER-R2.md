@@ -304,7 +304,7 @@ scope; `J-005` and `K-002` add weight to two of them:
 | Task | File | Module · migration | Owns | Closes |
 |---|---|---|---|---|
 | `P3-24` | [`issues/p3-24.md`](../issues/p3-24.md) | `warehouse-base` · `V500056` (`WHB-56`) | `FR-452`–`FR-455` | `S-005` `S-010` `S-017` `S-049` |
-| `P4-13` | [`issues/p4-13.md`](../issues/p4-13.md) | `warehouse-india` · `V540182` (`WIN-23`) | `FR-456` `FR-457` | `S-035` `F-073` `X-013` |
+| `P4-13` | [`issues/p4-13.md`](../issues/p4-13.md) | `warehouse-india` · `V540183` + `V541122` (`WIN-23`; `X-066`) | `FR-456` `FR-457` | `S-035` `F-073` `X-013` |
 | `P5-22` | [`issues/p5-22.md`](../issues/p5-22.md) | `warehouse-base` · `V500066` (`WHB-67`) | `FR-458` | `S-097` `K-005` `OD-8` |
 | `P5-23` | [`issues/p5-23.md`](../issues/p5-23.md) | `warehouse` · `V510216` (`WH-116`) | `FR-459` | `E-081` `Y-005` |
 

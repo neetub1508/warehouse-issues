@@ -3699,7 +3699,7 @@ table and **never** widens a base `CHECK`; it inserts a row.
 | WIN-20 | `V540170` | `whin_retention_policies` | v2 |
 | WIN-21 | `V540180` | `whin_compliance_tasks`, `whin_compliance_rules`, `whin_compliance_rule_conditions` | v2 |
 | WIN-22 | `V540181` | `whin_form3cd_runs`, `whin_form3cd_lines` (`P4-09`) — the first number of the correction reserve | v2 |
-| WIN-23 | `V540182` | `whin_licence_types`, `whin_entity_licences`, `whin_counterparty_licences`, `whin_licence_quantity_ceilings`, `whin_schedule_h1_register`, `whin_recall_notifications` (`P4-13`) | v2 |
+| WIN-23 | `V540183` | `whin_licence_types`, `whin_entity_licences`, `whin_counterparty_licences`, `whin_licence_quantity_ceilings`, `whin_schedule_h1_register`, `whin_recall_notifications` (`P4-13`); config (permissions, the Regulated Goods menu section, five grids, the `REGULATED_LICENCE_TYPE` / `SCHEDULE_H1` attribute keys and the `LICENCE_RENEWAL_DUE` alert) at `V541122`. **Claimed 2026-09-26 at `V540183`, not `V540182`**: `V540182` was taken by `P4-10`'s *Keep superseded whin_form3cd runs on regeneration* and is applied (`X-066`); `V540183` is the first of the declared correction reserve (the `WIN-22` / `V540181` precedent). `whin_licence_types` ships **empty** (`X-067`) | v2 |
 | — | `V540183`–`V540999` | Reserved for corrections | — |
 | WIN-30 | `V541000`–`V541199` | Permissions, `permission_dependencies`, menus, grid configuration, `admin_settings` | v1/v2 |
 | — | `V541200`–`V549999` | Reserved | — |

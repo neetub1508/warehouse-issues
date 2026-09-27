@@ -2152,3 +2152,36 @@ into this one on 2026-09-02 (§0), exactly as `X-058` and `X-060` found.
 
 **Corrected.** `X-002` (now CLOSED) and `X-061`–`X-063` above are the record; `issues/p5-20.md` now names
 `docs/DESIGN-SET-DEFECTS.md`.
+
+## §12 · Filed while building `P4-13`, 2026-09-26
+
+### `X-066` · `P4-13`'s migration number `V540182` was taken by another task's follow-up — **MINOR**
+
+> **Severity** MINOR · **Status** CLOSED — renumbered · **Found** 2026-09-26, while building `P4-13`
+
+**Claim.** `issues/p4-13.md`, `DATA-MODEL.md` §7.6 (`WIN-23`), `IMPLEMENTATION-PLAN.md` (the P4 range and the `P4-13`
+row) and `GAP-REGISTER-R2.md` gave the licence pack's DDL the number `V540182`.
+
+**Evidence.** `warehouse-india/backend/src/main/resources/db/migration/V540182__Keep_superseded_whin_form3cd_runs_on_regeneration.sql`
+exists and is applied — `P4-10`'s Form 3CD follow-up claimed it first.
+
+**Fix.** The DDL is `V540183`, the first number of the declared correction reserve (the `WIN-22` / `V540181`
+precedent), and the configuration is `V541122`. Both were verified free in every module's migration folder and in
+`flyway_schema_history`. All four documents and the task header now say so.
+
+### `X-067` · The licence-type registry has nothing it may truthfully seed — **MAJOR**
+
+> **Severity** MAJOR · **Status** CLOSED — ships empty (W3 driver decision) · **Found** 2026-09-26, while building `P4-13`
+
+**Claim.** `issues/p4-13.md` item 1 describes `whin_licence_types` as "an open registry of regimes" (drug, narcotic,
+explosive, pesticide, fertiliser, liquor, arms), and each row "names the fields its licence carries".
+
+**Evidence.** No adviser has confirmed any regime's licence fields, renewal horizon or quantity-ceiling rule. A seeded
+type would therefore be an unverified statutory claim shipped as install data, and the adopted contract says the
+pack is "disabled until a validated profile passes".
+
+**Fix.** `V541122` seeds **no** licence type; `V540183`'s verification block raises if any type row exists at
+migration time. Types are rows an administrator adds on `WS-251` once the adviser confirms them.
+`warehouse.regulated_profile` still allows `NONE` only, so the despatch guard stays inert until a validated profile
+is added. The Schedule H1 register omits prescriber and patient fields for the same reason, and that omission is
+recorded, not fixed.
