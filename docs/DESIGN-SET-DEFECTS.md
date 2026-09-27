@@ -2153,6 +2153,29 @@ into this one on 2026-09-02 (§0), exactly as `X-058` and `X-060` found.
 **Corrected.** `X-002` (now CLOSED) and `X-061`–`X-063` above are the record; `issues/p5-20.md` now names
 `docs/DESIGN-SET-DEFECTS.md`.
 
+## §11 · Filed while building `P5-09`, 2026-09-26
+
+### `X-065` · `FR-467` says a drop-shipment creates "no stock position", but its own posting shape books two — **MAJOR**
+
+> **Severity** MAJOR · **Status** CLOSED — reworded (W3 driver decision, option a) · **Found** 2026-09-26, while building `P5-09`
+
+**Claim.** `WAREHOUSE-FUNCTIONAL-REQUIREMENTS.md` `FR-467` and `issues/p5-09.md` (Scope, and the acceptance line on
+`OD-18`) require a drop-shipment to post as one movement, `−q` at `SUPPLIER` and `+q` at `CUSTOMER`, and to create
+"no stock position" ever.
+
+**Evidence.** The posting port books every stock-bearing movement line against a `(location, owner, item, lot, serial)`
+position — including a line at a virtual counterparty location (`VIRT-SUPPLIER-<site>` / `VIRT-CUSTOMER-<site>`,
+seeded per site by `whb_locations`). The `OD-18` shape therefore necessarily touches two *virtual* positions; the
+literal reading of "no stock position" is unbuildable without a second posting path that bypasses the ledger, which
+`L-2` forbids.
+
+**Corrected.** "No stock position" means no **physical** stock position: on-hand at every physical site is unchanged.
+The virtual counterparty positions are not stock positions in `FR-467`'s sense (they are never on-hand, never
+available, never valued — `DROP_SHIP` is `affects_availability = false`, `is_financial = false`, `cost_basis_default
+NONE`). The site is the demand order's site; the purchase order line is in the movement's source quad and the demand
+order line in the line-level `source_line_ref`. `FR-467` and `issues/p5-09.md` now say so. `WH-SC-326`'s "on-hand at
+every site is unchanged" already reads this way and is unchanged.
+
 ## §12 · Filed while building `P4-13`, 2026-09-26
 
 ### `X-066` · `P4-13`'s migration number `V540182` was taken by another task's follow-up — **MINOR**
