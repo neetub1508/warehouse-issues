@@ -890,13 +890,26 @@ period lock that closes ahead of accounting's (`FR-251`).
 | **WH-SC-407** | Carrier `CAR-DLV` remits UTR `UTR0001` for `WH-BLR`: gross 1500.00, deductions 30.00, net 1480.00; two AWB lines 1000.00 + 500.00, both DELIVERED COD shipments owing exactly that | `fin1` reconciles | Every line MATCHES but the remittance is held **UNMATCHED** with header variance -10.00 - no balancing line is created. Corrected to net 1470.00 and reconciled: MATCHED, hand-over QUEUED with `WH-COD:{id}:RECEIPT` and `WH-COD:{id}:EXPENSE`; reconciling again changes nothing and issues neither envelope twice; with accounting absent both stay QUEUED and ride the export (D-7) | `FR-204` | — | app | v2·P5 | error |
 | **WH-SC-408** | 40 OPEN NDRs on the console; one of them was closed DELIVERED by the carrier feed a moment ago | `cc1` selects all 40 and bulk-responds REATTEMPT | 40 row results: 39 committed (each in its own transaction, each ACTIONED with a REATTEMPT action) and one refused `409 WH_NDR_CLOSED` on its own row - the refusal costs no other row its commit | `FR-203` | — | app | v2·P5 | edge |
 
+### 3.43 Billing runs, accessorials, disputes and the AR handover
+
+> Authored by `P5-05` (ids 409–412). A run holds the period's meter rows, blocks while any is unrated, bills them at Approve
+> and emits one stable-keyed AR envelope to an open accounting port; corrections are reversal runs and dispute credits
+> through the meter, never edits of an approved run. The cast is §2's.
+
+| # | Given | When | Then | FR | L | Mod | V·Ph | Type |
+|---|---|---|---|---|---|---|---|---|
+| **WH-SC-409** | `CL-ORION`'s November run `BR-000001` is DRAFT; 3 of its 120 events are `PICK`/`CASE` for which no rate card line exists | `bill1` rates the run on WS-162 | Refused `422` naming each missing rate-card combination; the run stays DRAFT with `unrated_event_count = 3` and the unrated summary saved, and no event is BILLED. Once the line exists, Rate succeeds and the run is RATED; an event before go-live or outside the contract window is EXCLUDED with its `BILLING_EXCLUSION` code, never silently unrated | `FR-292` | — | 3pl | v2·P5 | error |
+| **WH-SC-410** | `CL-ORION` has a CLIENT minimum of ₹1,00,000; November's charge lines are ₹30,000, ₹30,000 and ₹30,000; the storage period posted a ₹10,000 true-up | `bill1` rates the run | The true-up becomes three `is_minimum_true_up` lines of ₹3,333.34, ₹3,333.33 and ₹3,333.33, adding up exactly to ₹10,000 (largest remainder, the tied extra paisa to the lowest `line_no`), each line showing its arithmetic; `line_no` is unique within the run (`RF-009`) | `FR-292` | — | 3pl | v2·P5 | edge |
+| **WH-SC-411** | `BR-000001` is APPROVED by `bill2` (not its rater); accounting is connected and times out on the first hand-over | The envelope `WH3-AR:{run}:RECEIVABLE` is retried from WS-170 | The first attempt leaves it SENT with `attempt_count = 1`; the retry re-sends the **same key**, accounting answers with the reference it already issued, the envelope is POSTED and the run INVOICED — **one** receivable. A rejected envelope keeps the run APPROVED and blocks Cancel `409` naming the envelope until it is voided (`RJ-011`); with no accounting module the envelope downloads as CSV and the run is marked invoiced with a manual reference | `FR-294` | — | 3pl | v2·P5 | edge |
+| **WH-SC-412** | `BR-000001` was APPROVED 20 days ago (window 60); `cs1` raised dispute `DSP-000001` for ₹450 | `bill2` investigates and upholds a ₹150 credit on a credit charge code | One RATED `wh3_billable_events` row exists (subject `WH3_DISPUTE`, key `DISPUTE:{id}:CREDIT`, quantity −1, amount −150.00); `BR-000001` and its `wh3_billing_run_lines` are unchanged; the client's next run bills the credit as its own line. `cs1` attempting the uphold is refused `403`; a credit above ₹450 is `422`; a raise 61 days after approval is `422` | `FR-293` | — | 3pl | v2·P5 | happy |
+
 ---
 
 ## 4 · Coverage
 
 ### 4.1 Area × version × scenario count
 
-**403 scenarios.** Computed with the commands in §1.2; the version column is the scenario row's
+**407 scenarios.** Computed with the commands in §1.2; the version column is the scenario row's
 `V·Ph` value, so a scenario appears in exactly one version column.
 
 ```bash
@@ -956,8 +969,9 @@ awk -F'|' '/^\| \*\*WH-SC-/ {if (NF!=11) print "NF="NF" "$2}' SCENARIO-CATALOGUE
 | **3.40** Three-way match and working calendars | 4 | — | — | — | — | — | — | 4 | 3 | 1 | — | — |
 | **3.41** Carrier integration | 4 | — | — | — | — | — | — | 4 | 2 | 1 | — | 1 |
 | **3.42** NDR and COD remittances | 4 | — | — | — | — | — | — | 4 | 1 | 1 | 2 | — |
-| **Total** | **403** | **98** | **78** | **111** | **9** | **18** | **8** | **81** | **213** | **84** | **91** | **15** |
-**What to read from this table.** 296 of 403 scenarios are v1 — 98 in `P0` (the ledger foundation),
+| **3.43** Billing runs, accessorials, disputes and the AR handover | 4 | — | — | — | — | — | — | 4 | 1 | 1 | 2 | — |
+| **Total** | **407** | **98** | **78** | **111** | **9** | **18** | **8** | **85** | **214** | **85** | **93** | **15** |
+**What to read from this table.** 296 of 407 scenarios are v1 — 98 in `P0` (the ledger foundation),
 78 in `P1` (masters and inbound), 111 in `P2` (outbound, counting, valuation, returns, printing,
 reports) and 9 in `P2-IN` (the India movement documents). That mirrors the FRD's own shape, where
 338 of 469 requirements are v1 and the majority of those are `P0`/`P1` columns, keys and registries
@@ -965,32 +979,32 @@ with no v1 screen. **The 43 scenarios in §3.1 are 12% of the catalogue against 
 requirements**, deliberately: an invariant that is only *stated* is an invariant that is not
 enforced, and the ledger is the one part of this product that cannot be repaired after it has rows.
 
-190 of 403 are **not** happy paths — 84 error, 91 edge, 15 concurrency. A catalogue that is mostly
+193 of 407 are **not** happy paths — 85 error, 93 edge, 15 concurrency. A catalogue that is mostly
 happy paths tests that the feature exists; it does not test that the guard fires. **The five added in
-round 2 are §3.21**, and **the twenty-two added in round 4 are §3.22**, and **the three `P1-21` authored are §3.23**, and **the one `P2-25` authored is §3.24**, and **the four each `P5-07` and `P5-22` authored are §3.25 and §3.26**, and **the four each `P5-16` and `P5-17` authored are §3.27 and §3.28**, and **the four `P5-13` authored are §3.29**, and **the four each `P5-18`, `P5-19`, `P5-21` and `P5-23` authored are §3.30–§3.33**, and **the four each `P5-03`, `P5-06`, `P5-09`, `P5-20` and `P4-13` authored are §3.34–§3.38**, and **the four each `P5-04`, `P5-10` and `P5-11` authored are §3.39–§3.41**, and **the four `P5-12` authored are §3.42**. The finding that produced round 2's five (`Q-006`) is the reason the mix is measured
+round 2 are §3.21**, and **the twenty-two added in round 4 are §3.22**, and **the three `P1-21` authored are §3.23**, and **the one `P2-25` authored is §3.24**, and **the four each `P5-07` and `P5-22` authored are §3.25 and §3.26**, and **the four each `P5-16` and `P5-17` authored are §3.27 and §3.28**, and **the four `P5-13` authored are §3.29**, and **the four each `P5-18`, `P5-19`, `P5-21` and `P5-23` authored are §3.30–§3.33**, and **the four each `P5-03`, `P5-06`, `P5-09`, `P5-20` and `P4-13` authored are §3.34–§3.38**, and **the four each `P5-04`, `P5-10` and `P5-11` authored are §3.39–§3.41**, and **the four `P5-12` authored are §3.42**, and **the four `P5-05` authored are §3.43**. The finding that produced round 2's five (`Q-006`) is the reason the mix is measured
 per *task* and not only per catalogue: a set that is 45% non-happy overall said nothing about the
 seven v1 tasks whose own acceptance was 100% happy.
 
 ### 4.2 Requirement coverage, and the requirements no scenario proves
 
 ```bash
-awk -F'|' '/^\| \*\*WH-SC-/ {print $6}' SCENARIO-CATALOGUE.md | grep -oE 'FR-[0-9]{3}' | sort -u   # -> 421
+awk -F'|' '/^\| \*\*WH-SC-/ {print $6}' SCENARIO-CATALOGUE.md | grep -oE 'FR-[0-9]{3}' | sort -u   # -> 422
 grep -oE '^\| \*\*FR-[0-9]{3}\*\*' WAREHOUSE-FUNCTIONAL-REQUIREMENTS.md | grep -oE 'FR-[0-9]{3}' | sort -u  # -> 471
 ```
 
-**421 of 471 requirements (89.4%) are proved by at least one scenario. 50 are not**, and the list
+**422 of 471 requirements (89.6%) are proved by at least one scenario. 49 are not**, and the list
 below is complete rather than convenient. `DECISIONS.md` §7 rule 3 exists because the accounting
 set's first two rounds carried 25 dangling `FR` citations of which 19 resolved to a *different* real
 requirement, so live gaps read as closed. **The honest list is the deliverable here**; padding it
 with scenarios nobody could run would be the same failure in a new costume.
 
-By version, the 50 break down as **6 v1 · 17 v1.1 · 16 v2 · 14 v3** (a row spanning two versions is
+By version, the 49 break down as **6 v1 · 17 v1.1 · 15 v2 · 14 v3** (a row spanning two versions is
 counted in each). **The count moved 71 → 84 in review round 2**, which added `FR-447`–`FR-459` and no
 scenarios: every one of the thirteen is unproven on the day it was written, and §6.27 below says so
 rather than leaving the total to drift. **It moved 84 → 85 in review round 4.** The ten §6.28
 requirements, `FR-460`–`FR-469`, are each proved by a §3.22 row. The split of `WH-SC-135` (`RJ-013`)
 un-proved `FR-266`, because the kit half of that trace needs v1.1 work orders. **It moved 85 → 84 with
-`P1-21`**, whose §3.23 rows prove `FR-451`. **It moved 84 → 81 on 2026-09-26**: the FRD grew to 471 with `FR-470`(v1) and `FR-471`(v3), both unproven and not yet placed in the table below, and `P5-07`'s §3.25 and `P5-22`'s §3.26 prove `FR-181` `FR-297` `FR-298` `FR-299` `FR-458`. **It moved 81 → 76 the same day** (P5 wave 2 R2): `P5-16`'s §3.27 proves `FR-241` `FR-243` and `P5-17`'s §3.28 proves `FR-223` `FR-227` `FR-228`. **It moved 76 → 73 the same day** (P5 wave 2 R2 pass 2): `P5-13`'s §3.29 proves `FR-272` `FR-276` `FR-279`. **It moved 73 → 64 the same day** (P5 wave 2 R3): `P5-18`'s §3.30 proves `FR-254` `FR-255` `FR-259`, `P5-19`'s §3.31 `FR-266` `FR-267`, `P5-21`'s §3.32 `FR-226` `FR-338` `FR-343` and `P5-23`'s §3.33 `FR-459`. **It moved 64 → 57 on 2026-09-27** (P5 wave 3): `P5-06`'s §3.35 proves `FR-295`, `P5-09`'s §3.36 `FR-208` `FR-209` `FR-210`, `P5-20`'s §3.37 `FR-445` and `P4-13`'s §3.38 `FR-456` `FR-457`; `P5-03`'s §3.34 adds rows to the already-proved `FR-285`. **It moved 57 → 52 the same day** (P5 wave 4a): `P5-10`'s §3.40 proves `FR-140` and `P5-11`'s §3.41 `FR-198` `FR-200` `FR-201` `FR-202`; `P5-04`'s §3.39 adds rows to the already-proved `FR-288` `FR-290`, and §3.40 to `FR-141` `FR-165` `FR-172` `FR-181`. **It moved 52 → 50 the same day** (P5 wave 4b): `P5-12`'s §3.42 proves `FR-203` `FR-204` and adds rows to the already-proved `FR-205`.
+`P1-21`**, whose §3.23 rows prove `FR-451`. **It moved 84 → 81 on 2026-09-26**: the FRD grew to 471 with `FR-470`(v1) and `FR-471`(v3), both unproven and not yet placed in the table below, and `P5-07`'s §3.25 and `P5-22`'s §3.26 prove `FR-181` `FR-297` `FR-298` `FR-299` `FR-458`. **It moved 81 → 76 the same day** (P5 wave 2 R2): `P5-16`'s §3.27 proves `FR-241` `FR-243` and `P5-17`'s §3.28 proves `FR-223` `FR-227` `FR-228`. **It moved 76 → 73 the same day** (P5 wave 2 R2 pass 2): `P5-13`'s §3.29 proves `FR-272` `FR-276` `FR-279`. **It moved 73 → 64 the same day** (P5 wave 2 R3): `P5-18`'s §3.30 proves `FR-254` `FR-255` `FR-259`, `P5-19`'s §3.31 `FR-266` `FR-267`, `P5-21`'s §3.32 `FR-226` `FR-338` `FR-343` and `P5-23`'s §3.33 `FR-459`. **It moved 64 → 57 on 2026-09-27** (P5 wave 3): `P5-06`'s §3.35 proves `FR-295`, `P5-09`'s §3.36 `FR-208` `FR-209` `FR-210`, `P5-20`'s §3.37 `FR-445` and `P4-13`'s §3.38 `FR-456` `FR-457`; `P5-03`'s §3.34 adds rows to the already-proved `FR-285`. **It moved 57 → 52 the same day** (P5 wave 4a): `P5-10`'s §3.40 proves `FR-140` and `P5-11`'s §3.41 `FR-198` `FR-200` `FR-201` `FR-202`; `P5-04`'s §3.39 adds rows to the already-proved `FR-288` `FR-290`, and §3.40 to `FR-141` `FR-165` `FR-172` `FR-181`. **It moved 52 → 50 the same day** (P5 wave 4b): `P5-12`'s §3.42 proves `FR-203` `FR-204` and adds rows to the already-proved `FR-205`. **It moved 50 → 49 on 2026-09-30** (P5 wave 5): `P5-05`'s §3.43 proves `FR-293` and adds rows to the already-proved `FR-292` `FR-294`.
 
 | Area | Unproven `FR` | Why |
 |---|---|---|
@@ -1003,7 +1017,7 @@ un-proved `FR-266`, because the kit half of that trace needs v1.1 work orders. *
 | 6.14 Replenishment | `FR-258`(v3) | The computed stocking level. Sister-branch transfer proposals, emergency/opportunistic/break-case replenishment and pick-face replenishment tasks (`FR-254` `FR-259` `FR-255`) are proved by `P5-18`'s §3.30 |
 | 6.15 Kitting and VAS | `FR-268`(v3) | Multi-level BOM with routings, which is **deliberately not built** — its scenario is the stated re-entry path, not a flow |
 | 6.16 Returns | `FR-277` `FR-278`(v2) | Cores and warranty scrap-and-hold, both v2 reverse logistics. Grading at receipt, OEM obsolescence returns and the marketplace claim window (`FR-272` `FR-276` `FR-279`) are proved by `P5-13`'s §3.29 |
-| 6.17 Third-party logistics | `FR-293` `FR-301` `FR-303`(v2) `FR-302`(v3) | Disputes, client GST registrations, tenancy and client profitability. SLA objects, the portal performance tab and SLA credits (`FR-297` `FR-298` `FR-299`) left this list with §3.25, and the freight-billing modes (`FR-295`) with §3.35 |
+| 6.17 Third-party logistics | `FR-301` `FR-303`(v2) `FR-302`(v3) | Client GST registrations, tenancy and client profitability. SLA objects, the portal performance tab and SLA credits (`FR-297` `FR-298` `FR-299`) left this list with §3.25, and the freight-billing modes (`FR-295`) with §3.35, and disputes (`FR-293`) with §3.43 |
 | 6.18 India | `FR-317` `FR-322`–`FR-325` `FR-329`(v2) | Scrap as a supply, goods on approval, bonded/MOOWR, EPR reporting, the relational tax engine and the two retention clocks — the whole `P4` statutory wave beyond the two v2 exit-criterion scenarios |
 | 6.19 Events and the logistics seam | `FR-334`(v1.1) `FR-347` `FR-348`(v3) | Adapter subscriptions and the two v3 pre-flight enumerations, which are **documents rather than behaviours**. Equipment fitments and returnable-packaging balances (`FR-338` `FR-343`) are proved by `P5-21`'s §3.32 |
 | 6.20 Adapters | `FR-364`(v1.1) `FR-365` `FR-366`(v3) | The assets adapter, the dealer-vehicle-inventory decision test (`OD-2`) and the *logistics gets no adapter* rule |
@@ -1033,7 +1047,7 @@ v1 scope, not holes in its stated exit.
    `WH-SC-248` govern the tick. A backend that exists with no reachable UI has closed no scenario.
 3. **A defect found in the field becomes a scenario before it becomes a fix.** New ids continue
    from **`WH-SC-332`**; ids are never reused and never renumbered. `WH-SC-301`–`WH-SC-305` were
-   taken by review round 2 (§3.21), `WH-SC-306`–`WH-SC-327` by review round 4 (§3.22) `WH-SC-328`–`WH-SC-330` by `P1-21` (§3.23) and `WH-SC-331` by `P2-25` (§3.24), and `WH-SC-333`–`WH-SC-340` by `P5-07` / `P5-22` (§3.25, §3.26) and `WH-SC-345`–`WH-SC-352` by `P5-16` / `P5-17` (§3.27, §3.28), `WH-SC-341`–`WH-SC-344` by `P5-13` (§3.29) and `WH-SC-353`–`WH-SC-368` by `P5-18` / `P5-19` / `P5-21` / `P5-23` (§3.30–§3.33) and `WH-SC-373`–`WH-SC-392` by `P5-03` / `P5-06` / `P5-09` / `P5-20` / `P4-13` (§3.34–§3.38) and `WH-SC-393`–`WH-SC-404` by `P5-04` / `P5-10` / `P5-11` (§3.39–§3.41) and `WH-SC-405`–`WH-SC-408` by `P5-12` (§3.42) out of the driver's reserved blocks (below — 332 is still the next free unreserved id, so defined ids now skip it); the marker moves with every allocation and is the only place to
+   taken by review round 2 (§3.21), `WH-SC-306`–`WH-SC-327` by review round 4 (§3.22) `WH-SC-328`–`WH-SC-330` by `P1-21` (§3.23) and `WH-SC-331` by `P2-25` (§3.24), and `WH-SC-333`–`WH-SC-340` by `P5-07` / `P5-22` (§3.25, §3.26) and `WH-SC-345`–`WH-SC-352` by `P5-16` / `P5-17` (§3.27, §3.28), `WH-SC-341`–`WH-SC-344` by `P5-13` (§3.29) and `WH-SC-353`–`WH-SC-368` by `P5-18` / `P5-19` / `P5-21` / `P5-23` (§3.30–§3.33) and `WH-SC-373`–`WH-SC-392` by `P5-03` / `P5-06` / `P5-09` / `P5-20` / `P4-13` (§3.34–§3.38) and `WH-SC-393`–`WH-SC-404` by `P5-04` / `P5-10` / `P5-11` (§3.39–§3.41) and `WH-SC-405`–`WH-SC-408` by `P5-12` (§3.42) and `WH-SC-409`–`WH-SC-412` by `P5-05` (§3.43) out of the driver's reserved blocks (below — 332 is still the next free unreserved id, so defined ids now skip it); the marker moves with every allocation and is the only place to
    read the next free id.
 4. **`tools/check-design-set.py` enforces §1.2.** Contiguity, zero dangling `FR` citations, and the
    §4.2 unproven list matching what the commands actually produce. A coverage table that has drifted
@@ -1074,5 +1088,5 @@ Same rules as wave 2: each block is owned by one task, which replaces its reserv
 
 ## Reserved id blocks — warehouse P5 waves 5–6 (driver, 2026-09-30)
 Same rules as wave 2: each block is owned by one task, which replaces its reservation line with numbered scenarios; unused ids stay reserved.
-- ids 409–412 · P5-05 #35 (billing run / accessorials / disputes / AR handover) — reserved
+- ids 409–412 · P5-05 #35 (billing run / accessorials / disputes / AR handover) — taken, §3.43
 - ids 413–416 · P5-08 #48 (client portal / owner segregation) — reserved
