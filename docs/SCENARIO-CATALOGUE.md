@@ -1071,3 +1071,8 @@ Same rules as wave 2: each block is owned by one task, which replaces its reserv
 - ids 397–400 · P5-10 #58 (three-way match / working calendars) — taken, §3.40
 - ids 401–404 · P5-11 #62 (tracking events / carrier status) — taken, §3.41
 - ids 405–408 · P5-12 #67 (NDR console / COD remittances) — taken, §3.42
+
+## Reserved id blocks — warehouse P5 waves 5–6 (driver, 2026-09-30)
+Same rules as wave 2: each block is owned by one task, which replaces its reservation line with numbered scenarios; unused ids stay reserved.
+- ids 409–412 · P5-05 #35 (billing run / accessorials / disputes / AR handover) — reserved
+- ids 413–416 · P5-08 #48 (client portal / owner segregation) — reserved
