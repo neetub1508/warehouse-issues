@@ -18,6 +18,10 @@ is for. If you are about to write the first migration, start instead with
 
 ---
 
+## Research and readiness reports
+
+[Warehouse documents imported from Downloads](docs/reference/downloads-2026-10-01/README.md) — dated audit packs, comparisons and supporting evidence. Current implementation scope remains governed by the task sources and adopted decisions.
+
 ## What is being built
 
 A **standalone-capable, country-neutral warehouse and inventory-management product**: one immutable,
