@@ -1,0 +1,85 @@
+TITLE: [Warehouse] [Finding] W13 · Sealed-carton/item attachments lack an owning-module delete guard
+LABELS: task,warehouse,platform
+issue: 207
+---
+Part of #1 · Audit **warehouse-only readiness, 2026-10-01** · Finding **W13** · Module **`platform`** · Migrations **none allocated by this audit; reserve only if implementation requires one** · Screens **existing affected surfaces identified below; no new screen IDs allocated**
+
+**Priority:** P1 (audit recommendation, not a programme phase). **Evidence class:** Code-supported. **Applies to:** Packing evidence and item documents.
+
+## Scope
+
+### What happens / remaining gap
+
+Document deletion checks checkout state and deletes object storage before the database record; no warehouse reference guard was found in this path. A later FK rejection would not restore the external object.
+
+### Required work
+
+Check all owning references before storage deletion and cover bulk/deletion variants.
+
+### Boundary and ownership
+
+This task tracks one finding from the warehouse-only audit. Complete the work or evidence needed for the affected existing workflow. Planning, forecasting, optimization and competitor feature work are excluded. Optional-module work applies only to the stated scope. Existing web-only/online-only decisions and removed-adapter decisions remain authoritative. An intentional limit is closed by enforcing/documenting the supported boundary unless a later explicit scope decision authorizes expansion.
+
+## Evidence and affected code
+
+[#166](https://github.com/neetub1508/warehouse-issues/issues/166); [DocumentService.java:425](https://github.com/neetub1508/classic/blob/0cdf3d34741581b5bf4a96e7c736e89e2b7c4daa/platform/backend/src/main/java/ai/platform/service/DocumentService.java#L425).
+
+Audit code baseline: `neetub1508/classic@0cdf3d34741581b5bf4a96e7c736e89e2b7c4daa`. Design baseline: `neetub1508/warehouse-issues@7b96725eb5850748cd94b2a784466cb16728a55d`.
+
+Recheck the affected path at the implementation commit. “Reported” and “verification gap” do not mean a fresh runtime failure; “code-supported” does not mean a live reproduction. Preserve that distinction in the resolution.
+
+## Requirements closed
+
+The existing warehouse behavior described in Scope and Acceptance. This audit does not allocate new FR identifiers or claim any requirement already closed. Reuse the adopted requirements in related task sources; record exact applicable IDs when implementing instead of inventing them.
+
+## Scenarios closed
+
+No scenario is newly marked passed by creating this task. Execute the finding-specific acceptance below and affected refusal/retry paths. Record the current commit, supported module configuration, fixture, role, steps and actual results; reuse catalogue scenarios where they apply.
+
+## Closes
+
+Audit finding **W13** once its acceptance is met and evidence is linked. This issue does not automatically close or reopen earlier tasks.
+
+### Related issues / existing implementation ownership
+
+- #166 — [Warehouse] P2-11 follow-up · Pack evidence and item documents cannot be deleted out from under a sealed carton.
+
+These links preserve earlier ownership/history. Coordinate overlapping implementation in one change and link both issues; do not build a second competing implementation. Closed duplicates remain closed.
+
+## Traps
+
+- Follow `docs/DECISIONS.md` and its adopted settings amendment; older task wording is historical where superseded.
+- Preserve stock/valuation lineage, tenant/site/owner scope and existing service ownership on affected paths.
+- Do not interpret a missing runtime test as proof that the feature is missing. Verify before replacing working code.
+
+## Acceptance
+
+- [ ] Sealed-carton evidence cannot be deleted; eligible unattached/open evidence follows the documented policy and no dangling object reference remains.
+- [ ] Verify current behavior against the cited evidence; record which concern is reproduced, already resolved, accepted by an existing decision, or still awaiting applicable integration evidence.
+- [ ] Relevant flow check — **Pack and evidence**: Correct carton/LPN identity, seal/reopen policy, evidence cannot disappear, reprints do not duplicate stock. Limit this task to its finding; link adjacent tasks for the rest.
+- [ ] Relevant flow check — **Permissions and evidence**: Cross-site/owner direct IDs, exports, attachments, public links, revoked grants and cost visibility. Limit this task to its finding; link adjacent tasks for the rest.
+- [ ] Run the targeted automated/runtime checks needed for this change, plus required module gates; retain actual results. A skipped integration test or code read is not a runtime pass.
+- [ ] Update affected contract/help/runbook text and the related issue evidence so the supported behavior agrees across code and documentation.
+- [ ] List remaining conditional dependencies explicitly; do not close an enabled workflow with unverified stock integrity, access control or external-state recovery.
+
+## Earlier report detail (reference, verify against current code)
+
+The following preserves the original observations/reproduction details. It is historical context; the Scope and adopted decisions above govern implementation.
+
+<details>
+<summary>Source issue #166</summary>
+
+Follow-up from #79 (P2-11 Cartons) · Module **`platform`** (DocumentService) + **`warehouse`** / **`warehouse-base`** · Migrations: none expected
+
+## Scope
+Pack photos and other carton evidence, and item documents (`WhbItemDocument`, P1-04), are stored through the shared document service. Deleting the document from the document screens today removes the evidence a sealed carton or item still points to. Add a **pre-delete hook** to the platform DocumentService so an owning module can refuse the delete with a clear message ("this photo is evidence for sealed carton SH000001-001").
+
+## Acceptance
+1. Deleting a pack photo attached to a SEALED carton is refused with a message naming the carton; the photo stays.
+2. Deleting a photo on an OPEN carton still works.
+3. The same guard protects documents linked from an item (WhbItemDocument).
+4. Modules that register no hook behave exactly as today.
+
+</details>
+
+<!-- warehouse-readiness-finding: 2026-10-01/W13 -->
