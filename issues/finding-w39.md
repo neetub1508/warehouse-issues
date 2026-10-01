@@ -40,6 +40,30 @@ No scenario is newly marked passed by creating this task. Execute the finding-sp
 
 Audit finding **W39** once its acceptance is met and evidence is linked. This issue does not automatically close or reopen earlier tasks.
 
+## Implementation order and dependencies
+
+**Recommended wave:** 0 — Establish scope/contracts and repair verification infrastructure. This is a scheduling recommendation, not a requirement to finish every lower-wave issue before starting independent work.
+
+### Before dependent implementation
+
+- No mandatory start dependency on another finding is identified. Begin current-code verification and this task’s scoped work immediately, subject to the setup/decision prerequisites below.
+
+### Before final acceptance / closure
+
+- No mandatory whole-issue completion dependency is identified. Meet this task’s acceptance and any applicable handoff/external prerequisites before closure.
+- Preparatory analysis, fixtures and independent fixes can proceed while prerequisites are open. If a prerequisite is already satisfied in current code, link its commit/test evidence instead of waiting or rebuilding it.
+
+### Setup, decisions and conditional dependencies
+
+Shared-platform route and container health configuration owner; fix undefined environment reference and test the exact endpoint plus binding separately.
+
+### Coordination and change control
+
+- Earlier issues in “Related issues / existing implementation ownership” are ownership/history links, not automatic blockers. Preserve their accepted decisions and coordinate overlapping changes.
+- A start dependency above can be a contract or test-environment handoff; it does not require closing the whole upstream issue. This avoids circular waits between implementation and acceptance tasks.
+- Before implementation, confirm the applicable package, owner, schema/API/event contracts and required external fixtures. If a new blocker is discovered, add its issue link, exact deliverable, reason and applicability here and update the batch dependency index before dependent work proceeds.
+- Record each prerequisite as satisfied with evidence, blocked with an owner, or not applicable with a scope reason. Do not silently bypass prerequisites or turn conditional features into universal blockers.
+
 ## Traps
 
 - Follow `docs/DECISIONS.md` and its adopted settings amendment; older task wording is historical where superseded.
@@ -48,6 +72,7 @@ Audit finding **W39** once its acceptance is met and evidence is linked. This is
 
 ## Acceptance
 
+- [ ] Dependency review completed: all applicable prerequisites above have linked evidence or explicit scope disposition; newly discovered blockers are recorded in this task and the batch index.
 - [ ] The health endpoint returns its intended status without ReferenceError, and Docker health checks reflect application readiness.
 - [ ] Verify current behavior against the cited evidence; record which concern is reproduced, already resolved, accepted by an existing decision, or still awaiting applicable integration evidence.
 - [ ] Relevant flow check — **Install and activate**: Clean standalone install, optional-module activation, upgrade, seed/role/menu health; no missing-bean failure. Limit this task to its finding; link adjacent tasks for the rest.

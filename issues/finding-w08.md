@@ -46,6 +46,30 @@ Audit finding **W08** once its acceptance is met and evidence is linked. This is
 
 These links preserve earlier ownership/history. Coordinate overlapping implementation in one change and link both issues; do not build a second competing implementation. Closed duplicates remain closed.
 
+## Implementation order and dependencies
+
+**Recommended wave:** 1 — Protect stock, value and core operator flows. This is a scheduling recommendation, not a requirement to finish every lower-wave issue before starting independent work.
+
+### Before dependent implementation
+
+- [W07 / #201](https://github.com/neetub1508/warehouse-issues/issues/201) — Stable persisted source-cost/rate/origin-line contract needed by current movement producers.
+
+### Before final acceptance / closure
+
+- Required upstream deliverables/evidence: [W07 / #201](https://github.com/neetub1508/warehouse-issues/issues/201), [W34 / #228](https://github.com/neetub1508/warehouse-issues/issues/228). Confirm the relevant deliverable is accepted; an issue’s CLOSED status alone is not proof.
+- Preparatory analysis, fixtures and independent fixes can proceed while prerequisites are open. If a prerequisite is already satisfied in current code, link its commit/test evidence instead of waiting or rebuilding it.
+
+### Setup, decisions and conditional dependencies
+
+Audit native receipt, return and transfer callers individually; removed vertical adapters are excluded.
+
+### Coordination and change control
+
+- Earlier issues in “Related issues / existing implementation ownership” are ownership/history links, not automatic blockers. Preserve their accepted decisions and coordinate overlapping changes.
+- A start dependency above can be a contract or test-environment handoff; it does not require closing the whole upstream issue. This avoids circular waits between implementation and acceptance tasks.
+- Before implementation, confirm the applicable package, owner, schema/API/event contracts and required external fixtures. If a new blocker is discovered, add its issue link, exact deliverable, reason and applicability here and update the batch dependency index before dependent work proceeds.
+- Record each prerequisite as satisfied with evidence, blocked with an owner, or not applicable with a scope reason. Do not silently bypass prerequisites or turn conditional features into universal blockers.
+
 ## Traps
 
 - Follow `docs/DECISIONS.md` and its adopted settings amendment; older task wording is historical where superseded.
@@ -54,6 +78,7 @@ These links preserve earlier ownership/history. Coordinate overlapping implement
 
 ## Acceptance
 
+- [ ] Dependency review completed: all applicable prerequisites above have linked evidence or explicit scope disposition; newly discovered blockers are recorded in this task and the batch index.
 - [ ] Foreign PO receipt, matched supplier return and transfer receipt preserve correct cost without double conversion or destination recosting.
 - [ ] Verify current behavior against the cited evidence; record which concern is reproduced, already resolved, accepted by an existing decision, or still awaiting applicable integration evidence.
 - [ ] Relevant flow check — **Purchase and receipt**: Partial/over/foreign-currency receipt, duplicate submission, lot/serial/UOM and receipt evidence. Limit this task to its finding; link adjacent tasks for the rest.

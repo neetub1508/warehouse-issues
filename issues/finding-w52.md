@@ -40,6 +40,32 @@ No scenario is newly marked passed by creating this task. Execute the finding-sp
 
 Audit finding **W52** once its acceptance is met and evidence is linked. This issue does not automatically close or reopen earlier tasks.
 
+## Implementation order and dependencies
+
+**Recommended wave:** 3 — Prove complete release workflows and enabled integrations. This is a scheduling recommendation, not a requirement to finish every lower-wave issue before starting independent work.
+
+### Before dependent implementation
+
+- [W19 / #213](https://github.com/neetub1508/warehouse-issues/issues/213) — Task event/lifecycle semantics.
+- [W20 / #214](https://github.com/neetub1508/warehouse-issues/issues/214) — Blocked-task alert behavior.
+- [W21 / #215](https://github.com/neetub1508/warehouse-issues/issues/215) — Missing-snapshot/job recovery behavior.
+
+### Before final acceptance / closure
+
+- Required upstream deliverables/evidence: [W19 / #213](https://github.com/neetub1508/warehouse-issues/issues/213), [W20 / #214](https://github.com/neetub1508/warehouse-issues/issues/214), [W21 / #215](https://github.com/neetub1508/warehouse-issues/issues/215), [W39 / #233](https://github.com/neetub1508/warehouse-issues/issues/233). Confirm the relevant deliverable is accepted; an issue’s CLOSED status alone is not proof.
+- Preparatory analysis, fixtures and independent fixes can proceed while prerequisites are open. If a prerequisite is already satisfied in current code, link its commit/test evidence instead of waiting or rebuilding it.
+
+### Setup, decisions and conditional dependencies
+
+External prerequisite: actual notification route/operator, isolated failure injection and runbook ownership. Alert delivery and successful recovery both need proof.
+
+### Coordination and change control
+
+- Earlier issues in “Related issues / existing implementation ownership” are ownership/history links, not automatic blockers. Preserve their accepted decisions and coordinate overlapping changes.
+- A start dependency above can be a contract or test-environment handoff; it does not require closing the whole upstream issue. This avoids circular waits between implementation and acceptance tasks.
+- Before implementation, confirm the applicable package, owner, schema/API/event contracts and required external fixtures. If a new blocker is discovered, add its issue link, exact deliverable, reason and applicability here and update the batch dependency index before dependent work proceeds.
+- Record each prerequisite as satisfied with evidence, blocked with an owner, or not applicable with a scope reason. Do not silently bypass prerequisites or turn conditional features into universal blockers.
+
 ## Traps
 
 - Follow `docs/DECISIONS.md` and its adopted settings amendment; older task wording is historical where superseded.
@@ -48,6 +74,7 @@ Audit finding **W52** once its acceptance is met and evidence is linked. This is
 
 ## Acceptance
 
+- [ ] Dependency review completed: all applicable prerequisites above have linked evidence or explicit scope disposition; newly discovered blockers are recorded in this task and the batch index.
 - [ ] Alert reaches the right operator, names affected work and supports safe retry without skipping stock events.
 - [ ] Verify current behavior against the cited evidence; record which concern is reproduced, already resolved, accepted by an existing decision, or still awaiting applicable integration evidence.
 - [ ] Relevant flow check — **Backup and incident recovery**: Isolated restore of DB and objects, ledger/hash/value tie-out, outbox reconciliation and measured recovery time. Limit this task to its finding; link adjacent tasks for the rest.
