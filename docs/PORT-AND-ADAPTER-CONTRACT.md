@@ -699,22 +699,23 @@ Marked as **additions**, each with the clause that makes it necessary. They are 
 | `MOVEMENT_NOT_SUBMITTER` | 403 | no | `RA-004` — Withdraw by anyone but the submitting actor, a replay included (`MPR-GRD-28`) |
 | `UNKNOWN_ATTRIBUTE_KEY` | 422 | no | `RL-007` — a line attribute naming no active `MOVEMENT_LINE` key (`MPR-GRD-24`) |
 | `ATTRIBUTE_VALUE_TYPE_MISMATCH` | 422 | no | `RL-007` — a line attribute's value not in the one typed column its key's `value_type` names (`MPR-GRD-24`) |
+| `WAREHOUSE_SITE_NOT_PERMITTED` | 403 | no | W30 (`#224`) — the movement's site is outside the caller's warehouse scope: the port's post, batch member, simulate and as-at refusal; the built `WhbScopeRefusedException.SITE_NOT_PERMITTED`, referenced, never re-spelled (header; classic `815ef9c76a`, `b1d7b05cfe`) *(amended — adopted by default 2026-10-13 (A1, #458); ratification pending)* |
+| `BIN_MOVE_SHAPE_INVALID` | 422 | no | W14 (`#208`, `FR-150`) — a `BIN_MOVE` that is not two lines of loose stock between two locations at one site with owner, item, lot, serial, stock status and duty status unchanged (`bin-move.contract.md` `BM-GRD-01`); its capacity refusal reuses `LOCATION_POLICY_VIOLATED` (header; classic `c5ab158c52`) *(amended — adopted by default 2026-10-13 (A1, #458); ratification pending)* |
 | `EXCHANGE_RATE_REQUIRED` | 422 | no | `OD-16` / §2.5 — a foreign-currency cost without a positive frozen `exchange_rate`, or a base-currency cost with a rate other than 1 (line) *(amended — adopted by default 2026-10-13 (A1 S1, #203 / #411); ratification pending)* |
 | `VALUATION_METHOD_NOT_SUPPORTED` | 422 | conditionally | `FR-235` — the resolved valuation policy names a method other than AVCO or FIFO; LIFO and STANDARD are refused (line) *(amended — adopted by default 2026-10-13 (A1 S1, #203 / #411); ratification pending)* |
 | `BASE_CURRENCY_REQUIRED` | 422 | conditionally | `OD-16` — the company has no base currency and the platform no default, so the valuation would be in no currency (header) *(amended — adopted by default 2026-10-13 (A1 S1, #203 / #411); ratification pending)* |
 
-**Total: 31 ratified + 27 additions = 58** — the set `FR-039` names, folded by `RD-008` (2026-09-16), and the
-set `WhbLedgerErrorCodes.VOCABULARY` publishes; `WhbLedgerErrorCodesTest` asserts the 58. Counted from the two
-tables above.
+**Total: 31 ratified + 32 additions (30 contract additions + the two built precedents) = 63** — the set `FR-039`
+names, folded by `RD-008` (2026-09-16), and the set `WhbLedgerErrorCodes.VOCABULARY` publishes;
+`WhbLedgerErrorCodesTest` asserts the 63. Counted from the two tables above *(amended — adopted by default 2026-10-13 (A1, #458); ratification pending)*.
 
 > **Amended — adopted by default 2026-10-13 (A1 S1, #203 / #411); ratification pending.** W09 (`#203`, `#172` item 5, classic `a4fd80d378`) adds the costing
 > engine's three refusals above, referenced from `WhbCostingEngine`, never re-spelled
 > (`WhbLedgerErrorCodes.java:134-138`, `:217-221`), so a blocked-movement record and the Rejection
 > filter accept them. `WhbLedgerErrorCodes.VOCABULARY` now publishes **63** (31 ratified + 30
-> additions + the two built codes, as its javadoc counts them). The tables above now list **61**
-> (31 + 30 codes in §3.9.2); the two not yet folded into this table are W30's
-> `WAREHOUSE_SITE_NOT_PERMITTED` (403) and W14's `BIN_MOVE_SHAPE_INVALID` (422), both already in the
-> code's vocabulary.
+> additions + the two built codes, as its javadoc counts them). The tables above now list all **63**
+> (31 + 32 codes in §3.9.2): W30's `WAREHOUSE_SITE_NOT_PERMITTED` (403) and W14's
+> `BIN_MOVE_SHAPE_INVALID` (422) are folded in *(amended — adopted by default 2026-10-13 (A1, #458); ratification pending)*.
 
 ## 3.10 Authentication, authorisation and the permission a caller needs
 
