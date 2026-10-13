@@ -2436,8 +2436,27 @@ so a migration author does not have to open the other repository to type a `CREA
 | **Money / extended value** | `DECIMAL(19,4)` | `extended_cost`, `layer_value`, `value_consumed`, `variance_value`, `total_value_impact`, `subtotal`, `tax_amount`, `total_amount`, `line_total`, `shipping_cost`, `credit_amount`, `core_deposit_amount`, `declared_value`, `allocated_amount`, every `wh3_` `amount` / `charge` / `rate`-as-money column, `write_down_amount` |
 | **Per-unit cost and price** | `DECIMAL(19,6)` | `unit_cost`, `unit_price`, `unit_value`, `standard_cost`, `moving_average_after`, `old_unit_cost`, `new_unit_cost`, `assessed_nrv`, `rate` on `wh3_rate_card_lines` **where the rate is per unit** |
 | **Percentages and ratios** | `DECIMAL(9,6)` | `variance_pct`, `over_receipt_tolerance_pct`, `recount_threshold_pct`, `approval_threshold_pct`, `min_shelf_life_receipt_pct`, `min_shelf_life_ship_pct`, `discount_percent`, `markup_percent`, `scrap_factor_percent`, `quantity_ratio`, `buffer_percent`, every `*_percent` and `*_ratio` |
-| **Currency exchange rates** | `DECIMAL(19,8)` | `whb_cost_layers.exchange_rate`, and **nothing else** |
+| **Currency exchange rates** | `DECIMAL(19,8)` | `whb_cost_layers.exchange_rate`, `whb_stock_movement_lines.exchange_rate` (`V501122`), and **nothing else** |
 | **Physical measures** | `DECIMAL(12,3)` kg / `DECIMAL(12,2)` cm / `DECIMAL(15,2)` cc | `weight_gross_kg`, `weight_net_kg`, `gross_weight_kg`, `scale_weight_kg`, `tare_weight_kg`, `max_weight_kg`, `billable_weight_kg`, `length_cm`/`width_cm`/`height_cm`/`depth_cm`, `volume_cc`, `max_volume_cc`, `distance_km` `DECIMAL(10,2)` |
+
+> **Amended — adopted by default 2026-10-13 (A1 S1, #203 / #411); ratification pending.** `exchange_rate` is no longer on `whb_cost_layers` alone (W07 `#201`,
+> W09 `#203` G5). `V501122` adds to `whb_stock_movement_lines` the producer's source-cost evidence,
+> **written once at INSERT and never restated** (nullable, never backfilled — a line posted before
+> `V501122` keeps NULL; I-2's line allowlist stays `'{}'`): `source_currency_code` `VARCHAR(3)` FK →
+> `currencies`, `source_unit_cost` `DECIMAL(19,6)`, `source_extended_cost` `DECIMAL(19,4)`,
+> `exchange_rate` `DECIMAL(19,8)` (base units per one source unit, frozen at submission, 1 for
+> base-currency input, positive `CHECK`) and `cost_source_line_id` `UUID` (no FK — the line key is
+> `(id, occurred_at)`). `unit_cost` / `cost_currency_code` / `extended_cost` keep their meaning: the
+> base-currency value the line posted at. `V501122` also creates the append-only
+> `whb_movement_line_approved_costs` (`id`, `movement_line_id`, `occurred_at`, `movement_id`,
+> `unit_cost` `DECIMAL(19,6)`, `cost_currency_code` `VARCHAR(3)`, `extended_cost` `DECIMAL(19,4)`,
+> `moving_average_after` `DECIMAL(19,6)`, `cost_layer_id`, `created_at`, `created_by`) — one row per
+> line the engine valued when its `PENDING` movement was approved; a reader takes that row when there
+> is one, else the line. `V501204` creates `whb_cost_layer_value_restatements` (`id`,
+> `cost_layer_id` FK → `whb_cost_layers`, `movement_id` + `movement_occurred_at` bare pair with no FK,
+> `value_change` `DECIMAL(19,4)` `<> 0`, `created_at`, `created_by`) — one dated row per restatement
+> of a layer's `layer_value` (landed cost, revaluation, NRV), INSERT-only, so an as-at valuation
+> leaves out a restatement posted after the as-at (F396 `#411` item 2).
 
 **The two tie-breaks are normative and are restated verbatim because an author reading the table
 quickly resolves both the wrong way:**
