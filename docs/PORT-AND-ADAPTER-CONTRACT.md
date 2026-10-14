@@ -681,10 +681,14 @@ Marked as **additions**, each with the clause that makes it necessary. They are 
 | `MOVEMENT_NOT_SUBMITTER` | 403 | no | `RA-004` — Withdraw by anyone but the submitting actor, a replay included (`MPR-GRD-28`) |
 | `UNKNOWN_ATTRIBUTE_KEY` | 422 | no | `RL-007` — a line attribute naming no active `MOVEMENT_LINE` key (`MPR-GRD-24`) |
 | `ATTRIBUTE_VALUE_TYPE_MISMATCH` | 422 | no | `RL-007` — a line attribute's value not in the one typed column its key's `value_type` names (`MPR-GRD-24`) |
+| `MOVEMENT_TYPE_NOT_PORT_POSTABLE` | 403 | no | `#285` (2026-10-14, build `V501210`) — over HTTP (`POST /movements`, `/batch`, `/ratio-pack`, Simulate, the reprocess of an HTTP-recorded row) the movement type's `port_post_permission` is NULL or not held by the caller. Seeded: `BIN_MOVE` → `warehouse:movements:post`; `RECEIPT`, `ISSUE`, `RECEIPT_REVERSAL`, `ISSUE_REVERSAL` (the four `/ratio-pack` admits) → `warehouse:movements:post_external` (ADMIN only, granted per install); every other type NULL. An in-process adapter posting through `WhbMovementPortService.post` (§8.2) is not checked |
 
 **Total: 31 ratified + 27 additions = 58** — the set `FR-039` names, folded by `RD-008` (2026-09-16), and the
 set `WhbLedgerErrorCodes.VOCABULARY` publishes; `WhbLedgerErrorCodesTest` asserts the 58. Counted from the two
 tables above.
+`#285` (2026-10-14) adds `MOVEMENT_TYPE_NOT_PORT_POSTABLE`: the build's `WhbLedgerErrorCodes.VOCABULARY` now publishes
+64 (`WhbLedgerErrorCodesTest`), the 58 above plus W30's `WAREHOUSE_SITE_NOT_PERMITTED`, W14's `BIN_MOVE_SHAPE_INVALID`,
+W09's three costing codes and this one.
 
 ## 3.10 Authentication, authorisation and the permission a caller needs
 
