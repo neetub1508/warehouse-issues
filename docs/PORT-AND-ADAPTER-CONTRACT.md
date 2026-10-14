@@ -703,6 +703,7 @@ W09's three costing codes and this one.
 > | Permission | Needed for |
 > |---|---|
 > | `warehouse:movements:post` | `POST /movements`, `POST /movements/batch`, `POST /movements/{id}/withdraw` (the submitter only) |
+> | `warehouse:movements:post_external` | `RECEIPT`, `ISSUE`, `RECEIPT_REVERSAL` and `ISSUE_REVERSAL` over `POST /movements`, `POST /movements/batch` and `POST /movements/ratio-pack`: the type's `whb_movement_types.port_post_permission` (V501210, #285); a type whose `port_post_permission` is NULL is not HTTP-postable (403 `MOVEMENT_TYPE_NOT_PORT_POSTABLE`). `POST /movements/{id}/reverse` stays on `warehouse:movements:reverse`. |
 > | `warehouse:movements:reverse` | `POST /movements/{id}/reverse` |
 > | `warehouse:movements:view` | `GET /movements/{id}`, the lineage query |
 > | `warehouse:movements:simulate` | `POST /movements/simulate` |
