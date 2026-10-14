@@ -2439,7 +2439,7 @@ so a migration author does not have to open the other repository to type a `CREA
 | **Currency exchange rates** | `DECIMAL(19,8)` | `whb_cost_layers.exchange_rate`, `whb_stock_movement_lines.exchange_rate` (`V501122`), and **nothing else** |
 | **Physical measures** | `DECIMAL(12,3)` kg / `DECIMAL(12,2)` cm / `DECIMAL(15,2)` cc | `weight_gross_kg`, `weight_net_kg`, `gross_weight_kg`, `scale_weight_kg`, `tare_weight_kg`, `max_weight_kg`, `billable_weight_kg`, `length_cm`/`width_cm`/`height_cm`/`depth_cm`, `volume_cc`, `max_volume_cc`, `distance_km` `DECIMAL(10,2)` |
 
-> **Amended — adopted by default 2026-10-13 (A1 S1, #203 / #411); ratification pending.** `exchange_rate` is no longer on `whb_cost_layers` alone (W07 `#201`,
+> **Amended — ratified 2026-10-14 (#203).** `exchange_rate` is no longer on `whb_cost_layers` alone (W07 `#201`,
 > W09 `#203` G5). `V501122` adds to `whb_stock_movement_lines` the producer's source-cost evidence,
 > **written once at INSERT and never restated** (nullable, never backfilled — a line posted before
 > `V501122` keeps NULL; I-2's line allowlist stays `'{}'`): `source_currency_code` `VARCHAR(3)` FK →

@@ -290,8 +290,8 @@ code, any free-text `reference`. §2.9 gives each one its home.
 | `unit_cost` | DECIMAL(19,6) *(`OD-7`)* | O | per base unit | Warehouse owns cost (`D-6`). A **price** is a commercial fact about a sale and never rides the line (`FR-041`) |
 | `cost_currency_code` | CHAR(3) | O | — | **Retro-fitting currency onto a cost history is guessing.** Column v1, multi-currency v2. `IRR-36` |
 | `extended_cost` | DECIMAL(19,4) | O | the value effect of this line | The carrier of a value-only movement (§2.7) |
-| `exchange_rate` | DECIMAL(19,8) | O / conditionally **R** | base-currency units per one `cost_currency_code` unit, **frozen at submission**; 1 for base-currency input, no default | **A rate re-read later restates the past.** Required with a foreign-currency cost; a non-positive rate, or a base-currency cost with a rate other than 1, is `EXCHANGE_RATE_REQUIRED` (§3.9.2). Stored on the line as `whb_stock_movement_lines.exchange_rate` (`V501122`) *(amended — adopted by default 2026-10-13 (A1 S1, #203 / #411); ratification pending)* |
-| `cost_source_line_id` | UUID | O | the movement line this line takes its cost from — a matched return's issue line, a return to vendor's receipt line, a transfer arrival's sending line, a reversal's original | Without it a matched return that waits for approval loses its link and is costed as unmatched. A line that is not a line of the movement's own company — a missing line included — is `COMPANY_MISMATCH` on `lines[n].cost_source_line_id`; its cost is never read *(amended — adopted by default 2026-10-13 (A1 S1, #203 / #411); ratification pending)* |
+| `exchange_rate` | DECIMAL(19,8) | O / conditionally **R** | base-currency units per one `cost_currency_code` unit, **frozen at submission**; 1 for base-currency input, no default | **A rate re-read later restates the past.** Required with a foreign-currency cost; a non-positive rate, or a base-currency cost with a rate other than 1, is `EXCHANGE_RATE_REQUIRED` (§3.9.2). Stored on the line as `whb_stock_movement_lines.exchange_rate` (`V501122`) *(amended — ratified 2026-10-14 (#203))* |
+| `cost_source_line_id` | UUID | O | the movement line this line takes its cost from — a matched return's issue line, a return to vendor's receipt line, a transfer arrival's sending line, a reversal's original | Without it a matched return that waits for approval loses its link and is costed as unmatched. A line that is not a line of the movement's own company — a missing line included — is `COMPANY_MISMATCH` on `lines[n].cost_source_line_id`; its cost is never read *(amended — ratified 2026-10-14 (#203))* |
 | `cost_basis` | VARCHAR(30) | **R** | `ACTUAL` · `STANDARD` · `AVERAGE` · `INFORMATIONAL` · `ZERO_BAILMENT` | **Decides whether an accounting envelope is emitted at all.** Decided downstream = a year of wrong journals, unwound by hand. `L-14`, `FR-112`, `IRR-36` |
 | `moving_average_after` · `cost_layer_id` | DECIMAL(19,6) · UUID | S | valuation snapshots | Without the snapshot the 31-March cost is **not reproducible**. Columns v1; AVCO v1.1, FIFO v1.1. `IRR-38`, `IRR-39`. *(Whose table the layers live in is `OD-1`/`OD-6`; the **columns** are not in doubt — `IRREVERSIBLE.md` §7.3 item 1)* |
 | `tax_classification_code` · `tax_classification_scheme` | VARCHAR(20) · VARCHAR(20) | S | snapshotted from the item at post: the code (HSN/SAC under `warehouse-india`) and the scheme that issued it | **Reading the item master later gives the *new* code for *old* documents**, on a filed return. Named for no one country's scheme, so a second jurisdiction is a new scheme value, not a renamed ledger column (`RL-008`). `FR-066`, `IRR-42` |
@@ -300,7 +300,7 @@ code, any free-text `reference`. §2.9 gives each one its home.
 | `expiry_date_override` · `qc_result_code` | DATE · VARCHAR(30) | O | producer knows an expiry the lot does not yet carry; receipt already inspected | — |
 | `read_point_location_id` · `biz_location_id` | UUID FK · UUID FK | O | EPCIS: where the scan happened vs where the goods then were | Two different facts. Columns v1, feature v2. `IRR-20` |
 
-> **Amended — adopted by default 2026-10-13 (A1 S1, #203 / #411); ratification pending.** W09 (`#203` G3 / G4, `#172` items 4 and 5). **The port's cost
+> **Amended — ratified 2026-10-14 (#203).** W09 (`#203` G3 / G4, `#172` items 4 and 5). **The port's cost
 > fields:** `exchange_rate` and `cost_source_line_id` are on the wire line (`WhbMovementEnvelopeCodec`
 > `LINE_FIELDS`), both optional; the body hash is the body as received, so an envelope without them
 > hashes as before. The producer's source figures land on the line as `source_currency_code`,
@@ -315,6 +315,8 @@ code, any free-text `reference`. §2.9 gives each one its home.
 > mapping is **movement-type `WEIGHTED_AVERAGE` ↔ layer / port `AVERAGE`**. Ledger lines are immutable
 > (I-2), so lines already posted keep whichever spelling they carry, and **every receiver accepts
 > both**.
+
+> **v1 receipt scope — DECIDED (b) 2026-10-14 (#329):** a foreign-currency source amount and its rate reach warehouse only through the movement port; a native GRN keys cost in company base currency at rate 1 and never converts a foreign PO price. `warehouse.cost.exchange_rate_source` = `SOURCE_RATE` (the rate carried on the line); `PROVIDER_RATE` is not implemented in v1 (capability `enable.warehouse.rate_provider` absent, V511200) - v2.
 
 **Attributes side table** — `whb_movement_line_attributes (movement_line_id, occurred_at,
 attribute_key_id FK → whb_attribute_keys, value_string, value_number, value_date, value_boolean)`:
@@ -699,23 +701,23 @@ Marked as **additions**, each with the clause that makes it necessary. They are 
 | `MOVEMENT_NOT_SUBMITTER` | 403 | no | `RA-004` — Withdraw by anyone but the submitting actor, a replay included (`MPR-GRD-28`) |
 | `UNKNOWN_ATTRIBUTE_KEY` | 422 | no | `RL-007` — a line attribute naming no active `MOVEMENT_LINE` key (`MPR-GRD-24`) |
 | `ATTRIBUTE_VALUE_TYPE_MISMATCH` | 422 | no | `RL-007` — a line attribute's value not in the one typed column its key's `value_type` names (`MPR-GRD-24`) |
-| `WAREHOUSE_SITE_NOT_PERMITTED` | 403 | no | W30 (`#224`) — the movement's site is outside the caller's warehouse scope: the port's post, batch member, simulate and as-at refusal; the built `WhbScopeRefusedException.SITE_NOT_PERMITTED`, referenced, never re-spelled (header; classic `815ef9c76a`, `b1d7b05cfe`) *(amended — adopted by default 2026-10-13 (A1, #458); ratification pending)* |
-| `BIN_MOVE_SHAPE_INVALID` | 422 | no | W14 (`#208`, `FR-150`) — a `BIN_MOVE` that is not two lines of loose stock between two locations at one site with owner, item, lot, serial, stock status and duty status unchanged (`bin-move.contract.md` `BM-GRD-01`); its capacity refusal reuses `LOCATION_POLICY_VIOLATED` (header; classic `c5ab158c52`) *(amended — adopted by default 2026-10-13 (A1, #458); ratification pending)* |
-| `EXCHANGE_RATE_REQUIRED` | 422 | no | `OD-16` / §2.5 — a foreign-currency cost without a positive frozen `exchange_rate`, or a base-currency cost with a rate other than 1 (line) *(amended — adopted by default 2026-10-13 (A1 S1, #203 / #411); ratification pending)* |
-| `VALUATION_METHOD_NOT_SUPPORTED` | 422 | conditionally | `FR-235` — the resolved valuation policy names a method other than AVCO or FIFO; LIFO and STANDARD are refused (line) *(amended — adopted by default 2026-10-13 (A1 S1, #203 / #411); ratification pending)* |
-| `BASE_CURRENCY_REQUIRED` | 422 | conditionally | `OD-16` — the company has no base currency and the platform no default, so the valuation would be in no currency (header) *(amended — adopted by default 2026-10-13 (A1 S1, #203 / #411); ratification pending)* |
+| `WAREHOUSE_SITE_NOT_PERMITTED` | 403 | no | W30 (`#224`) — the movement's site is outside the caller's warehouse scope: the port's post, batch member, simulate and as-at refusal; the built `WhbScopeRefusedException.SITE_NOT_PERMITTED`, referenced, never re-spelled (header; classic `815ef9c76a`, `b1d7b05cfe`) *(amended — ratified 2026-10-14 (#203))* |
+| `BIN_MOVE_SHAPE_INVALID` | 422 | no | W14 (`#208`, `FR-150`) — a `BIN_MOVE` that is not two lines of loose stock between two locations at one site with owner, item, lot, serial, stock status and duty status unchanged (`bin-move.contract.md` `BM-GRD-01`); its capacity refusal reuses `LOCATION_POLICY_VIOLATED` (header; classic `c5ab158c52`) *(amended — ratified 2026-10-14 (#203))* |
+| `EXCHANGE_RATE_REQUIRED` | 422 | no | `OD-16` / §2.5 — a foreign-currency cost without a positive frozen `exchange_rate`, or a base-currency cost with a rate other than 1 (line) *(amended — ratified 2026-10-14 (#203))* |
+| `VALUATION_METHOD_NOT_SUPPORTED` | 422 | conditionally | `FR-235` — the resolved valuation policy names a method other than AVCO or FIFO; LIFO and STANDARD are refused (line) *(amended — ratified 2026-10-14 (#203))* |
+| `BASE_CURRENCY_REQUIRED` | 422 | conditionally | `OD-16` — the company has no base currency and the platform no default, so the valuation would be in no currency (header) *(amended — ratified 2026-10-14 (#203))* |
 
 **Total: 31 ratified + 32 additions (30 contract additions + the two built precedents) = 63** — the set `FR-039`
 names, folded by `RD-008` (2026-09-16), and the set `WhbLedgerErrorCodes.VOCABULARY` publishes;
-`WhbLedgerErrorCodesTest` asserts the 63. Counted from the two tables above *(amended — adopted by default 2026-10-13 (A1, #458); ratification pending)*.
+`WhbLedgerErrorCodesTest` asserts the 63. Counted from the two tables above *(amended — ratified 2026-10-14 (#203))*.
 
-> **Amended — adopted by default 2026-10-13 (A1 S1, #203 / #411); ratification pending.** W09 (`#203`, `#172` item 5, classic `a4fd80d378`) adds the costing
+> **Amended — ratified 2026-10-14 (#203).** W09 (`#203`, `#172` item 5, classic `a4fd80d378`) adds the costing
 > engine's three refusals above, referenced from `WhbCostingEngine`, never re-spelled
 > (`WhbLedgerErrorCodes.java:134-138`, `:217-221`), so a blocked-movement record and the Rejection
 > filter accept them. `WhbLedgerErrorCodes.VOCABULARY` now publishes **63** (31 ratified + 30
 > additions + the two built codes, as its javadoc counts them). The tables above now list all **63**
 > (31 + 32 codes in §3.9.2): W30's `WAREHOUSE_SITE_NOT_PERMITTED` (403) and W14's
-> `BIN_MOVE_SHAPE_INVALID` (422) are folded in *(amended — adopted by default 2026-10-13 (A1, #458); ratification pending)*.
+> `BIN_MOVE_SHAPE_INVALID` (422) are folded in *(amended — ratified 2026-10-14 (#203))*.
 
 ## 3.10 Authentication, authorisation and the permission a caller needs
 
@@ -2202,7 +2204,7 @@ argument, and both should be reflected into the FRD.
 | 2 | **Out-of-process caller authentication** (`PC-33`) | before `whb_outbox_subscriptions` HTTP delivery in v1.1 | A platform service principal with owner grants, so `PC-05` and `PC-32` apply unchanged. **Needs an `OD-` row in `DECISIONS.md`** — allocating `OD-` ids is that document's business |
 | 3 | **Value conservation on a value-only movement** (`PC-12`) | before `P0-02` writes the ledger | Either a `value_balance_rule` behaviour column on `whb_movement_types`, or a fifteenth `L-` invariant. `L-1`…`L-14` currently conserve **quantity only** |
 | 4 | **A value-offset virtual location** (`PC-12`) | with the above | `FR-084`'s seeded list has no value-offset row. One seed row (`LANDED_COST_OFFSET`) or the reuse of an `ADJUSTMENT_OFFSET`-typed location. **Flagged, not assumed** |
-| 5 | ~~**§3.9.2's twelve added error codes**~~ **Resolved by `#458`** — restated as §3.9.2's **32** added codes (63 in all), folded into `FR-039` *(amended — adopted by default 2026-10-13 (A1, #458); ratification pending)* | before v1 ships | Fold into `FR-039`. `PC-29` forbids renaming after the fact, so adding them late is the failure it prevents |
+| 5 | ~~**§3.9.2's twelve added error codes**~~ **Resolved by `#458`** — restated as §3.9.2's **32** added codes (63 in all), folded into `FR-039` *(amended — ratified 2026-10-14 (#203))* | before v1 ships | Fold into `FR-039`. `PC-29` forbids renaming after the fact, so adding them late is the failure it prevents |
 | 6 | **`OD-1` / `OD-6` — where the cost-layer tables live** | before `P2` | Not this document's. What is **not** in doubt: `cost_basis`, `unit_cost`, `cost_currency_code`, `moving_average_after` and `cost_layer_id` are **columns on the ledger line** whoever computes the numbers (`IRREVERSIBLE.md` §7.3) |
 | 7 | **`OD-7` — precision** | before `P0-02` | Every numeric type in §2 is a recommendation carrying a citation, not a ruling. `conversion_factor_used` in particular: R4 proposes `numeric(18,8)`; the accounting set's `DECIMAL(19,8)` is explicitly *"the **currency-conversion** type and nothing else"* |
 | 8 | **`OD-3` — one DB per customer vs shared multi-tenancy** | before `warehouse-3pl` P5 | Not this document's. Note only that `PC-32`'s owner scope is what carries the 3PL case either way |
@@ -2250,6 +2252,6 @@ current.*
 
 ## Adopted configuration integration boundary — 2026-09-11
 
-The base-owned port accepts base-valued `unit_cost`/`extended_value` and explicit source currency/rate evidence; adapters normalize original prices once. A foreign-currency source without a positive rate is refused atomically; repeat identity with changed normalized payload conflicts. The source snapshot preserves original amount, currency and rate evidence for audit; no base-to-accounting table access. *(Amended — adopted by default 2026-10-13 (A1 S1, #203 / #411); ratification pending: that source evidence — `source_currency_code`, `source_unit_cost`, `source_extended_cost`, `exchange_rate`, `cost_source_line_id` on `whb_stock_movement_lines`, `V501122` — is **written once at INSERT** and never restated; an approval-gated line's approved value is a separate append-only `whb_movement_line_approved_costs` row, §2.5.)*
+The base-owned port accepts base-valued `unit_cost`/`extended_value` and explicit source currency/rate evidence; adapters normalize original prices once. A foreign-currency source without a positive rate is refused atomically; repeat identity with changed normalized payload conflicts. The source snapshot preserves original amount, currency and rate evidence for audit; no base-to-accounting table access. *(Amended — ratified 2026-10-14 (#203): that source evidence — `source_currency_code`, `source_unit_cost`, `source_extended_cost`, `exchange_rate`, `cost_source_line_id` on `whb_stock_movement_lines`, `V501122` — is **written once at INSERT** and never restated; an approval-gated line's approved value is a separate append-only `whb_movement_line_approved_costs` row, §2.5.)*
 
 Tax/cost provider capabilities are lower-layer interfaces with optional adapter registrations. A dealer adapter does not import warehouse-india classes or tables. The composition layer selects an installed provider under Global Settings, captures its result or external evidence in the owning document's audit payload, and blocks the affected finalization when absent. Core stock-only operations do not acquire a tax-engine dependency. All callbacks verify document identity and retain accepted results; timeout/retry is not permission to create a second invoice.
