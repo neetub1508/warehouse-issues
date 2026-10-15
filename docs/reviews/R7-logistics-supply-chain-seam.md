@@ -360,6 +360,8 @@ exist in `warehouse` v1 only because logistics does not exist yet?* — gives **
 an FK from the referencing table into the relocatable one.** Applying that rule to one object and not
 the other four is how the move stops being cheap. (`G-013`)
 
+**Ruled 2026-10-14 (X-068, #474):** the carrier row's own masters (services, accounts, status mappings, serviceability, account scopes, AWB pools) move WITH the carriers, so FKs inside that set stand. `wh_shipment_tracking_events`, `wh_shipment_ndrs`, `wh_cod_remittances` and `wh_rate_quotes` reference the carrier by its party (`carrier_counterparty_id`) resolved through `WhCarrierResolver` — `V511306`.
+
 ## 2.7 The events that cross — additions to R4 §4.4
 
 R4 §4.4 lists five `warehouse → logistics` events and nine `logistics → warehouse` calls. I would add:

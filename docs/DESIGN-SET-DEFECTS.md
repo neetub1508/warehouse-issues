@@ -2217,7 +2217,7 @@ recorded, not fixed.
 
 ### `X-068` · `P5-11`'s own tables hold UUID FKs into the carrier masters that `G-013` says must be referenced by code — **MAJOR**
 
-> **Severity** MAJOR · **Status** REFERRED — to the design-set owner (a `G-013` / `IRR-26` ruling) · **Found** 2026-09-27, in the `P5-11` wave 4 functional gate (`p511-func.md`, contract quality)
+> **Severity** MAJOR · **Status** RULED 2026-10-14 (#474 decision A, user ruling "use the recommendations") — the P5-11 shipment documents STAY; their carrier references are re-keyed to the party · **Found** 2026-09-27, in the `P5-11` wave 4 functional gate (`p511-func.md`, contract quality)
 
 **Claim.** `issues/p5-11.md` (Traps) says `wh_carriers` / `wh_carrier_services` / `wh_carrier_accounts` are on
 R7 §2.6's list of five boundaries that will move to `logistics`, and that *every reference into them from a
@@ -2232,8 +2232,5 @@ behind* — in which case each FK is exactly what `G-013` forbids — is stated 
 the rule (it stores `carrier_counterparty_id`, and `WhCarrierResolver` maps it).
 
 **Why it matters.** The answer decides whether the carrier move to `logistics` is a table relocation or a schema
-rewrite of every carrier-integration table, and the `V5102xx` files are applied — any change is a new migration.
-
-**Fix.** None taken (`W4-FIX-DECISIONS.md`, P5-11 "Record"). A ruling is needed: either list the `P5-11` tables
-among the relocatable set in R7 §2.6 / `IRR-26` (the FKs stand), or name them documents that stay (a later
+rewrite of every **Fix.** Ruled (#474): `wh_carriers` / `wh_carrier_services` / `wh_carrier_accounts` and their own masters (`wh_carrier_status_mappings`, `wh_carrier_serviceability`, `wh_carrier_account_scopes`, `wh_awb_pools`) are relocatable with the carriers — their FKs stand. The shipment documents that stay (R7 §2.6, third-party tracking) — `wh_shipment_tracking_events`, `wh_rate_quotes`, `wh_shipment_ndrs`, `wh_cod_remittances` — reference the carrier by its PARTY (`carrier_counterparty_id` → `whb_counterparties`) resolved through `WhCarrierResolver`, exactly as `wh_shipments` does: `V511306` (classic commit e8269738b7). `wh_rate_quotes.service_code` is a plain code; `wh_shipment_tracking_events.status_mapping_id` is a soft lineage pointer. Follow-up: `wh_shipping_labels` (`V510103`) and `wh_pickup_requests` / `wh_manifests` / `wh_handovers` (`V510104`) still hold `carrier_id` FKs.hem documents that stay (a later
 migration re-keys each FK to a code resolved through a service).
