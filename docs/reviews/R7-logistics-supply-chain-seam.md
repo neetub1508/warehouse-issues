@@ -362,6 +362,8 @@ the other four is how the move stops being cheap. (`G-013`)
 
 **Ruled 2026-10-14 (X-068, #474):** the carrier row's own masters (services, accounts, status mappings, serviceability, account scopes, AWB pools) move WITH the carriers, so FKs inside that set stand. `wh_shipment_tracking_events`, `wh_shipment_ndrs`, `wh_cod_remittances` and `wh_rate_quotes` reference the carrier by its party (`carrier_counterparty_id`) resolved through `WhCarrierResolver` — `V511306`.
 
+**Ruled 2026-10-16 (X-068, #487):** `wh_shipping_labels`, `wh_pickup_requests`, `wh_manifests` and `wh_handovers` stay with the warehouse and reference the carrier by its party too, and `wh_rate_quotes` names its carrier account by code resolved as (carrier party, code) — `V511308`. The "manifests" in the v2 `logistics` scope above are the own-fleet trip manifests, not v1's third-party AWB list. `wh_shipments.carrier_account_id` keeps its FK into `wh_carrier_accounts` as a recorded exception: the account boundary is not relocation-ready until it is re-keyed.
+
 ## 2.7 The events that cross — additions to R4 §4.4
 
 R4 §4.4 lists five `warehouse → logistics` events and nine `logistics → warehouse` calls. I would add:
