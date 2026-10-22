@@ -74,7 +74,7 @@
 | BOM-T1-10 | `DRAFT` | **Delete** | *deleted* | never referenced (`BOM-GRD-16`) | `whm_boms:delete` | children cascade | no | WS-320 **Delete** |
 | BOM-T1-11 | `APPROVED` · `SUBMITTED` · `OBSOLETE` | Edit / delete | refused | — | any | none | — | `BOM-UNR-01`, `-02` |
 | BOM-T1-12 | — | Set default alternative | via `BOM-T1-03` on a `DRAFT` | effective on approval (`BOM-GRD-14`) | `:edit` | — | no | Header tab |
-| BOM-T1-13 | — | **Select BOM** (service, called by `PRO-T1-01`/`-02`, `MRP-T1-03`) for `(item, usage, site, date, quantity)` | — (read) | — | system | order of precedence (`FR-626`): explicit BOM id → site-specific before all-sites → `APPROVED` and effective on the date (`[from, to)`) → alternative whose `[lot_size_from, lot_size_to]` contains the quantity → `is_default_alternative` → lowest `alternative_no` among ties (`BOM-OPEN-01`) → `422 BOM_NOT_FOUND` naming item, site, date, usage | — | — |
+| BOM-T1-13 | — | **Select BOM** (service, called by `PRO-T1-01`/`-02`, `MRP-T1-03`) for `(item, usage, site, date, quantity)` — **the date is always the order's (or proposal's) planned start date**, at creation and again at release (MD-19) | — (read) | — | system | order of precedence (`FR-626`): explicit BOM id → site-specific before all-sites → `APPROVED` and effective on the date (`[from, to)`) → alternative whose `[lot_size_from, lot_size_to]` contains the quantity → `is_default_alternative` → lowest `alternative_no` among ties (`BOM-OPEN-01`); `is_rework_alternative` rows only for a `REWORK` order and preferred there (MD-26) → `422 BOM_NOT_FOUND` naming item, site, date, usage | — | — |
 | BOM-T1-14 | — | **Explode** item × quantity × date × site × usage | — (read) | an approved BOM selectable by `BOM-T1-13` at each level | `whm_boms:view` | indented tree: quantity scaled by `qty ÷ base_quantity`, line scrap applied (`required = qty × (1 + scrap%)`), `is_fixed_quantity` unscaled, phantom components replaced by their own components multiplied through with `phantom_path`, low-level code shown (`FR-628`, `WH-SC-606`, `WH-SC-609`) | — | WS-321 **Explosion** |
 | BOM-T1-15 | — | **Where-used** single-level / recursive for a component | — (read) | — | `whm_boms:view` | parents with quantity per parent; recursive walks up through phantoms and sub-assemblies (`WH-SC-607`) | — | WS-321 **Where-used** |
 | BOM-T1-16 | — | **Cost roll-up** for an explosion | — (read) | — | `whm_boms:view` (+ platform view-cost) | per level: unit cost from current cost layers via `WhbCostLayerMath` (AVCO/FIFO per the item's method), extended cost, `missingCost = true` where no layer exists (`WH-SC-606`); never computed on the frontend (rule 8) | — | WS-321 **Cost roll-up** |
@@ -91,14 +91,14 @@
 | BOM-GRD-04 | Outputs: `output_type` ∈ {`CO_PRODUCT`, `BY_PRODUCT`} (main = header item, no row); output item ≠ parent and **not a component of the same BOM**; Σ `cost_share_percent` of `CO_PRODUCT` ≤ 100; `cost_share_percent` only on `CO_PRODUCT`, `by_product_unit_value` only on `BY_PRODUCT` | `422 BOM_OUTPUT_IS_COMPONENT` · `422 BOM_COST_SHARE_EXCEEDS_100` · `422` field-named | uk `(bom_id, sequence)`, `(bom_id, output_item_id)` | FR-624 |
 | BOM-GRD-05 | **No cycle at any depth**: DFS over the approved-and-candidate graph of every usage-`PRODUCTION`/`SUBCONTRACT` BOM effective on any overlapping date | `422 BOM_RECURSIVE` naming the path (`PUMP-100 > MOTOR-ASSY > PUMP-100`) | — (service) | FR-627, `WH-SC-604` |
 | BOM-GRD-06 | Depth ≤ 20 levels after phantom expansion; a `PHANTOM` BOM is never its own parent | `422 BOM_DEPTH_EXCEEDED` / `422 BOM_RECURSIVE` | — | FR-627 |
-| BOM-GRD-07 | **Maker–checker**: approver / returner ≠ `submitted_by` | `409 BOM_SELF_APPROVAL` | — | FR-625, `WH-SC-601` |
+| BOM-GRD-07 | **Maker–checker**: approver / returner ≠ `submitted_by` | `403 BOM_SELF_APPROVAL` (MD-21) | — | FR-625, `WH-SC-601` |
 | BOM-GRD-08 | `operation_seq` on a line or output names an operation of the **same** BOM | `422 BOM_OPERATION_NOT_FOUND` · `lines[i].operationSeq` | — | FR-631 |
 | BOM-GRD-09 | Operation: work centre active, same site when the BOM is site-scoped; `setup_minutes ≥ 0`, `run_minutes_per_unit ≥ 0`; `operation_seq` unique | `422` field-named | uk `(bom_id, operation_seq)` | FR-631 |
 | BOM-GRD-10 | Line effectivity `[line_effective_from, line_effective_to)` lies inside the version's effectivity | `422 BOM_LINE_EFFECTIVITY_OUTSIDE_VERSION` | — | FR-623 |
 | BOM-GRD-11 | `lead_time_offset_days` ≥ 0; `alternate_group_code` + `alternate_priority` both set or both null; priorities unique in a group | `422` field-named | — | FR-623 |
 | BOM-GRD-12 | Approving a `PHANTOM` BOM that would become the item's default `PRODUCTION` BOM: the item has **zero on-hand** at every site in scope (contract rule, edge `BOM-E-04`) | `409 PHANTOM_ITEM_HAS_STOCK` naming site, location, quantity | movement-line validator `BOM-T4-03` | FR-627 |
 | BOM-GRD-13 | **One approved BOM per `(item, usage, alternative, coalesce(site))` on any date**: after setting the predecessor's `effective_to` (`BOM-T4-01`), no other `APPROVED` row overlaps `daterange(from, to, '[)')`; service pre-check followed by an explicit `flush()` | `409 BOM_EFFECTIVITY_OVERLAP` naming the overlapping version | gist `EXCLUDE` (FRD §4) | FR-626 |
-| BOM-GRD-14 | At most one `is_default_alternative` per `(item, usage, site)` among `APPROVED` current; approving a default when another alternative is default refuses unless that other is this version's predecessor | `409 BOM_DEFAULT_ALTERNATIVE_EXISTS` | partial uk | FR-622, FR-626 |
+| BOM-GRD-14 | At most one `is_default_alternative` per `(item, usage, COALESCE(site, nil-uuid))` among `APPROVED` current non-rework rows; approving a default when another alternative is default refuses unless that other is this version's predecessor | `409 BOM_DEFAULT_ALTERNATIVE_EXISTS` | partial uk | FR-622, FR-626 |
 | BOM-GRD-15 | One open (`DRAFT`/`SUBMITTED`) successor per `(item, usage, alternative, site)` | `409 BOM_VERSION_IN_PROGRESS` naming it | — | FR-625 |
 | BOM-GRD-16 | Delete: `DRAFT` **and** no `whm_production_orders.bom_id`, no `whm_mrp_proposals.bom_id`, no `supersedes_bom_id` points at it | `409 BOM_REFERENCED` naming the first referrer | FK `bom_id` from orders (no cascade) | FR-625 |
 | BOM-GRD-17 | Work centre: `code` upper-cased, unique per company + site; `available_minutes_per_day` in [0, 1440]; `working_days` matches `^[MTWTFSS-]{7}$`; `efficiency_percent` > 0; `parallel_units ≥ 1`; default line-side location of type `LINE_SIDE` at the same site | `422` field-named; `409` duplicate code (`/validate/code`) | uk `(company_id, warehouse_id, code)` | FR-630 |
@@ -182,7 +182,7 @@ Grid `whm_work_centres` · scope `WAREHOUSE_MFG_WORK_CENTRE` · sort `e.code ASC
 
 | Code | HTTP | When | FR | WH-SC |
 |---|---|---|---|---|
-| `BOM_SELF_APPROVAL` | 409 | approver/returner is the submitter | FR-625 | 601 |
+| `BOM_SELF_APPROVAL` | 403 | approver/returner is the submitter | FR-625 | 601 |
 | `BOM_APPROVED_IMMUTABLE` | 409 | edit/delete of a non-`DRAFT` version | FR-625 | 600 |
 | `BOM_RECURSIVE` | 422 | cycle; message carries the path | FR-627 | 604 |
 | `BOM_DEPTH_EXCEEDED` | 422 | > 20 levels | FR-627 | — |
@@ -208,7 +208,7 @@ Codes not named in the FRD (`BOM_EFFECTIVITY_OVERLAP`, `BOM_DEFAULT_ALTERNATIVE_
 
 | ID | Case | Behaviour | FR | WH-SC |
 |---|---|---|---|---|
-| BOM-E-01 | v2 approved effective 2026-11-01 while v1 is current | v1 `effective_to` = 2026-11-01; an order dated 2026-10-30 selects v1, 2026-11-02 selects v2 | FR-625, FR-626 | 602 |
+| BOM-E-01 | v2 approved effective 2026-11-01 while v1 is current | v1 `effective_to` = 2026-11-01; an order with planned start 2026-10-30 selects v1, planned start 2026-11-02 selects v2 (creation day irrelevant, MD-19) | FR-625, FR-626 | 602 |
 | BOM-E-02 | v2 approved with `effective_from` ≤ v1's | v1 → `OBSOLETE` in the same transaction | FR-625 | — |
 | BOM-E-03 | Two alternatives, lot sizes 1–49 and 50+, order for 60 | alternative 2 | FR-626 | 603 |
 | BOM-E-04 | Item made phantom while it still holds stock | approval refused `PHANTOM_ITEM_HAS_STOCK`; the stock must be consumed or reclassified first | FR-627 | 605 |
@@ -229,6 +229,7 @@ Engineering change orders / change-number master (`R-08`); configurable / varian
 | Date | Change |
 |---|---|
 | 2026-10-22 | v0 derived from FRD-MFG FR-622…FR-631 |
+| 2026-10-22 | Consistency pass: selection date = planned start (MD-19), `403` self-approval (MD-21), `is_rework_alternative` (MD-26), COALESCE unique index (MD-27) |
 
 ## 10. Invariants and scenarios
 
@@ -240,5 +241,5 @@ Engineering change orders / change-number master (`R-08`); configurable / varian
 |---|---|---|
 | BOM-OPEN-01 | Two approved alternatives whose lot-size ranges both contain the quantity (FRD silent) | default alternative if among them, else lowest `alternative_no`; approval does not refuse overlapping ranges |
 | BOM-OPEN-02 | May a `PHANTOM` BOM carry co-/by-product outputs or operations? (they would be lost on explosion) | refuse outputs on a phantom (`422 BOM_OUTPUT_IS_COMPONENT` family → new `422 PHANTOM_OUTPUTS_NOT_ALLOWED`); operations allowed and appended to the parent's list at explosion — confirm |
-| BOM-OPEN-03 | uk `(item_id, bom_usage, alternative_no, version_no, warehouse_id)` with a nullable `warehouse_id` treats NULLs as distinct (PostgreSQL), so two all-sites v1 rows are allowed | declare the uk `NULLS NOT DISTINCT` (PG 15+) or on `coalesce(warehouse_id, '00000000-…')` |
+| BOM-OPEN-03 *(resolved — MD-27)* | uk `(item_id, bom_usage, alternative_no, version_no, warehouse_id)` with a nullable `warehouse_id` treats NULLs as distinct (PostgreSQL), so two all-sites v1 rows are allowed | **adopted:** unique index on `(item_id, bom_usage, alternative_no, version_no, COALESCE(warehouse_id, '00000000-0000-0000-0000-000000000000'::uuid))`; the default-alternative partial index uses the same expression |
 | BOM-OPEN-04 | Should an `APPROVED` version whose `effective_to` has passed be auto-`OBSOLETE`? | no (`BOM-T3-02`); `OBSOLETE` only by `BOM-T1-07`/`-09` |

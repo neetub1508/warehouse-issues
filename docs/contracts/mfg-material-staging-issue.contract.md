@@ -78,14 +78,14 @@
 | MSI-T1-10 | same | **Substitute ad hoc** (any item) | `FLEXIBLE`/`WARN`: effective · `STRICT`: *pending* until a second `:substitute` holder approves | `MSI-GRD-08`, `-09` | `:substitute` (maker), second user (checker under `STRICT`) | as `-09` with `source = AD_HOC`; under `STRICT` effects apply at approval (`approved_by/at`) | **yes** + note | same |
 | MSI-T1-11 | MRQ approved | (core) **store issue post** with cost object the order (`SIR-T1-03`) | — | `SIR-GRD-*` + `MSI-GRD-06`, `-07` via `assertIssuable` | core `wh_store_issues:post` (stores-issue clerk) | `MSI-T4-02` | — | core WS-271 |
 | MSI-T1-12 | issue posted | (core) **store return post** linked to the issue line (`SIR-T1-07`) | — | `SIR-GRD-07`…`-10` (return ≤ net issued, by core) | core `wh_store_returns:post` | `MSI-T4-03` | — | core WS-272 |
-| MSI-T1-13 | order `RELEASED`/`IN_PROGRESS` | **Request extra material** (over-requirement or unplanned item) | MRQ as `-01` | `MSI-GRD-06`, `-07` evaluated **here**, with the deviation reason captured on the order | `:request_materials` | for an unplanned item: a component line `is_unplanned = true`, `deviation_reason_code_id`; then `WhMaterialRequisitionPort.create` | **yes** under `WARN` (`PRODUCTION_DEVIATION`) | WS-324 **Request extra** |
+| MSI-T1-13 | order `RELEASED`/`IN_PROGRESS`/`COMPLETED` (late issue, MD-14) | **Request extra material** (over-requirement or unplanned item) | MRQ as `-01` | `MSI-GRD-06`, `-07` evaluated **here**, with the deviation reason captured on the order | `:request_materials` | for an unplanned item: a component line `is_unplanned = true`, `deviation_reason_code_id`; then `WhMaterialRequisitionPort.create` | **yes** under `WARN` (`PRODUCTION_DEVIATION`) | WS-324 **Request extra** |
 | MSI-T1-14 | order cancelled / closed | (effect) open MRQ of the order | MRQ `CANCELLED` / `CLOSED` | — | system | `WhMaterialRequisitionPort.cancel` (nothing issued) or `.close` (short-close remainder) (`FR-656`) | system reason | — |
 
 ### 1.3 Guards
 
 | ID | Predicate | Refusal | Backstop | Source |
 |---|---|---|---|---|
-| MSI-GRD-01 | Order `RELEASED`/`IN_PROGRESS` (unstage also `COMPLETED`), not on hold, same site | `409 ORDER_NOT_OPEN` / `409 ORDER_ON_HOLD` | resolver `PRO-T4-06` | FR-634, FR-640 |
+| MSI-GRD-01 | Order `RELEASED`/`IN_PROGRESS` for request, staging and substitution; **`COMPLETED` also for unstage, request extra, store issue and store return** (late issues and returns until `CLOSED`, MD-14); not on hold; no settlement `DRAFT`/`APPROVED`; same site | `409 ORDER_NOT_OPEN` / `409 ORDER_ON_HOLD` / `409 ORDER_SETTLEMENT_PENDING` | the `PRODUCTION_ORDER` resolver (STORES `FR-533`, `SIR-GRD-01a`, amended for MD-14) | FR-634, FR-640, FR-656 |
 | MSI-GRD-02 | Staging `to_location` of type `LINE_SIDE`, stock-holding, same site; staging line's component line belongs to the order and has supply method `STAGE_BACKFLUSH` (or `ISSUE` when the option is on) | `422 STAGING_LOCATION_NOT_LINE_SIDE` · `422 STAGING_LINE_INVALID` | FK `whb_locations`; location type read | FR-639 |
 | MSI-GRD-03 | `requested_quantity > 0`; Σ live staging requested for a component ≤ required − staged + unstaged − consumed (+ tolerance under `WARN`/`FLEXIBLE`) | `422 STAGING_EXCEEDS_REQUIREMENT` naming the open quantity | — | FR-639, FR-643 |
 | MSI-GRD-04 | Stage: from-location stock-holding, status `AVAILABLE`, lot not expired / on hold, serial captured for serialised items, on hand ≥ quantity (or negative-stock policy) | `422 STOCK_STATUS_NOT_ISSUABLE` / `422 LOT_NOT_ISSUABLE` / `422 SERIAL_REQUIRED` / writer refusal | ledger (`MPR-T1-01`) | FR-639 |
@@ -93,7 +93,7 @@
 | MSI-GRD-06 | `assertIssuable` (store issue post) / request extra under **`STRICT`**: item is on the order (incl. effective substitutes) and cumulative issued + staged + this ≤ required × (1 + `consumption_tolerance_percent`) | `422 ITEM_NOT_ON_ORDER` · `422 CONSUMPTION_DEVIATION_NOT_ALLOWED` | — | FR-640, FR-643, `WH-SC-621` |
 | MSI-GRD-07 | Under **`WARN`**: a deviation (over tolerance or unplanned) needs a `PRODUCTION_DEVIATION` reason — captured by `MSI-T1-13`; a core issue line not covered by such a request (e.g. a direct issue) is refused by `assertIssuable`. Under **`FLEXIBLE`**: free | `422 DEVIATION_REASON_REQUIRED` | — | FR-643, `WH-SC-624` |
 | MSI-GRD-08 | Substitution: substitute item active, stock-holding, UoM convertible to its base, ≠ original, not phantom; quantity > 0; original line open quantity ≥ the quantity it replaces; from alternate group: the item is an alternate of that BOM line (priority order offered first) | `422 SUBSTITUTE_INVALID` · `422 SUBSTITUTION_EXCEEDS_OPEN` | — | FR-642 |
-| MSI-GRD-09 | `STRICT` ad-hoc substitution approver ≠ requester | `409 SUBSTITUTION_SELF_APPROVAL` | — | FR-642 |
+| MSI-GRD-09 | `STRICT` ad-hoc substitution approver ≠ requester | `403 SUBSTITUTION_SELF_APPROVAL` (MD-21) | — | FR-642 |
 | MSI-GRD-10 | Return above net issued | core `422 STORE_RETURN_EXCEEDS_ISSUED` (`SIR-GRD-07`) | CHECK on issue line | FR-641 |
 
 ### 1.4 Unreachable
@@ -133,9 +133,9 @@
 | ID | When | Then | Enforced in |
 |---|---|---|---|
 | MSI-T4-01 | core store-issue post, line cost object `PRODUCTION_ORDER` | `CostObjectResolver.assertIssuable(orderId, itemId, baseQty)` runs `MSI-GRD-01`, `-06`, `-07` before the writer; the resolver's `counterLocationPurpose = PRODUCTION` makes the `ISSUE` movement's counter line `+qty` at **`VIRT-PRODUCTION-<site>`** (**SEAM-M1**, `WH-SC-620`) | core issue service → MFG resolver |
-| MSI-T4-02 | same, inside the post transaction | `onIssuePosted(line)`: component `issued_quantity` += base qty (unplanned item → its `is_unplanned` line), `consumed_quantity` recomputed, `line_status` derived, first posting → `PRO-T1-12`; a hook failure rolls the issue back (**SEAM-M2**) | MFG resolver |
+| MSI-T4-02 | same, inside the post transaction | `onIssuePosted(line)`: component `issued_quantity` += base qty (unplanned item → its `is_unplanned` line), `consumed_quantity` recomputed, `line_status` derived, first posting → `PRO-T1-15`; a hook failure rolls the issue back (**SEAM-M2**) | MFG resolver |
 | MSI-T4-03 | core store-return post of an issue line with this cost object | `onReturnPosted(line)`: `returned_quantity` +=; core posts `ISSUE_RETURN` −qty at `VIRT-PRODUCTION-<site>` (same purpose, **SEAM-M1**) at the issue line's unit cost, so the value leaves the order's pool (`CCL-T4-01`, `WH-SC-622`) | core return service → MFG resolver |
-| MSI-T4-04 | order reservation and MRQ | the MRQ created by `MSI-T1-01` carries the order's component reservation ids; the store issue's `consumedReservationIds` consumes them (`MRQ-T4-02`); the MRQ does not reserve again (`MSI-OPEN-01`) | port implementation (core) + MFG |
+| MSI-T4-04 | order reservation and MRQ | **the order is the single owner** (MD-16): the MRQ created by `MSI-T1-01` reserves nothing because the resolver's `reservationsFor(orderId, itemId)` returns the order's component reservations (`MRQ-T4-01` as amended); the store issue's `consumedReservationIds` are those reservations (`SIR-T4-01` as amended); MRQ close/cancel release nothing — order close/cancel do (`PRO-T4-04`, `-05`) | core issue service + MFG resolver |
 | MSI-T4-05 | genealogy | lots / serials of posted store-issue lines with this cost object since the order's previous receipt (net of returns) are attributed to the next receipt's transformation (`PRC-T4-06`, `FR-648`) — read at receipt, nothing stored here | receipt service |
 | MSI-T4-06 | stage action | **one** `PRODUCTION_STAGE` movement (`WhbStockLedgerWriter.post`): `sourceSystem = WAREHOUSE_MANUFACTURING`, `sourceDocumentType = STAGING_LIST`, id, `sourceDocumentNo = STG-…`, idempotency `STAGING_LIST:<id>:<actionSeq>`; per line −qty at the from-location, +qty at the line-side location, same owner / item / lot / serial / status; balanced per `MUST_BALANCE_PER_OWNER_ITEM`; `movement_id` on the staging line (`MSI-OPEN-02`) | staging service → writer |
 | MSI-T4-07 | stage | the order's reservation for the component is reduced at the source position and a reservation with the **same holder quad** is made at the line-side position for the staged quantity — **always**, even when `component_reservation = NONE` (staged stock is never allocatable to another holder, `FR-639`); `LINE_SIDE` is not pickable for outbound | staging service → `WhbReservationService` |
@@ -176,7 +176,7 @@ Sections: **Requisitions** (MRQ number, status, lines requested / approved / iss
 | `STAGING_EXCEEDS_REQUIREMENT` | 422 | requested above open requirement | FR-639 | — |
 | `UNSTAGE_EXCEEDS_STAGED` | 422 | unstage above line-side balance | FR-641 | — |
 | `SUBSTITUTE_INVALID` / `SUBSTITUTION_EXCEEDS_OPEN` | 422 | bad substitute / over the open quantity | FR-642 | 623 |
-| `SUBSTITUTION_SELF_APPROVAL` | 409 | `STRICT` ad hoc approved by the requester | FR-642 | — |
+| `SUBSTITUTION_SELF_APPROVAL` | 403 | `STRICT` ad hoc approved by the requester | FR-642 | — |
 | `STORE_RETURN_EXCEEDS_ISSUED` | 422 | core, return above net issued | FR-641 | 622 |
 
 All except `ITEM_NOT_ON_ORDER`, `ORDER_ON_HOLD`, `ORDER_NOT_OPEN` and core's codes are contract-defined.
@@ -214,8 +214,8 @@ Tool-crib custody; kanban / pull replenishment of line-side; per-unit consumptio
 
 | ID | Question | Default |
 |---|---|---|
-| MSI-OPEN-01 | Order reservations (HARD at release) and MRQ approval reservations (`MRQ-T4-01`) would double-reserve the same `ISSUE` component | `WhMaterialRequisitionPort.create` accepts existing reservation ids; the MRQ consumes those and reserves nothing itself — STORES `p8-09` to confirm the port signature |
+| MSI-OPEN-01 *(resolved — MD-16: `reservationsFor` on the resolver, not reservation ids on the port; STORES `FR-531`/`FR-533` amended)* | Order reservations (HARD at release) and MRQ approval reservations (`MRQ-T4-01`) would double-reserve the same `ISSUE` component | `WhMaterialRequisitionPort.create` accepts existing reservation ids; the MRQ consumes those and reserves nothing itself — STORES `p8-09` to confirm the port signature |
 | MSI-OPEN-02 | `whm_staging_list_lines` has one `movement_id` but a line may be staged by several actions | add a child `whm_staging_list_line_postings` (movement id, quantity) or allow one stage action per line — P10-06 to settle |
 | MSI-OPEN-03 | A core store-issue line carries no deviation reason, so `WARN` cannot be satisfied on the core screen | `MSI-T1-13` captures it on the order before the MRQ (adopted here) |
-| MSI-OPEN-04 | FRD-MFG SEAM-M2 lists an `onIssueReversed` hook; FRD-STORES `FR-533` says there is none (`STO-D11`) | follow STORES: no reversal hook; correction is a store return |
+| MSI-OPEN-04 *(resolved — MD-17; FRD-MFG SEAM-M2 corrected)* | FRD-MFG SEAM-M2 lists an `onIssueReversed` hook; FRD-STORES `FR-533` says there is none (`STO-D11`) | follow STORES: no reversal hook; correction is a store return |
 | MSI-OPEN-05 | `whm_component_substitutions` has no status for a `STRICT` pending substitution | pending = `approved_by` null (adopted); add a status column if a reject path is wanted |

@@ -23,7 +23,7 @@
 
 | | |
 |---|---|
-| **Workflow** | Receipt `DRAFT → (PENDING_APPROVAL →) POSTED → REVERSED`, `DRAFT → CANCELLED`; reversal `REQUESTED → APPROVED → POSTED`, `REQUESTED/APPROVED → REJECTED`; backflush; outputs; scrap/rejection; genealogy; FG receipt note |
+| **Workflow** | Receipt `DRAFT → (PENDING_APPROVAL →) POSTED → REVERSED`, `PENDING_APPROVAL → DRAFT` (return, MD-22), `DRAFT → CANCELLED`; reversal `REQUESTED → APPROVED → POSTED`, `REQUESTED/APPROVED → REJECTED`; backflush; outputs; scrap/rejection; genealogy; FG receipt note |
 | **Module** | `warehouse-manufacturing`; calls `WhbStockLedgerWriter.post/reverse`, `WhbTransformationRecorder.record` (`Propagation.MANDATORY`), `WhbReservationService`, `WhbDocumentNumberIssuer` (`FGR-`, `PRV-`), `WarehousePrintDataProvider` (`FG_RECEIPT_NOTE`); implements `QualityInspectionSourceResolver` type `PRODUCTION_RECEIPT` (`p8-06`) |
 | **Domain baseline** | FRD §3.1 (`PRODUCTION_RECEIPT` + `_REVERSAL`, `VIRT-PRODUCTION`, `VIRT-SCRAP`, `PRODUCTION_SCRAP`, `PRODUCTION_DEVIATION`, `PRODUCTION_REVERSAL`, `PRODUCTION_CLOSE_SHORT`), §5, `MD-03`, `MD-10`, `MD-11`; `L-1`, `L-3`, `L-8`, `L-12`, `L-13`, `L-14`, `I-1` |
 | **Owning task bodies** | `p10-07` (`V560050` · `V561050`). Depends on `p10-05`, `p10-06`, `p8-06` |
@@ -77,7 +77,7 @@
 | PRC-T1-04 | `DRAFT`, scrap value ≤ `scrap_value_approval_threshold` (or null) | **Post** | `POSTED` | `PRC-GRD-01`…`-14`, `-16`…`-20` re-run under the order row lock; then every `MPR-T1-01` guard (`MPR-GRD-01`, `-05`, `-07`, `-08`, `-09`/`-10`, `-15`, `-16`, `-21`, `-26`) | `whm_production_receipts:post` | `PRC-T4-01`…`-08` in **one transaction**; order → `IN_PROGRESS` (if `RELEASED`) and, when `is_final`, → `COMPLETED` (`PRO-T1-17`) | close-short reason when final under tolerance | WS-326 row **Post** |
 | PRC-T1-05 | `DRAFT`, scrap value > threshold | **Post** (submits) | `PENDING_APPROVAL` | `PRC-GRD-01`…`-14`, `-16`…`-20` (validated, nothing written to the ledger) | `whm_production_receipts:post` | `scrap_value` stored; approvers notified (`PRC-T3-01`) | as `PRC-T1-04` | WS-326 row **Post** (modal says *needs approval*) |
 | PRC-T1-06 | `PENDING_APPROVAL` | **Approve** | `POSTED` | `PRC-GRD-15`; **all post guards re-run** (stock may have moved: `PRC-GRD-12` can now refuse) | `whm_production_receipts:approve` | `approved_by/at`; as `PRC-T1-04`, `posted_by` = submitter, actor recorded as approver | no | WS-326 row **Approve** |
-| PRC-T1-07 | `PENDING_APPROVAL` | **Return to draft** (`PRC-OPEN-01`) | `DRAFT` | `PRC-GRD-15` | `whm_production_receipts:approve` | — | **yes** — note | WS-326 row **Return** |
+| PRC-T1-07 | `PENDING_APPROVAL` | **Return to draft** (MD-22) | `DRAFT` | `PRC-GRD-15` | `whm_production_receipts:approve` | — | **yes** — note | WS-326 row **Return** |
 | PRC-T1-08 | `DRAFT` | **Cancel** | `CANCELLED` | — | `whm_production_receipts:cancel` | number stays issued; nothing posted | **yes** — `cancel_note` | WS-326 row **Cancel** |
 | PRC-T1-09 | `POSTED` | *(effect of `PRC-T1-13`)* | `REVERSED` | never set directly | `whm_production_receipt_reversals:post` | — | — | none — WS-326 **Reverse** routes to WS-327 |
 | PRC-T1-10 | receipt `POSTED` | **Request reversal** — whole receipt | reversal `REQUESTED` | `PRC-GRD-21`…`-24`, `-27` | `whm_production_receipt_reversals:create` | `PRV-` number (gapless per site) | **yes** — `PRODUCTION_REVERSAL` reason + note | WS-327 **Request**; WS-326 **Reverse** |
@@ -90,7 +90,7 @@
 
 | ID | Predicate (must hold to proceed) | Refusal: HTTP · code · field | Message shape | DB backstop | Source |
 |---|---|---|---|---|---|
-| PRC-GRD-01 | Order `RELEASED`/`IN_PROGRESS`, not on hold, same company; no other receipt of the order in `PENDING_APPROVAL` when this one is `is_final` | `409 ORDER_NOT_OPEN` · `orderId`; `409 ORDER_ON_HOLD` · `orderId`; `409 ORDER_HAS_OPEN_RECEIPT` *(proposed)* · `isFinal` | names status / hold | — | FR-634, FR-644 |
+| PRC-GRD-01 | Order `RELEASED`/`IN_PROGRESS` (a `COMPLETED` order takes no receipt — reopen first, MD-14), not on hold, same company; no other receipt of the order in `PENDING_APPROVAL` when this one is `is_final` | `409 ORDER_NOT_OPEN` · `orderId`; `409 ORDER_ON_HOLD` · `orderId`; `409 ORDER_HAS_OPEN_RECEIPT` *(proposed)* · `isFinal` | names status / hold | — | FR-634, FR-644 |
 | PRC-GRD-02 | ≥ 1 output line with `quantity > 0`; a `MAIN` line present unless the receipt is scrap-only (`is_final` with all `SCRAPPED`) | `422 RECEIPT_HAS_NO_OUTPUTS` *(proposed)* · `outputs` | — | CHECK `quantity > 0` | FR-644 |
 | PRC-GRD-03 | Each output's item is an order output (`order_output_id` set) — main, co- or by-product | `422 OUTPUT_NOT_ON_ORDER` · `outputs[n].itemId` | names item and order | FK `order_output_id` | FR-644, `WH-SC-649` |
 | PRC-GRD-04 | UoM convertible to item base; `conversion_factor_used` frozen on the line; base qty ≠ 0 for non-zero entry (`MPR-GRD-26`) | `422 UOM_NOT_CONVERTIBLE` · `outputs[n].uomCode` | — | `MPR-GRD-26` | FR-644, `L-7` |
@@ -104,7 +104,7 @@
 | PRC-GRD-12 | **Backflush availability**: every consumption line's qty is on hand at its location / lot / status, counting the order's own reservations as available to it, within the item × site negative-stock policy (`MPR-GRD-16`); otherwise the **whole post** is refused | `422 BACKFLUSH_SHORTAGE` · `consumptions[n]` listing item, location, lot, shortfall | *"BOLT-M8 at PLT1-RM-A01 short 120"* | ledger `MPR-GRD-15`/`-16` | FR-645, `WH-SC-626`, `MD-10` |
 | PRC-GRD-13 | Consumption lot status allocatable, lot not expired / on hold; location is the component's line side or supply location (or another stock-holding location of the site when edited) | `422 CONSUMPTION_SOURCE_INVALID` *(proposed)* · `consumptions[n].fromLocationId` | — | ledger | FR-645 |
 | PRC-GRD-14 | `block_receipt_on_open_inprocess_qc = true` ⇒ no open `IN_PROCESS` inspection of the order | `409 INPROCESS_QC_OPEN` *(proposed)* · banner naming the inspection | — | — | FR-652 |
-| PRC-GRD-15 | Approve / return a `PENDING_APPROVAL` receipt: actor ≠ the submitter (`posted_by` candidate / `updated_by` at submit) | `409 RECEIPT_SELF_APPROVAL` *(proposed)* · banner | names submitter | — | FR-646, `WH-SC-631` |
+| PRC-GRD-15 | Approve / return a `PENDING_APPROVAL` receipt: actor ≠ the submitter (`posted_by` candidate / `updated_by` at submit) | `403 RECEIPT_SELF_APPROVAL` *(proposed; MD-21)* · banner | names submitter | — | FR-646, `WH-SC-631` |
 | PRC-GRD-16 | Output location physical, stock-holding, at the order's site (default `receipt_location_id`); not a phantom item (`BOM-GRD-12`) | `422 RECEIPT_LOCATION_INVALID` · `outputs[n].toLocationId`; `422 PHANTOM_ITEM_NOT_STOCKABLE` | — | validator | FR-644, FR-627 |
 | PRC-GRD-17 | `posting_date` period `OPEN` (or soft-close override held) and `occurred_at ≤ now` | per `MPR-GRD-05`, `-09`, `-10` | as cited | ledger | `L-8`, `L-13` |
 | PRC-GRD-18 | Rollups and tolerance read under `SELECT … FOR UPDATE` on the order row; two concurrent receipts serialise | `409 CONCURRENT_MODIFICATION` · banner | — | `@Version` | — |
@@ -113,9 +113,9 @@
 | PRC-GRD-21 | Reversal: receipt `POSTED`; no reversal of it in `REQUESTED`/`APPROVED`/`POSTED` | `409 RECEIPT_REVERSAL_EXISTS` *(proposed)* · `receiptId` | names `PRV-` | uk `receipt_id` while not `REJECTED` | FR-649 |
 | PRC-GRD-22 | **Output not moved on**: every output line's quantity still stands at its location, lot, serial and status — no later movement (pick, putaway, status change, issue, consumption by a parent order, shipment) touched it | `409 RECEIPT_OUTPUT_MOVED` · `receiptId` naming the movement / document and quantity | *"10 PUMP-100 lot P-2610-01 shipped on SHP-…"* | `MPR-GRD-13`/`-14` mirror | FR-649, `WH-SC-635`, `L-3` |
 | PRC-GRD-23 | No open inspection (`PRODUCTION_RECEIPT` source) on the receipt's output; no pending QC scrap movement | `409 RECEIPT_INSPECTION_OPEN` · `receiptId` | names inspection | — | FR-649 |
-| PRC-GRD-24 | Order not `CLOSED`; no live settlement (`DRAFT`/`APPROVED`) for the order (`PRC-OPEN-02`) | `409 ORDER_NOT_OPEN` · `orderId`; `409 ORDER_SETTLEMENT_EXISTS` · `orderId` | — | — | FR-649 |
+| PRC-GRD-24 | Order not `CLOSED`; no live settlement (`DRAFT`/`APPROVED`) for the order — reject it first (MD-18) | `409 ORDER_NOT_OPEN` · `orderId`; `409 ORDER_SETTLEMENT_PENDING` · `orderId` (names the `PST-` number) | — | — | FR-649 |
 | PRC-GRD-25 | Reversal into a closed period refused; current-dated, no soft-close override | `MPR-GRD-09` (`CLOSED` admits nothing); `403 PERIOD_OVERRIDE_FORBIDDEN` · `posting_date` | as cited | ledger | `L-8` |
-| PRC-GRD-26 | Approver ≠ requester | `409 REVERSAL_SELF_APPROVAL` *(proposed)* · banner | — | — | FR-649 |
+| PRC-GRD-26 | Approver ≠ requester; approver holds `whm_production_receipt_reversals:approve` (MD-20) | `403 REVERSAL_SELF_APPROVAL` *(proposed; MD-21)* · banner | — | — | FR-649 |
 | PRC-GRD-27 | Reason in context `PRODUCTION_REVERSAL`, active | `422 REASON_CODE_INVALID` · `reasonCodeId` | — | FK | FR-649, `MPR-GRD-11` |
 
 ### 1.4 Transitions that must be unreachable
@@ -259,9 +259,9 @@ WS-324 *Receipts* tab lists the order's receipts with the same columns and actio
 
 | ID | Contradiction / hole | Proposed resolution | Authority | Status |
 |---|---|---|---|---|
-| PRC-OPEN-01 | The ladder gives `PENDING_APPROVAL` no exit except `POSTED`; an approver who disagrees, or a post refused at approval (`PRC-GRD-12` after stock moved), has nowhere to go | add `PENDING_APPROVAL → DRAFT` (Return, note) — `PRC-T1-07` | FRD §5 | OPEN |
-| PRC-OPEN-02 | FR-649 returns a `COMPLETED` order to `IN_PROGRESS` on reversal, but a `DRAFT`/`APPROVED` settlement may already exist (`WH-SC-642` keeps the order `COMPLETED` with a pending settlement); reopen is refused in that state (FR-634) | refuse reversal while a live settlement exists (`PRC-GRD-24`) | FR-649 vs FR-634 | OPEN |
-| PRC-OPEN-03 | Persona table (§2) names `whm_production_receipts:approve_reversal`; §7 permissions have `whm_production_receipt_reversals:approve` and no `approve_reversal` verb | use §7 (`whm_production_receipt_reversals:approve`) | FRD §2 vs §7 | OPEN |
-| PRC-OPEN-04 | Self-approval codes return `409` here; the house uses `403` (`MPR-GRD-19`, `MRQ-GRD-05`) | ratify family-wide | — | OPEN |
+| PRC-OPEN-01 *(resolved — MD-22)* | The ladder gives `PENDING_APPROVAL` no exit except `POSTED`; an approver who disagrees, or a post refused at approval (`PRC-GRD-12` after stock moved), has nowhere to go | add `PENDING_APPROVAL → DRAFT` (Return, note) — `PRC-T1-07` | FRD §5 | resolved |
+| PRC-OPEN-02 *(resolved — MD-18)* | FR-649 returns a `COMPLETED` order to `IN_PROGRESS` on reversal, but a `DRAFT`/`APPROVED` settlement may already exist (`WH-SC-642` keeps the order `COMPLETED` with a pending settlement); reopen is refused in that state (FR-634) | refuse reversal while a live settlement exists (`PRC-GRD-24`) | FR-649 vs FR-634 | resolved |
+| PRC-OPEN-03 *(resolved — MD-20)* | Persona table (§2) names `whm_production_receipts:approve_reversal`; §7 permissions have `whm_production_receipt_reversals:approve` and no `approve_reversal` verb | use §7 (`whm_production_receipt_reversals:approve`) | FRD §2 vs §7 | resolved |
+| PRC-OPEN-04 *(resolved — MD-21: `403`)* | Self-approval codes return `409` here; the house uses `403` (`MPR-GRD-19`, `MRQ-GRD-05`) | ratify family-wide | — | resolved |
 | PRC-OPEN-05 | "A reversing transformation is recorded" — `whb_transformations` has no reversal semantics and requires `base_quantity > 0` | record a `PRODUCTION_REVERSAL` row with the same inputs/outputs as positive quantities and the reversal ref; genealogy query treats it as a cancel marker (base change needed — `p0` owner) | FR-649, evidence §3 | OPEN |
 | PRC-OPEN-06 | Whether a scrap-only final receipt (no good output) is legal | allowed (`PRC-GRD-02`) | derived | OPEN |

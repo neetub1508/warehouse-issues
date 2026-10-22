@@ -170,12 +170,12 @@ adapter proves nothing*) · field-service and assets **v1.1** · logistics **v3*
 | P4 | __P4__ | India statutory and compliance | **13** | v2 |
 | P5 | __P5__ | 3PL, channels and reverse logistics | **23** | v2 |
 | P6 | __P6__ | Optimisation, planning and the logistics seam | **12** | v3 |
-| P7 | __P7__ | REM — removal of dealer + retail code, renames, one DB rebuild (`D-16`) | see `09-EPIC-p7.md` | first |
-| P8 | __P8__ | STORES — gate entry, GRN bill, sampling, MRN, requisition, issue to cost object, store return, PO/SO ports (`D-16`) | see `10-EPIC-p8.md` | after P7 |
-| P9 | __P9__ | TRADE — `warehouse-trade`, purchase + sales mirrored (`D-16`) | see `11-EPIC-p9.md` | after P8, ‖ P10 |
-| P10 | __P10__ | MFG — `warehouse-manufacturing`, BOM, production, MRP (`D-16`) | see `12-EPIC-p10.md` | after P8, ‖ P9 |
+| P7 | __P7__ | REM — removal of dealer + retail code, renames, one DB rebuild (`D-16`) | **13** | first |
+| P8 | __P8__ | STORES — gate entry, GRN bill, sampling, MRN, requisition, issue to cost object, store return, PO/SO ports (`D-16`) | **16** | after P7 |
+| P9 | __P9__ | TRADE — `warehouse-trade`, purchase + sales mirrored (`D-16`) | **14** | after P8, ‖ P10 |
+| P10 | __P10__ | MFG — `warehouse-manufacturing`, BOM, production, MRP (`D-16`) | **13** | after P8, ‖ P9 |
 
-**144 tasks** — `ls issues/p*.md | wc -l`, and 17 + 22 + 29 + 4 + 24 + 13 + 23 + 12. Round 4 filed six
+**200 tasks** — `ls issues/p*.md | wc -l`: the original 144 (17 + 22 + 29 + 4 + 24 + 13 + 23 + 12) plus the `D-16` re-target's 56 (13 + 16 + 14 + 13; `docs/IMPLEMENTATION-PLAN.md` §2.8.1–§2.8.4). Round 4 filed six
 (`P3-25`, `P5-24`…`P5-28`, `#156`–`#161`) and on 2026-09-10 folded each into its most similar existing
 task; the six issues are closed as duplicates (`issues/CREATED.md`, `GAP-REGISTER-R4.md` §4.6).
 **471 requirements**, each owned by **exactly one** task. **305 scenarios** (computed:

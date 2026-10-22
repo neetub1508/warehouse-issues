@@ -1180,7 +1180,7 @@ def requirements_block(lines):
 
 
 def check_ownership(root):
-    defined = defined_ints(read_lines(root, FRD), FR_DEF_RE)
+    defined = defined_with_areas(root, FRD, FR_DEF_RE)  # D-16 area FRs are owned like any other
     rows, _section = plan_rows(root)
     out = []
     owned = {}
