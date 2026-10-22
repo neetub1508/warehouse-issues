@@ -1,6 +1,6 @@
 TITLE: [Warehouse] EPIC: P9 — `warehouse-trade`: manufacturing purchase and sales, mirrored
 LABELS: epic,warehouse,phase-p9
-issue: TBD
+issue: 547
 ---
 Part of __MASTER__ · Module `warehouse-trade` (`ai.warehousetrade`, band **V550000–V559999**, prefix **`wht_`**) · Migrations — **14 blocks, enumerated below** · Depends on **`P8`** (`p8-01`, `p8-02` hard; `p8-03`, `p8-04`, `p8-06`, `p8-07`, `p8-09`, `p8-10`, `p8-15`, `p8-16` for read tabs, sources and the RMA port) · Runs in parallel with **`P10`**
 

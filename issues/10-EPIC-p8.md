@@ -1,6 +1,6 @@
 TITLE: [Warehouse] EPIC: P8 — Manufacturing stores in core (gate, bill-matched GRN, sampling QC, MRN, requisition, issue, return, order ports)
 LABELS: epic,warehouse,phase-p8
-issue: TBD
+issue: 546
 ---
 Part of __MASTER__ · Modules `warehouse` (documents, `wh_`) + `warehouse-base` (seed rows only) · Migrations — **app schema `V511310`–`V511323`, base `V501230`–`V501235`, app seeds `V511400`–`V511416`** (enumerated below; every block above its band's live high-water mark, R29 F2) · Ships in **v1.1** · **Depends on `P7`** (removal, renames and the one DB rebuild, `RN-052`) · Requirements [`docs/frd/FRD-STORES.md`](../docs/frd/FRD-STORES.md) (`FR-500`…`FR-539`)
 

@@ -25,6 +25,12 @@ duplicates** — each was folded into its most similar existing task on 2026-09-
 > **Round 5 (2026-09-14) filed one task, `#163` = `P1-22`** (`DECISIONS.md` `D-14` item 8), for the
 > built screens only, because closed tasks are never reopened. `#162` is a pull request (round 4).
 
+> **D-16 re-target (2026-10-22) filed 60 issues with `create-issues.sh --file-tbd`:** the phase epics
+> `P7` #545 · `P8` #546 · `P9` #547 · `P10` #548, then the 56 tasks **#549–#604** (P7 #549–#561,
+> P8 #562–#577, P9 #578–#591, P10 #592–#604). Each task carries one comment listing its R29 findings.
+> The VOID tasks `P2-24` #149, `P2-25` #150, `P2-26` #151, `P3-19` #95, `P5-12` #67, `P5-15` #81 and
+> `P6-09` #134 are closed as not planned.
+
 > **The `.md` files win.** Every file below carries an `issue: NN` line in its front matter,
 > which is what `create-issues.sh --sync` and `--check` read. GitHub is a mirror:
 > `--sync` pushes, `--check` fails CI on drift. Never edit an issue body in the GitHub UI.
@@ -314,3 +320,63 @@ These existing GitHub reports have no source task file in this batch; listed for
 | #389 | `—` (existing report; no source file) | [Warehouse] W35-D3 · Receipt status default chain missing: no RECEIPT movement-type default, no supplier level, no AVAILABLE fallback -> 422 RECEIVED_STATUS_UNRESOLVED |
 | #474 | `—` (existing report; no source file) | [Follow-up W64] X-068: re-key carrier references on wh_shipment_tracking_events and wh_rate_quotes to stable codes (IRR-26) |
 | #487 | `—` (existing report; no source file) | [Follow-up #474] X-068: wh_shipping_labels / wh_pickup_requests / wh_manifests / wh_handovers still hold carrier_id FKs |
+| #545 | `issues/09-EPIC-p7.md` | EPIC: P7 — Remove dealer and retail code, rename the dual-use items, rebuild on a clean migration set |
+| #546 | `issues/10-EPIC-p8.md` | EPIC: P8 — Manufacturing stores in core (gate, bill-matched GRN, sampling QC, MRN, requisition, issue, return, order ports) |
+| #547 | `issues/11-EPIC-p9.md` | EPIC: P9 — `warehouse-trade`: manufacturing purchase and sales, mirrored |
+| #548 | `issues/12-EPIC-p10.md` | EPIC: P10 — Manufacturing (warehouse-manufacturing) |
+| #549 | `issues/p7-01.md` | P7-01 · Relocate the four generic helpers that kept code reaches through removed classes — the stocking-category picker, the claim-transition type, the claim line-value helper and the order fingerprint hash |
+| #550 | `issues/p7-02.md` | P7-02 · Remove AWB pools, courier serviceability and rate quotes; keep carrier account scopes; cut the carrier delete-guard SQL and trim the carrier connector |
+| #551 | `issues/p7-03.md` | P7-03 · Remove the NDR workflow, COD remittances, customer tracking links and the public tracking page; drop the NDR/RTO carrier statuses and the carrier NDR/COD clocks |
+| #552 | `issues/p7-04.md` | P7-04 · Remove channel accounts, channel order imports and channel publish rules; drop the demand-order payment mode, COD amount and channel account; keep whb_channels and channel_id |
+| #553 | `issues/p7-05.md` | P7-05 · Remove RTO consignments and marketplace claims; return receipts post and reverse with the same stock movements; drop the RTO and MARKETPLACE return types |
+| #554 | `issues/p7-06.md` | P7-06 · Replace the Channels L1 menu with Shipping → Carrier Tracking & Planning and re-home its four generic leaves |
+| #555 | `issues/p7-07.md` | P7-07 · Remove OEM obsolescence returns and the OBSOLESCENCE claim type; supplier claims keep four types |
+| #556 | `issues/p7-08.md` | P7-08 · Remove the trade portal, the Warehouse Trade Customer role and the customer persona in the owner-scope resolver |
+| #557 | `issues/p7-09.md` | P7-09 · Remove accessories coexistence — category stocking ownership, external stock snapshots, the coexistence report, consolidated valuation and is_dual_eligible |
+| #558 | `issues/p7-10.md` | P7-10 · Remove the dealer and retail seeded vocabulary and the dead adapter switches; whb_channels keeps only the B2B kind |
+| #559 | `issues/p7-11.md` | P7-11 · Rename the dual-use codes in storage — LINE_STOP, PRODUCTION_STORE, MANUFACTURER_PART_NUMBER — and Parts KPIs to Stock KPIs on every surface |
+| #560 | `issues/p7-12.md` | P7-12 · Bring classic's docs, QA notes, contracts and the ci-gate ledger in line with the removal |
+| #561 | `issues/p7-13.md` | P7-13 · Rebuild the dev database once on the clean migration set, prove Flyway history and every grep gate, and turn ci-gate green |
+| #562 | `issues/p8-01.md` | P8-01 · PO type (FIXED / OPEN / BLANKET_RELEASE), schedule lines with open quantity, receipt allocation, and the purchase-order port |
+| #563 | `issues/p8-02.md` | P8-02 · The demand-order port for sales orders — SO and customer-PO references, a customer delivery schedule, firm-within-horizon allocation |
+| #564 | `issues/p8-03.md` | P8-03 · Gate entry register (inward / outward) with PO, bill and weighment on arrival, and returnable / non-returnable gate passes with return tracking and overdue |
+| #565 | `issues/p8-04.md` | P8-04 · GRN bill number / date / billed quantity, the duplicate-bill guard, short receipt opening a supplier claim, and excess accepted within an approved excess or refused |
+| #566 | `issues/p8-05.md` | P8-05 · Configurable sampling — band tables per item / category / supplier, FIXED_QUANTITY and PERCENTAGE fixed, the Z1.4 table kept as one option, lot verdict from Ac/Re, destructive test quantity |
+| #567 | `issues/p8-06.md` | P8-06 · QC with a polymorphic source — goods receipt, store return, production receipt, in-process, stock — through resolver beans, so manufacturing can inspect without a GRN |
+| #568 | `issues/p8-07.md` | P8-07 · QC reject → an explicit, manual "Raise supplier return" action (FR-139 amended — never automatic) |
+| #569 | `issues/p8-08.md` | P8-08 · MRN — material receipt note authorised by a second person, MRN_PENDING as the stock-availability rule, putaway on authorisation, MRN and GRN print |
+| #570 | `issues/p8-09.md` | P8-09 · Material requisition (indent) for a department, cost centre or production order — per-line approval, reservation, partial issue, closure — the cost-object seam, cost centres, and the back-to-back purchase-requisition hand-off |
+| #571 | `issues/p8-10.md` | P8-10 · Store issue to VIRT-CONSUMED with a cost object (department / cost centre / production order) on every issue line — S-052 resolved per RN-034 |
+| #572 | `issues/p8-11.md` | P8-11 · Store return — linked to the issue line, partial, valued at the issue cost, condition decides status and QC, through a new ISSUE_RETURN movement type |
+| #573 | `issues/p8-12.md` | P8-12 · Stores print documents — gate entry slip, RGP/NRGP gate pass, GRN with the bill block, MRN, material requisition, store issue slip, store return note |
+| #574 | `issues/p8-13.md` | P8-13 · Stores registers and performance — RGP pending / overdue, requisitions pending issue, issue register by cost object, consumption by department, stores performance benchmarks |
+| #575 | `issues/p8-14.md` | P8-14 · Stores menus, settings registry, i18n and filter-scope wave for P8 — within the 8-leaf / 10-section caps |
+| #576 | `issues/p8-15.md` | P8-15 · The RMA-creation port for sales-return authorisation, and the supplier-return intent (REPLACE / CREDIT / NO_ACTION) with a dispatched event |
+| #577 | `issues/p8-16.md` | P8-16 · External replenishment suggestions — the MRP supply seam (origin MRP), converted once: to a draft core PO with trade off, to a PR by trade with trade on |
+| #578 | `issues/p9-01.md` | P9-01 · The trade module — `warehouse-trade` scaffold, enable flag, menu tree and the platform touchpoints |
+| #579 | `issues/p9-02.md` | P9-02 · Trade masters — supplier and customer trade profiles, approved vendor list, customer item references, T&C templates and the trade vocabularies |
+| #580 | `issues/p9-03.md` | P9-03 · The trade approval matrix — rules, levels, maker ≠ checker, delegation, escalation and My Approvals |
+| #581 | `issues/p9-04.md` | P9-04 · Purchase requisition — manual, from stores shortage, from replenishment / MRP; approval, consolidation and partial conversion |
+| #582 | `issues/p9-05.md` | P9-05 · Sourcing — RFQ to many suppliers, vendor quotations with versions, comparative statement with L1 and the approved award |
+| #583 | `issues/p9-06.md` | P9-06 · Agreed prices, both sides — purchase rate contracts, sales rate contracts, price lists, dated revisions, slabs, ceilings and the two price-resolution services |
+| #584 | `issues/p9-07.md` | P9-07 · Purchase orders — FIXED, OPEN and BLANKET with delivery schedules, releases, and the hand-off to core through the PO port |
+| #585 | `issues/p9-08.md` | P9-08 · Pre-sales — sales enquiry, customer quotation with versions, regret, won / lost and the win/loss analysis |
+| #586 | `issues/p9-09.md` | P9-09 · Sales orders — FIXED, OPEN and BLANKET with the customer delivery schedule, dispatch planning from the FG store, and the hand-off to core through the demand-order port |
+| #587 | `issues/p9-10.md` | P9-10 · Acknowledgement, expediting / commitment tracking, short-close and auto-close — both sides |
+| #588 | `issues/p9-11.md` | P9-11 · Order amendments and versions — one engine, PO and SO, with snapshots, port push, amendment prints and version compare |
+| #589 | `issues/p9-12.md` | P9-12 · Counterparty evaluation — vendor rating and customer rating / OTIF on one weighted engine, with grade-driven review tasks |
+| #590 | `issues/p9-13.md` | P9-13 · Sales return authorisation → core RMA, and the purchase-side replacement reinstatement |
+| #591 | `issues/p9-14.md` | P9-14 · Trade print documents and the trade reports pack |
+| #592 | `issues/p10-01.md` | P10-01 · The manufacturing module — `warehouse-manufacturing` scaffold, enable flag, menu tree, settings registry and the platform touchpoints |
+| #593 | `issues/p10-02.md` | P10-02 · Manufacturing registries — movement, document and location types, code lists, reason contexts, the REWORK disposition, print kinds and number series, under the RL-003 owning-module guard |
+| #594 | `issues/p10-03.md` | P10-03 · Bill of materials — multi-level, versioned, maker–checker BOMs with alternates, scrap, phantoms, co-/by-products; explosion, where-used and cost roll-up |
+| #595 | `issues/p10-04.md` | P10-04 · Work centres and the optional BOM operation list — a lightweight routing that is never mandatory |
+| #596 | `issues/p10-05.md` | P10-05 · Production orders — BOM snapshot, release with availability check and component reservations, hold, complete, reopen, MTO link, the PRODUCTION_ORDER cost-object resolver and the traveller |
+| #597 | `issues/p10-06.md` | P10-06 · Material to the order — staging to line-side, manual issue and return through core store documents, component substitution and the consumption policy |
+| #598 | `issues/p10-07.md` | P10-07 · Production receipt — FG, co- and by-products in one movement with backflush and scrap, tolerances and completion, lot genealogy, maker–checker reversal and the FG receipt note |
+| #599 | `issues/p10-08.md` | P10-08 · Operation confirmations, in-process and final QC through the core polymorphic source, and the REWORK disposition that creates a rework order |
+| #600 | `issues/p10-09.md` | P10-09 · Actual costing of output, exact co-product split, close by settlement, and the cost sheet — accounting as handover only |
+| #601 | `issues/p10-10.md` | P10-10 · Subcontracting and job work — subcontract orders, dispatch to the job worker, processed-item receipt, reconciliation, and the India challan / ITC-04 path through a core port |
+| #602 | `issues/p10-11.md` | P10-11 · Planning masters — item planning parameters per item × site and demand plans (forecast / MPS-lite) with consumption modes |
+| #603 | `issues/p10-12.md` | P10-12 · MRP — regenerative per-site run, netting with low-level codes, lot sizing and fences, pegged proposals, firm / convert / dismiss, BUY to core replenishment suggestions, exception messages |
+| #604 | `issues/p10-13.md` | P10-13 · Capacity load (infinite, visible) and the manufacturing registers — production, WIP by order, scrap, yield, consumption variance |

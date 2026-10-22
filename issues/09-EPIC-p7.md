@@ -1,6 +1,6 @@
 TITLE: [Warehouse] EPIC: P7 — Remove dealer and retail code, rename the dual-use items, rebuild on a clean migration set
 LABELS: epic,warehouse,phase-p7
-issue: TBD
+issue: 545
 ---
 Part of __MASTER__ · Modules `warehouse-base`, `warehouse`, `warehouse-3pl`, `warehouse-india` (+ three platform registration files) · Migrations — **20 deleted, 34 rewritten, 4 client seeds edited** (FRD-REM Appendix B) · Ships **before** `P8`, `P9` and `P10` · Requirements [`FRD-REM`](../docs/frd/FRD-REM.md) `FR-480`…`FR-499` · Scenarios `WH-SC-660`…`WH-SC-679` · Decision `D-16` (`RN-050`…`RN-054`)
 

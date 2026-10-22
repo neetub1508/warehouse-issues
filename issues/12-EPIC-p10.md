@@ -1,6 +1,6 @@
 TITLE: [Warehouse] EPIC: P10 — Manufacturing (warehouse-manufacturing)
 LABELS: epic,warehouse,phase-p10
-issue: TBD
+issue: 548
 ---
 Part of __MASTER__ · Module `warehouse-manufacturing` (`ai.warehousemanufacturing`, band **V560000–V569999**, prefix **`whm_`**) · Migrations — **24 blocks in band + one `warehouse-india` block, enumerated below** · Depends on **`P7`** (removal first) and **`P8`** (`p8-01`, `p8-02`, `p8-03`, `p8-06`, `p8-09`, `p8-10`, `p8-11` hard; `p8-16` for SEAM-M3) and **`P9`** (`p9-04`, `p9-07`, optional at runtime) · Ships in **v1.1** with the P8 seams it consumes (MD-38, R29 F24) · Runs in parallel with **`P9`** until p10-12 — the module **may ship before trade**: with trade off, MRP BUY output becomes a draft core PO (`OD-41` fallback)
 
