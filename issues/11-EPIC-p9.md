@@ -2,7 +2,7 @@ TITLE: [Warehouse] EPIC: P9 — `warehouse-trade`: manufacturing purchase and sa
 LABELS: epic,warehouse,phase-p9
 issue: TBD
 ---
-Part of __MASTER__ · Module `warehouse-trade` (`ai.warehousetrade`, band **V550000–V559999**, prefix **`wht_`**) · Migrations — **14 blocks, enumerated below** · Depends on **`P8`** (`p8-01`, `p8-02` hard; `p8-03`, `p8-04`, `p8-06`, `p8-07`, `p8-09`, `p8-10` for read tabs and sources) · Runs in parallel with **`P10`**
+Part of __MASTER__ · Module `warehouse-trade` (`ai.warehousetrade`, band **V550000–V559999**, prefix **`wht_`**) · Migrations — **14 blocks, enumerated below** · Depends on **`P8`** (`p8-01`, `p8-02` hard; `p8-03`, `p8-04`, `p8-06`, `p8-07`, `p8-09`, `p8-10`, `p8-15`, `p8-16` for read tabs, sources and the RMA port) · Runs in parallel with **`P10`**
 
 ## Overview
 
@@ -78,12 +78,14 @@ Run in order on a clean database:
 
 ## Tasks
 
+__TASKS__
+
 | Task | Title | Depends on |
 |---|---|---|
 | [`p9-01`](p9-01.md) | Module bootstrap — scaffold, flag, menu tree, the 22 applicable platform touchpoints | `p8-01`, `p8-02` |
 | [`p9-02`](p9-02.md) | Trade masters — profiles, AVL, customer item refs, T&C templates, vocabularies | p9-01 |
 | [`p9-03`](p9-03.md) | Approval matrix + My Approvals | p9-01 |
-| [`p9-04`](p9-04.md) | Purchase requisition | p9-03, `p8-09`, `p8-10` |
+| [`p9-04`](p9-04.md) | Purchase requisition | p9-03, `p8-09`, `p8-10`, `p8-16` (MRP source) |
 | [`p9-05`](p9-05.md) | RFQ, vendor quotation, comparative statement, award | p9-02, p9-03, p9-04 |
 | [`p9-06`](p9-06.md) | Rate contracts, price lists, price resolution — both sides | p9-02, p9-03 |
 | [`p9-07`](p9-07.md) | Purchase orders FIXED / OPEN / BLANKET, releases, PO port | p9-03, p9-06, `p8-01`, `p8-03`, `p8-04` |
@@ -92,7 +94,7 @@ Run in order on a clean database:
 | [`p9-10`](p9-10.md) | Acknowledgement, expediting / commitments, short-close — both sides | p9-07, p9-09 |
 | [`p9-11`](p9-11.md) | Amendments + versions — both sides | p9-07, p9-09 |
 | [`p9-12`](p9-12.md) | Vendor and customer evaluation | p9-07, p9-09, p9-13, `p8-06` |
-| [`p9-13`](p9-13.md) | Sales return authorisation → RMA; supplier-return replacement | p9-07, p9-09, **`OD-33`** |
+| [`p9-13`](p9-13.md) | Sales return authorisation → RMA; supplier-return replacement | p9-07, p9-09, `p8-15` (`OD-33`) |
 | [`p9-14`](p9-14.md) | Print documents + reports | p9-04 … p9-13 |
 
 Parallel lanes after p9-03: {p9-04 → p9-05}, {p9-06}, then {p9-07 ‖ p9-08 → p9-09}, then {p9-10 ‖ p9-11},
@@ -113,8 +115,8 @@ SafeTranslation, i18n) serialize at the barrier.
 
 ## Open decisions this phase carries
 
-`OD-30` trade number = supplier-facing, stored as `source_document_ref` (picker match owed by `p8-03`/`p8-04`) · `OD-31` MRP → PR via core suggestions (MFG) · `OD-32` unreleased
-customer schedule as core `FORECAST` lines (closed by `p8-02`; MFG to confirm) · **`OD-33` RMA port — owed by a new STORES task, blocks p9-13** ·
+`OD-30` trade number = supplier-facing, stored as `source_document_ref` (picker match owed by `p8-03`/`p8-04`) · `OD-31` MRP → PR via core suggestions with origin `MRP` (`p8-16` `WhReplenishmentSuggestionPort`, written by MFG) · `OD-32` unreleased
+customer schedule as core `FORECAST` lines (closed by `p8-02`; MFG to confirm) · **`OD-33` RMA port — `p8-15` `WhRmaPort` + supplier-return `intent_code`, blocks p9-13** ·
 `OD-34` per-currency approval bands · `OD-35` per-line slabs · `OD-36` rate change on un-received qty
 only · `OD-37` sealed default off · `OD-38` QC decided by core inspection plans · `OD-39` trade registers
 change guards on `p8-01` / `p8-02`'s seams (closed). Each has an adopted default (FRD-TRADE §10).

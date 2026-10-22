@@ -34,7 +34,7 @@ Every later phase builds on the cleaned schema, so **`P7` runs first**.
 
 | Property | Proof |
 |---|---|
-| **Absence is total.** A removed feature leaves no table, column, Java class, endpoint, page, menu, permission, role, grid, filter, setting, job, series, catalogue row, i18n key, constant, help entry or filter scope | FRD §4 "absent" definition; gates G-1…G-8 |
+| **Absence is total.** A removed feature leaves no table, column, Java class, endpoint, page, menu, permission, role, grid, filter, setting, job, series, catalogue row, i18n key, constant, help entry or filter scope | FRD §4 "absent" definition; gates GATE-1…GATE-8 |
 | **Kept behaviour is unchanged except where listed.** Each behaviour change is named in the task that makes it, and tested | `FR-489`; the "Rules" section of `P7-02`, `P7-03`, `P7-04`, `P7-05` |
 | **Every task is a pure delete or a pure rename.** The one exception, `P7-01`, is a pure move | `P7-01` runs first |
 | **Every intermediate tree installs fresh.** Each task edits the count assertions its own deletions break | FRD Appendix B "fresh-install hazards" |

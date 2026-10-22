@@ -104,7 +104,7 @@
 | PRC-GRD-12 | **Backflush availability**: every consumption line's qty is on hand at its location / lot / status, counting the order's own reservations as available to it, within the item × site negative-stock policy (`MPR-GRD-16`); otherwise the **whole post** is refused | `422 BACKFLUSH_SHORTAGE` · `consumptions[n]` listing item, location, lot, shortfall | *"BOLT-M8 at PLT1-RM-A01 short 120"* | ledger `MPR-GRD-15`/`-16` | FR-645, `WH-SC-626`, `MD-10` |
 | PRC-GRD-13 | Consumption lot status allocatable, lot not expired / on hold; location is the component's line side or supply location (or another stock-holding location of the site when edited) | `422 CONSUMPTION_SOURCE_INVALID` *(proposed)* · `consumptions[n].fromLocationId` | — | ledger | FR-645 |
 | PRC-GRD-14 | `block_receipt_on_open_inprocess_qc = true` ⇒ no open `IN_PROCESS` inspection of the order | `409 INPROCESS_QC_OPEN` *(proposed)* · banner naming the inspection | — | — | FR-652 |
-| PRC-GRD-15 | Approve / return a `PENDING_APPROVAL` receipt: actor ≠ the submitter (`posted_by` candidate / `updated_by` at submit) | `403 RECEIPT_SELF_APPROVAL` *(proposed; MD-21)* · banner | names submitter | — | FR-646, `WH-SC-631` |
+| PRC-GRD-15 | Approve / return a `PENDING_APPROVAL` receipt: actor ≠ the submitter (`posted_by` candidate / `updated_by` at submit) | `403 RECEIPT_SELF_APPROVAL` *(MD-21)* · banner | names submitter | — | FR-646, `WH-SC-631` |
 | PRC-GRD-16 | Output location physical, stock-holding, at the order's site (default `receipt_location_id`); not a phantom item (`BOM-GRD-12`) | `422 RECEIPT_LOCATION_INVALID` · `outputs[n].toLocationId`; `422 PHANTOM_ITEM_NOT_STOCKABLE` | — | validator | FR-644, FR-627 |
 | PRC-GRD-17 | `posting_date` period `OPEN` (or soft-close override held) and `occurred_at ≤ now` | per `MPR-GRD-05`, `-09`, `-10` | as cited | ledger | `L-8`, `L-13` |
 | PRC-GRD-18 | Rollups and tolerance read under `SELECT … FOR UPDATE` on the order row; two concurrent receipts serialise | `409 CONCURRENT_MODIFICATION` · banner | — | `@Version` | — |
@@ -115,7 +115,7 @@
 | PRC-GRD-23 | No open inspection (`PRODUCTION_RECEIPT` source) on the receipt's output; no pending QC scrap movement | `409 RECEIPT_INSPECTION_OPEN` · `receiptId` | names inspection | — | FR-649 |
 | PRC-GRD-24 | Order not `CLOSED`; no live settlement (`DRAFT`/`APPROVED`) for the order — reject it first (MD-18) | `409 ORDER_NOT_OPEN` · `orderId`; `409 ORDER_SETTLEMENT_PENDING` · `orderId` (names the `PST-` number) | — | — | FR-649 |
 | PRC-GRD-25 | Reversal into a closed period refused; current-dated, no soft-close override | `MPR-GRD-09` (`CLOSED` admits nothing); `403 PERIOD_OVERRIDE_FORBIDDEN` · `posting_date` | as cited | ledger | `L-8` |
-| PRC-GRD-26 | Approver ≠ requester; approver holds `whm_production_receipt_reversals:approve` (MD-20) | `403 REVERSAL_SELF_APPROVAL` *(proposed; MD-21)* · banner | — | — | FR-649 |
+| PRC-GRD-26 | Approver ≠ requester; approver holds `whm_production_receipt_reversals:approve` (MD-20) | `403 REVERSAL_SELF_APPROVAL` *(MD-21)* · banner | — | — | FR-649 |
 | PRC-GRD-27 | Reason in context `PRODUCTION_REVERSAL`, active | `422 REASON_CODE_INVALID` · `reasonCodeId` | — | FK | FR-649, `MPR-GRD-11` |
 
 ### 1.4 Transitions that must be unreachable
@@ -236,6 +236,7 @@ WS-324 *Receipts* tab lists the order's receipts with the same columns and actio
 | Date | Row IDs affected | Change | Found by |
 |---|---|---|---|
 | 2026-10-22 | all | v0 derived from `FRD-MFG.md`, code evidence and research catalogue; unratified | contract derivation (P10 design) |
+| 2026-10-22 | T1, §9 | Consistency pass: no receipt on `COMPLETED` (MD-14), reversal refused while a settlement is live (MD-18), `:approve` on reversals (MD-20), `403` (MD-21), `PENDING_APPROVAL → DRAFT` (MD-22), `gate_entry_id` (MD-26) | FRD-MFG §9 |
 
 ---
 

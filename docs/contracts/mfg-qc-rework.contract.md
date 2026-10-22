@@ -215,6 +215,7 @@ rework order number as a GridLink.
 | Date | Row IDs affected | Change | Found by |
 |---|---|---|---|
 | 2026-10-22 | all | v0 derived from `docs/frd/FRD-MFG.md`; not ratified | contract derivation (design set) |
+| 2026-10-22 | §9 | Consistency pass: no `SCRAP` stock status (MD-25), `supply_stock_status_code` and `is_rework_alternative` (MD-26) | FRD-MFG §9 |
 
 ## 8. Invariants and scenarios this workflow must not break
 

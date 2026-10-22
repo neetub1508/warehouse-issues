@@ -62,7 +62,10 @@ close.** Run in order on a clean database:
 - **Every vocabulary is a code list; no status `CHECK`** (`D-10`); every MFG seed carries the `RL-003`
   owning-module guard.
 - **A BOM change never alters an existing order** (FR-633); **an approved BOM is immutable** (FR-625).
-- **Maker ≠ checker** on BOM approval, receipt reversal, over-threshold scrap and over-threshold settlement.
+- **Maker ≠ checker** on BOM approval, release (when configured), receipt reversal, over-threshold scrap,
+  over-threshold settlement and subcontract write-off; self-approval is `403 <DOC>_SELF_APPROVAL` (MD-21).
+- **`COMPLETED` is not settled** (MD-14): late store issues and returns flow until `CLOSED`; an order with a
+  posting is never cancelled (MD-15); the order alone owns its component reservations (MD-16).
 - **House-owned supply only** in MRP and valuation; non-own stock never valued (`L-14`).
 - **Accounting is a handover, never a posting** (FR-657).
 
@@ -87,19 +90,19 @@ That command is the authority; re-run it after any header change.
 | `V560050` · `V561050` | production receipts, outputs (+ serials), consumptions, reversals · permissions, leaves | p10-07 |
 | `V560060` · `V561060` | operation confirmations · permissions, leaf | p10-08 |
 | `V560070` · `V561070` | settlements + lines · permissions, leaf | p10-09 |
-| `V560080` · `V561080` | subcontract dispatches + lines, reconciliations · permissions, leaf | p10-10 |
-| **`V540190`** (`warehouse-india`) | job-work processed-form return + scrap on dispatch lines (SEAM-M5) | p10-10 |
+| `V560080` · `V561080` | subcontract dispatches + lines, reconciliations, reconciliation actions (recall / write-off) · permissions, leaf | p10-10 |
+| **`V540190`** (`warehouse-india`) | job-work processed-form return, scrap, return reversal and loss on job-work lines (SEAM-M5, MD-25) | p10-10 |
 | `V560090` · `V561090` | item planning parameters, demand plans + lines · permissions, leaves | p10-11 |
 | `V560100` · `V561100` | MRP runs, proposals, pegging, exceptions · permissions, leaves | p10-12 |
 | `V561110` | report grids (capacity load, registers) — no table · permissions, leaves | p10-13 |
 
 **Collision check (2026-10-22):** no `V56xxxx` file exists in `classic/warehouse*/backend` and no other
-`issues/*.md` claims a version in `V560000–V569999`. The FRD-MFG migration map names **`V540150`** for the
-india seam, but `V540150__Create_whin_approval_dispatches_and_approval_clocks.sql` already exists (`p4-06`,
-`WIN-18`); this phase uses **`V540190`** (free in code and in every issue) — SPINE to correct FRD-MFG §3
-row `V560080` and SEAM-M5.
+`issues/*.md` claims a version in `V560000–V569999`. The india seam is **`V540190`** (free in code and in
+every issue; `V540150` is `p4-06`'s approval dispatches) — FRD-MFG §3 and SEAM-M5 carry it (MD-28).
 
 ## Tasks
+
+__TASKS__
 
 | Task | Title | Depends on |
 |---|---|---|
@@ -129,7 +132,7 @@ joins after p10-05 and p10-11; p10-13 last. Shared-registry edits (`filterUtils.
 | `p8-02` | `WhDemandOrderPort` + `FORECAST` schedule lines — MTO link (FR-637) and MRP independent demand (`OD-32` confirmed) |
 | `p8-03` | Returnable gate pass for the generic subcontract dispatch (FR-659); gate entry on the return (FR-661) |
 | `p8-06` | Polymorphic QC source, `onDisposition`, **SEAM-M4** non-stock-bearing sources (FR-652) |
-| `p8-09` | `WhMaterialRequisitionPort`, `CostObjectResolver` + **SEAM-M1** counter purpose + **SEAM-M2** hooks (FR-640, FR-641, FR-643) |
+| `p8-09` | `WhMaterialRequisitionPort` (`FRD-STORES` `FR-531`), `CostObjectResolver` + **SEAM-M1** counter purpose + **SEAM-M2** hooks + `reservationsFor`; the resolver admits `COMPLETED` orders (`FR-533`, amended for MD-14/MD-16) (FR-640, FR-641, FR-643) |
 | `p8-10` | Store issue with cost object `PRODUCTION_ORDER` landing in `VIRT-PRODUCTION` (FR-640) |
 | `p8-11` | Store return from the same counter purpose (FR-641) |
 | `p8-16` | **SEAM-M3** external replenishment-suggestion port, origin `MRP` (FR-666, `OD-31`/`OD-41`/`OD-44`) |
@@ -141,10 +144,10 @@ joins after p10-05 and p10-11; p10-13 last. Shared-registry edits (`filterUtils.
 | Seam | Owner | Needed change | Blocks |
 |---|---|---|---|
 | **SEAM-M1** | `p8-09` / `p8-10` (`p8-11` returns) | `ResolvedCostObject.counterLocationPurpose` (default `CONSUMED`; `PRODUCTION_ORDER` → `PRODUCTION`) used by the store-issue post | p10-06, p10-09 |
-| **SEAM-M2** | `p8-09` / `p8-10` / `p8-11` | `CostObjectResolver` hooks `onIssuePosted`, `onIssueReversed`, `onReturnPosted`, `assertIssuable` in the posting transaction | p10-06 |
-| **SEAM-M3** | `p8-16` (FRD-MFG §3.2 still says "new `p8-15` or `p8-14`" — `p8-15` is the RMA port) | `WhReplenishmentSuggestionPort.publishExternal/withdrawExternal`, `origin` + `origin_document_type/id` on `wh_replenishment_suggestions` | p10-12 |
+| **SEAM-M2** | `p8-09` / `p8-10` / `p8-11` | `CostObjectResolver` hooks `assertIssuable`, `onIssuePosted`, `onReturnPosted` in the posting transaction + `reservationsFor` (MD-16); **no `onIssueReversed`** — rejected by STORES `STO-D13`, a mis-issue is a store return (MD-17) | p10-06 |
+| **SEAM-M3** | `p8-16` (MD-28) | `WhReplenishmentSuggestionPort.publishExternal/withdrawExternal`, `origin` + `origin_document_type/id` on `wh_replenishment_suggestions` | p10-12 |
 | **SEAM-M4** | `p8-06` | `InspectableSource.stockBearing`; record-only ACCEPT/REJECT/REWORK when `false` | p10-08, p10-07 |
-| **SEAM-M5** | core `ai.warehouse.port.jobwork.JobWorkDispatchPort` + `warehouse-india` bean — **owned inside p10-10** as a cross-module change (india migration `V540190`) | `registerDispatch`, `registerReturn(returnedAsItemId, consumedInputQty, scrapQty, scrapRetained)` | p10-10 |
+| **SEAM-M5** | core `ai.warehouse.port.jobwork.JobWorkDispatchPort` + `warehouse-india` bean — **owned inside p10-10** as a cross-module change (india migration `V540190`) | `registerDispatch`, `registerReturn(returnedAsItemId, consumedInputQty, scrapQty, scrapRetained)` (a recall is a return of the input), `reverseReturn`, `registerLoss` (MD-25) | p10-10 |
 
 ## Admin settings seeded by P10 (all in `V561000`, FRD-MFG §8)
 
@@ -187,5 +190,5 @@ Per __MASTER__, with these phase-specific additions:
 - [ ] The exit criterion's ten steps pass in order on a clean database (and steps 8–9 again with india and trade on)
 - [ ] FRD-MFG §13 traceability: every FR-620…FR-669 closed by a merged task; every WH-SC-600…659 cited in a test name
 - [ ] The eight `mfg-*` contracts exist and every row is implemented or refused
-- [ ] `OD-40`…`OD-44` resolved or their defaults ratified in `DECISIONS.md` by SPINE; the `V540150` → `V540190` correction made in FRD-MFG
+- [ ] `OD-40`…`OD-44` resolved or their defaults ratified in `DECISIONS.md` by SPINE; MD-14…MD-28 (FRD-MFG §9) honoured by every task
 - [ ] No mobile; no accounting posting

@@ -16,7 +16,7 @@
 | | |
 |---|---|
 | **Workflow** | Create (manual or from a core shortage / suggestion) → submit → approve → allocate lines to RFQ / PO / release (consolidated, partial) → ordered → closed; cancel; close-short remainder |
-| **Module** | `warehouse-trade`; reads core `wh_material_requisition_lines` (`p8-09`) and `wh_replenishment_suggestions` (`V510070`, source `MRP` per `OD-31`) |
+| **Module** | `warehouse-trade`; reads core `wh_material_requisition_lines` (`p8-09`) and `wh_replenishment_suggestions` (`V510070`, origin `MRP` per `OD-31`, published by STORES `p8-16` through `WhReplenishmentSuggestionPort`) |
 | **Domain baseline** | FRD-TRADE FR-556…FR-561, `TRD-09`, `OD-31` · R27 `RM-001`, `RM-015` · `p8-10` cost-object vocabulary |
 | **Owning task body** | `issues/p9-04.md` |
 | **Primary tables** | `wht_purchase_requisitions`, `wht_purchase_requisition_lines`, `wht_requisition_allocations` (`V550030`) |
@@ -94,7 +94,7 @@ junction), `closed_short_quantity`, `close_reason_code`, `line_status`, `notes`.
 |---|---|---|
 | TPR-UNR-01 | Editing an approved PR's quantities | no edit after approval; close-short or a new PR |
 | TPR-UNR-02 | Allocation from a `DRAFT` / `SUBMITTED` / `REJECTED` PR | workbench lists approved open lines only, `TPR-GRD-04` re-checks status |
-| TPR-UNR-03 | Writing core MR / suggestion rows | trade reads them; core marks consumption through its own service on the `pr.line.created` event or query (`TRD-09`) |
+| TPR-UNR-03 | Writing core MR / suggestion rows | trade reads them; a converted suggestion is recorded by core through `WhReplenishmentSuggestionPort.markConverted` (`p8-16`), a stores hand-off through `PurchaseRequisitionHandoff` (`p8-09`) — never a trade repository write (`TRD-09`) |
 
 ## 2. T2 — Action × role × state
 
@@ -166,5 +166,5 @@ picker) · Add to release (agreement picker) — each opens a modal showing per-
 
 | ID | Question | Status |
 |---|---|---|
-| TPR-OPEN-01 | Does core render a *Raise PR* action on its MR / suggestion screens when trade is enabled? A core screen cannot import trade code | **Proposed:** no core edit; trade's WS-287 *Import shortages* lists core shortages (read down). DEFERRED-TO-p9-04 |
-| TPR-OPEN-02 | `OD-31` MRP path | open |
+| TPR-OPEN-01 | Does core render a *Raise PR* action on its MR / suggestion screens when trade is enabled? A core screen cannot import trade code | **Settled by STORES:** core needs no trade import — `p8-09` offers *Send to purchasing* only when trade registers the optional `PurchaseRequisitionHandoff` bean (`FR-528`), and `p8-16` withdraws core's *Convert to PO* when trade registers `SuggestionConversionOwner`; trade's WS-287 *Import shortages* also lists core shortages (read down). DEFERRED-TO-p9-04 |
+| TPR-OPEN-02 | `OD-31` MRP path | seam published by `p8-16` (origin `MRP`, `markConverted`); MFG to confirm |

@@ -151,7 +151,7 @@
 | ID | When this happens | Then this other record must change | Enforced in |
 |---|---|---|---|
 | SUB-T4-01 | Dispatch | `SUBCONTRACT_DISPATCH` movement: store bin → `to_location_id`, owner/lot/status unchanged, balanced per `I-1`; `movement_id`, `movement_line_id` set; consumed reservations re-created at the job-worker position (holder quad of the order) | dispatch service → `WhbStockLedgerWriter.post` |
-| SUB-T4-02 | Dispatch, **no `JobWorkDispatchPort` bean** (or the bean declares the movement not job work, e.g. same GSTIN) | core returnable gate pass (`p8-03`, kind `RETURNABLE`, party = job worker, lines from the dispatch, `source_document_type = SUBCONTRACT_DISPATCH`); `gate_pass_id` stored | dispatch service |
+| SUB-T4-02 | Dispatch, **no `JobWorkDispatchPort` bean** (or the bean declares the movement not job work, e.g. same GSTIN) | core returnable gate pass (`p8-03`, kind `RETURNABLE`, party = job worker, lines from the dispatch, `source_document_type = SUBCONTRACT_DISPATCH`, resolved by MFG's `GatePassSourceResolver`, MD-29) created `DRAFT` and then approved and gated out by core (`GTE-T1-11`/`-12`; gate-out needs the dispatch `DISPATCHED`, `GTE-GRD-13`); `gate_pass_id` stored | dispatch service |
 | SUB-T4-03 | Dispatch, **india bean present** | `registerDispatch(dispatchId, movementId, jobWorker, lines, jobWorkType)` — india raises one `JOB_WORK` challan + registration; `challan_ref`, `jobwork_registration_ref` frozen on the dispatch; a port refusal rolls back the whole dispatch | port, same transaction |
 | SUB-T4-04 | Dispatch / receipt / recall / approved write-off / receipt reversal | `whm_subcontract_reconciliations` row (order, item, lot) upserted; `open_base_quantity` re-derived on write | reconciliation service |
 | SUB-T4-05 | Subcontract receipt post | one `PRODUCTION_RECEIPT` movement: consumption from the job-worker location → `VIRT-PRODUCTION`, retained scrap → `VIRT-SCRAP`, processed item ← `VIRT-PRODUCTION` into our store (`WH-SC-647`: 196 `SHAFT-03` out, 190 → production, 6 → scrap, 190 `SHAFT-03P` in) | receipt post |
@@ -203,6 +203,7 @@
 | Date | Row IDs affected | Change | Found by |
 |---|---|---|---|
 | 2026-10-22 | all | v0 derived from `docs/frd/FRD-MFG.md`; not ratified | contract derivation (design set) |
+| 2026-10-22 | T4, §9 | Consistency pass: MD-20, MD-21, MD-25, MD-26, MD-28; generic-path RGP sourced on the dispatch (MD-29) | FRD-MFG §9 |
 
 ## 8. Invariants and scenarios this workflow must not break
 

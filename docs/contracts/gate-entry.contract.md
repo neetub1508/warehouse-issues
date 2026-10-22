@@ -98,7 +98,7 @@ row (`wh_gate_pass_revisions` is **not** created — the revision is an audit ro
 | GTE-GRD-08 | inward: the linked session is `COMPLETED` or `CANCELLED` (unloading over) | `409 GATE_OUT_SESSION_OPEN` naming the session | — | FR-511 |
 | GTE-GRD-09 | outward: every linked outward document is dispatched — supplier return `DISPATCHED`, shipment despatched, challan issued, store issue `POSTED`, gate pass `APPROVED` (moves to `OUT` in the same request) | `409 GATE_OUT_DOCUMENT_NOT_DISPATCHED` naming each | — | FR-511 |
 | GTE-GRD-10 | RGP: `expected_return_date` ≥ today; NRGP: none | `422 GATE_PASS_RETURN_DATE_REQUIRED` · `expectedReturnDate` | — | FR-512 |
-| GTE-GRD-11 | a line with `item_id` of a stock-holding item type names `(source_document_type, source_document_id)` that a registered `GatePassSourceResolver` resolves, at the same site and party; a line without `item_id` has a description | `422 GATE_PASS_STOCK_LINE_UNSOURCED` · `lines[i].sourceDocumentId` · `422 GATE_PASS_SOURCE_TYPE_UNSUPPORTED` | — | FR-513 |
+| GTE-GRD-11 | a line with `item_id` of a stock-holding item type names `(source_document_type, source_document_id)` that a registered `GatePassSourceResolver` resolves, at the same site and party; a line without `item_id` has a description (*amended for MFG MD-29:* `warehouse-manufacturing` registers a resolver for `SUBCONTRACT_DISPATCH`; core and india register theirs per `FR-513`) | `422 GATE_PASS_STOCK_LINE_UNSOURCED` · `lines[i].sourceDocumentId` · `422 GATE_PASS_SOURCE_TYPE_UNSUPPORTED` | — | FR-513 |
 | GTE-GRD-12 | line quantity > 0; for a sourced line, ≤ the source line's quantity not already on another live gate pass | `422 GATE_PASS_QUANTITY_EXCEEDS_SOURCE` | — | FR-513 |
 | GTE-GRD-13 | the out entry is outward, `OPEN`, same site; each sourced line's document is dispatched | `409 GATE_OUT_DOCUMENT_NOT_DISPATCHED` | — | FR-514 |
 | GTE-GRD-14 | returned quantity per line ≤ quantity out − returned − closed; the in entry is inward, `OPEN`, same site | `422 GATE_PASS_RETURN_EXCEEDS_OUT` · `returns[i].quantity` | CHECK `returned_quantity + closed_quantity <= quantity_out` | FR-514 |
@@ -195,6 +195,7 @@ drivers (`P5-17`); a gate pass that posts stock (`STO-D4`); mobile.
 | Date | Change |
 |---|---|
 | 2026-10-22 | v0 derived |
+| 2026-10-22 | Amended for MFG MD-29: `SUBCONTRACT_DISPATCH` resolver (`GTE-GRD-11`) |
 
 ## 8. Invariants and scenarios
 

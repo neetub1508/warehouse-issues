@@ -6,7 +6,7 @@
 > The purchase twin — supplier return — stays core (`p8-07`); trade only reinstates PO quantity on a
 > `REPLACE` intent (FRD-TRADE §5 M26).
 >
-> **Status.** Derived 2026-10-22 (v0). **Not buildable until `OD-33`** (RMA creation port) is settled.
+> **Status.** Derived 2026-10-22 (v0). **Not buildable until STORES `p8-15`** (`OD-33`: the RMA creation port `WhRmaPort` and the supplier-return intent) has landed.
 
 ---
 
@@ -15,7 +15,7 @@
 | | |
 |---|---|
 | **Workflow** | Draft SRA (from SO / shipment) → submit → approve → core RMA created → RMA received / closed → SRA closed; `REPLACE` → replacement dispatch release drafted; `CREDIT` → hand-over marker; reject / cancel |
-| **Module** | `warehouse-trade`; core RMA (`wh_rmas`, `V510050`) through `WhRmaPort` (`OD-33` — owed by STORES as a new task; not in `p8-01`…`p8-14`) |
+| **Module** | `warehouse-trade`; core RMA (`wh_rmas`, `V510050`) through `ai.warehouse.port.returns.WhRmaPort` (`OD-33` — published by STORES `p8-15`, `FR-506`) |
 | **Domain baseline** | FRD-TRADE FR-612, FR-613, FR-614 (`RETURN_RATE`) · R28 §4 D4 · `RN-031` |
 | **Owning task body** | `issues/p9-13.md` |
 | **Primary tables** | `wht_sales_return_authorisations`, `wht_sales_return_authorisation_lines` (`V550120`) |
@@ -96,9 +96,9 @@ Line: `so_line_id`, `core_demand_order_line_id` (the shipped line), item, `quant
 
 | ID | When | Then | Enforced in |
 |---|---|---|---|
-| TSR-T4-01 | Core return receipt posted against the RMA | SRA `PARTIALLY_RECEIVED` / `RECEIVED` from core received quantities (read; status stored only as a projection refreshed by the core event, reconciled nightly) | event handler on core `return.receipt.posted` |
+| TSR-T4-01 | Core return receipt posted against the RMA | SRA `PARTIALLY_RECEIVED` / `RECEIVED` from core received quantities (read through `WhRmaPort.getRmaPosition`; status stored only as a projection refreshed by the core event and the `p8-15` outbox `WH_RMA_MATCHED` / `WH_RMA_CANCELLED` / `WH_RMA_EXPIRED`, reconciled nightly) | event handler on core `return.receipt.posted` and the `WH_RMA_*` outbox |
 | TSR-T4-02 | `REPLACE` and received | replacement dispatch release `DRAFT` on the SO for the received qty at the original net price, flagged `is_replacement` (no new commercial value); planner releases it (`TSO-T1-08`) | same handler |
-| TSR-T4-03 | Approved | `WhRmaPort.createRma(idempotencyKey:'WHT_SRA:<id>', {sourceModule:'warehouse-trade', sourceDocumentType:'WHT_SRA', sourceDocumentId, warehouse, customer, originalDemandOrderId, reasonCodeId, expectedCondition, expiryDate, lines[item, qty, uom, lot/serial]})` → core `wh_rmas` `OPEN`; `core_rma_id` stored | approval transaction |
+| TSR-T4-03 | Approved | `WhRmaPort.createRma(idempotencyKey:'WHT_SRA:<id>', {sourceModule:'warehouse-trade', sourceDocumentType:'WHT_SRA', sourceDocumentId, sourceDocumentRef:<sra_number>, initialStatus:'OPEN', owner, warehouse, customer, originalDemandOrderId, reasonCodeId, expectedCondition, expiryDate, lines[item, qty, uom, lot/serial]})` → core `wh_rmas` `OPEN`; `core_rma_id` stored | approval transaction |
 | TSR-T4-04 | Core supplier return with intent `REPLACE` reaches `DISPATCHED` for a trade-created PO | `WhPurchaseOrderPort.amendOrder` adds a `FIRM` schedule line for the returned qty on the original PO line (no new port op), which re-opens that quantity; trade PO line shows *replacement due*; expediting lists it | outbox subscriber on `WH_SUPPLIER_RETURN_DISPATCHED` carrying `intent_code` (`OD-33`) |
 | TSR-T4-05 | Any | `RETURN_RATE` metric reads SRA quantities (`TCE`) | evaluation run |
 
@@ -130,4 +130,4 @@ receipt, received (period), replacements pending. Columns: `sraNumber`, `custome
 
 ## 9. Open rows
 
-`OD-33` (blocking).
+`OD-33` (blocking until `p8-15` lands).

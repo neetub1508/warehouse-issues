@@ -68,7 +68,7 @@
 | BOM-T1-04 | `DRAFT` | **Submit** | `SUBMITTED` | `BOM-GRD-01`…`-11` (full structure check, incl. `-05` recursion, `-06` depth); ≥ 1 line | `whm_boms:submit` | `submitted_by/at`; notification to holders of `:approve` at the site | no | WS-320 **Submit** |
 | BOM-T1-05 | `SUBMITTED` | **Return** for correction | `DRAFT` | actor ≠ submitter (`BOM-GRD-07`) | `whm_boms:approve` | `returned_by/at`, `return_note` (required) | **yes** (note) | Approval tab **Return** |
 | BOM-T1-06 | `SUBMITTED` | **Approve** | `APPROVED` | `BOM-GRD-01`…`-12` re-run under lock; `BOM-GRD-07` (≠ submitter); `BOM-GRD-13` (effectivity); `BOM-GRD-14` (default alternative) | `whm_boms:approve` | `approved_by/at`; `BOM-T4-01` predecessor end-dated; `BOM-T4-02` wholly superseded predecessor → `OBSOLETE` | no | Approval tab **Approve** |
-| BOM-T1-07 | `APPROVED` | **Obsolete** manually | `OBSOLETE` | — (existing orders keep their frozen snapshot, `FR-633`) | `whm_boms:obsolete` | `obsoleted_by/at`; `PLANNED` orders on this version now fail release `PRO-GRD-03` (edge `BOM-E-06`) | **yes** (`BOM_CHANGE`) | WS-320 **Obsolete** |
+| BOM-T1-07 | `APPROVED` | **Obsolete** manually | `OBSOLETE` | — (existing orders keep their frozen snapshot, `FR-633`) | `whm_boms:obsolete` | `obsoleted_by/at`; `PLANNED` orders on this version now fail release `PRO-GRD-03` (edge `BOM-EC-06`) | **yes** (`BOM_CHANGE`) | WS-320 **Obsolete** |
 | BOM-T1-08 | `APPROVED` · `OBSOLETE` | **New version** | new row `DRAFT` | no other `DRAFT`/`SUBMITTED` version of the same `(item, usage, alternative, site)` (`BOM-GRD-15`) | `whm_boms:new_version` | deep copy of header + children; `version_no` = max + 1; `supersedes_bom_id` = source; `effective_from` proposed = today | `BOM_CHANGE` reason **required** | WS-320 **New version** |
 | BOM-T1-09 | `APPROVED` | (effect of approving a successor whose `effective_from` ≤ this one's `effective_from`) | `OBSOLETE` | — | system, in `BOM-T1-06`'s transaction | `obsoleted_by` = approver | — | — |
 | BOM-T1-10 | `DRAFT` | **Delete** | *deleted* | never referenced (`BOM-GRD-16`) | `whm_boms:delete` | children cascade | no | WS-320 **Delete** |
@@ -96,7 +96,7 @@
 | BOM-GRD-09 | Operation: work centre active, same site when the BOM is site-scoped; `setup_minutes ≥ 0`, `run_minutes_per_unit ≥ 0`; `operation_seq` unique | `422` field-named | uk `(bom_id, operation_seq)` | FR-631 |
 | BOM-GRD-10 | Line effectivity `[line_effective_from, line_effective_to)` lies inside the version's effectivity | `422 BOM_LINE_EFFECTIVITY_OUTSIDE_VERSION` | — | FR-623 |
 | BOM-GRD-11 | `lead_time_offset_days` ≥ 0; `alternate_group_code` + `alternate_priority` both set or both null; priorities unique in a group | `422` field-named | — | FR-623 |
-| BOM-GRD-12 | Approving a `PHANTOM` BOM that would become the item's default `PRODUCTION` BOM: the item has **zero on-hand** at every site in scope (contract rule, edge `BOM-E-04`) | `409 PHANTOM_ITEM_HAS_STOCK` naming site, location, quantity | movement-line validator `BOM-T4-03` | FR-627 |
+| BOM-GRD-12 | Approving a `PHANTOM` BOM that would become the item's default `PRODUCTION` BOM: the item has **zero on-hand** at every site in scope (contract rule, edge `BOM-EC-04`) | `409 PHANTOM_ITEM_HAS_STOCK` naming site, location, quantity | movement-line validator `BOM-T4-03` | FR-627 |
 | BOM-GRD-13 | **One approved BOM per `(item, usage, alternative, coalesce(site))` on any date**: after setting the predecessor's `effective_to` (`BOM-T4-01`), no other `APPROVED` row overlaps `daterange(from, to, '[)')`; service pre-check followed by an explicit `flush()` | `409 BOM_EFFECTIVITY_OVERLAP` naming the overlapping version | gist `EXCLUDE` (FRD §4) | FR-626 |
 | BOM-GRD-14 | At most one `is_default_alternative` per `(item, usage, COALESCE(site, nil-uuid))` among `APPROVED` current non-rework rows; approving a default when another alternative is default refuses unless that other is this version's predecessor | `409 BOM_DEFAULT_ALTERNATIVE_EXISTS` | partial uk | FR-622, FR-626 |
 | BOM-GRD-15 | One open (`DRAFT`/`SUBMITTED`) successor per `(item, usage, alternative, site)` | `409 BOM_VERSION_IN_PROGRESS` naming it | — | FR-625 |
@@ -208,17 +208,17 @@ Codes not named in the FRD (`BOM_EFFECTIVITY_OVERLAP`, `BOM_DEFAULT_ALTERNATIVE_
 
 | ID | Case | Behaviour | FR | WH-SC |
 |---|---|---|---|---|
-| BOM-E-01 | v2 approved effective 2026-11-01 while v1 is current | v1 `effective_to` = 2026-11-01; an order with planned start 2026-10-30 selects v1, planned start 2026-11-02 selects v2 (creation day irrelevant, MD-19) | FR-625, FR-626 | 602 |
-| BOM-E-02 | v2 approved with `effective_from` ≤ v1's | v1 → `OBSOLETE` in the same transaction | FR-625 | — |
-| BOM-E-03 | Two alternatives, lot sizes 1–49 and 50+, order for 60 | alternative 2 | FR-626 | 603 |
-| BOM-E-04 | Item made phantom while it still holds stock | approval refused `PHANTOM_ITEM_HAS_STOCK`; the stock must be consumed or reclassified first | FR-627 | 605 |
-| BOM-E-05 | Scrap 5 % on `CASING-01`, `BOLT-M8` fixed 2 + 8/unit, quantity 100 | explosion shows 105 and 802; the order snapshot reproduces them (`PRO-T4-01`) | FR-623, FR-633 | 609 |
-| BOM-E-06 | BOM obsoleted while a `PLANNED` order references it | the order keeps its snapshot; release refused `BOM_NOT_EFFECTIVE` (`PRO-GRD-03`); planner may *Re-explode* in `PLANNED` | FR-633, FR-635 | 612 |
-| BOM-E-07 | Phantom nested in phantom | multiplied through; `phantom_path` `PARENT>P1>P2`; depth counted after expansion | FR-627, FR-628 | 606 |
-| BOM-E-08 | Component with no cost layer in roll-up | `missingCost = true`, extended cost excluded from the level total and the total flagged incomplete | FR-628 | 606 |
-| BOM-E-09 | Site-specific and all-sites BOMs both effective | site-specific wins | FR-626 | — |
-| BOM-E-10 | Cycle only through a version effective in the future | refused: the cycle check spans every overlapping effectivity, not just today | FR-627 | 604 |
-| BOM-E-11 | *Copy from kit* of a kit whose item is not stock-holding | refused `BOM-GRD-01` | FR-629 | 608 |
+| BOM-EC-01 | v2 approved effective 2026-11-01 while v1 is current | v1 `effective_to` = 2026-11-01; an order with planned start 2026-10-30 selects v1, planned start 2026-11-02 selects v2 (creation day irrelevant, MD-19) | FR-625, FR-626 | 602 |
+| BOM-EC-02 | v2 approved with `effective_from` ≤ v1's | v1 → `OBSOLETE` in the same transaction | FR-625 | — |
+| BOM-EC-03 | Two alternatives, lot sizes 1–49 and 50+, order for 60 | alternative 2 | FR-626 | 603 |
+| BOM-EC-04 | Item made phantom while it still holds stock | approval refused `PHANTOM_ITEM_HAS_STOCK`; the stock must be consumed or reclassified first | FR-627 | 605 |
+| BOM-EC-05 | Scrap 5 % on `CASING-01`, `BOLT-M8` fixed 2 + 8/unit, quantity 100 | explosion shows 105 and 802; the order snapshot reproduces them (`PRO-T4-01`) | FR-623, FR-633 | 609 |
+| BOM-EC-06 | BOM obsoleted while a `PLANNED` order references it | the order keeps its snapshot; release refused `BOM_NOT_EFFECTIVE` (`PRO-GRD-03`); planner may *Re-explode* in `PLANNED` | FR-633, FR-635 | 612 |
+| BOM-EC-07 | Phantom nested in phantom | multiplied through; `phantom_path` `PARENT>P1>P2`; depth counted after expansion | FR-627, FR-628 | 606 |
+| BOM-EC-08 | Component with no cost layer in roll-up | `missingCost = true`, extended cost excluded from the level total and the total flagged incomplete | FR-628 | 606 |
+| BOM-EC-09 | Site-specific and all-sites BOMs both effective | site-specific wins | FR-626 | — |
+| BOM-EC-10 | Cycle only through a version effective in the future | refused: the cycle check spans every overlapping effectivity, not just today | FR-627 | 604 |
+| BOM-EC-11 | *Copy from kit* of a kit whose item is not stock-holding | refused `BOM-GRD-01` | FR-629 | 608 |
 
 ## 8. Out of scope
 
@@ -230,6 +230,7 @@ Engineering change orders / change-number master (`R-08`); configurable / varian
 |---|---|
 | 2026-10-22 | v0 derived from FRD-MFG FR-622…FR-631 |
 | 2026-10-22 | Consistency pass: selection date = planned start (MD-19), `403` self-approval (MD-21), `is_rework_alternative` (MD-26), COALESCE unique index (MD-27) |
+| 2026-10-22 | Edge-case ids renamed `BOM-E-nn` → `BOM-EC-nn` (the design-set checker reads `E-nn` as a review finding) |
 
 ## 10. Invariants and scenarios
 

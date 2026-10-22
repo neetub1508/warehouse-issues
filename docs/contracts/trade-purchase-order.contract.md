@@ -88,7 +88,7 @@ lines added / firmed on the core PO, `release_ref` = release number); release li
 | ID | From | Action | To | Guard | Actor | Side effects | Comment | UI |
 |---|---|---|---|---|---|---|---|---|
 | TPO-T1-01 | — | Create (manual / from PR lines / from award) | `DRAFT` | — | `:create` | prices resolved (`TRC-T4-02`); PR allocations | no | WS-292 Add (type picker first) |
-| TPO-T1-02 | `DRAFT`, `REJECTED` | Submit | `SUBMITTED` | `TPO-GRD-01`…`-05`, `-08`, `-10` | `:submit` | number (BLANKET); `TAM-T1-03` doc `PO`, value Σ net × qty (FIXED/BLANKET) or ceiling value (OPEN; quantity-band rule when no ceiling value), conditions `manual_rate`, `non_l1_award` inherited | no | Submit |
+| TPO-T1-02 | `DRAFT`, `REJECTED` | Submit | `SUBMITTED` | `TPO-GRD-01`…`-05`, `-08`, `-10` | `:submit` | number (series `PO` for FIXED / OPEN, `PA` for BLANKET — `OD-30`); `TAM-T1-03` doc `PO`, value Σ net × qty (FIXED/BLANKET) or ceiling value (OPEN; quantity-band rule when no ceiling value), conditions `manual_rate`, `non_l1_award` inherited | no | Submit |
 | TPO-T1-03 | `SUBMITTED` | Withdraw | `DRAFT` | `TAM-T1-09` | maker | — | no | Withdraw |
 | TPO-T1-04 | `SUBMITTED` | Approved (last level) | `APPROVED` | `TPO-GRD-11`, `-12` | approver | **`WhPurchaseOrderPort.createOrder`** (`POS-T1-05`) in the same transaction (`TPO-T4-01`) — every type; `version_no = 1` snapshot (`TOA-T4-02`); RC consumption (`TRC-T4-01`) FIXED only | — | WS-285 |
 | TPO-T1-05 | `DRAFT`, `SUBMITTED`, `APPROVED`, `ISSUED`, `ACKNOWLEDGED` | Cancel | `CANCELLED` | `TPO-GRD-09` | `:cancel` | **`WhPurchaseOrderPort.cancelOrder`** when a core PO exists; PR allocations released; RC consumption reversed | **yes**, reason code | row action |

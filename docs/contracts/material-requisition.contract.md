@@ -159,6 +159,7 @@ Requisition of services; a multi-level approval matrix beyond `OD-29`'s optional
 | Date | Change |
 |---|---|
 | 2026-10-22 | v0 derived |
+| 2026-10-22 | Amended for MFG MD-16: owner-held reservations (`MRQ-T4-01`, `-03`); `WhMaterialRequisitionPort` named (`MRQ-OPEN-02`) |
 
 ## 8. Invariants and scenarios
 

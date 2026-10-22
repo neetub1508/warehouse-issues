@@ -160,6 +160,7 @@ Production issue / backflush / WIP (MFG); tool-crib custody (FRD §12 row 13); e
 | Date | Change |
 |---|---|
 | 2026-10-22 | v0 derived. Resolves `S-052` (`GAP-REGISTER.md:614`) per `RN-034` |
+| 2026-10-22 | Amended for MFG MD-14 (`SIR-GRD-01a` admits a `COMPLETED` production order; a throwing `onReturnPosted` — MFG on a `CLOSED` order, `409 ORDER_NOT_OPEN` — rolls the return post back) and MD-17 (`SIR-UNR-06`) |
 
 ## 8. Invariants and scenarios
 

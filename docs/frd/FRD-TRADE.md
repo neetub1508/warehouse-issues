@@ -1,7 +1,7 @@
 # FRD-TRADE — `warehouse-trade`: manufacturing purchase and sales, mirrored
 
 **Date** 2026-10-22 · **Area** TRADE · **Phase** `P9` · **Status** derived v0, not yet through the
-`functional-reviewer` · **ID ranges** `FR-540`–`FR-619`, `WS-280`–`WS-319`, `WH-SC-480`–`WH-SC-599`,
+`functional-reviewer` · **ID ranges** `FR-540`–`FR-619`, `WS-280`–`WS-312` (allocated to 319), `WH-SC-480`–`WH-SC-565` (allocated to 599),
 `OD-30`–`OD-39` (`DECISIONS.md` D-16 allocation). Unused numbers stay unused.
 
 **Sources.** `reviews/R27-client-p2p-stores-gap.md` (`RM-001`…`RM-006`, `RM-030`, `RM-040`…`RM-045`) ·
@@ -136,7 +136,7 @@ Rows use the shape of `WAREHOUSE-FUNCTIONAL-REQUIREMENTS.md` §2. **Module** `tr
 | # | Requirement | Module | Ver | Ph | Closes |
 |---|---|---|---|---|---|
 | **FR-556** | **PR document**: company, requesting site, deliver-to location (optional), department (platform `departments`), cost object (the `p8-10` vocabulary: department / cost centre / production order), requested by, required-by date, priority, justification, source (`MANUAL`, `STORES_SHORTAGE`, `REPLENISHMENT`, `MRP`). Lines: item, quantity, UoM, required date, suggested supplier, estimated rate, source line reference, notes | trade | v1 | P9 | `RM-001` |
-| **FR-557** | **PR from shortage.** From the core material-requisition shortfall (`p8-09`) or a core replenishment suggestion (incl. `MRP` source, `OD-31`), "Raise PR" creates PR lines linked to the source line. One source line feeds **at most one** non-cancelled PR line (partial unique index). The quantity defaults to the shortfall; raising it needs a justification | trade | v1 | P9 | `RM-001` `RM-015` |
+| **FR-557** | **PR from shortage.** From the core material-requisition shortfall (`p8-09`) or a core replenishment suggestion (incl. origin `MRP`, `p8-16`, `OD-31`), "Raise PR" creates PR lines linked to the source line; a converted suggestion is reported back through `WhReplenishmentSuggestionPort.markConverted` (`p8-16`). One source line feeds **at most one** non-cancelled PR line (partial unique index). The quantity defaults to the shortfall; raising it needs a justification | trade | v1 | P9 | `RM-001` `RM-015` |
 | **FR-558** | PR approval runs the matrix on Σ (qty × estimated rate) in the company currency; a PR with no estimates is matched on quantity bands. The estimated rate defaults from the active rate contract, else the last approved PO rate for the item, else blank | trade | v1 | P9 | — |
 | **FR-559** | **Consolidation.** The requisition workbench (WS-287) lists approved open PR lines across PRs, groupable by item, site and suggested supplier. The buyer selects lines and creates **one** RFQ, **one** PO, or a release against an agreement. A junction records each PR line × target line × quantity | trade | v1 | P9 | — |
 | **FR-560** | **Partial conversion.** A PR line converts in parts; Σ allocated ≤ approved − cancelled, checked under a row lock on the PR line. Line status `OPEN` → `PARTIALLY_ORDERED` → `ORDERED`; header follows. The remainder can be closed short with a reason. The requester is notified at each conversion and at close-short | trade | v1 | P9 | — |
@@ -340,7 +340,7 @@ sections ≤ 8 leaves each (`TRD-07`).
 | WS-312 | Trade Reports | `/warehouse/trade/reports/<report>` (7 reports) | D | Trade Reports | p9-14 |
 
 Leaf counts: Trade Masters 8 · Purchasing — Sourcing 5 · Purchasing — Orders 6 · Sales — Pre-sales 5 ·
-Sales — Orders 6 · Trade Reports 7. `WS-313`…`WS-319` are unused.
+Sales — Orders 6 · Trade Reports 7. The allocation's last seven screen numbers (after `WS-312`, up to 319) are unused.
 
 **Detail-page tabs.** WS-293: Lines · Schedule · Releases · Receipts (core gate entries, GRNs with bill,
 QC, MRN — read-only) · Returns & claims (core) · Acknowledgement · Follow-ups · Amendments · Versions ·
@@ -353,7 +353,7 @@ Amendments · Versions · Approvals · Audit. Per the view-popup rule, no tab ca
 Actors: `req1` (department requester, Maintenance), `stores1`, `buyer1`, `pm1` / `pm2` (purchase
 approvers), `sales1`, `sm1` (sales approver), `disp1` (dispatch planner), `adm1` (trade administrator),
 `aud1` (auditor). Company `ACME`, sites `PLANT-1` (stores + FG store `FG-1`), currency INR. Kind:
-happy / edge / error / guard. Unused ids `WH-SC-566`…`599` stay unused.
+happy / edge / error / guard. Scenario numbers after `WH-SC-565` (up to 599 in the allocation) stay unused.
 
 ### 7.1 Module and masters
 
@@ -376,7 +376,7 @@ happy / edge / error / guard. Unused ids `WH-SC-566`…`599` stay unused.
 | **WH-SC-489** | Rules for `PO` INR: ≤ 1,00,000 → L1 `PURCHASE_MANAGER` any-one; > 1,00,000 → L1 `PURCHASE_MANAGER`, L2 `PLANT_HEAD` | `buyer1` submits a PO of ₹2,40,000 | Request with two steps; `pm1` approves L1; `pm1` cannot act on L2 (`403 TRADE_APPROVAL_SELF`, already acted); `ph1` approves L2; PO `APPROVED` | FR-548 FR-549 | happy |
 | **WH-SC-490** | No rule covers `PO` in `USD` | `buyer1` submits a USD PO | `422 TRADE_NO_APPROVAL_RULE` naming `PO`, `USD 12,000.00`; PO stays `DRAFT` | FR-550 FR-566 | error |
 | **WH-SC-491** | Seeded zero-level rule for `PO_RELEASE` within an approved agreement | `buyer1` releases a schedule line | Release approved at submit by `SYSTEM`, rule id stored on the request; port called | FR-550 FR-580 | happy |
-| **WH-SC-492** | `pm1` returns a PR with comment | `req1` edits and resubmits | First request `RETURNED` kept; PR back to `DRAFT`; resubmit opens request #2; audit has both | FR-551 | happy |
+| **WH-SC-492** | `pm1` returns a PR with comment | `req1` edits and resubmits | First request `RETURNED` kept; PR back to `DRAFT`; resubmit opens a second request; audit has both | FR-551 | happy |
 | **WH-SC-493** | `pm1` delegates to `pm2` 2026-11-01…05; `pm2` is the maker of PO-X | PO-X reaches `pm1`'s step on 11-02 | `pm2` cannot act (maker); `pm1` still can; a delegation from `pm1` to `buyer1` for buyer1's own documents is refused at save | FR-552 FR-549 | guard |
 | **WH-SC-494** | A step pending 25 h; `pending_alert_hours=24` | Alert job runs twice | One alert per episode; step still pending; nothing auto-approved | FR-554 | edge |
 | **WH-SC-495** | Two rules equally specific for `PR` INR 0–50,000 | `adm1` saves the second | Refused `422 TRADE_APPROVAL_RULE_AMBIGUOUS` naming the first rule | FR-548 | guard |
@@ -388,7 +388,7 @@ happy / edge / error / guard. Unused ids `WH-SC-566`…`599` stay unused.
 | **WH-SC-496** | `req1` (Maintenance) needs 40 `BRG-6205` by 2026-11-20, cost object department `MAINT` | Creates and submits a manual PR | Number issued; estimated rate ₹310 defaulted from active RC; approval on ₹12,400; `pm1` approves; PR `APPROVED`, line `OPEN` | FR-556 FR-558 | happy |
 | **WH-SC-497** | Core material requisition MR-88 short 25 `GSK-12` (`p8-09`) | `stores1` clicks *Raise PR* | PR line linked to MR-88 line, qty 25, source `STORES_SHORTAGE`; a second *Raise PR* on the same line is refused `409 TRADE_SOURCE_LINE_ALREADY_REQUISITIONED` | FR-557 | guard |
 | **WH-SC-498** | Same, `stores1` raises qty to 40 | Saves without justification | `422` on `justification`; with it, saved | FR-557 | error |
-| **WH-SC-499** | Core replenishment suggestion source `MRP` (written by MFG, `OD-31`) for 500 `STL-ROD-20` | `buyer1` converts it | PR source `MRP` linked to the suggestion; suggestion marked consumed by core | FR-557 | happy |
+| **WH-SC-499** | Core replenishment suggestion with origin `MRP` (published by MFG through `p8-16`, `OD-31`) for 500 `STL-ROD-20` | `buyer1` converts it | PR source `MRP` linked to the suggestion; trade calls `WhReplenishmentSuggestionPort.markConverted` with the PR number and core shows *Converted by purchasing* | FR-557 | happy |
 | **WH-SC-500** | Three approved PRs each with `BRG-6205` (40, 25, 60) | `buyer1` selects all three on the workbench → *Create RFQ* | One RFQ line qty 125; three allocation rows 40/25/60; PR lines `IN_RFQ`-allocated | FR-559 | happy |
 | **WH-SC-501** | PR line 100 `GSK-12` | `buyer1` orders 60 on PO-A, later 30 on PO-B, then tries 20 on PO-C | 60 and 30 succeed (line `PARTIALLY_ORDERED`, open 10); 20 refused `422 TRADE_ALLOCATION_EXCEEDS_OPEN` (open 10) | FR-560 | guard |
 | **WH-SC-502** | Two buyers allocate the last 10 of a PR line concurrently | Both submit | One succeeds; the other is refused (row lock), not over-allocated | FR-560 FR-618 | edge |
@@ -527,7 +527,7 @@ audit columns, `company_id` NOT NULL. Status columns `VARCHAR(30)` with **no `CH
 | `TRD-06` | **No tax, no FX.** Lines carry the item's tax classification code (recorded); prints say *Taxes extra as applicable*; documents of different currencies are never ranked or summed together | `OD-9` answer (warehouse never computes tax); accounting deferred |
 | `TRD-07` | Trade has its **own L1 menu** (`warehouse_trade`, *Purchase & Sales*) with six L2 sections ≤ 8 leaves | Keeps `warehouse_operations` under its 10-section cap; one toggle hides one tree |
 | `TRD-08` | **Approval never times out into approval**; zero-level rules are explicit rows | `FR-408` maker–checker |
-| `TRD-09` | **MRP and stores shortages reach trade by pull from core**, never by a sibling call: MFG writes core replenishment suggestions (`OD-31`), stores writes material requisitions (`p8-09`); trade converts them | FKs point down only; siblings never depend on each other |
+| `TRD-09` | **MRP and stores shortages reach trade by pull from core**, never by a sibling call: MFG publishes core replenishment suggestions with origin `MRP` (`p8-16`, `OD-31`), stores writes material requisitions (`p8-09`); trade converts them | FKs point down only; siblings never depend on each other |
 | `TRD-10` | Price precedence: purchase — rate contract → valid awarded quotation → manual; sales — customer RC → category price list → general price list → manual. Last price is reference only | One resolution order per side, testable |
 | `TRD-11` | Release proposals are **proposed, never auto-released** | A release is a commitment to a supplier |
 
@@ -536,9 +536,9 @@ audit columns, `company_id` NOT NULL. Status columns `VARCHAR(30)` with **no `CH
 | # | Question | Recommended default (adopted unless overruled) | Blocks |
 |---|---|---|---|
 | **OD-30** | One number or two for a purchase order? | **The trade number is the supplier-facing number.** It is printed on the PO and stored as the core PO's `source_document_ref`; the core PO keeps its internal `po_number` (core's series, `p8-01` has no number parameter). Owed by STORES: the gate entry (`p8-03`) and GRN PO pickers match **either** number, and WS-072 shows `source_document_ref` as *Supplier PO no.* | FR-547, FR-577 |
-| **OD-31** | How does MRP output reach a PR without a sibling-to-sibling dependency? | MFG writes **core `wh_replenishment_suggestions` rows with source `MRP`** (planned purchase); trade converts them (FR-557). Confirm with MFG (`OD-40`…`44` range) and STORES | FR-556, FR-557 |
+| **OD-31** | How does MRP output reach a PR without a sibling-to-sibling dependency? | MFG writes **core `wh_replenishment_suggestions` rows with origin `MRP`** (planned purchase) through STORES `p8-16`'s `WhReplenishmentSuggestionPort.publishExternal`; trade converts them (FR-557), calls `markConverted`, and registers the optional `SuggestionConversionOwner` bean so core's own *Convert to PO* is withdrawn while trade is on. Seam published by `p8-16`; MFG to confirm (`OD-40`…`44` range) | FR-556, FR-557 |
 | **OD-32** | How does MRP see unreleased customer schedule lines? | **Closed by `p8-02`:** the SO's core demand order carries them as `FORECAST` schedule lines that never reserve; MRP reads core. Trade keeps them equal to the unreleased schedule on every approval, release and amendment. Confirm MRP reads `FORECAST` (MFG) | FR-611 |
-| **OD-33** | Port for creating a core RMA from an SRA, and the supplier-return `REPLACE` intent | **Owed by STORES as a new task (not in `p8-01`…`p8-14`)**: `WhRmaPort.createRma / cancelRma` with `source_*` and idempotency, plus an `intent_code` on `wh_supplier_returns` and outbox `WH_SUPPLIER_RETURN_DISPATCHED`. PO reinstatement itself needs no new op: trade calls `amendOrder` to add a `FIRM` schedule line. Until then FR-612/FR-613 are not buildable | FR-612, FR-613 |
+| **OD-33** | Port for creating a core RMA from an SRA, and the supplier-return `REPLACE` intent | **Owed by STORES `p8-15`** (`FR-506`): `WhRmaPort.createRma / cancelRma / getRmaPosition` with `source_*` and idempotency, the `RmaChangeGuard` seam, plus an `intent_code` (`SUPPLIER_RETURN_INTENT`: `REPLACE`, `CREDIT`, `NO_ACTION`) on `wh_supplier_returns` and outbox `WH_SUPPLIER_RETURN_DISPATCHED`. PO reinstatement itself needs no new op: trade calls `amendOrder` to add a `FIRM` schedule line. Until `p8-15` lands FR-612/FR-613 are not buildable | FR-612, FR-613 |
 | **OD-34** | Approval bands and ranking for foreign-currency documents | Rules are **per currency**; no rule → refusal; comparative statement ranks only same-currency quotations | FR-548, FR-566 |
 | **OD-35** | Slab basis: per order line, or cumulative over the contract? | **Per order line** in v1; cumulative slabs need a retroactive price change, which is accounting | FR-570 |
 | **OD-36** | Rate amendment after partial receipt | Applies to **un-received quantity only**; received units keep their GRN valuation; no revaluation (accounting deferred) | FR-591 |
@@ -577,9 +577,10 @@ audit columns, `company_id` NOT NULL. Status columns `VARCHAR(30)` with **no `CH
 | STORES `p8-02` | `WhDemandOrderPort` (`createDemand`, `releaseSchedule`, `amendDemand`, `cancelLine`, `cancelDemand`, `getFulfilmentPosition`), `FORECAST`/`FIRM` schedule, `DemandOrderChangeGuard`, outbox `WH_DEMAND_SHIPPED` / `_CANCELLED` / `_AMENDED`; an ATP query bean for WS-305 | p9-09, p9-10, p9-11 |
 | STORES `p8-03` / `p8-04` | Gate entry and GRN PO pickers match `source_document_ref` as well as `po_number` (`OD-30`); bill no / date / billed qty readable | p9-07 (read-only tabs) |
 | STORES `p8-06` / `p8-07` | QC accepted / inspected per GRN line by supplier; supplier return with intent | p9-12, p9-13 |
-| STORES `p8-09` / `p8-10` | Shortage line query; cost-object vocabulary | p9-04 |
-| STORES (new task) | `WhRmaPort`; supplier-return `intent_code` + dispatched event (`OD-33`) | p9-13 |
-| MFG | MRP writes core replenishment suggestions with source `MRP` (`OD-31`); reads `FORECAST` + `FIRM` demand schedule from core (`OD-32`) | p9-04, p9-09 |
+| STORES `p8-09` / `p8-10` | Shortage line query; the optional `PurchaseRequisitionHandoff` bean trade implements (`FR-528`); cost-object vocabulary | p9-04 |
+| STORES `p8-15` | `WhRmaPort` (`createRma`, `cancelRma`, `getRmaPosition`), `RmaChangeGuard`; supplier-return `intent_code` + `WH_SUPPLIER_RETURN_DISPATCHED` (`OD-33`) | p9-13 |
+| STORES `p8-16` | `WhReplenishmentSuggestionPort` (`publishExternal` used by MFG, `getSuggestionStatus`, `markConverted` used by trade) with origin `MRP`; optional `SuggestionConversionOwner` bean trade registers (`OD-31`) | p9-04 |
+| MFG | MRP publishes core replenishment suggestions with origin `MRP` through `p8-16` (`OD-31`); reads `FORECAST` + `FIRM` demand schedule from core (`OD-32`) | p9-04, p9-09 |
 | SPINE | `DATA-MODEL.md`, `BUILD-SPEC-SCREENS.md`, `SCENARIO-CATALOGUE.md`, `MODULE-INTEGRATION.md` rows for `warehouse-trade`; D-12 release unit for P9 | all |
 
 ## 13. Traceability

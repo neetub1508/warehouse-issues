@@ -78,7 +78,7 @@
 | CST-GRD-01 | Σ output `extended_value` + abnormal-scrap value + by-product credit = receipt absorbed value, to the scale of `WhbCostLayerMath.split`; split by largest remainder, ties to lowest output `sequence` | — (service-constructed; asserted by test; a mismatch is an incident) | — | `MPR-GRD-01`/`I-21` value balance | FR-655, `R-4`, `RF-009` |
 | CST-GRD-02 | No staging list of the order in `DRAFT`/`RELEASED`/`PARTIALLY_STAGED`/`STAGED` with line-side stock not unstaged/consumed | `409 ORDER_HAS_OPEN_STAGING` · `orderId` | lists `STG-` numbers | — | FR-656 |
 | CST-GRD-03 | No receipt of the order in `DRAFT`/`PENDING_APPROVAL`; no reversal `REQUESTED`/`APPROVED` | `409 ORDER_HAS_OPEN_RECEIPT` · `orderId` | lists `FGR-`/`PRV-` | — | FR-656, FR-649 |
-| CST-GRD-04 | Subcontract order: every reconciliation `open_base_quantity = 0`, no `PENDING` write-off (`SUB-GRD-14`) | `409 SUBCONTRACT_BALANCE_OPEN` · `orderId` | lists item/lot/qty (`WH-SC-648`) | — | FR-661 |
+| CST-GRD-04 | Subcontract order: every reconciliation `open_base_quantity = 0` and `pending_write_off_base_quantity = 0` — a `REQUESTED` write-off action still blocks (`SUB-GRD-14`, MD-26) | `409 SUBCONTRACT_BALANCE_OPEN` · `orderId` | lists item/lot/qty (`WH-SC-648`) | — | FR-661 |
 | CST-GRD-05 | No live settlement for the order (`DRAFT`/`APPROVED`/`POSTED`) | `409 SETTLEMENT_EXISTS` · `orderId` | names the `PST-` | partial unique index `(order_id) WHERE status <> 'REJECTED'` (MD-22) | FR-656 |
 | CST-GRD-06 | Approver/rejecter ≠ settlement creator | `403 SETTLEMENT_SELF_APPROVAL` · `id` (MD-21) | — | — | FR-656 |
 | CST-GRD-07 | Order status `COMPLETED` | `409 ORDER_NOT_COMPLETED` · `orderId` | names status | — | FR-656 |
@@ -214,6 +214,7 @@ implements `WarehousePrintDataProvider`; kind seeded in `V560001`.
 | Date | Row IDs affected | Change | Found by |
 |---|---|---|---|
 | 2026-10-22 | all | v0 derived from `docs/frd/FRD-MFG.md`; not ratified | contract derivation (design set) |
+| 2026-10-22 | T1, §9 | Consistency pass: `DRAFT → POSTED` below threshold and partial unique index (MD-22), late issues on `COMPLETED` (MD-14), `403` self-approval (MD-21), `REQUESTED` write-off blocks close (MD-26) | FRD-MFG §9 |
 
 ## 8. Invariants and scenarios this workflow must not break
 
