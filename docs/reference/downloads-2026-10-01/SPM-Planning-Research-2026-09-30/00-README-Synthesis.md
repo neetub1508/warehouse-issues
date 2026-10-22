@@ -1,5 +1,7 @@
 # Service-Parts Planning Module: Research Pack and Warehouse-Readiness Synthesis
 
+<!-- check-design-set: finding-citations file RE-05 RE-06 — external research snapshot (downloads 2026-10-01), kept verbatim: `RE-nn` are this snapshot's own gap ids (05-Warehouse-Code-Gaps.md), not design-set review findings -->
+
 *Prepared 2026-09-30. Scope: everything a future **service-parts planning module** (forecasting, service-level stocking, multi-echelon, supersession-aware demand, repair/cores, van/dealer stock, scenarios, autopilot) needs to learn from PTC Servigistics and its competitors. Also covers everything in our existing warehouse modules that must change first so the planning module has a strong base.*
 
 This file is the **synthesis**. The detail, with file:line evidence and source URLs, is in the numbered files.

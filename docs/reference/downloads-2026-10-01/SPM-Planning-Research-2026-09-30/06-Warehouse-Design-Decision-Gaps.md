@@ -1,5 +1,7 @@
 # 06 — Warehouse design decisions vs a future service-parts PLANNING module
 
+<!-- check-design-set: issue-citations file #9 — external research snapshot (downloads 2026-10-01), kept verbatim: *Refusal #9* is the FRD §10 refusal ordinal, not an issue reference -->
+
 **Scope.** This report covers every decision, refusal, contract, invariant and irreversible choice in the warehouse design that a
 future service-parts planning module would conflict with, depend on, or need changed. The module is assumed to cover forecasting, service-level stocking,
 multi-echelon, supersession-aware demand, repair/cores/warranty, van/field stock, dealer network,

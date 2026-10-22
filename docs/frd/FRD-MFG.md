@@ -650,9 +650,9 @@ Cast: plant `PLT1` (site), stores `PLT1-RM`, line-side `PLT1-LS-A` (type `LINE_S
 | p10-04 work centres, operations | FR-630, FR-631 | WS-322 | — (none; operations are exercised by 637 and 659) | `mfg-bom` |
 | p10-05 production order | FR-632…637 | WS-323, WS-324 | 610–617, 644 | `mfg-production-order` |
 | p10-06 staging, issue, return, substitution | FR-638…643 | WS-325 | 618–624 | `mfg-material-staging-issue` |
-| p10-07 receipt, backflush, scrap, genealogy, reversal | FR-644…650; **builds** the FR-654 / FR-655 per-receipt absorption and split (MD-37) | WS-326, WS-327 | 625–635, 639, 640 | `mfg-production-receipt`, `mfg-costing-close` §1.5 |
+| p10-07 receipt, backflush, scrap, genealogy, reversal | FR-644…650, FR-654, FR-655 (owner; per-receipt absorption and split, MD-37) | WS-326, WS-327 | 625–635, 639, 640 | `mfg-production-receipt`, `mfg-costing-close` §1.5 |
 | p10-08 confirmations, QC, rework | FR-651…653 | WS-328 | 636–638 | `mfg-qc-rework` |
-| p10-09 settlement, close, cost sheet | FR-654…657 (FR-654 / FR-655 owned here per `IMPLEMENTATION-PLAN.md` §2 until SPINE moves them to p10-07) | WS-329 | 638 (cost half), 641–643 | `mfg-costing-close` |
+| p10-09 settlement, close, cost sheet | FR-656, FR-657 (FR-654 / FR-655 moved to p10-07 in `IMPLEMENTATION-PLAN.md` §2) | WS-329 | 638 (cost half), 641–643 | `mfg-costing-close` |
 | p10-10 subcontracting / job work | FR-658…661 | WS-330 | 645–649 | `mfg-subcontracting` |
 | p10-11 planning masters | FR-662, FR-663 | WS-331, WS-332 | 653 | `mfg-mrp` |
 | p10-12 MRP | FR-664…667 | WS-333…335 | 650–652, 654–658 | `mfg-mrp` |
@@ -692,7 +692,7 @@ QRW = qc-rework, CST = costing-close, SUB = subcontracting, MRP = mrp, BOM = bom
 | F20 | abnormal scrap value is an MFG-side record; `ABNORMAL_SCRAP` settlement line has no movement line | MD-34; FR-654; `CST-T4-03`, `-05`, CST §1.5; p10-07, p10-09 |
 | F21 | `whm_staging_list_line_postings` child table | §4; `MSI-T4-06`, `MSI-OPEN-02` resolved; p10-06 |
 | F22 | no edit / re-explode while a release awaits approval | FR-634; `PRO-GRD-23`, `PRO-T1-06`, `-07`, `PRO-T2-02`; p10-05 |
-| F23 | per-receipt absorption and split ship in `p10-07` (with `WH-SC-639`/`-640`); FR-654/655 ownership stays with `p10-09` until SPINE updates `IMPLEMENTATION-PLAN.md` §2 (owed) | MD-37; §13; CST §0, PRC §0; p10-07, p10-09, epic |
+| F23 | per-receipt absorption and split ship in `p10-07` (with `WH-SC-639`/`-640`); FR-654/655 ownership moved to `p10-07` in `IMPLEMENTATION-PLAN.md` §2 (SPINE, done) | MD-37; §13; CST §0, PRC §0; p10-07, p10-09, epic |
 | F24 | MFG ships v1.1 with P8; every FR / scenario retagged; `OD-42` → v1.2; bootstrap keeps asserting P8 objects | MD-38; §1.1, §6, §11, §12; p10-01, epic |
 | F25 | one capacity-load rule and column set, owned by `p10-13`, specified in MRP §5.1 | MD-39; FR-668; MRP §5.1, PRO §5.3, `MRP-OPEN-09`; p10-13 |
 | F26 | `ACTIVE` demand-plan lines editable, not during a run | MD-40; FR-663; `MRP-T2-02`; p10-11 |

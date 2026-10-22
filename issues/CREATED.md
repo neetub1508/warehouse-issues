@@ -275,12 +275,13 @@ Created at the user’s request as one `[Finding]` issue per audit entry. Existi
 
 ### Earlier reported issues referenced by this batch
 
-These existing GitHub reports have no source task file in this batch; listed for reference resolution only. Their bodies and states were not modified.
+These existing GitHub reports have no source task file in this batch; listed for reference resolution only. Their bodies and states were not modified. `#167`, `#285`, `#329`, `#389`, `#474` and `#487` were added 2026-10-22 because the design docs cite them (all closed).
 
 | Issue | Task file | Title |
 |---|---|---|
 | #165 | `—` (existing report; no source file) | [Warehouse] P2-12 follow-up · RMA expiry job (RJ-012) — open RMAs expire on the site's date |
 | #166 | `—` (existing report; no source file) | [Warehouse] P2-11 follow-up · Pack evidence and item documents cannot be deleted out from under a sealed carton |
+| #167 | `—` (existing report; no source file) | [Warehouse] P2-24 follow-up · A reservation remembers the part the customer asked for when a substitute is held |
 | #168 | `—` (existing report; no source file) | [Warehouse] P2-24 follow-up · MERGE_DEMAND is read by the demand calculation |
 | #169 | `—` (existing report; no source file) | [Warehouse] P2-16 follow-up · Cost Layers and Valuation Policies screens |
 | #170 | `—` (existing report; no source file) | [Warehouse] P2-16 follow-up · Movement lines keep the approved cost, the source-currency amount and the cost source line |
@@ -308,3 +309,8 @@ These existing GitHub reports have no source task file in this batch; listed for
 | #192 | `—` (existing report; no source file) | [Warehouse Base] Stock Periods: "Site" column marked sortable but sort is silently ignored |
 | #193 | `—` (existing report; no source file) | [Warehouse] Channel order import rejects lines with no uomCode instead of defaulting to the item's base unit |
 | #194 | `—` (existing report; no source file) | [Warehouse] Handovers: shipment picker shows literal "TRACKING - null" when ship-to name is blank |
+| #285 | `—` (existing report; no source file) | W14 follow-up: movement port accepts any registered type from human roles (bypasses task/document guards) |
+| #329 | `—` (existing report; no source file) | [Follow-up W08] Native receipt exchange rate on the GRN (OD-16 SOURCE_RATE) - product-owner decision first |
+| #389 | `—` (existing report; no source file) | [Warehouse] W35-D3 · Receipt status default chain missing: no RECEIPT movement-type default, no supplier level, no AVAILABLE fallback -> 422 RECEIVED_STATUS_UNRESOLVED |
+| #474 | `—` (existing report; no source file) | [Follow-up W64] X-068: re-key carrier references on wh_shipment_tracking_events and wh_rate_quotes to stable codes (IRR-26) |
+| #487 | `—` (existing report; no source file) | [Follow-up #474] X-068: wh_shipping_labels / wh_pickup_requests / wh_manifests / wh_handovers still hold carrier_id FKs |

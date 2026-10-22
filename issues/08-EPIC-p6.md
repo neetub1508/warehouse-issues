@@ -38,7 +38,6 @@ the invariant, the new writer, and the specific way this phase could break it (`
 
 ## Exit criterion — as scenario ids
 
-<!-- check-design-set: scenario-citations begin WH-SC-306 — the SCENARIO-CATALOGUE.md §5 rule 3 allocation marker — the next free scenario id, which by definition has no row yet. Named here so a parallel task does not silently take it twice; it is never a citation of a scenario that exists -->
 
 `DECISIONS.md` §5's v3 sentence, made mechanical by `IMPLEMENTATION-PLAN.md` §1.8:
 
@@ -71,7 +70,6 @@ Scenarios this phase inherits and re-walks: **`WH-SC-236`** (`P6-07` — an esca
 version for review and **never mutates an active card**; *"a dispute three months later re-rates to the
 same number"*).
 
-<!-- check-design-set: scenario-citations end -->
 
 ## Migration blocks — re-derived from the task headers, not transcribed
 

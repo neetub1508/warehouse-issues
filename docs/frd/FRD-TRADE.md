@@ -428,7 +428,7 @@ happy / edge / error / guard. Scenario numbers after `WH-SC-565` (up to 599 in t
 | **WH-SC-519** | RC ending 2026-12-31, alert days 30 | Job on 12-01 | One expiry alert to the RC owner; on 2027-01-01 a new line cannot resolve to it | FR-574 | edge |
 | **WH-SC-520** | Price list `PL-DOM-2026` category `OEM`: `HSG-100` ₹1,150, floor ₹1,050; customer RC for `CUST-OEM1` ₹1,120 | Quote `CUST-OEM1` | ₹1,120 (customer RC wins); for a category-OEM customer without an RC, ₹1,150 | FR-602 FR-604 | happy |
 | **WH-SC-521** | `sales1` quotes ₹1,000 | Submit | Condition `below_floor_price`; routed to `SALES_MANAGER` | FR-604 FR-599 | guard |
-| **WH-SC-522** | RC line UoM `BOX` (= 10 `EA`), PO in `EA` | Resolve | Converted through `whb_uom_conversions`, factor frozen on the line; no conversion → refused `422 TRADE_UOM_NOT_CONVERTIBLE` | FR-573 | edge |
+| **WH-SC-522** | RC line UoM `BOX` (= 10 `EA`), PO in `EA` | Resolve | Converted through `whb_item_uom_conversions`, factor frozen on the line; no conversion → refused `422 TRADE_UOM_NOT_CONVERTIBLE` | FR-573 | edge |
 | **WH-SC-523** | RC currency USD, PO currency INR | Resolve | RC skipped (no FX, §11 R5); line falls to manual | FR-573 | edge |
 
 ### 7.6 Purchase orders, releases and hand-off
@@ -574,7 +574,7 @@ audit columns, `company_id` NOT NULL. Status columns `VARCHAR(30)` with **no `CH
 | `TRD-10` | Price precedence: purchase — rate contract → valid awarded quotation → manual; sales — customer RC → category price list → general price list → manual. Last price is reference only | One resolution order per side, testable |
 | `TRD-11` | Release proposals are **proposed, never auto-released** | A release is a commitment to a supplier |
 | `TRD-12` | **A FIXED order needs no release on either side.** Its schedule goes to core `FIRM` at approval; core receives it (PO) or allocates it inside the horizon (SO). Releases exist only for OPEN call-offs and BLANKET schedule lines | R29 TS-F14 / MA-17: the sales side had FIXED firm lines that a release was also supposed to firm |
-| `TRD-13` | **Port principal = the person whose act causes the call** (the last approver; the submitter of a `SYSTEM`-approved document; the order's buyer / sales executive for a job), and every trade bundle that acts so is granted `warehouse:orders:port` in trade's seed | FRD-STORES registry R.1; R29 TP-F6 |
+| `TRD-13` | **Port principal = the person whose act causes the call** (the last approver; the submitter of a `SYSTEM`-approved document); a **scheduled job** calls as trade's **service principal**, one non-interactive user seeded by `p9-01` (`V551000`: stable UUID, login disabled, account locked), never under the order's buyer / sales executive. Every trade bundle that acts so, and the service principal, is granted `warehouse:orders:port` in trade's seed | FRD-STORES registry R.1, `STO-D20` (`CN-7`); R29 TP-F6 |
 | `TRD-14` | **Approval conditions match exactly by default** (`EXACT`): a rule without conditions covers only a document without conditions, so a zero-level default can never approve a below-floor quotation or an unbounded open order | R29 TS-F8, TP-F7 |
 | `TRD-15` | **Contract termination and supersession are dated, not immediate**: price rows end on the date; the status flips on the date | R29 TP-F20, TS-F23 |
 
@@ -641,17 +641,18 @@ type is the trade document that owns the core one (`WHT_PURCHASE_ORDER`, `WHT_SA
 sub-document that caused the call (release, amendment or approval-request number), so a replay returns the
 recorded result and a changed body is refused `409 PORT_IDEMPOTENCY_CONFLICT`. **Principal** (`TRD-13`): the
 last approver of the triggering request; for a `SYSTEM`-approved request its submitter (`approvedByUserId`
-null); for a job the order's `buyer_id` / `sales_exec_id` (a `403 PORT_AUTHORITY_REQUIRED` is recorded on
+null); for a scheduled job trade's **service principal** (FRD-STORES `STO-D20`: the non-interactive user `p9-01`
+`V551000` seeds, never the order's buyer or sales executive; a `403 PORT_AUTHORITY_REQUIRED` is recorded on
 the job run and notified to the trade administrator). A refusal rolls the trade transaction back and is relayed
 (`TPO-T4-03`).
 
 | Trade act | Port method | Operation | Idempotency key | Contract row |
 |---|---|---|---|---|
 | PO approved | `WhPurchaseOrderPort.createOrder` | `PO_CREATE` | `WHT_PURCHASE_ORDER:<poId>:PO_CREATE:1` | `TPO-T4-01` |
-| Release approved — whole BLANKET line at the line rate | `releaseSchedule` `firm(scheduleLineId)` | `PO_RELEASE` | `…:PO_RELEASE:<release no>` | `TPO-T4-02` |
-| Release approved — OPEN call-off, BLANKET split, or other price | `releaseSchedule` `add(poLineId, FIRM, date, qty, unitPrice)`; the BLANKET `FORECAST` line reduced by `amendOrder` `scheduleChanges` or ended by `cancelScheduleLine` | `PO_RELEASE` + `PO_AMEND` / `PO_CANCEL_SCHEDULE` | `…:PO_RELEASE:<release no>`, `…:PO_AMEND:<release no>`, `…:PO_CANCEL_SCHEDULE:<release no>-<schedule no>` | `TPO-T4-02` |
-| Release cancelled after approval | `cancelScheduleLine` on its unreceived `FIRM` lines; BLANKET quantity re-added as `FORECAST` by `releaseSchedule` `add` | `PO_CANCEL_SCHEDULE`, `PO_RELEASE` | `…:PO_CANCEL_SCHEDULE:<release no>-X<n>`, `…:PO_RELEASE:<release no>-X` | `TPO-T4-09` |
-| Amendment applied (incl. origin `SUPPLIER_RETURN`) | `amendOrder`; `cancelScheduleLine`; `releaseSchedule` `add` for added schedule lines | `PO_AMEND`, `PO_CANCEL_SCHEDULE`, `PO_RELEASE` | `…:PO_AMEND:<amendment no>` (+ `-<n>`) | `TOA-T4-02` |
+| Release approved — whole BLANKET line | `releaseSchedule` `firm(scheduleLineId, unitPrice?)` — `unitPrice` = the release price when `AT_RELEASE` (`STO-D19`) | `PO_RELEASE` | `…:PO_RELEASE:<release no>` | `TPO-T4-02` |
+| Release approved — OPEN call-off or BLANKET split | `releaseSchedule` `add(poLineId, FIRM, date, qty, unitPrice)`; the BLANKET `FORECAST` line reduced by `amendOrder` `scheduleChanges` or ended by `cancelScheduleLine` | `PO_RELEASE` + `PO_AMEND` / `PO_CANCEL_SCHEDULE` | `…:PO_RELEASE:<release no>`, `…:PO_AMEND:<release no>`, `…:PO_CANCEL_SCHEDULE:<release no>-<schedule no>` | `TPO-T4-02` |
+| Release cancelled after approval | `unfirmScheduleLine` (whole-firmed BLANKET lines, nothing received; `STO-D19`); `cancelScheduleLine` (added `FIRM` lines) + `amendOrder` restoring a split BLANKET `FORECAST` (`scheduleChanges`, or `newScheduleLines` when it was ended) | `PO_UNFIRM_SCHEDULE`, `PO_CANCEL_SCHEDULE`, `PO_AMEND` | `…:<op>:<release no>-X<n>` | `TPO-T4-09` |
+| Amendment applied (incl. origin `SUPPLIER_RETURN`) | `amendOrder`, added schedule lines as `newScheduleLines` in the same command (`CN-2`), a deliver-to change as `lineChanges.receivingLocationId`; `cancelScheduleLine` | `PO_AMEND`, `PO_CANCEL_SCHEDULE` | `…:PO_AMEND:<amendment no>` (+ `-<n>`) | `TOA-T4-02` |
 | Short-close approved | `closeLine`; `cancelScheduleLine` for `FORECAST` / unreleased; header: `closeOrder` | `PO_CLOSE_LINE`, `PO_CANCEL_SCHEDULE`, `PO_CLOSE` | `…:<op>:<request id>-<line / schedule no>` | `TPO-T4-06` |
 | Cancel approved | `cancelOrder` | `PO_CANCEL` | `…:PO_CANCEL:<request id>` | `TPO-T4-06` |
 | Auto-close | `closeOrder` | `PO_CLOSE` | `…:PO_CLOSE:AUTO` | `TPO-T4-10` |
@@ -659,7 +660,7 @@ the job run and notified to the trade administrator). A refusal rolls the trade 
 | Dispatch release approved — whole BLANKET line | `firmScheduleLine(scheduleLineId)` | `DEMAND_FIRM` | `…:DEMAND_FIRM:<release no>-<schedule no>` | `TSO-T4-02` |
 | Dispatch release approved — OPEN call-off, BLANKET split, replacement | `releaseSchedule` (`FIRM` entries); a split BLANKET `FORECAST` line reduced by `amendDemand` | `DEMAND_RELEASE` + `DEMAND_AMEND` | `…:DEMAND_RELEASE:<release no>`, `…:DEMAND_AMEND:<release no>` | `TSO-T4-02` |
 | Dispatch release cancelled after approval | `unfirmScheduleLine` (whole-firmed lines, allocated 0); `cancelScheduleLine` (added `FIRM` lines) + `amendDemand` restoring a split `FORECAST` | `DEMAND_UNFIRM`, `DEMAND_CANCEL_SCHEDULE`, `DEMAND_AMEND` | `…:<op>:<release no>-X<n>` | `TSO-T4-09` |
-| SO amendment applied | `amendDemand`; `cancelLine` / `cancelScheduleLine`; `releaseSchedule` (`FORECAST`) for added schedule lines | `DEMAND_AMEND`, `DEMAND_CANCEL_LINE`, `DEMAND_CANCEL_SCHEDULE`, `DEMAND_RELEASE` | `…:DEMAND_AMEND:<amendment no>` (+ `-<n>`) | `TOA-T4-02` |
+| SO amendment applied | `amendDemand` (a ship-to change as `shipToAddressId`, `CN-3`); `cancelLine` / `cancelScheduleLine`; `releaseSchedule` (`FORECAST`) for added schedule lines | `DEMAND_AMEND`, `DEMAND_CANCEL_LINE`, `DEMAND_CANCEL_SCHEDULE`, `DEMAND_RELEASE` | `…:DEMAND_AMEND:<amendment no>` (+ `-<n>`) | `TOA-T4-02` |
 | SO short-close approved | `cancelScheduleLine` per open unpicked schedule line; header: `closeDemand` | `DEMAND_CANCEL_SCHEDULE`, `DEMAND_CLOSE` | `…:<op>:<request id>-<n>` | `TSO-T4-06` |
 | SO cancel approved | `cancelDemand` | `DEMAND_CANCEL` | `…:DEMAND_CANCEL:<request id>` | `TSO-T4-06` |
 | SO auto-close | `closeDemand` | `DEMAND_CLOSE` | `…:DEMAND_CLOSE:AUTO` | `TSO-T4-10` |
@@ -709,17 +710,20 @@ are resolved at send time; a digest kind sends one message per recipient per run
 | `TRADE_EVALUATION_DRAFTED`, `TRADE_AVL_EXPIRING`, `TRADE_UDYAM_REVIEW`, `TRADE_PART_APPROVAL_EXPIRING` | `TCE-T3-01`…`-04` | trade administrator; sales executive for part approval |
 | `TRADE_JOB_PORT_REFUSED` | any job's port refusal (§12a) | trade administrator |
 
-### 12c. Core changes this file needs that STORES has not made (do not build around them)
+### 12c. Core changes trade asked of STORES — all resolved 2026-10-22
 
-| # | Need | Why | Registry row it extends |
-|---|---|---|---|
-| CN-1 | `CreatePurchaseOrderCommand.lines[]` gains `overTolerancePct`, `underTolerancePct` and `receivingLocationId` | FR-582 passes tolerances to core's over-receipt guard; FR-576 deliver-to location; today only `amendOrder` carries `receivingLocationId` | `WhPurchaseOrderPort.createOrder` |
-| CN-2 | `AmendPurchaseOrderCommand` gains `newScheduleLines[]` (`poLineId`, `kind`, `scheduledDate`, `quantity`, `unitPrice?`, `releaseRef`) validated together with `lineChanges` | a FIXED line keeps Σ schedule = ordered (`POS-GRD-02`), so a quantity increase or a supplier-return reinstatement on a FIXED line cannot be made by two separate calls | `amendOrder` |
-| CN-3 | `CreateDemandCommand` and `AmendDemandCommand` carry `shipToAddressId` | the SO ship-to (FR-605) and its amendment (FR-590) must reach core shipping | `createDemand`, `amendDemand` |
-| CN-4 | State that a demand line created with no schedule (an `OPEN` SO line) is `is_schedule_driven` | `POS-T1-10` saves it with `ordered_quantity = 0`, which the `POS-GRD-10` CHECK admits only for a schedule-driven line | `POS-T1-10`, `POS-GRD-10` |
-| CN-5 | `POS-T3-01`'s weekly overdue digest skips POs whose `source_module` is set | trade's `TPO-T3-02` already tells the buyer; core would send a second digest to the port's acting user | `POS-T3-01` |
-| CN-6 *(recommended)* | `WhPurchaseOrderPort.unfirmScheduleLine` and an optional `unitPrice` on the `firm` entry | mirror of the demand port: a cancelled BLANKET release could return its line to `FORECAST` instead of cancel + re-add, and an `AT_RELEASE` whole-line release could firm in place | `releaseSchedule` |
-| CN-7 *(recommended)* | a service principal for a sibling's scheduled jobs | `TRD-13` uses the order's buyer for auto-close; registry R.1 knows only acting users | R.1 *Principal* |
+STORES made every change below (FRD-STORES *R29 dispositions* → *FRD-TRADE §12c*); the trade rows now call
+the registry as it stands.
+
+| # | Need | Why | Registry row it extends | Resolved (FRD-STORES) |
+|---|---|---|---|---|
+| CN-1 | `CreatePurchaseOrderCommand.lines[]` gains `overTolerancePct`, `underTolerancePct` and `receivingLocationId` | FR-582 passes tolerances to core's over-receipt guard; FR-576 deliver-to location; today only `amendOrder` carries `receivingLocationId` | `WhPurchaseOrderPort.createOrder` | **Resolved** — FR-504; registry R.2 `createOrder`; `POS-T1-05`, `-14`, `POS-GRD-15`; p8-01 (`V511310`) |
+| CN-2 | `AmendPurchaseOrderCommand` gains `newScheduleLines[]` (`poLineId`, `kind`, `scheduledDate`, `quantity`, `unitPrice?`, `releaseRef`) validated together with `lineChanges` | a FIXED line keeps Σ schedule = ordered (`POS-GRD-02`), so a quantity increase or a supplier-return reinstatement on a FIXED line cannot be made by two separate calls | `amendOrder` | **Resolved** — FR-504; registry R.2 `amendOrder`; `POS-T1-07`, `POS-GRD-02`; p8-01 |
+| CN-3 | `CreateDemandCommand` and `AmendDemandCommand` carry `shipToAddressId` | the SO ship-to (FR-605) and its amendment (FR-590) must reach core shipping | `createDemand`, `amendDemand` | **Resolved** — FR-505; registry R.2; `POS-T1-10`, `-12`, `POS-GRD-16`; p8-02 (`V511311`) |
+| CN-4 | State that a demand line created with no schedule (an `OPEN` SO line) is `is_schedule_driven` | `POS-T1-10` saves it with `ordered_quantity = 0`, which the `POS-GRD-10` CHECK admits only for a schedule-driven line | `POS-T1-10`, `POS-GRD-10` | **Resolved** — FR-505; registry R.2; `POS-T1-10`, `POS-GRD-10`; p8-02 |
+| CN-5 | `POS-T3-01`'s weekly overdue digest skips POs whose `source_module` is set | trade's `TPO-T3-02` already tells the buyer; core would send a second digest to the port's acting user | `POS-T3-01` | **Resolved** — FR-504; `POS-T3-01`; p8-01 |
+| CN-6 *(recommended → adopted)* | `WhPurchaseOrderPort.unfirmScheduleLine` and an optional `unitPrice` on the `firm` entry | mirror of the demand port: a cancelled BLANKET release could return its line to `FORECAST` instead of cancel + re-add, and an `AT_RELEASE` whole-line release could firm in place | `releaseSchedule` | **Resolved** — `STO-D19`; registry R.2 `unfirmScheduleLine`, `firm(…, unitPrice?)`; `POS-T1-03`, `-03a`; p8-01 |
+| CN-7 *(recommended → adopted)* | a service principal for a sibling's scheduled jobs | `TRD-13` uses the order's buyer for auto-close; registry R.1 knows only acting users | R.1 *Principal* | **Resolved** — `STO-D20`; registry R.1 *Principal*; p8-01 |
 
 ## 13. Traceability
 
@@ -744,7 +748,8 @@ are resolved at send time; a digest kind sends one message per recipient per run
 
 R29 trade-purchase (`TP-`) and trade-sales (`TS-`) functional reviews, folded 2026-10-22. Trade references
 are aligned to FRD-STORES *"R29 dispositions"* and *"Port & seam registry (authoritative)"*; the core halves
-were fixed by STORES. Core changes still owed are §12c `CN-1`…`CN-7`.
+were fixed by STORES. The core changes trade asked for, §12c `CN-1`…`CN-7`, were made by STORES on 2026-10-22
+(`STO-D19`, `STO-D20`); nothing is owed.
 
 ### Purchase review
 
@@ -755,7 +760,7 @@ were fixed by STORES. Core changes still owed are §12c `CN-1`…`CN-7`.
 | TP-F3 | Vendor quotation revisable from `EXPIRED` | TRA-T1-08, T3-03; p9-05 |
 | TP-F4 | Release ladder: reject-revert, cancel before / after approval, close on core events | TPO-T1-10a…-10c, -12, T4-09, -11; p9-07 |
 | TP-F5 | PR header closes when every line is closed short or cancelled, allocation or not | TPR-T1-09, -10; p9-04 |
-| TP-F6 | Port principal = triggering person; `warehouse:orders:port` granted per task bundle | TRD-13; §12a; every contract §0; p9-04/07/09/11/13; epic |
+| TP-F6 | Port principal = triggering person; a scheduled job calls as trade's service principal (`CN-7` → `STO-D20`); `warehouse:orders:port` granted per task bundle and to the service principal | TRD-13; §12a; every contract §0; p9-01/04/07/09/10/11/13; epic |
 | TP-F7 | OPEN PO without ceiling value carries `open_unbounded`; release with it needs an install rule | FR-575, FR-580; TPO-GRD-07; p9-07; WH-SC-567 |
 | TP-F8 | Delegation for another approver needs a second administrator's confirmation | TAM-T1-10, -11, GRD-07; p9-03; WH-SC-569 |
 | TP-F9 | Maker ≠ checker checked for actor and principal, own name or delegate | TAM-GRD-03; FR-549; p9-03 |
@@ -763,7 +768,7 @@ were fixed by STORES. Core changes still owed are §12c `CN-1`…`CN-7`.
 | TP-F11 | `:approve` verb on both profile resources; approve-verb map | TCE §0; TAM §0.1; p9-02, p9-03; WH-SC-595 |
 | TP-F12 | Ambiguity guard covers rules on different dimensions that could match one document; tie at open refused | TAM-GRD-05, -08; p9-03; WH-SC-495 |
 | TP-F13 | Core hand-off row: PR created `SUBMITTED`, number issued and returned, key `MRQ_HANDOFF:<id>` | TPR-T1-02a; FR-557; p9-04 |
-| TP-F14 | `AT_RELEASE` price reaches core through `add(…, unitPrice)` on release | TPO-T4-02; §12c CN-1; p9-07; WH-SC-571 |
+| TP-F14 | `AT_RELEASE` price reaches core on release: `firm(…, unitPrice)` for a whole BLANKET line, `add(…, unitPrice)` otherwise (`CN-6` → `STO-D19`, resolved) | TPO-T4-02; §12c CN-1, CN-6; p9-07; WH-SC-571 |
 | TP-F15 | `receipt_cutoff_date` passed to core; core refuses receipts after it | TPO-GRD-16; FR-578; p9-07; WH-SC-572 |
 | TP-F16 | One comparative statement per RFQ × currency | TRA §0, GRD-10; p9-05; WH-SC-573 |
 | TP-F17 | Release guards complete at submit and re-checked under the header lock at approval | TPO-GRD-06…-08, -15; p9-07 |
@@ -773,7 +778,7 @@ were fixed by STORES. Core changes still owed are §12c `CN-1`…`CN-7`.
 | TP-F21 | Cancel after approval is a `PO_CANCEL` approval request (seeded zero-level) | TPO-T1-05, -05a; FR-583; p9-03, p9-07; WH-SC-576 |
 | TP-F22 | Auto-close calls `closeOrder`; holds on QC, undispatched return and pending replacement | TPO-T3-03, T4-10; p9-10; WH-SC-577 |
 | TP-F23 | Supplier-return reinstatement is a system amendment of origin `SUPPLIER_RETURN` | TOA-T1-01, -05, GRD-09; TPO-T4-07; p9-11, p9-13; WH-SC-578 |
-| TP-F24 | Deliver-to change needs core ship-to support; refused until then | §12c CN-3; TOA-T4-02; p9-11 |
+| TP-F24 | Deliver-to / ship-to change reaches core: PO `DELIVER_TO` as `amendOrder` `lineChanges.receivingLocationId`, SO `SHIP_TO` as `amendDemand` `shipToAddressId` (`CN-3` resolved) | §12c CN-1, CN-3; TOA-T4-02; p9-11 |
 | TP-F25 | OPEN-PO and rate-contract award targets release the PR allocation (they hold no quantity); the buyer allocates to releases later | TRA-T4-03, -04; p9-05 |
 | TP-F26 | One notification category `WAREHOUSE_TRADE`, in-app; kinds per rule | §12b; every T3 row; p9-03 |
 | TP-F27 | Expediting covers FIXED lines; unreleased past-due BLANKET → release overdue, excluded from OTIF | TPO-T3-02, -06; TCE metric catalogue; p9-07, p9-12; WH-SC-579 |
@@ -785,7 +790,7 @@ were fixed by STORES. Core changes still owed are §12c `CN-1`…`CN-7`.
 
 | Finding | Change | Where |
 |---|---|---|
-| TS-F1 | BLANKET / OPEN SO lines are schedule-driven; OPEN line with no schedule owed to core | TSO-T4-01; §12c CN-4; p9-09 |
+| TS-F1 | BLANKET / OPEN SO lines are schedule-driven; an OPEN line sent with no schedule and a null quantity is schedule-driven in core (`CN-4` resolved) | TSO-T4-01; §12c CN-4; p9-09 |
 | TS-F2 | `OD-45` (A): one demand order per SO, header back to `OPEN` after each despatch, `closeDemand` ends it | OD-32; TSO-T4-10; p9-09, p9-10; WH-SC-580 |
 | TS-F3 | SRA maps every core RMA status; received / partially received closable | TSR §1, T1-05, -07, -08, T4-01; p9-13; WH-SC-581 |
 | TS-F4 | Expired latest quotation winnable (PO-date evidence), losable, revisable | TSQ-T1-08…-10, GRD-05; p9-08; WH-SC-582 |

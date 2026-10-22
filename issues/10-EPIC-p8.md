@@ -49,6 +49,7 @@ MRP (`P10`); no switching rules or skip-lot dynamics; no gate pass that moves st
 | **Availability by status** | `MRN_PENDING.is_allocatable = false`; authorise is the only exit into an allocatable status | `P8-08` · `MRA-GRD-06`, `-08` |
 | **Every new resource is site-scoped** | `:view:all`/`:view:branch` seeded on each; department visibility is `:view_all_departments` | all seed tasks · `STO-D16` |
 | **Every port write replays its own result** | one `wh_port_operations` row per call | `P8-01` · `POS-GRD-07` · `STO-D17` |
+| **The port carries everything trade must not keep to itself** | create-line tolerances and deliver-to, amend with new schedule lines, demand ship-to, schedule-driven `OPEN` lines, PO un-firm / priced firm; sibling jobs call as a seeded service principal; port-owned POs out of core's overdue digest (FRD-TRADE §12c `CN-1`…`CN-7`) | `P8-01`, `P8-02` · `POS-GRD-15`, `-16`, `POS-T1-03a`, `POS-T3-01` · `STO-D19`, `STO-D20` |
 | **The cost object lives on issue lines, never on the ledger** | `S-052` resolved without an append-only retrofit | `P8-10` · `SIR-UNR-01` · `RN-034` |
 | **A posted store issue is immutable** | correction = return + new issue | `P8-10` · `STO-D11` |
 | **Returns are valued at the issue cost** | a return never revalues stock | `P8-11` · `SIR-T4-03` |
@@ -64,8 +65,8 @@ MRP (`P10`); no switching rules or skip-lot dynamics; no gate pass that moves st
 | `V501233` | base | `P8-09` | `COST_OBJECT_TYPE`, `REQUISITION_PURPOSE`; document type `MATERIAL_REQUISITION` |
 | `V501234` | base | `P8-10` | document type `STORE_ISSUE` |
 | `V501235` | base | `P8-11` | movement type `ISSUE_RETURN`; reason context `STORE_RETURN`; document type `STORE_RETURN` |
-| `V511310` | app | `P8-01` | PO type / validity / source / idempotency; nullable `ordered_quantity`; schedule lines; GRN-line schedule allocations |
-| `V511311` | app | `P8-02` | demand-order source / SO / customer-PO refs; demand schedule lines |
+| `V511310` | app | `P8-01` | PO type / validity / source / idempotency; nullable `ordered_quantity`; line short tolerance + receiving location (FRD-TRADE `CN-1`); schedule lines; GRN-line schedule allocations |
+| `V511311` | app | `P8-02` | demand-order source / SO / customer-PO refs; ship-to address (FRD-TRADE `CN-3`); demand schedule lines |
 | `V511312` | app | `P8-03` | gate entries, documents, gate passes, lines, returns; `wh_receiving_sessions.gate_entry_id`; weighing `subject_type` CHECK widened |
 | `V511313` | app | `P8-04` | GRN bills + bill lines; GRN `gate_entry_id`; GRN-line billed / excess columns and replaced CHECK; recon case type and resolutions |
 | `V511314` | app | `P8-05` | sampling schemes + bands; plan parameter columns and widened formula CHECK; plan assignments; inspection verdict/destructive columns; scheme seeds |
@@ -102,8 +103,8 @@ upgraded database now apply base `V50123x` → app schema `V5113xx` → app seed
 |---|---|---|
 | `wh_purchase_orders` | + `po_type`, `valid_from`, `valid_to`, `receipt_cutoff_date`, `agreement_ref`, `source_*`, `idempotency_key`, `request_fingerprint`, `revision_no`, `approval_source` | P8-01 |
 | `wh_port_operations` (new) | the port operation registry for every core port | P8-01 |
-| `wh_purchase_order_lines` | `ordered_quantity`, `line_total` nullable; CHECK replaced; + `rate_source`, `rate_source_ref`, `agreement_line_ref`, `scheduled_quantity` | P8-01 |
-| `wh_demand_orders` | + `source_*`, `sales_order_ref`, `customer_po_ref`, `customer_po_date`, `revision_no`, `is_schedule_driven`, `release_closed_at`, `last_shipped_at`; idempotency uk rebuilt on `(COALESCE(source_module,''), idempotency_key)` | P8-02 |
+| `wh_purchase_order_lines` | `ordered_quantity`, `line_total` nullable; CHECK replaced; + `rate_source`, `rate_source_ref`, `agreement_line_ref`, `scheduled_quantity`, `short_receipt_tolerance_pct`, `receiving_location_id` | P8-01 |
+| `wh_demand_orders` | + `source_*`, `sales_order_ref`, `customer_po_ref`, `customer_po_date`, `revision_no`, `is_schedule_driven`, `release_closed_at`, `last_shipped_at`, `ship_to_address_id`; idempotency uk rebuilt on `(COALESCE(source_module,''), idempotency_key)` | P8-02 |
 | `wh_demand_order_lines` | + `is_schedule_driven`; `chk_wh_demand_order_lines_ordered` replaced (0 allowed when schedule-driven) | P8-02 |
 | `wh_receiving_sessions` | + `gate_entry_id` (partial uk) | P8-03 |
 | `wh_weighing_records` | `subject_type` CHECK + `GATE_ENTRY` | P8-03 |

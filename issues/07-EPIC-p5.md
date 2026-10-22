@@ -70,7 +70,6 @@ The full walked set for the phase: **`WH-SC-032` · `WH-SC-135` · `WH-SC-137` �
 
 ## ⚠ Twenty of this phase's requirements have no scenario, and that is a gate, not a footnote
 
-<!-- check-design-set: scenario-citations begin WH-SC-306 — the SCENARIO-CATALOGUE.md §5 rule 3 allocation marker — the next free scenario id, which by definition has no row yet. Named here so a parallel task does not silently take it twice; it is never a citation of a scenario that exists -->
 
 `SCENARIO-CATALOGUE.md` §4.2 lists them honestly: of 71 unproven requirements, **43 are v2**, and the bulk
 of those are this phase's — the whole carrier/channel surface (`FR-198`, `FR-200`–`FR-204`, `FR-208`–`FR-210`),
@@ -96,7 +95,6 @@ new prose. `P5-14` is correctly absent — it closes catalogued scenarios only.
 > **The rule for this phase: claim your ids by merging them into `SCENARIO-CATALOGUE.md` in one commit
 > BEFORE writing code.** The catalogue file is the allocation register; nothing else is.
 
-<!-- check-design-set: scenario-citations end -->
 
 ## `A-3` — P5 builds screens over tables that already exist
 

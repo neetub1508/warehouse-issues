@@ -522,7 +522,8 @@ dealer or retail target.
    (`IMPLEMENTATION-PLAN.md`). Pre-allocated ids: REM `FR-480`…`499`, `WH-SC-660`…`679`, `OD-22`…`24`;
    STORES `FR-500`…`539`, `WS-260`…`279`, `WH-SC-420`…`479`, `OD-25`…`29`; TRADE `FR-540`…`619`,
    `WS-280`…`319`, `WH-SC-480`…`599`, `OD-30`…`39`; MFG `FR-620`…`669`, `WS-320`…`339`,
-   `WH-SC-600`…`659`, `OD-40`…`44`. Requirements for P7–P10 live in `docs/frd/FRD-<AREA>.md`.
+   `WH-SC-600`…`659`, `OD-40`…`44`. STORES also holds `OD-45`, outside every range and registered in §3.6.
+   Requirements for P7–P10 live in `docs/frd/FRD-<AREA>.md`.
 9. **What it withdraws.** FRs `FR-074`, `FR-279`, `FR-358`, `FR-359`, `FR-360`, `FR-365`, `FR-419`,
    `FR-420` and `FR-422` are **WITHDRAWN** (kept, marked, never deleted). Tasks whose whole scope is dealer
    or retail are **VOID** (header note in each file). `DATA-MODEL.md` §2.5.1 (`whad_`) and
@@ -626,6 +627,16 @@ blocks the fold of round 4: each has a safe default already written into the des
 | **OD-19** | **What is the statutory treatment of on-hand stock when a site's `REGISTERED` branch moves to a branch under a different GSTIN?** `D-14` makes a registration change a dated history event. Goods held at that instant move from one registration to another, and the design set cannot say whether that is a supply, a transfer of a going concern, or an amendment of the place of business. Source: `RG-001` (R22 §1.2.6) | **Before `P1-05` ships the *Change registration* action** on `WS-016`. The history table itself (`V500012`) does not wait: it is correct under every answer | **RESOLVED 2026-09-11.** Changing registered branch across GSTINs is allowed only with zero on-hand and no open reservations, in-flight transfers, counts or unposted warehouse documents tied to the old registration. Otherwise refuse with actionable dependency links; use the existing transfer/settlement workflow. Maker-checker and effective history are mandatory; there is no bypass switch. [Contract](GLOBAL-SETTINGS-DECISIONS.md). |
 | **OD-20** | **Does v1 ship a union valuation report across the warehouse-owned and legacy-owned domains?** R3 `M3`/`E-084` says build it; R7 §4.6 item 4 says do not, and document the separation in the UI instead. This row exists because `COEXISTENCE.md` §8.2 flagged that the conflict needs an `OD-` id and could not allocate one — this section owns the namespace. Source: `COEXISTENCE.md` §5 `M3`, §8.2 | **Before `P2-20` writes a valuation report** (`COEXISTENCE.md` §8.2 deadline: "before the `P2` reports task is written"). It also gates `P2-27` | **RESOLVED BY DEFAULT 2026-09-20, driver ruling — open to reversal by the user.** §5 `M3`'s own reconciling shape is adopted: **side-by-side columns, and no grand total anywhere, including the export.** Both domains appear together, which is what R3 asked for, but no arithmetic unions two costing bases, which is what R7 objected to. It is also the reversible direction — a grand total can be added once both domains share one of `L-13`'s clocks, whereas a number finance has begun quoting cannot be withdrawn. `RC-001` reinforces it: every report must declare which clock it reads, and a cross-domain union can declare none. The category-ownership reconciliation itself stays `P2-27`'s (`D-9`). Raised as **#178**. |
 
+### 3.6 Allocated 2026-10-22 by R29 — outside the `D-16` area ranges
+
+The `D-16` areas keep their open decisions in their own FRD (`D-16` item 8). One id fell outside the
+pre-allocated ranges and its allocation and disposition are recorded here: R29 `TS-F2`
+needed a STORES decision when the STORES range `OD-25`…`OD-29` was full, and `OD-40`…`OD-44` belong to
+MFG, so STORES took the next unallocated id. `OD-46` is the next free id. The decision is **defined** in
+`FRD-STORES.md` §11 (one definition per id, §6); this section registers its disposition.
+
+- `OD-45` — **The header ladder of a schedule-driven core demand order** (BLANKET / OPEN sales orders that release for months). **(A)** one core demand order per sales order whose header rolls up from its schedule lines: it returns to `OPEN` after each despatch and is never `SHIPPED`/`DELIVERED` while the source can still release, until the port's `closeDemand`; **(B)** one core demand order per firm release, the forecast staying in the selling module. Deadline: before `P8-02` builds the demand port. Disposition: **(A), confirmed into this registry 2026-10-22.** TRADE (`TSO-T4-01`, `p9-09`) and MFG (`MRP-N-03`, TRADE `OD-32`) already read one core order per SO carrying `FORECAST` lines; (A) changes only the header rule for schedule-driven orders (`POS-T1-12a`, `POS-T1-12b`) and leaves every other ladder untouched; (B) would move the forecast out of core. Full text: `FRD-STORES.md` §11. It is still on the user's list of defaults to ratify (`reviews/RETARGET-PROGRAM-STATUS.md`) · `FR-505`
+
 ## 4. L — the load-bearing invariants
 
 Get these wrong and everything after is built on sand. Each has **a database guard and a service
@@ -728,6 +739,9 @@ That cannot happen here.
 | Findings — R24 workflow contract completeness | **`RJ-001` … `RJ-018`** | `reviews/R24` |
 | Findings — R25 competitor gap, round 3 | **`RK-001` … `RK-009`** | `reviews/R25` |
 | Findings — R26 extensibility & future-proofing | **`RL-001` … `RL-017`** | `reviews/R26` |
+| Findings — R27 client purchase-to-stores gap | **`RM-001` … `RM-045`** | `reviews/R27` |
+| Findings — R28 manufacturing + storage re-target impact | **`RN-001` … `RN-054`** | `reviews/R28` (§8b `RN-050`…`RN-054` are `D-16`) |
+| Findings — R29 dual-engine functional review of the `D-16` areas, 2026-10-22 | **file-local** `F1` … per file (plus `TS-`/`MA-` row ids in the trade files), 145 in all: REM 17 · STORES 36 · TRADE purchase 30 · TRADE sales 29 · MFG 33 — not a design-set register, so cite them with their file | `reviews/R29-functional-review-{rem,stores,trade-purchase,trade-sales,mfg}.md`; dispositions in each area FRD §"R29 dispositions" |
 | Traps — R1 §8 | **`T-1` … `T-18`**, unpadded | `reviews/R1` §8 |
 
 `P-` (prior art) and `Pn-nn` (tasks) are distinguishable because a task id always carries a phase digit

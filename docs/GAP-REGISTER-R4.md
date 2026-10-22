@@ -2,7 +2,6 @@
 
 > **Superseded in scope (2026-10-22):** historical record, not edited — where it assumes a dealer or retail target, [`DECISIONS.md` `D-16`](DECISIONS.md) and [R28](reviews/R28-manufacturing-storage-retarget-impact.md) win (manufacturing + storage).
 
-<!-- check-design-set: scenario-citations file WH-SC-306 WH-SC-307 WH-SC-308 WH-SC-309 WH-SC-310 WH-SC-311 WH-SC-312 WH-SC-313 WH-SC-314 WH-SC-315 WH-SC-316 WH-SC-317 WH-SC-318 WH-SC-319 WH-SC-320 WH-SC-321 WH-SC-322 WH-SC-323 WH-SC-324 WH-SC-325 WH-SC-326 WH-SC-327 WH-SC-328 — allocated by §4.0 from the SCENARIO-CATALOGUE.md §5 rule 3 marker; the rows are owed to §3.22 by the P-CORE fold, and WH-SC-328 is the marker's new position -->
 
 > **What this document is for.** `GAP-REGISTER.md`, `-R2` and `-R3` disposition rounds 1–3 (575 + 62 + 52
 > findings). This one dispositions the **83** findings of round 4 — five lenses, `reviews/R22`–`R26`,

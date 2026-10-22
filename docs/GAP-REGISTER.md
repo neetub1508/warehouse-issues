@@ -2,7 +2,6 @@
 
 > **Superseded in scope (2026-10-22):** historical record, not edited — where it assumes a dealer or retail target, [`DECISIONS.md` `D-16`](DECISIONS.md) and [R28](reviews/R28-manufacturing-storage-retarget-impact.md) win (manufacturing + storage).
 
-<!-- check-design-set: scenario-citations file WH-SC-306 — the allocation marker from SCENARIO-CATALOGUE.md §5 rule 3, not a scenario. This register cites it in §3.4 to explain the checker's own false positives (X-040). Round 2 took WH-SC-301-WH-SC-305 for SCENARIO-CATALOGUE.md 3.21, so the marker — and this declaration with it — moved to WH-SC-306 -->
 <!-- check-design-set: finding-citations file T-244 T-264 T-325 T-326 T-337 E-754 E-1 E-8 — the eight dangling citations this register reports in §3.7 and DESIGN-SET-DEFECTS.md X-045. Naming them is the finding; they are quoted, not used -->
 
 > **What this document is for.** `DECISIONS.md` `D-12` says *"every capability found by any lens is

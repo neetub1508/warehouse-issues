@@ -1,5 +1,7 @@
 # 05 — Warehouse Code Gaps for a Service-Parts Planning Module
 
+<!-- check-design-set: finding-citations file RE-01 RE-02 RE-03 RE-04 RE-05 RE-06 RE-07 C-01 C-02 C-03 C-04 C-05 — external research snapshot (downloads 2026-10-01), kept verbatim: `RE-nn` / `C-nn` are this report's own gap ids, not design-set review findings -->
+
 Scope: `warehouse-base/`, `warehouse/`, `warehouse-3pl/`, `warehouse-india/`. This was a read-only audit on 2026-09-30.
 
 Path prefixes used below:

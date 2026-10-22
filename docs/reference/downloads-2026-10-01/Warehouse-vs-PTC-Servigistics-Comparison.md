@@ -1,5 +1,7 @@
 # Our Warehouse Suite vs PTC Servigistics — Gap Analysis for the SMB / Mid-Market Service-Parts Opportunity
 
+<!-- check-design-set: issue-citations file #9 — external research snapshot (downloads 2026-10-01), kept verbatim: `#8` / `#9` are the FRD §10 refusal ordinals (*refusal #9*), not issue references -->
+
 *Prepared 2026-09-30. Sources: the `classic` codebase (`warehouse-base`, `warehouse`, `warehouse-3pl`, `warehouse-india`, `accessories`, `services`), the `neetub1508/warehouse-issues` design set (FRD FR-001…469, DECISIONS, COMPETITOR-BENCHMARK, 144 tasks) and its live GitHub issue state, plus public material on PTC Servigistics and its competitors (links at the end).*
 
 ---

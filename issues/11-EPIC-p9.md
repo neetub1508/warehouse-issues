@@ -58,7 +58,8 @@ Run in order on a clean database:
   `<SOURCE_DOCUMENT_TYPE>:<id>:<operation>:<sequence>` (FRD-TRADE §12a), a changed body on a reused key
   refused `409 PORT_IDEMPOTENCY_CONFLICT`.
 - **The port principal is the person who triggered the call** (`TRD-13`): the last approver, the submitter
-  for a `SYSTEM` approval, the order's buyer / sales executive for a job. Each task grants core
+  for a `SYSTEM` approval; a scheduled job calls as trade's seeded service principal (`p9-01`, `STO-D20`),
+  never under a person's id. Each task grants core
   `warehouse:orders:port` to its approver and maker bundles in its `V5510n0` / `V5511n0` block; without it
   core refuses `403 PORT_AUTHORITY_REQUIRED` and the trade transition rolls back.
 - **One core demand order per SO, `OD-45` (A)**: its header returns to `OPEN` after each despatch, and only
@@ -138,8 +139,8 @@ customer schedule as core `FORECAST` lines (closed by `p8-02`; MFG to confirm) �
 only · `OD-37` sealed default off · `OD-38` QC decided by core inspection plans · `OD-39` trade registers
 change guards on `p8-01` / `p8-02` / `p8-15`'s seams (closed) · **`OD-45` (A)** one core demand order per
 SO, header back to `OPEN` after each despatch until `closeDemand` (closed by STORES). Each has an adopted
-default (FRD-TRADE §10). Core changes trade still needs from STORES are listed in FRD-TRADE §12c
-(`CN-1`…`CN-7`).
+default (FRD-TRADE §10). The core changes trade asked of STORES, FRD-TRADE §12c
+(`CN-1`…`CN-7`), are all resolved (2026-10-22; `STO-D19`, `STO-D20`).
 
 ## Traps this phase must not walk into
 

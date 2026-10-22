@@ -1,5 +1,7 @@
 # R27 — client purchase-to-stores flow: coverage, gaps and root cause
 
+<!-- check-design-set: finding-citations file Q-043 — the accounting design set's open question (cited by `classic` `V610132:29-30`, accounting purchase requisition), not a warehouse R8 finding -->
+
 **Date** 2026-10-22 · **Prefix** `RM-` · **Status** findings recorded; dispositions pending the user's decisions (§6)
 
 **Scope boundary.** This review takes one client-supplied process diagram — a manufacturing
