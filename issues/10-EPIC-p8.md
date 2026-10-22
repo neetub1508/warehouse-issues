@@ -2,7 +2,7 @@ TITLE: [Warehouse] EPIC: P8 — Manufacturing stores in core (gate, bill-matched
 LABELS: epic,warehouse,phase-p8
 issue: TBD
 ---
-Part of __MASTER__ · Modules `warehouse` (documents, `wh_`) + `warehouse-base` (seed rows only) · Migrations — **app `V510400`–`V510413`, base `V500300`–`V500305`, seeds `V511400`–`V511416`** (enumerated below) · Ships in **v1.1** · **Depends on `P7`** (removal, renames and the one DB rebuild, `RN-052`) · Requirements [`docs/frd/FRD-STORES.md`](../docs/frd/FRD-STORES.md) (`FR-500`…`FR-539`)
+Part of __MASTER__ · Modules `warehouse` (documents, `wh_`) + `warehouse-base` (seed rows only) · Migrations — **app schema `V511310`–`V511323`, base `V501230`–`V501235`, app seeds `V511400`–`V511416`** (enumerated below; every block above its band's live high-water mark, R29 F2) · Ships in **v1.1** · **Depends on `P7`** (removal, renames and the one DB rebuild, `RN-052`) · Requirements [`docs/frd/FRD-STORES.md`](../docs/frd/FRD-STORES.md) (`FR-500`…`FR-539`)
 
 ## Overview
 
@@ -43,10 +43,12 @@ MRP (`P10`); no switching rules or skip-lot dynamics; no gate pass that moves st
 | | What P8 makes true | Where |
 |---|---|---|
 | **A gate pass never posts stock** | stock leaves on its own posting document; the pass references it | `P8-03` · `GTE-UNR-01` · `STO-D4` |
-| **Billed, received, accepted are three stored numbers** | `billedQuantity()` no longer returns received | `P8-04` · `GBM-UNR-04` |
+| **Billed, received, accepted are three stored numbers** | a new `supplier_billed_quantity` beside the untouched `billedQuantity()` helpers | `P8-04` · `GBM-UNR-04` |
 | **Refused excess never enters stock** | the movement posts `received − excess_refused` | `P8-04` · `GBM-T4-01` |
 | **No silent supplier return** | only the manual action creates one, in `DRAFT` | `P8-07` · `IIS-UNR-01` (`FR-139` amended) |
-| **Availability by status** | `MRN_PENDING.is_allocatable = false`; authorise is the only exit | `P8-08` · `MRA-GRD-06` |
+| **Availability by status** | `MRN_PENDING.is_allocatable = false`; authorise is the only exit into an allocatable status | `P8-08` · `MRA-GRD-06`, `-08` |
+| **Every new resource is site-scoped** | `:view:all`/`:view:branch` seeded on each; department visibility is `:view_all_departments` | all seed tasks · `STO-D16` |
+| **Every port write replays its own result** | one `wh_port_operations` row per call | `P8-01` · `POS-GRD-07` · `STO-D17` |
 | **The cost object lives on issue lines, never on the ledger** | `S-052` resolved without an append-only retrofit | `P8-10` · `SIR-UNR-01` · `RN-034` |
 | **A posted store issue is immutable** | correction = return + new issue | `P8-10` · `STO-D11` |
 | **Returns are valued at the issue cost** | a return never revalues stock | `P8-11` · `SIR-T4-03` |
@@ -56,27 +58,27 @@ MRP (`P10`); no switching rules or skip-lot dynamics; no gate pass that moves st
 
 | Block | Module | Task | Content |
 |---|---|---|---|
-| `V500300` | base | `P8-03` | code lists `GATE_PURPOSE`, `GATE_PASS_PURPOSE`, `SUPPLIER_DOCUMENT_TYPE`, `RETURN_CONDITION`; reason contexts `GATE_TURN_BACK`, `GATE_PASS_CLOSE` |
-| `V500301` | base | `P8-06` | `QC_SOURCE_TYPE`, `INSPECTION_STAGE` |
-| `V500302` | base | `P8-08` | stock status `MRN_PENDING`; document type `MATERIAL_RECEIPT_NOTE`; reason `MRN_AUTHORISED` |
-| `V500303` | base | `P8-09` | `COST_OBJECT_TYPE`, `REQUISITION_PURPOSE`; document type `MATERIAL_REQUISITION` |
-| `V500304` | base | `P8-10` | document type `STORE_ISSUE` |
-| `V500305` | base | `P8-11` | movement type `ISSUE_RETURN`; reason context `STORE_RETURN`; document type `STORE_RETURN` |
-| `V510400` | app | `P8-01` | PO type / validity / source / idempotency; nullable `ordered_quantity`; schedule lines; GRN-line schedule allocations |
-| `V510401` | app | `P8-02` | demand-order source / SO / customer-PO refs; demand schedule lines |
-| `V510402` | app | `P8-03` | gate entries, documents, gate passes, lines, returns; `wh_receiving_sessions.gate_entry_id`; weighing `subject_type` CHECK widened |
-| `V510403` | app | `P8-04` | GRN bills + bill lines; GRN `gate_entry_id`; GRN-line billed / excess columns and replaced CHECK; recon case type and resolutions |
-| `V510404` | app | `P8-05` | sampling schemes + bands; plan parameter columns and widened formula CHECK; plan assignments; inspection verdict/destructive columns; scheme seeds |
-| `V510405` | app | `P8-06` | inspection source / stage columns; nullable `grn_id`/`grn_line_id`; new uk |
-| `V510406` | app | `P8-07` | supplier-return origin inspection columns |
-| `V510407` | app | `P8-08` | MRNs + lines |
-| `V510408` | app | `P8-09` | cost centres; material requisitions + lines + hand-offs |
-| `V510409` | app | `P8-10` | store issues + lines + serials |
-| `V510410` | app | `P8-11` | store returns + lines + serials |
-| `V510411` | app | `P8-12` | print template kinds, `SYS-` templates, `SYS-GRN` v2 |
-| `V510413` | app | `P8-16` | `wh_replenishment_runs.run_type` CHECK + `EXTERNAL`; suggestion `origin`, `origin_document_*`, `need_date`, nullable `reorder_point`; `REPLENISHMENT_ORIGIN` list; reason `WITHDRAWN_BY_ORIGIN` |
-| `V510412` | app | `P8-15` | RMA source / idempotency columns; supplier-return `intent_code`; `SUPPLIER_RETURN_INTENT` code list |
-| `V511400`…`V511410` | app seeds | `P8-01`…`P8-11` (one each; `V511405` = `P8-06`) | permissions + dependency rows, grids, filters, `grid_preferences`, settings, number series |
+| `V501230` | base | `P8-03` | code lists `GATE_PURPOSE`, `GATE_PASS_PURPOSE`, `SUPPLIER_DOCUMENT_TYPE`, `RETURN_CONDITION`; reason contexts `GATE_TURN_BACK`, `GATE_PASS_CLOSE` |
+| `V501231` | base | `P8-06` | `QC_SOURCE_TYPE`, `INSPECTION_STAGE` |
+| `V501232` | base | `P8-08` | stock status `MRN_PENDING`; document type `MATERIAL_RECEIPT_NOTE`; reason `MRN_AUTHORISED` |
+| `V501233` | base | `P8-09` | `COST_OBJECT_TYPE`, `REQUISITION_PURPOSE`; document type `MATERIAL_REQUISITION` |
+| `V501234` | base | `P8-10` | document type `STORE_ISSUE` |
+| `V501235` | base | `P8-11` | movement type `ISSUE_RETURN`; reason context `STORE_RETURN`; document type `STORE_RETURN` |
+| `V511310` | app | `P8-01` | PO type / validity / source / idempotency; nullable `ordered_quantity`; schedule lines; GRN-line schedule allocations |
+| `V511311` | app | `P8-02` | demand-order source / SO / customer-PO refs; demand schedule lines |
+| `V511312` | app | `P8-03` | gate entries, documents, gate passes, lines, returns; `wh_receiving_sessions.gate_entry_id`; weighing `subject_type` CHECK widened |
+| `V511313` | app | `P8-04` | GRN bills + bill lines; GRN `gate_entry_id`; GRN-line billed / excess columns and replaced CHECK; recon case type and resolutions |
+| `V511314` | app | `P8-05` | sampling schemes + bands; plan parameter columns and widened formula CHECK; plan assignments; inspection verdict/destructive columns; scheme seeds |
+| `V511315` | app | `P8-06` | inspection source / stage columns; nullable `grn_id`/`grn_line_id`; new uk |
+| `V511316` | app | `P8-07` | supplier-return origin inspection columns |
+| `V511317` | app | `P8-08` | MRNs + lines |
+| `V511318` | app | `P8-09` | cost centres; material requisitions + lines + hand-offs |
+| `V511319` | app | `P8-10` | store issues + lines + serials |
+| `V511320` | app | `P8-11` | store returns + lines + serials |
+| `V511321` | app | `P8-12` | print template kinds, `SYS-` templates, `SYS-GRN` v2 |
+| `V511323` | app | `P8-16` | `wh_replenishment_runs.run_type` CHECK + `EXTERNAL`; suggestion `origin`, `origin_document_*`, `need_date`, nullable `reorder_point`; `REPLENISHMENT_ORIGIN` list; reason `WITHDRAWN_BY_ORIGIN` |
+| `V511322` | app | `P8-15` | RMA source / idempotency columns; supplier-return `intent_code`; `SUPPLIER_RETURN_INTENT` code list |
+| `V511400`…`V511410` | app seeds | `P8-01`…`P8-11` (one each; `V511405` = `P8-06`) | permissions (each new resource with its `:view:all`/`:view:branch` pair) + dependency rows, grids, filters, `grid_preferences`, settings, number series; `V511400` also `warehouse:orders:port` and `wh_purchase_orders:release_schedule` |
 | `V511412` | app seeds | `P8-13` | register grids, `wh_stores_registers` permissions |
 | `V511413`, `V511414` | app seeds | `P8-14` | menus; settings registry completion |
 | `V511416` | app seeds | `P8-16` | suggestion grid `origin`, `needDate` columns and filters |
@@ -84,24 +86,37 @@ MRP (`P10`); no switching rules or skip-lot dynamics; no gate pass that moves st
 
 `V511411` is unused. All blocks are **new files** sorting after the `P7` rebuild (`STO-D12`).
 
+**Ordering (R29 F2).** The live high-water marks in `classic` on 2026-10-22 are `warehouse` `V511308` and
+`warehouse-base` `V501227`. The first draft's `V510400`–`V510413` and `V500300`–`V500305` sorted **below** them,
+so a rebuilt database would have applied them before `V511303` (the demand-order idempotency index that
+`V511311` widens) and in another order than an upgraded one. Renumbered: `V510400`+*n* → `V511310`+*n*,
+`V500300`+*n* → `V501230`+*n*. `V511309`, `V501228` and `V501229` are left unused as a buffer. Both a fresh and an
+upgraded database now apply base `V50123x` → app schema `V5113xx` → app seeds `V5114xx` (Flyway out-of-order is
+`true`). No other `issues/*.md` claims a number in these blocks (checked against `p7-*`, `p9-*` (`V55xxxx`) and
+`p10-*` (`V56xxxx`)). Not edited here, owed by their owners: `DATA-MODEL.md`, `IMPLEMENTATION-PLAN.md`,
+`FRD-MFG.md`, `mfg-qc-rework.contract.md`, `p10-01`, `p10-02` still cite the old numbers.
+
 ### Existing tables that change
 
 | Table | Change | Task |
 |---|---|---|
-| `wh_purchase_orders` | + `po_type`, `valid_from`, `valid_to`, `agreement_ref`, `source_*`, `idempotency_key`, `request_fingerprint`, `revision_no`, `approval_source` | P8-01 |
+| `wh_purchase_orders` | + `po_type`, `valid_from`, `valid_to`, `receipt_cutoff_date`, `agreement_ref`, `source_*`, `idempotency_key`, `request_fingerprint`, `revision_no`, `approval_source` | P8-01 |
+| `wh_port_operations` (new) | the port operation registry for every core port | P8-01 |
 | `wh_purchase_order_lines` | `ordered_quantity`, `line_total` nullable; CHECK replaced; + `rate_source`, `rate_source_ref`, `agreement_line_ref`, `scheduled_quantity` | P8-01 |
-| `wh_demand_orders` | + `source_*`, `sales_order_ref`, `customer_po_ref`, `customer_po_date`, `revision_no`; idempotency uk widened | P8-02 |
+| `wh_demand_orders` | + `source_*`, `sales_order_ref`, `customer_po_ref`, `customer_po_date`, `revision_no`, `is_schedule_driven`, `release_closed_at`, `last_shipped_at`; idempotency uk rebuilt on `(COALESCE(source_module,''), idempotency_key)` | P8-02 |
+| `wh_demand_order_lines` | + `is_schedule_driven`; `chk_wh_demand_order_lines_ordered` replaced (0 allowed when schedule-driven) | P8-02 |
 | `wh_receiving_sessions` | + `gate_entry_id` (partial uk) | P8-03 |
 | `wh_weighing_records` | `subject_type` CHECK + `GATE_ENTRY` | P8-03 |
 | `wh_goods_receipts` | + `gate_entry_id` | P8-04 |
-| `wh_goods_receipt_lines` | + `billed_quantity`, `excess_accepted_quantity`, `excess_refused_quantity`, `excess_refused_reason_code_id`, `excess_approved_by/at`, `excess_approval_note`; CHECK replaced | P8-04 |
+| `wh_goods_receipt_lines` | + `supplier_billed_quantity`, `excess_over_po_quantity`, `excess_accepted_quantity`, `excess_approved_quantity`, `excess_refused_quantity`, `excess_refused_reason_code_id`, `excess_approved_by/at`, `excess_approval_note`; CHECK replaced | P8-04 |
 | `wh_inspection_plans` | + `sampling_scheme_id`, `fixed_sample_quantity`, `sample_percent`, `min_sample_quantity`, `inspection_level`; formula CHECK + `BAND_TABLE` | P8-05 |
 | `wh_quality_inspections` | + `plan_assignment_id`, `sampling_scheme_id` (P8-05); `grn_id` nullable, + `source_type(_list)`, `source_document_id`, `source_document_ref`, `inspection_stage(_list)`, `warehouse_id` (P8-06) | P8-05, P8-06 |
 | `wh_quality_inspection_lines` | + sample/verdict/destructive columns (P8-05); `grn_line_id` nullable, + `source_line_id`, `item_id`, `lot_id`, `held_location_id`, `held_status_code`, `owner_id`, uk replaced (P8-06) | P8-05, P8-06 |
 | `wh_supplier_returns` / `_lines` | + `origin_inspection_id` / `origin_inspection_line_id` (P8-07); + `intent_list`, `intent_code` (P8-15) | P8-07, P8-15 |
 | `wh_replenishment_runs` / `wh_replenishment_suggestions` | `run_type` CHECK + `EXTERNAL`; + `origin_list`, `origin`, `origin_document_type`, `origin_document_id`, `need_date`; `reorder_point` nullable (CHECK for `REORDER`) | P8-16 |
 | `wh_store_issue_lines` (new in P8-10) | `counter_location_purpose` | P8-10 |
-| `wh_rmas` | + `source_module`, `source_document_type`, `source_document_id`, `source_document_ref`, `idempotency_key`, `request_fingerprint` | P8-15 |
+| `wh_rmas` / `wh_rma_lines` | + `source_module`, `source_document_type`, `source_document_id`, `source_document_ref`, `idempotency_key`, `request_fingerprint`; lines + `original_demand_order_line_id` | P8-15 |
+| `wh_replenishment_runs` | pairing CHECK replaced for `EXTERNAL` | P8-16 |
 | `whb_stock_statuses`, `whb_movement_types`, `whb_document_types`, `whb_code_list_values`, `whb_reason_codes` | seed rows only | P8-03…P8-11 |
 
 ## Tasks
@@ -156,7 +171,7 @@ __TASKS__
 
 ## Open decisions
 
-`OD-25` client band reading · `OD-26` MRN default per site · `OD-27` cost-centre source · `OD-28` free-of-charge excess · `OD-29` requisition approval levels — each with a built safe default (FRD §11).
+`OD-25` client band reading · `OD-26` MRN default per site · `OD-27` cost-centre source · `OD-28` free-of-charge excess · `OD-29` requisition approval levels · `OD-45` header ladder of a schedule-driven demand order (R29 TS-F2; recommendation (A) built) — each with a built safe default (FRD §11). The authoritative list of every P8 port, SPI, signature, verb, operation key and event is `FRD-STORES.md` §"Port & seam registry"; R29 dispositions are in §"R29 dispositions".
 
 ## Definition of done
 

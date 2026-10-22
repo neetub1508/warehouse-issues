@@ -37,7 +37,7 @@ Every later phase builds on the cleaned schema, so **`P7` runs first**.
 | **Absence is total.** A removed feature leaves no table, column, Java class, endpoint, page, menu, permission, role, grid, filter, setting, job, series, catalogue row, i18n key, constant, help entry or filter scope | FRD §4 "absent" definition; gates GATE-1…GATE-8 |
 | **Kept behaviour is unchanged except where listed.** Each behaviour change is named in the task that makes it, and tested | `FR-489`; the "Rules" section of `P7-02`, `P7-03`, `P7-04`, `P7-05` |
 | **Every task is a pure delete or a pure rename.** The one exception, `P7-01`, is a pure move | `P7-01` runs first |
-| **Every intermediate tree installs fresh.** Each task edits the count assertions its own deletions break | FRD Appendix B "fresh-install hazards" |
+| **Every intermediate tree installs fresh.** Each task edits the count assertions and the menu-leaf checks its own deletions break | FRD Appendix B "fresh-install hazards" |
 | **The ledger is untouched.** `whb_stock_movements` and its `channel_id` FK stay. No posted-movement shape changes | `FR-495`; `WH-SC-666`, `WH-SC-668` |
 
 ## Migration blocks
@@ -64,9 +64,9 @@ __TASKS__
 
 - **`P7-01` first:** it relocates the four generic helpers (category picker, `WhClaimTransitionData`, claim `lineValue`, fingerprint hash), so every later task only deletes.
 - **`P7-02 → P7-03`:** `P7-02` deletes `V511277`, which UPDATEs `wh_awb_numbers`, and the rate-quote half of the carrier guard. `P7-03` deletes the rest of the carrier-integration jobs file.
-- **`P7-04` after `P7-02`:** the last `paymentMode` consumers (AWB claim, rate shop) must already be gone.
+- **`P7-04` after `P7-02`:** the last `paymentMode` consumers (AWB claim, rate shop) must already be gone. The trade portal's `redact()` still reads the two fields and is deleted only in `P7-08`, so `P7-04` cuts those two lines and their test asserts itself (`R29` F3).
 - **`P7-05` before `P7-07`:** both edit `V511268`'s Returns count, from 8 to 6 and then from 6 to 5.
-- **`P7-06` after `P7-02`…`P7-04`:** the Channels L1 can be replaced only once its retail leaves are gone.
+- **`P7-06` after `P7-02`…`P7-04`:** the Channels L1 can be replaced only once its retail leaves are gone. Each of `P7-02`, `P7-03` and `P7-04` strips its **own** leaves, translations, IN-lists and verification counts from `V511271`/`V511273`, because those files' `:view`-permission checks fail a fresh install the moment a leaf's permissions are deleted (`R29` F1). `P7-06` does only the L1/L2 rename and the four re-homes.
 - **`P7-10` after `P7-02`…`P7-09`:** a vocabulary row can be deleted only when no kept reader remains.
 - **`P7-11` after `P7-10`:** both edit `WB/V500010`.
 - **`P7-13` last:** it needs the user's go before any volume is dropped.
@@ -76,7 +76,8 @@ Each task is one PR and reviewable alone. Each leaves a tree that installs fresh
 ## Traps this phase must not walk into
 
 - **An allowlisted grep gate is a shim.** A hit means the owning task is unfinished (FRD §6).
-- **Count assertions in seed migrations** (`V511248:298`, `V511268:304,371`, `V500010:811`, `V510050:945`, `V500002:468-470`) fail a fresh install silently if the deleting task does not edit them.
+- **Count assertions in seed migrations** (`V511248:298`, `V511268:304,371`, `V500010:811`, `V510050:945`, `V500002:461,464,468-470`, `V500003:429,432`, `V500004:342`) and the **menu-leaf `:view` checks** (`V511271:214-223`, `V511273:194-202`) fail a fresh install if the deleting task does not edit them.
+- **Per-task gates are scoped to the task's own surfaces** (`$T`, docs excluded, codes renamed later excluded). The full gate set GATE-1…GATE-8 runs only in `P7-13` (`R29` F7).
 - **`warehouse_channels` is two different menu rows**: the removed L1 and the kept L3 Channels master. Always filter on `menu_level`.
 - **`OBSOLESCENCE` is two different things**: the removed supplier-claim type, and the kept stock KPI.
 - **`payment_mode` is two different columns**: the demand-order one is dropped. The carrier-account one (`CREDIT`/`PREPAID`/`TO_PAY`) is kept.
