@@ -2,7 +2,7 @@ TITLE: [Warehouse] EPIC: P10 — Manufacturing (warehouse-manufacturing)
 LABELS: epic,warehouse,phase-p10
 issue: TBD
 ---
-Part of __MASTER__ · Module `warehouse-manufacturing` (`ai.warehousemanufacturing`, band **V560000–V569999**, prefix **`whm_`**) · Migrations — **24 blocks in band + one `warehouse-india` block, enumerated below** · Depends on **`P7`** (removal first) and **`P8`** (`p8-01`, `p8-02`, `p8-03`, `p8-06`, `p8-09`, `p8-10`, `p8-11` hard; `p8-16` for SEAM-M3) and **`P9`** (`p9-04`, `p9-07`, optional at runtime) · Runs in parallel with **`P9`** until p10-12 — the module **may ship before trade**: with trade off, MRP BUY output becomes a draft core PO (`OD-41` fallback)
+Part of __MASTER__ · Module `warehouse-manufacturing` (`ai.warehousemanufacturing`, band **V560000–V569999**, prefix **`whm_`**) · Migrations — **24 blocks in band + one `warehouse-india` block, enumerated below** · Depends on **`P7`** (removal first) and **`P8`** (`p8-01`, `p8-02`, `p8-03`, `p8-06`, `p8-09`, `p8-10`, `p8-11` hard; `p8-16` for SEAM-M3) and **`P9`** (`p9-04`, `p9-07`, optional at runtime) · Ships in **v1.1** with the P8 seams it consumes (MD-38, R29 F24) · Runs in parallel with **`P9`** until p10-12 — the module **may ship before trade**: with trade off, MRP BUY output becomes a draft core PO (`OD-41` fallback)
 
 ## Overview
 
@@ -67,6 +67,10 @@ close.** Run in order on a clean database:
 - **`COMPLETED` is not settled** (MD-14): late store issues and returns flow until `CLOSED`; an order with a
   posting is never cancelled (MD-15); the order alone owns its component reservations (MD-16).
 - **House-owned supply only** in MRP and valuation; non-own stock never valued (`L-14`).
+- **WIP is MFG's record** (MD-32, MD-34): virtual lines carry no cost layer, so the order's pool — issues, backflush,
+  subcontract dispatches — lives on MFG rows; every output states its `extendedCost`; the settlement restates layers on
+  the landed-cost path. No warehouse-base change.
+- **MFG movement types post only from their MFG document** — MFG's `WhbMovementPostGuard` (MD-35).
 - **Accounting is a handover, never a posting** (FR-657).
 
 ## Migration blocks
@@ -112,9 +116,9 @@ __TASKS__
 | [`p10-04`](p10-04.md) | Work centres and BOM operations | p10-03 |
 | [`p10-05`](p10-05.md) | Production order — snapshot, lifecycle, release, reservations, MTO link, traveller | p10-04, `p8-02`, `p8-09` |
 | [`p10-06`](p10-06.md) | Staging, issue through core, return, substitution, consumption policy | p10-05, `p8-09`, `p8-10`, `p8-11` |
-| [`p10-07`](p10-07.md) | Production receipt — backflush, scrap, tolerances, genealogy, reversal, FG note | p10-06 |
+| [`p10-07`](p10-07.md) | Production receipt — backflush, scrap, tolerances, genealogy, reversal, FG note, **per-receipt absorption and exact split** (MD-37) | p10-06 |
 | [`p10-08`](p10-08.md) | Operation confirmations, final / in-process QC, rework | p10-07, `p8-06` |
-| [`p10-09`](p10-09.md) | Costing, co-product split, settlement, close, cost sheet | p10-07, p10-08 |
+| [`p10-09`](p10-09.md) | Settlement (landed-cost restatement path), close, cost sheet | p10-07, p10-08 |
 | [`p10-10`](p10-10.md) | Subcontracting / job work + india `V540190` seam (SEAM-M5) | p10-07, p10-09, `p8-03`, `p9-07` (ref only) |
 | [`p10-11`](p10-11.md) | Planning masters — item planning parameters, demand plans | p10-03 |
 | [`p10-12`](p10-12.md) | MRP — run, netting, lot sizing, proposals, pegging, conversion, exceptions | p10-05, p10-11, `p8-01`, `p8-02`, `p8-16`, `p9-04` (runtime) |
@@ -146,7 +150,7 @@ joins after p10-05 and p10-11; p10-13 last. Shared-registry edits (`filterUtils.
 | **SEAM-M1** | `p8-09` / `p8-10` (`p8-11` returns) | `ResolvedCostObject.counterLocationPurpose` (default `CONSUMED`; `PRODUCTION_ORDER` → `PRODUCTION`) used by the store-issue post | p10-06, p10-09 |
 | **SEAM-M2** | `p8-09` / `p8-10` / `p8-11` | `CostObjectResolver` hooks `assertIssuable`, `onIssuePosted`, `onReturnPosted` in the posting transaction + `reservationsFor` (MD-16); **no `onIssueReversed`** — rejected by STORES `STO-D13`, a mis-issue is a store return (MD-17) | p10-06 |
 | **SEAM-M3** | `p8-16` (MD-28) | `WhReplenishmentSuggestionPort.publishExternal/withdrawExternal`, `origin` + `origin_document_type/id` on `wh_replenishment_suggestions` | p10-12 |
-| **SEAM-M4** | `p8-06` | `InspectableSource.stockBearing`; record-only ACCEPT/REJECT/REWORK when `false` | p10-08, p10-07 |
+| **SEAM-M4** | `p8-06` | `QualityInspectionSourceResolver.stockBearing()` (FRD-STORES registry R.3); record-only ACCEPT/REJECT/REWORK when `false` | p10-08, p10-07 |
 | **SEAM-M5** | core `ai.warehouse.port.jobwork.JobWorkDispatchPort` + `warehouse-india` bean — **owned inside p10-10** as a cross-module change (india migration `V540190`) | `registerDispatch`, `registerReturn(returnedAsItemId, consumedInputQty, scrapQty, scrapRetained)` (a recall is a return of the input), `reverseReturn`, `registerLoss` (MD-25) | p10-10 |
 
 ## Admin settings seeded by P10 (all in `V561000`, FRD-MFG §8)
@@ -161,7 +165,7 @@ joins after p10-05 and p10-11; p10-13 last. Shared-registry edits (`filterUtils.
 ## Open decisions this phase carries
 
 `OD-40` actual costing with settlement (default adopted) · `OD-41` trade off → core draft PO from an MRP
-suggestion · `OD-42` job work **in** — v1.1, non-own owner never valued · `OD-43` labour/overhead recorded,
+suggestion · `OD-42` job work **in** — v1.2, non-own owner never valued · `OD-43` labour/overhead recorded,
 not absorbed · `OD-44` published MRP suggestion counts as supply for `suggestion_cover_days` (trade to
 confirm the PO-line reference). Each has an adopted default (FRD-MFG §11). Also confirms TRADE `OD-31`
 (MD-07) and `OD-32` (MD-08).
@@ -190,5 +194,6 @@ Per __MASTER__, with these phase-specific additions:
 - [ ] The exit criterion's ten steps pass in order on a clean database (and steps 8–9 again with india and trade on)
 - [ ] FRD-MFG §13 traceability: every FR-620…FR-669 closed by a merged task; every WH-SC-600…659 cited in a test name
 - [ ] The eight `mfg-*` contracts exist and every row is implemented or refused
-- [ ] `OD-40`…`OD-44` resolved or their defaults ratified in `DECISIONS.md` by SPINE; MD-14…MD-28 (FRD-MFG §9) honoured by every task
+- [ ] `OD-40`…`OD-44` resolved or their defaults ratified in `DECISIONS.md` by SPINE; MD-14…MD-41 (FRD-MFG §9) honoured by every task
+- [ ] Every port call matches the FRD-STORES "Port & seam registry (authoritative)"; FRD-MFG "R29 dispositions" rows all closed
 - [ ] No mobile; no accounting posting

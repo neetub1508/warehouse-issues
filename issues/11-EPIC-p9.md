@@ -42,7 +42,7 @@ Run in order on a clean database:
 4. **`WH-SC-515` → `WH-SC-524` → `WH-SC-532`** — rate contract price, FIXED PO to core, gate entry + GRN with bill visible on the trade PO.
 5. **`WH-SC-529` → `WH-SC-531` → `WH-SC-527`** — blanket schedule, proposal, release; open PO call-offs and ceiling.
 6. **`WH-SC-537` → `WH-SC-542` → `WH-SC-539`** — acknowledgement with changes, amendment, short-close.
-7. **`WH-SC-550` → `WH-SC-554` → `WH-SC-555` → `WH-SC-557` → `WH-SC-559`** — enquiry, quotation, won, blanket SO, dispatch release, shipment visible.
+7. **`WH-SC-550` → `WH-SC-554` → `WH-SC-555` → `WH-SC-557` → `WH-SC-559` → `WH-SC-580`** — enquiry, quotation, won, blanket SO, dispatch release (WS-313), shipment visible, core demand order back `OPEN` until trade closes it.
 8. **`WH-SC-560`, `WH-SC-562`, `WH-SC-547`** — schedule revision, return authorisation, vendor rating.
 9. **`WH-SC-565`** — the auditor sees everything and exports nothing.
 
@@ -53,7 +53,22 @@ Run in order on a clean database:
 - **FKs point down only** (`FR-540`), proved by `ArchitectureInvariantsTest`.
 - **Maker ≠ checker on every approval**; no rule ⇒ refusal; nothing approves by time (`TAM`).
 - **Every vocabulary is a code list; no status `CHECK`** (`D-10`).
-- **Port calls are idempotent and transactional with the trade transition** (`FR-618`).
+- **Port calls are idempotent and transactional with the trade transition** (`FR-618`), and use the
+  FRD-STORES *Port & seam registry* exactly: `PortEnvelope('warehouse-trade', key, actingUserId)`, keys
+  `<SOURCE_DOCUMENT_TYPE>:<id>:<operation>:<sequence>` (FRD-TRADE §12a), a changed body on a reused key
+  refused `409 PORT_IDEMPOTENCY_CONFLICT`.
+- **The port principal is the person who triggered the call** (`TRD-13`): the last approver, the submitter
+  for a `SYSTEM` approval, the order's buyer / sales executive for a job. Each task grants core
+  `warehouse:orders:port` to its approver and maker bundles in its `V5510n0` / `V5511n0` block; without it
+  core refuses `403 PORT_AUTHORITY_REQUIRED` and the trade transition rolls back.
+- **One core demand order per SO, `OD-45` (A)**: its header returns to `OPEN` after each despatch, and only
+  trade's `closeDemand` (auto-close or header short-close) ends it.
+- **Change guards** on every trade-created core document: `409 PO_OWNED_BY_SOURCE_MODULE`,
+  `409 DEMAND_OWNED_BY_SOURCE_MODULE` (allocation allowed), `409 RMA_OWNED_BY_SOURCE_MODULE` (expiry allowed).
+- **Notifications** use the one platform category `NotificationCategory.WAREHOUSE_TRADE`, in-app only
+  (platform commit in p9-03; kinds per FRD-TRADE §12b).
+- **FIXED needs no release** on either side (`TRD-12`); releases and amendments are numbered
+  `<order>-Rnn` / `-Dnn` / `-Ann` with no series; dispatch releases are listed on **WS-313** (p9-09).
 - **Mirror parity:** each purchase capability and its sales twin ship in the same task on tables of
   identical shape (`TRD-02`), or the refusal is written (FRD-TRADE §5).
 
@@ -90,11 +105,11 @@ __TASKS__
 | [`p9-06`](p9-06.md) | Rate contracts, price lists, price resolution — both sides | p9-02, p9-03 |
 | [`p9-07`](p9-07.md) | Purchase orders FIXED / OPEN / BLANKET, releases, PO port | p9-03, p9-06, `p8-01`, `p8-03`, `p8-04` |
 | [`p9-08`](p9-08.md) | Sales enquiry, quotation, win/loss | p9-02, p9-03, p9-06 |
-| [`p9-09`](p9-09.md) | Sales orders, customer schedule, dispatch planning, demand-order port | p9-03, p9-06, `p8-02`, `p8-03` |
+| [`p9-09`](p9-09.md) | Sales orders, customer schedule, dispatch planning, dispatch releases (WS-313), demand-order port | p9-03, p9-06, `p8-02`, `p8-03` |
 | [`p9-10`](p9-10.md) | Acknowledgement, expediting / commitments, short-close — both sides | p9-07, p9-09 |
 | [`p9-11`](p9-11.md) | Amendments + versions — both sides | p9-07, p9-09 |
 | [`p9-12`](p9-12.md) | Vendor and customer evaluation | p9-07, p9-09, p9-13, `p8-06` |
-| [`p9-13`](p9-13.md) | Sales return authorisation → RMA; supplier-return replacement | p9-07, p9-09, `p8-15` (`OD-33`) |
+| [`p9-13`](p9-13.md) | Sales return authorisation → RMA; supplier-return replacement | p9-07, p9-09, p9-11, `p8-15` (`OD-33`) |
 | [`p9-14`](p9-14.md) | Print documents + reports | p9-04 … p9-13 |
 
 Parallel lanes after p9-03: {p9-04 → p9-05}, {p9-06}, then {p9-07 ‖ p9-08 → p9-09}, then {p9-10 ‖ p9-11},
@@ -110,7 +125,9 @@ SafeTranslation, i18n) serialize at the barrier.
 `warehouse.trade.expedite.days_before` (3) · `warehouse.trade.ack.alert_days` (3) ·
 `warehouse.trade.quotation.validity_days` (30) · `warehouse.trade.quotation.followup_days` (7) ·
 `warehouse.trade.sales.discount_approval_pct` (10) · `warehouse.trade.sales.dispatch_horizon_days` (7) ·
-`warehouse.trade.sales.at_risk_days` (5) · `warehouse.trade.evaluation.review_grade` (D) · reuses
+`warehouse.trade.sales.at_risk_days` (5) · `warehouse.trade.sales.ack_send_alert_days` (1, p9-10) ·
+`warehouse.trade.sales.firm_zone_days` (14, p9-09) · `warehouse.trade.sales.return_validity_days` (30,
+p9-13) · `warehouse.trade.evaluation.review_grade` (D) · reuses
 `warehouse.approval.pending_alert_hours` (24). `admin_settings.description` ≤ 255 characters.
 
 ## Open decisions this phase carries
@@ -119,7 +136,10 @@ SafeTranslation, i18n) serialize at the barrier.
 customer schedule as core `FORECAST` lines (closed by `p8-02`; MFG to confirm) · **`OD-33` RMA port — `p8-15` `WhRmaPort` + supplier-return `intent_code`, blocks p9-13** ·
 `OD-34` per-currency approval bands · `OD-35` per-line slabs · `OD-36` rate change on un-received qty
 only · `OD-37` sealed default off · `OD-38` QC decided by core inspection plans · `OD-39` trade registers
-change guards on `p8-01` / `p8-02`'s seams (closed). Each has an adopted default (FRD-TRADE §10).
+change guards on `p8-01` / `p8-02` / `p8-15`'s seams (closed) · **`OD-45` (A)** one core demand order per
+SO, header back to `OPEN` after each despatch until `closeDemand` (closed by STORES). Each has an adopted
+default (FRD-TRADE §10). Core changes trade still needs from STORES are listed in FRD-TRADE §12c
+(`CN-1`…`CN-7`).
 
 ## Traps this phase must not walk into
 

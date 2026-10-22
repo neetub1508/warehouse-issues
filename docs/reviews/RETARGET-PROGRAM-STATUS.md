@@ -17,12 +17,23 @@
    - STORES: 36 of 36 fixed, plus 18 core-side items from the trade and mfg reviews (FRD-STORES "R29 dispositions"). FRD-STORES now holds the **"Port & seam registry (authoritative)"**.
    - The P8 schema migrations were renumbered to `V511310`–`V511323` (app) and `V501230`–`V501235` (base); seeds stay at `V511400`–`V511416`.
 
+7. **R29 fixes, wave 2, done:**
+   - TRADE: purchase 30/30, sales 29/29, mirror rows 18/18 (FRD-TRADE "R29 dispositions").
+   - MFG: 33/33, with MD-30…MD-41 and no warehouse-base change needed (FRD-MFG "R29 dispositions").
+
 ## Remaining (in order)
-1. **R29 fixes, wave 2 (in parallel, disjoint files):**
-   - **TRADE:** fix every trade-side finding in R29 trade-purchase (F1–F30) and trade-sales (F1–F29, MA-01…MA-18), aligned to the FRD-STORES port registry. Skip the core-side items STORES already fixed; its disposition table lists them.
-   - **MFG:** fix every mfg-side finding in R29 mfg (F1–F33), aligned to the port registry. Skip F4, F12 and F13, which STORES fixed.
-   - Each area adds an "R29 dispositions" section.
+1. **STORES owes the core changes trade needs**, CN-1…CN-5 from FRD-TRADE §12c:
+   - CN-1: the release price reaches core.
+   - CN-2: `newScheduleLines` on `amendOrder`.
+   - CN-3: ship-to on create/amend demand.
+   - CN-4: an OPEN demand line with no schedule is schedule-driven.
+   - CN-5: remove the duplicate overdue digest.
+   - CN-6 and CN-7 are recommended only; decide them.
+
+   Then update the FRD-STORES port registry. The trade files must still match afterwards.
 2. **SPINE integration:**
+   - IMPLEMENTATION-PLAN §2: move FR-654/655 to P10-07.
+   - DATA-MODEL: add `whm_staging_list_line_postings` and the new p9-06 tables.
    - DATA-MODEL: new P8 numbers, `wh_port_operations`, `whm_subcontract_reconciliation_actions`, any new trade/mfg tables.
    - IMPLEMENTATION-PLAN §2: renumbered migrations; resolve the FR-483 owner (P7-03 vs P7-04).
    - Confirm OD-45, which sits outside the STORES OD range.

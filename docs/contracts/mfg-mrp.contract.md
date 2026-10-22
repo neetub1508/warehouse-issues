@@ -80,7 +80,7 @@
 | MRP-T1-11 | `OPEN` | **Firm** (multi-select) | `FIRMED` | `MRP-GRD-09`, `-10` | `whm_mrp_proposals:firm` | counted as supply by later runs; never superseded | no | WS-334 **Firm** |
 | MRP-T1-12 | `OPEN`/`FIRMED` | Edit a proposal's quantity / date | refused | — | any | change after conversion, on the order or PR | — | none (`MRP-UNR-02`) |
 | MRP-T1-13 | `OPEN`/`FIRMED`, type `MAKE` | **Convert** → `PLANNED` production order (an `OPEN` proposal is firmed and converted in one transaction, `MRP-OPEN-04`) | `CONVERTED` | `MRP-GRD-09`…`-12` + order-create guards (`BOM_NOT_FOUND`) | `whm_mrp_proposals:convert` | `MRP-T4-03`; idempotency key `MRP:<proposalId>` | no | WS-334 **Convert** |
-| MRP-T1-14 | `OPEN`/`FIRMED`, type `BUY` | **Convert** → core replenishment suggestion (SEAM-M3 `publishExternal(origin = MRP, runId, proposalId, item, site, qty, needDate)`) | `CONVERTED` | `MRP-GRD-09`, `-10`, `-13` | `whm_mrp_proposals:convert` | `MRP-T4-04`; `converted_document_type = REPLENISHMENT_SUGGESTION` | no | WS-334 **Convert** |
+| MRP-T1-14 | `OPEN`/`FIRMED`, type `BUY` | **Convert** → core replenishment suggestion (SEAM-M3 `publishExternal(PublishExternalCommand)`: envelope with `idempotencyKey = MRP_PROPOSAL:<proposalId>:SUGGESTION_PUBLISH:1` and the planner as `actingUserId`, `origin = MRP`, `originRunId`, `suggestions[]` = (`originDocumentId` = proposal id, item, site, qty, UoM, `needDate`); FRD-STORES registry R.2) | `CONVERTED` | `MRP-GRD-09`, `-10`, `-13` | `whm_mrp_proposals:convert` | `MRP-T4-04`; `converted_document_type = REPLENISHMENT_SUGGESTION` | no | WS-334 **Convert** |
 | MRP-T1-15 | `OPEN`/`FIRMED` | **Dismiss** | `DISMISSED` | `MRP-GRD-09`, `-14` | `whm_mrp_proposals:dismiss` | not supply; may re-appear in the next run | **yes** — reason | WS-334 **Dismiss** |
 | MRP-T1-16 | `OPEN` | *(effect of `MRP-T1-08`)* | `SUPERSEDED` | never set directly | effect | none — an `OPEN` proposal has no suggestion | — | none |
 | MRP-T1-17 | *new* exception | **Acknowledge** (multi-select) | *acknowledged* | exception of the current run | `whm_mrp_exceptions:acknowledge` | `acknowledged_by/at`; **nothing is applied** | no | WS-335 **Acknowledge** |
@@ -97,7 +97,7 @@
 | MRP-GRD-06 | Import: every row resolves item (code) and passes `-05`; the import is all-or-nothing with a per-row error report | `422 IMPORT_ROWS_INVALID` · `rows[n]` | row number + reason | — | FR-663 |
 | MRP-GRD-07 | No run of the site is `QUEUED`/`RUNNING` (advisory lock key = site) | `409 MRP_RUN_IN_PROGRESS` · `warehouseId` | names the running `MRP-` | advisory lock | FR-664, `WH-SC-658` |
 | MRP-GRD-08 | No other `ACTIVE` plan for the site; plan has ≥ 1 line | `409 DEMAND_PLAN_ACTIVE_EXISTS` · `warehouseId`; `422 DEMAND_PLAN_EMPTY` | names the active plan | partial uk `(warehouse_id) WHERE status = 'ACTIVE'` | FR-663 |
-| MRP-GRD-09 | Proposal belongs to the site's current (latest `COMPLETED`) run and is `OPEN`/`FIRMED` | `409 MRP_PROPOSAL_STALE` · `proposalIds[n]` | names the superseding run | — | FR-666 |
+| MRP-GRD-09 | Proposal is **`OPEN` of the site's current (latest `COMPLETED`) run**, or **`FIRMED` of the site from any run** (a firmed proposal survives supersession and stays actionable — R29 F1); firm takes the `OPEN` case only | `409 MRP_PROPOSAL_STALE` · `proposalIds[n]` | names the superseding run | — | FR-666 |
 | MRP-GRD-10 | No run of the site is `QUEUED`/`RUNNING` (a run reading a snapshot would double-count the conversion) | `409 MRP_RUN_IN_PROGRESS` · `warehouseId` | — | — | FR-664 |
 | MRP-GRD-11 | MAKE: BOM resolvable per FR-626 at `start_date`; item active | `422 BOM_NOT_FOUND` · `proposalIds[n]` | item, site, date, usage | — | FR-626 |
 | MRP-GRD-12 | MAKE with child proposals: children pegged by `parent_proposal_id` in the same run are `OPEN`/`FIRMED` → converted together; a child already converted/dismissed is skipped and named | — (partial, reported per row) | lists skipped children | — | FR-666, `WH-SC-654` |
@@ -122,12 +122,12 @@
 |---|---|
 | MRP-N-01 | **Scope.** Items with active params `planning_method = MRP`; `REORDER_POINT`/`NONE`/no row ⇒ not planned (left to core replenishment). Horizon = `planning_date` … `+ horizon_days`. |
 | MRP-N-02 | **Low-level code** = deepest position of the item over approved `PRODUCTION` BOMs effective in the horizon; phantoms are exploded through (never planned); a cycle found here ⇒ `RECURSIVE_BOM` exception, the subtree is skipped, the run continues. |
-| MRP-N-03 | **Independent demand.** (a) open core demand-order lines: open qty from `WhDemandOrderPort.getFulfilmentPosition`, dated at the line's required date; **`FORECAST` schedule lines** included when `include_forecast_schedule_lines` (`OD-32`); (b) the run's demand plan per bucket after consumption: `MAX_OF_FORECAST_AND_ORDERS` ⇒ bucket demand = max(forecast, Σ orders in bucket) (orders consume forecast; `WH-SC-653` = 200); `FORECAST_PLUS_ORDERS` ⇒ forecast + orders; forecast dated at `period_start`; (c) approved-not-issued `p8-09` MRQ lines **except** those with cost object `PRODUCTION_ORDER` (already dependent demand, MD-16); (d) safety stock as a requirement on `planning_date`. |
-| MRP-N-04 | **Dependent demand.** Open orders (`PLANNED`/`RELEASED`/`IN_PROGRESS`, incl. `SUBCONTRACT`/`REWORK`): per component required − consumed − staged-not-consumed, dated at `required_date`; MAKE proposals of this run: BOM explosion × quantity, dated at proposal `start_date` + line `lead_time_offset_days`; alternates used only by `usage_percent` split when set. |
+| MRP-N-03 | **Independent demand.** (a) open core demand-order lines: open qty from `WhDemandOrderPort.getFulfilmentPosition`, dated at the line's required date; **`FORECAST` schedule lines** included when `include_forecast_schedule_lines` (`OD-32`); (b) the run's demand plan per bucket after consumption: `MAX_OF_FORECAST_AND_ORDERS` ⇒ bucket demand = max(forecast, Σ orders in bucket) (orders consume forecast; `WH-SC-653` = 200); `FORECAST_PLUS_ORDERS` ⇒ forecast + orders; forecast dated at `period_start`; (c) approved-not-issued `p8-09` MRQ lines **except** those with cost object `PRODUCTION_ORDER` (already dependent demand, MD-16); safety stock is **not** a requirement here — `MRP-N-09` alone restores projected stock to it (R29 F9; `WH-SC-650` = 45). |
+| MRP-N-04 | **Dependent demand.** Open orders (`PLANNED`/`RELEASED`/`IN_PROGRESS`, incl. `SUBCONTRACT`/`REWORK`): per component required − consumed − staged-not-consumed, dated at `required_date`; every **live** MAKE proposal — `OPEN` of this run and `FIRMED` of any earlier run (R29 F10): BOM explosion × quantity ÷ (1 − BOM `process_loss_percent` ÷ 100) for scaled lines (R29 F29, as `PRO-T4-01`), dated at proposal `start_date` + line `lead_time_offset_days`; alternates used only by `usage_percent` split when set. |
 | MRP-N-05 | **On-hand supply.** Allocatable on-hand (`L-6`) at the site's stock-holding locations, excluding `LINE_SIDE` and `JOB_WORKER` locations; `QC_HOLD` counted at `planning_date + qc_lead_time_days` only when `include_qc_hold_supply`; lots whose expiry is before the requirement date are not counted for it (`MRP-OPEN-07`). |
 | MRP-N-06 | **Owner OWN only.** Only positions of the house owner (`owner_type = OWN`) count; client/consignment stock is never supply (`L-14`, `WH-SC-652`). |
 | MRP-N-07 | **Reservations.** Open reservations are subtracted from on-hand **unless** their holder is itself a counted demand (a demand-order line, a counted order component) — that demand is already in the gross requirement (FR-664). |
-| MRP-N-08 | **Scheduled receipts.** Open `p8-01` PO schedule-line quantity at its due date; open production orders' remaining main output (planned − received good) at `planned_end_date`; `FIRMED` proposals at `need_date`; **published-but-unordered MRP suggestions** (proposal `CONVERTED` BUY whose suggestion is not referenced by a PO schedule line and is younger than `mrp.suggestion_cover_days`, `OD-44`) at their need date; a suggestion consumed into a core draft PO counts via that PO (`WH-SC-656`). |
+| MRP-N-08 | **Scheduled receipts.** Open `p8-01` PO schedule-line quantity at its due date; open production orders' remaining main output (planned − received good) at `planned_end_date`; `FIRMED` proposals of any run at `need_date`; **published-but-unordered MRP suggestions** (proposal `CONVERTED` BUY whose suggestion is not referenced by a PO schedule line and is younger than `mrp.suggestion_cover_days`, `OD-44`) at their need date; after the cover window a suggestion stays supply when `withdrawExternal` answered `ALREADY_CONVERTED` and `getSuggestionStatus(MRP, proposalId).conversionLive` is true (PR line live, no PO line yet — `POS-T1-31`, `-34`; R29 F13); a suggestion consumed into a core draft PO counts via that PO (`WH-SC-656`). |
 | MRP-N-09 | **Net.** Projected available per day = on-hand + receipts − requirements; a day below safety stock (outside the fence) creates a net requirement to restore safety stock. |
 | MRP-N-10 | **Offsets.** `start_date = need_date − (manufacturing_lead_time_days` for MAKE \| purchase lead time for BUY: params → priority-1 `whb_item_supplier_sources.lead_time_days` → `whb_item_site_settings.lead_time_days`\| `) − safety_lead_time_days`; calendar days. No lead time resolvable ⇒ 0 + `NO_LEAD_TIME`. |
 | MRP-N-11 | **Lot sizing**, applied in order: rule (`LOT_FOR_LOT` = net; `FIXED` = ⌈net ÷ fixed⌉ × fixed, `WH-SC-651` 320 → 1,000; `MIN_MAX` = up to max when projected < min; `PERIOD_WEEKLY`/`MONTHLY` = Σ net of the ISO week / month at its first need date) → raise to `min_lot` → split into proposals ≤ `max_lot` → round up to `rounding_multiple`. |
@@ -154,10 +154,10 @@
 | ID | Action | Permission | Allowed from | Extra condition |
 |---|---|---|---|---|
 | MRP-T2-01 | Maintain planning params | `whm_item_planning_params:create/edit/delete` | any | planner |
-| MRP-T2-02 | Maintain / import demand plan | `whm_demand_plans:create/edit` | `DRAFT`; `ACTIVE` lines editable (`:edit`) | — |
+| MRP-T2-02 | Maintain / import demand plan | `whm_demand_plans:create/edit` | `DRAFT`; `ACTIVE` lines editable (`:edit`, MD-40) | no run of the site `QUEUED`/`RUNNING` (`409 MRP_RUN_IN_PROGRESS`); `ARCHIVED` read-only |
 | MRP-T2-03 | Activate / archive plan | `whm_demand_plans:activate` | `DRAFT` / `ACTIVE` | `MRP-GRD-08` |
 | MRP-T2-04 | Run MRP | `whm_mrp_runs:run` | no run in progress | site in caller's scope |
-| MRP-T2-05 | Firm / convert / dismiss | `whm_mrp_proposals:firm` / `:convert` / `:dismiss` | `OPEN`/`FIRMED` of the current run | no run in progress |
+| MRP-T2-05 | Firm / convert / dismiss | `whm_mrp_proposals:firm` / `:convert` / `:dismiss` | `OPEN` of the current run; `FIRMED` of any run (convert, dismiss) | no run in progress |
 | MRP-T2-06 | Acknowledge exception | `whm_mrp_exceptions:acknowledge` | current run | — |
 | MRP-T2-07 | View capacity load | `whm_reports:view` (export `:export`) | — | AUDITOR no export |
 
@@ -168,7 +168,7 @@
 | MRP-T3-01 | Scheduled nightly run per site | `whb_job_runs` schedule — **no schedule setting in FRD §8** (`MRP-OPEN-08`) | `MRP-T1-07` as Scheduler | — | — | MRP run job | — |
 | MRP-T3-02 | Run completed / failed | `MRP-T1-08`/`-09` | nothing | the requesting planner (Scheduler runs: holders of `whm_mrp_runs:run`) | in-app — `TBD` DEFERRED-TO-p10-12 | event | once per run |
 | MRP-T3-03 | Stuck run | `RUNNING` beyond the job framework's timeout | → `FAILED`, lock released | as `-02` | as `-02` | `whb_job_runs` watchdog | once |
-| MRP-T3-04 | `OD-44` cover expiry | suggestion older than `mrp.suggestion_cover_days`, still unordered | the next run stops counting it and calls `withdrawExternal` before re-proposing (MD-24) | — | — | MRP run job | — |
+| MRP-T3-04 | `OD-44` cover expiry | suggestion older than `mrp.suggestion_cover_days`, still unordered | the next run calls `withdrawExternal(origin = MRP, originDocumentIds)` **first** and re-plans **only** the proposals answered `WITHDRAWN`; `ALREADY_CONVERTED` ones stay supply while `conversionLive`; `NOT_FOUND` ones are re-planned and logged (MD-24, R29 F13) | — | — | MRP run job | — |
 
 ## 4. T4 — Cross-entity effects
 
@@ -197,12 +197,15 @@ of the visible columns incl. `createdByName`/`updatedByName` where shown. Modals
 | WS-335 `mrp-exceptions` | `whm_mrp_exceptions` · `WAREHOUSE_MFG_MRP_EXCEPTION` · Department | `runNumber`, `exceptionCode` (registry label), `itemName`, `documentType`, `documentRef` (GridLink), `currentDueDate`, `suggestedDueDate` (date-only; columns `current_due_date`, `suggested_due_date` — MD-27), `quantity`, `message`, `acknowledgedByName`, `acknowledgedAt` | `warehouseId` → `runId`; `exceptionCode` (enum); `itemId`; `acknowledged` (boolean) | Acknowledge (bulk) · Export |
 | WS-336 `capacity-load` | `whm_capacity_load` · `WAREHOUSE_MFG_CAPACITY_LOAD` · report | `workCentreCode`, `workCentreName`, `loadDate` (date-only), `availableMinutes` (= minutes/day × efficiency % × parallel units on a working day of the mask, else 0), `loadMinutes`, `loadPercent`, `isOverload` (> 100 %), `orderMinutes`, `proposalMinutes` | `warehouseId` → `workCentreId`; `dateFrom`/`dateTo` (**dateOnly**, default today + 30); `includeProposals` (boolean); `overloadOnly` (boolean) | Export only (no write) |
 
-### 5.1 Capacity load computation (WS-336, read-only)
+### 5.1 Capacity load computation (WS-336, read-only) — **the one rule** (MD-39, R29 F25)
+
+This section and the WS-336 row above are authoritative for the rule and the column set; `p10-13` owns the
+report and `mfg-production-order.contract.md` §5.3 cites this section.
 
 Load per work centre per day = open operations (`OPEN`/`STARTED`) of `PLANNED`/`RELEASED`/`IN_PROGRESS`
 orders: setup (if not `STARTED`) + run minutes × (1 − confirmed good ÷ planned), spread evenly over the
 working days of `[planned_start_date, planned_end_date]` (`MRP-OPEN-09`); plus, when
-`includeProposals`, current-run `OPEN`/`FIRMED` MAKE proposals with BOM operations (setup + run per unit ×
+`includeProposals`, current-run `OPEN` and live `FIRMED` (any run) MAKE proposals with BOM operations (setup + run per unit ×
 qty over `[start_date, need_date]`). `WH-SC-659`: 480 × 90 % × 1 = 432; 610 ÷ 432 = **141 %**, overload,
 nothing rescheduled.
 
@@ -222,6 +225,7 @@ nothing rescheduled.
 |---|---|---|---|
 | 2026-10-22 | all | v0 derived from `docs/frd/FRD-MFG.md`; not ratified | contract derivation (design set) |
 | 2026-10-22 | T3, §9 | Consistency pass: suggestion publish/cover/withdraw (MD-24), `PRODUCTION_ORDER` MRQs excluded (MD-16), `current_due_date` (MD-27), SEAM-M3 = `p8-16` (MD-28) | FRD-MFG §9 |
+| 2026-10-22 | `MRP-GRD-09`, `-T2-05`, `-N-03`, `-N-04`, `-N-08`, `-T1-14`, `-T3-04`, `-T2-02`, §5.1, `MRP-OPEN-09` | R29: firmed proposals actionable across runs (F1); safety stock counted once (F9); live FIRMED MAKE proposals exploded (F10); withdraw-then-replan with per-proposal outcomes and `conversionLive` (F13); one capacity-load rule (F25, MD-39); `ACTIVE` lines editable (F26, MD-40); process loss in explosion (F29); port calls per the FRD-STORES registry | `R29-functional-review-mfg.md` |
 
 ## 8. Invariants and scenarios this workflow must not break
 
@@ -245,7 +249,7 @@ nothing rescheduled.
 | MRP-OPEN-06 | `whm_demand_plans` has `activate` but no archive verb | archive under `:activate` | §7 | open |
 | MRP-OPEN-07 | Research §11 "lot expiring before FG release": FR-664 counts on-hand without expiry | exclude lots expiring before the requirement date (`MRP-N-05`) | FR-664 | open |
 | MRP-OPEN-08 | FR-664 is async and §2 names a Scheduler for the MRP run, but §8 has no schedule setting | add `warehouse.manufacturing.mrp.schedule_cron` (null = manual only) | §8 | open |
-| MRP-OPEN-09 | FR-668 does not say how an order's minutes are placed on days (`WH-SC-659` is a single day) | spread over working days between planned start and end | FR-668 | open |
+| MRP-OPEN-09 *(resolved — MD-39)* | FR-668 does not say how an order's minutes are placed on days (`WH-SC-659` is a single day) | spread over working days between planned start and end (§5.1) | FR-668 | resolved |
 | MRP-OPEN-10 | Core replenishment (`V510070`) plans by reorder point regardless of MFG's `planning_method`; an `MRP` item with core reorder settings is proposed twice | core replenishment skips items whose MFG params say `MRP` (SEAM-M3 read) | FR-662, SEAM-M3 | open |
 | MRP-OPEN-11 *(resolved — MD-27)* | `whm_mrp_exceptions.current_date` is a PostgreSQL **reserved word** | rename to `current_due_date` (and `suggested_date` → `suggested_due_date` for symmetry) | FRD §4, PostgreSQL | resolved |
 | MRP-OPEN-12 *(resolved — SEAM-M3 is `p8-16`, MD-28)* | FRD SEAM-M3 says "new `p8-15`, or folded into `p8-14`"; `issues/p8-15.md` already exists as the RMA-creation port | fold SEAM-M3 into `p8-14` or take the next free STORES id | FRD §3.2 | resolved |

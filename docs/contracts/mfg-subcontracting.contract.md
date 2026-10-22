@@ -65,14 +65,14 @@
 | SUB-T1-00 | — | Create subcontract order (type `SUBCONTRACT`) | order `PLANNED` | `SUB-GRD-01`…`-04` + order guards | `whm_production_orders:create` | BOM snapshot; components' `supply_location_id` = `subcontract_location_id` for receipt backflush; `service_po_ref` frozen (display only) | no | WS-323 **Add** (type select) |
 | SUB-T1-01 | — | **Create dispatch** for a `RELEASED`/`IN_PROGRESS` subcontract order; lines proposed from open requirement = required − (sent − recalled) per component | `DRAFT` | `SUB-GRD-05` | `whm_subcontract_dispatches:create` | `SCD-` number at create (gapless, site, yearly); `to_location_id`, `job_worker_counterparty_id` copied from the order | no | WS-330 **Add**; WS-324 Materials tab **Dispatch to job worker** |
 | SUB-T1-02 | `DRAFT` | Edit lines (item, lot, quantity, `job_work_type`) | `DRAFT` | `SUB-GRD-06`, `-07` | `whm_subcontract_dispatches:edit` | — | no | WS-330 **Edit** |
-| SUB-T1-03 | `DRAFT` | **Dispatch** | `DISPATCHED` | `SUB-GRD-05`…`-08`, then `MPR-T1-01` guards (`MPR-GRD-01`, `-09`, `-15`, `-16`) | `whm_subcontract_dispatches:dispatch` — not `:edit` (`RJ-005`) | one `SUBCONTRACT_DISPATCH` movement, key `SUBCONTRACT_DISPATCH:<id>` (`SUB-T4-01`); path generic (`SUB-T4-02`) or India (`SUB-T4-03`) **in the same transaction**; reconciliation `sent` += (`SUB-T4-04`); order → `IN_PROGRESS` on first posting; HARD reservations move to the job-worker position | no | WS-330 row **Dispatch**; **Print dispatch note** after |
+| SUB-T1-03 | `DRAFT` | **Dispatch** | `DISPATCHED` | `SUB-GRD-05`…`-08`, then `MPR-T1-01` guards (`MPR-GRD-01`, `-09`, `-15`, `-16`) | `whm_subcontract_dispatches:dispatch` — not `:edit` (`RJ-005`) | one `SUBCONTRACT_DISPATCH` movement, key `SUBCONTRACT_DISPATCH:<id>` (`SUB-T4-01`); path generic (`SUB-T4-02`) or India (`SUB-T4-03`) **in the same transaction**; reconciliation `sent` += (`SUB-T4-04`); order → `IN_PROGRESS` on first posting; the order's component holds on the dispatched positions are **consumed** by the movement and **not** re-created (MD-31, R29 F3) | no | WS-330 row **Dispatch**; **Print dispatch note** after |
 | SUB-T1-04 | `DRAFT` | **Cancel** | `CANCELLED` | — | `whm_subcontract_dispatches:cancel` | none on stock; number stays issued | **yes** (note) | WS-330 row **Cancel** |
 | SUB-T1-05 | `DISPATCHED` | Edit, cancel or reverse the dispatch movement | refused | `SUB-UNR-01`, `-02` | any | — | — | none |
 | SUB-T1-06 | order `RELEASED`/`IN_PROGRESS` | **Subcontract receipt** post (a production receipt on the `SUBCONTRACT` order) | receipt `POSTED` | receipt guards + `SUB-GRD-09`…`-12` | `whm_production_receipts:post` | `SUB-T4-05`…`-07`; every component backflushed **from `subcontract_location_id`** regardless of supply method (FR-661) | per receipt contract | WS-326 **Add** (source: subcontract order) |
 | SUB-T1-07 | `POSTED` subcontract receipt | Reversal (`PRV-`, FR-649) | receipt `REVERSED` | receipt reversal guards + `SUB-GRD-13` | `whm_production_receipt_reversals:{create,approve,post}` | reconciliation `consumed`/`scrap_retained` regress; India: port reversal call (`SUB-OPEN-04`) | **yes** | WS-327 |
-| SUB-T1-08 | reconciliation *open* | **Recall** quantity q to a store location + status (`AVAILABLE`/`QC_HOLD`/`REJECTED`) | *open* (less) or *settled* | `SUB-GRD-15`, `MPR-T1-01` guards | `whm_subcontract_dispatches:recall` | a `POSTED` action (`SCR-` number) and one `SUBCONTRACT_RECALL` movement job-worker location → store (key `SUBCONTRACT_RECALL:<actionId>`); `recalled` += q; India: `registerReturn(sameItem, consumedInputQty = 0, scrap 0)`; generic: gate-pass return line | **yes** (note) | WS-330 Reconciliation tab **Recall** |
+| SUB-T1-08 | reconciliation *open* | **Recall** quantity q to a store location + status (`AVAILABLE`/`QC_HOLD`/`REJECTED`) | *open* (less) or *settled* | `SUB-GRD-15`, `MPR-T1-01` guards | `whm_subcontract_dispatches:recall` | a `POSTED` action (`SCR-` number) and one `SUBCONTRACT_RECALL` movement job-worker location → store (key `SUBCONTRACT_RECALL:<actionId>`), each inbound line stating `costSourceLineId` = the dispatch's store-side line for that item/lot, so the matched-return path restores the dispatched layers at their cost (`WhbCostingEngine.java:417-428`); the restored value (read back) goes on the action's `value` and leaves the pool (`CST-T4-12`, MD-32); `recalled` += q; India: `registerReturn(sameItem, consumedInputQty = 0, scrap 0)`; generic: gate-pass return line | **yes** (note) | WS-330 Reconciliation tab **Recall** |
 | SUB-T1-09 | reconciliation *open* | **Write off** quantity q (lost / not returnable at the job worker) | *write-off pending* | `SUB-GRD-15`, `SUB-GRD-16` | `whm_subcontract_dispatches:write_off` | a `REQUESTED` action (`SCR-` number, reason, note); `pending_write_off_base_quantity` += q — **no movement yet**; a pending write-off still blocks close (MD-26) | **yes** — reason code | WS-330 Reconciliation tab **Write off** |
-| SUB-T1-10 | *write-off pending* | Approve / reject the write-off | *open* (less) / *open* | approver ≠ requester (`403 WRITE_OFF_SELF_APPROVAL`, MD-21); `MPR-T1-01` guards on approve | `whm_subcontract_dispatches:approve_write_off` (MD-20) | approve: action `POSTED`, one `SUBCONTRACT_WRITE_OFF` movement job-worker location → `VIRT-SCRAP` (reason context `SUBCONTRACT_WRITE_OFF`, key `SUBCONTRACT_WRITE_OFF:<actionId>`), `written_off` += q, pending −= q; India: `registerLoss` (`SUB-T4-08`); reject: action `REJECTED`, pending −= q, nothing moves | reject: **yes** | WS-330 Reconciliation tab **Approve** / **Reject** |
+| SUB-T1-10 | *write-off pending* | Approve / reject the write-off | *open* (less) / *open* | approver ≠ requester (`403 WRITE_OFF_SELF_APPROVAL`, MD-21); `MPR-T1-01` guards on approve | `whm_subcontract_dispatches:approve_write_off` (MD-20) | approve: action `POSTED`, one `SUBCONTRACT_WRITE_OFF` movement job-worker location → `VIRT-SCRAP` (reason context `SUBCONTRACT_WRITE_OFF`, key `SUBCONTRACT_WRITE_OFF:<actionId>`), `written_off` += q, pending −= q; the movement is virtual to virtual and carries no value, so the action's `value` = q × the dispatch line's average dispatched value leaves the pool to the abnormal-loss record (`CST-T4-12`, MD-32); India: `registerLoss` (`SUB-T4-10`); reject: action `REJECTED`, pending −= q, nothing moves | reject: **yes** | WS-330 Reconciliation tab **Approve** / **Reject** |
 | SUB-T1-11 | order `COMPLETED` | **Close** | settlement per `CST-T1-01` | `SUB-GRD-14` + `CST-GRD-*` | `whm_production_orders:close` | `mfg-costing-close` | no | WS-324 **Close** |
 
 ### 1.3 Guards
@@ -82,7 +82,7 @@
 | SUB-GRD-01 | `order_type = SUBCONTRACT` ⇔ BOM `bom_usage = SUBCONTRACT` | `422 BOM_USAGE_MISMATCH` · `bomId` | names usage found | — | FR-658 |
 | SUB-GRD-02 | `subcontractor_counterparty_id` set, active | `422 SUBCONTRACTOR_REQUIRED` · `subcontractorCounterpartyId` | — | FK | FR-658 |
 | SUB-GRD-03 | `subcontract_location_id` is a location of **base type `JOB_WORKER`** (virtual counterparty, `V500006:132`) at the order's site — the site's `VIRT-JOB_WORKER-<site>` or a per-job-worker `JOB_WORKER` location maintained on the base locations screen (MD-28) | `422 SUBCONTRACT_LOCATION_INVALID` · `subcontractLocationId` | names location + type | FK | FR-658, `V500006` |
-| SUB-GRD-04 | Owner = house (`L-11`: dispatch never changes owner; non-own is `OD-42` v1.1) | `422 SUBCONTRACT_OWNER_INVALID` · `ownerId` | — | `whin_job_work_dispatch_lines` owner-change trigger (india path) | FR-632, `L-11` |
+| SUB-GRD-04 | Owner = house (`L-11`: dispatch never changes owner; non-own is `OD-42` v1.2) | `422 SUBCONTRACT_OWNER_INVALID` · `ownerId` | — | `whin_job_work_dispatch_lines` owner-change trigger (india path) | FR-632, `L-11` |
 | SUB-GRD-05 | Order `RELEASED`/`IN_PROGRESS`, not on hold, type `SUBCONTRACT` | `409 ORDER_NOT_OPEN` / `409 ORDER_ON_HOLD` · `orderId` | — | — | FR-634 |
 | SUB-GRD-06 | Each line's item is a component of the order; under `STRICT` cumulative dispatched − recalled ≤ required × (1 + tolerance); `WARN` needs `PRODUCTION_DEVIATION`; `FLEXIBLE` free | `422 ITEM_NOT_ON_ORDER` · `lines[n].itemId`; `422 DISPATCH_EXCEEDS_REQUIREMENT` · `lines[n].quantity` | names required, sent, policy | — | FR-643 |
 | SUB-GRD-07 | Lot/serial per item control policy; quantity > 0; UoM convertible | `422 LOT_REQUIRED` · `lines[n].lotId`; `422 UOM_NOT_CONVERTIBLE` · `lines[n].uomCode` | — | `MPR-GRD-26` | `RQP-GRD-02`, `-03` vocabulary |
@@ -101,11 +101,11 @@
 | ID | Forbidden | What makes it unreachable | Source |
 |---|---|---|---|
 | SUB-UNR-01 | Editing a `DISPATCHED` dispatch | no edit for non-`DRAFT` | FR-659 |
-| SUB-UNR-02 | Reversing a `SUBCONTRACT_DISPATCH` movement through the port | `MPR-GRD-35` (owning document only); MFG offers recall instead | `L-3`, MD-03 |
+| SUB-UNR-02 | Posting or reversing a `SUBCONTRACT_*` movement through the generic port | MFG's `WhbMovementPostGuard` bean refuses any `SUBCONTRACT_*` post or reversal not sourced by its MFG document (`MPR-GRD-35`; MD-35, R29 F5); MFG offers recall instead | `L-3`, MD-03 |
 | SUB-UNR-03 | Ownership changing at dispatch | type is INTERNAL, owner unchanged (`L-11`); india trigger backstop | FR-658 |
 | SUB-UNR-04 | A second challan for one dispatch | port is called once per dispatch, idempotent on `SCD:<id>` | `FR-313`, MD-13 |
 | SUB-UNR-05 | MFG writing a `whin_` table or importing `ai.warehouseindia` | port only; ArchUnit rule | FR-620, FR-660 |
-| SUB-UNR-06 | Job-worker stock counted as MRP supply or allocatable elsewhere | `JOB_WORKER` positions excluded (`MRP` netting) and reserved to the order | FR-664 |
+| SUB-UNR-06 | Job-worker stock counted as MRP supply or allocatable elsewhere | `JOB_WORKER` positions excluded from MRP netting (`MRP-N-05`) and never allocatable — the allocator takes no virtual counterparty location (`WhbAllocationRepository.java:38`); no reservation is needed or possible there (MD-31) | FR-664 |
 
 ---
 
@@ -150,16 +150,16 @@
 
 | ID | When this happens | Then this other record must change | Enforced in |
 |---|---|---|---|
-| SUB-T4-01 | Dispatch | `SUBCONTRACT_DISPATCH` movement: store bin → `to_location_id`, owner/lot/status unchanged, balanced per `I-1`; `movement_id`, `movement_line_id` set; consumed reservations re-created at the job-worker position (holder quad of the order) | dispatch service → `WhbStockLedgerWriter.post` |
+| SUB-T4-01 | Dispatch | `SUBCONTRACT_DISPATCH` movement: store bin → `to_location_id`, owner/lot/status unchanged, balanced per `I-1`; `movement_id`, `movement_line_id` set; the order's holds on the source positions (found by holder quad) passed as `consumedReservationIds` and **not** re-created — a `JOB_WORKER` location is virtual, admission gives ATP 0 there (`WhbStockPositionWriter.java:356-366`) and `V500087` refuses it (MD-31, R29 F3); `dispatched_value` per line = the store-side line's relieved value read back, added to the pool `P_D` (`CST-T4-12`, MD-32) | dispatch service → `WhbStockLedgerWriter.post` |
 | SUB-T4-02 | Dispatch, **no `JobWorkDispatchPort` bean** (or the bean declares the movement not job work, e.g. same GSTIN) | core returnable gate pass (`p8-03`, kind `RETURNABLE`, party = job worker, lines from the dispatch, `source_document_type = SUBCONTRACT_DISPATCH`, resolved by MFG's `GatePassSourceResolver`, MD-29) created `DRAFT` and then approved and gated out by core (`GTE-T1-11`/`-12`; gate-out needs the dispatch `DISPATCHED`, `GTE-GRD-13`); `gate_pass_id` stored | dispatch service |
 | SUB-T4-03 | Dispatch, **india bean present** | `registerDispatch(dispatchId, movementId, jobWorker, lines, jobWorkType)` — india raises one `JOB_WORK` challan + registration; `challan_ref`, `jobwork_registration_ref` frozen on the dispatch; a port refusal rolls back the whole dispatch | port, same transaction |
 | SUB-T4-04 | Dispatch / receipt / recall / approved write-off / receipt reversal | `whm_subcontract_reconciliations` row (order, item, lot) upserted; `open_base_quantity` re-derived on write | reconciliation service |
 | SUB-T4-05 | Subcontract receipt post | one `PRODUCTION_RECEIPT` movement: consumption from the job-worker location → `VIRT-PRODUCTION`, retained scrap → `VIRT-SCRAP`, processed item ← `VIRT-PRODUCTION` into our store (`WH-SC-647`: 196 `SHAFT-03` out, 190 → production, 6 → scrap, 190 `SHAFT-03P` in) | receipt post |
 | SUB-T4-06 | same, india bean present | `registerReturn(returnedAsItemId, consumedInputQty, scrapQty, scrapRetained)` per input line — india records the return **in processed form** and waste for ITC-04 (`V540190`) | port, same transaction |
 | SUB-T4-06a | Subcontract receipt **reversal** post, india bean present | `reverseReturn(returnRef)` — india re-opens the registration quantity (its `reevaluateAfterReversal`) (MD-25) | port, same transaction |
-| SUB-T4-08 | Write-off approve, india bean present | `registerLoss(dispatchRef, itemId, lotId, qty, reasonCode)` — india records the loss at the job worker for ITC-04 (MD-25) | port, same transaction |
-| SUB-T4-07 | same | costing per `CST-T4-01`; pool = carried value of the sent inputs (no processing charge, `SUB-OPEN-06`) | `mfg-costing-close` |
-| SUB-T4-08 | Recall | india: return of the same item unprocessed; generic: gate-pass return line (`wh_gate_pass_returns`) | recall service |
+| SUB-T4-07 | Subcontract receipt post | the backflush is job-worker → `VIRT-PRODUCTION`, virtual to virtual, so it carries no value (`B_r` = 0); the processed item — a different item — is received at the absorbed share of the pool: `P_D` (Σ dispatched value − recalled − written off) × `min(1, good ÷ remaining planned)`, all on a final receipt, stated as `extendedCost` on its inbound line, which the engine honours (`WhbCostingEngine.java:454`) — never ₹0 (`CST-T4-01`, MD-32, R29 F6); no processing charge (`SUB-OPEN-06`) | `mfg-costing-close` |
+| SUB-T4-08 | Recall | india: return of the same item unprocessed; generic: gate-pass return line (`wh_gate_pass_returns`); value restored through `costSourceLineId` (`SUB-T1-08`) | recall service |
+| SUB-T4-10 | Write-off approve, india bean present | `registerLoss(dispatchRef, itemId, lotId, qty, reasonCode)` — india records the loss at the job worker for ITC-04 (MD-25); the written-off value leaves the pool (`CST-T4-12`) | port, same transaction |
 | SUB-T4-09 | Order close | `SUB-GRD-14` read by `CST-GRD-04` | settlement service |
 
 ## 5. T5 — Screen contract (web only)
@@ -192,7 +192,7 @@
 
 | Not built | Where / why |
 |---|---|
-| Job work **in** (customer's material) | `OD-42`, v1.1 |
+| Job work **in** (customer's material) | `OD-42`, v1.2 |
 | Processing charge, job-work invoice, debit/credit notes | trade (`p9-07` service PO) / accounting, R-14 |
 | Direct-from-vendor to job worker; job worker → job worker; supply from the job worker's premises | v1 not built (`SUB-OPEN-07`) |
 | ITC-04 generation, challan print, e-way bill | india (`p4-02`) |
@@ -203,6 +203,7 @@
 | Date | Row IDs affected | Change | Found by |
 |---|---|---|---|
 | 2026-10-22 | all | v0 derived from `docs/frd/FRD-MFG.md`; not ratified | contract derivation (design set) |
+| 2026-10-22 | `SUB-T1-03`, `-08`, `-10`, `SUB-T4-01`, `-07`, `-08`, `-10`, `SUB-UNR-02`, `-06` | R29: dispatch consumes holds and re-reserves nothing (F3, MD-31); dispatched value in the pool, recall by `costSourceLineId`, write-off value out (F6, MD-32); MFG post guard (F5, MD-35); duplicate `SUB-T4-08` renumbered — the write-off India row is now `SUB-T4-10` (F31) | `R29-functional-review-mfg.md` |
 | 2026-10-22 | T4, §9 | Consistency pass: MD-20, MD-21, MD-25, MD-26, MD-28; generic-path RGP sourced on the dispatch (MD-29) | FRD-MFG §9 |
 
 ## 8. Invariants and scenarios this workflow must not break

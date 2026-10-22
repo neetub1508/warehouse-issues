@@ -22,9 +22,9 @@
 | | |
 |---|---|
 | **Workflow** | Issues / backflush fill the pool → each receipt absorbs → final receipt → order `COMPLETED` → late store issues / returns accepted while `COMPLETED` (MD-14) → **Close** computes the residual → settlement `DRAFT` → (approve, above threshold) → `POSTED` → order `CLOSED` |
-| **Module** | `warehouse-manufacturing` (`whm_`). Value math through `WhbCostLayerMath` (`WB/…/WhbCostLayerMath.java:31-32`, `split` = `R-4`); posting through `WhbStockLedgerWriter.post` (`:333`) |
+| **Module** | `warehouse-manufacturing` (`whm_`). Value math through `WhbCostLayerMath` (`WB/…/WhbCostLayerMath.java:31-32`, `split` = `R-4`); receipts post through `WhbStockLedgerWriter.post` (`:333`); the settlement through `WhbValueOnlyMovementPoster` + `WhbCostingEngine.lockLayers` / `restateLayerValue` (`WhbCostingEngine.java:946-975`), in the order `WhLandedCostPostingService.java:170-190` uses (MD-34) |
 | **Domain baseline** | FRD-MFG FR-638, FR-646, FR-654…FR-657, FR-661, §3.1 (`PRODUCTION_SETTLEMENT`), §8 settings, MD-06, `OD-40`, `OD-43` · `DECISIONS.md` `L-1`, `L-8`, `L-10`, `L-14`, `L-15`, `R-4`, `RF-009` · `MPR-T1-01`, `MPR-T1-11`, `MPR-GRD-02`, `-09`, `-10` |
-| **Owning task bodies** | `p10-09` (FRD §13; body not yet written). Depends on `p10-07` (receipt writes absorption), `p8-09`/`p8-10`/`p8-11` + SEAM-M1/M2 (issues land in `VIRT-PRODUCTION` and roll up), `p10-10` (subcontract balance) |
+| **Owning task bodies** | **`p10-07`** builds the per-receipt absorption and split (§1.5, `CST-T4-01`…`-04`, `CST-GRD-01`) inside the receipt post (MD-37, R29 F23); **`p10-09`** builds close, settlement and the cost sheet (the rest). `p10-09` depends on `p10-07`, `p8-09`/`p8-10`/`p8-11` + SEAM-M1/M2 (issues land in `VIRT-PRODUCTION` and roll up), `p10-10` (subcontract balance) |
 | **Primary tables** | `whm_production_settlements`, `whm_production_settlement_lines` (`V560070`); reads `whm_production_receipt_outputs/_consumptions` (`unit_cost`, `extended_value`), `whm_production_orders` (`planned_cost`, `settlement_id`, `closed_at`) |
 | **Status columns** | `whm_production_settlements.status` (`DRAFT`/`APPROVED`/`POSTED`/`REJECTED`) — no `CHECK` (`D-10`) |
 | **Permission resources** | `whm_production_orders:close` (entry point) · `whm_production_settlements:{view,create,export,approve,post}` · `whm_production_orders:view` (Cost tab) · cost accountant reads + exports; AUDITOR reads only |
@@ -37,7 +37,7 @@
 | # | The requester expects… | Delivered by |
 |---|---|---|
 | A1 | A receipt absorbs its own backflush fully plus the unabsorbed issued pool × good ÷ remaining planned (cap 1); the final receipt absorbs all (`WH-SC-639`) | `CST-T4-01`, §1.5 example 1 |
-| A2 | By-product credit at NRV first; abnormal scrap share to `VIRT-SCRAP`; rest split over MAIN + CO_PRODUCT; Σ output values = absorbed pool exactly, reproducible (`WH-SC-630`, `WH-SC-640`) | `CST-T4-02`…`-04`, `CST-GRD-01`, §1.5 example 2 |
+| A2 | By-product credit at NRV first; abnormal scrap share out of the pool to the MFG-side loss record; rest split over MAIN + CO_PRODUCT; Σ output values = absorbed pool exactly, reproducible (`WH-SC-630`, `WH-SC-640`) | `CST-T4-02`…`-04`, `CST-GRD-01`, §1.5 example 2 |
 | A3 | Close posts one value-only `PRODUCTION_SETTLEMENT` putting the residual on on-hand output lots and `VIRT-COST_OF_SALES` for the consumed/shipped part (`WH-SC-641`) | `CST-T1-01`, `CST-T1-04`, `CST-T4-05` |
 | A4 | Residual share above `close_variance_approval_percent` waits for a second user; the order stays `COMPLETED` (`WH-SC-642`) | `CST-T1-01`, `CST-T1-02`, `CST-GRD-06` |
 | A5 | Close requires no open staging list, draft receipt or open subcontract balance; releases reservations; closes the MRQ; `CLOSED` refuses further issues (`WH-SC-643`, `WH-SC-648`) | `CST-GRD-02`…`-05`, `CST-T4-06`…`-08` |
@@ -83,7 +83,7 @@
 | CST-GRD-06 | Approver/rejecter ≠ settlement creator | `403 SETTLEMENT_SELF_APPROVAL` · `id` (MD-21) | — | — | FR-656 |
 | CST-GRD-07 | Order status `COMPLETED` | `409 ORDER_NOT_COMPLETED` · `orderId` | names status | — | FR-656 |
 | CST-GRD-08 | The order's MRQ (if any) can be closed through `WhMaterialRequisitionPort.close` (no unposted store issue against it) | `409 ORDER_REQUISITION_OPEN` · `orderId` | names MRQ and the draft issue | — | FR-656, `p8-09` |
-| CST-GRD-09 | Order owner is the house owner; a non-own order (`OD-42`, v1.1) posts **no** value and no settlement movement | `422 NON_OWN_ORDER_NOT_VALUED` (informational only when OD-42 lands) · `ownerId` | — | `L-14` writer rule | FR-654, `L-14` |
+| CST-GRD-09 | Order owner is the house owner; a non-own order (`OD-42`, v1.2) posts **no** value and no settlement movement | `422 NON_OWN_ORDER_NOT_VALUED` (informational only when OD-42 lands) · `ownerId` | — | `L-14` writer rule | FR-654, `L-14` |
 | CST-GRD-10 | Recomputed pool / absorbed / residual at post equals the stored values (nothing posted to the order since compute) | `409 SETTLEMENT_STALE` · `id` | shows stored vs current residual | — | FR-656 |
 | CST-GRD-11 | While a settlement is `DRAFT`/`APPROVED`, the `PRODUCTION_ORDER` cost-object resolver refuses issues and returns to the order (`409 ORDER_SETTLEMENT_PENDING` · `costObjectId`) — so a DRAFT cannot go stale through MFG-visible postings | as stated | names the `PST-` | — | FR-640, FR-656 |
 | CST-GRD-12 | Approval threshold: `variance_percent = |residual| ÷ absorbed × 100`, compared **strictly greater** than the setting; `absorbed = 0` and `residual ≠ 0` ⇒ approval required | — (computed) | — | — | FR-656 |
@@ -102,12 +102,14 @@
 
 Per order, all values in company currency, base UoM:
 
-- **Issued pool** `P_I` = Σ value of store issues into `VIRT-PRODUCTION` for the order (SEAM-M1) − Σ value of store returns (`p8-11`). Staged stock is at `LINE_SIDE` and is **not** in the pool until backflushed.
+- **The pool is MFG's record.** Virtual lines carry no cost layer (`WhbCostingEngine.java:257`); the engine mirrors each virtual line from its real side (`mirrorVirtualLines`). So MFG reads every value it pools **back from the posted movement's real lines** and keeps it on its own rows; nothing in the ledger "holds" WIP.
+- **Issued pool** `P_I` = Σ value of store issues into `VIRT-PRODUCTION` for the order (SEAM-M1) − Σ value of store returns (`p8-11`) **+ `P_D`** for a `SUBCONTRACT` order: Σ `whm_subcontract_dispatch_lines.dispatched_value` (the store-side lines' relieved value) − Σ recalled value (recall restores the dispatched layers through `costSourceLineId`, `WhbCostingEngine.java:417-428`) − Σ written-off value (moved to the abnormal-loss record) (MD-32, R29 F6). Staged stock is at `LINE_SIDE` and is **not** in the pool until backflushed.
 - **Receipt r** with good main base `g_r`, remaining planned main base `M_r` = planned − Σ good main base of earlier posted receipts:
-  - `B_r` = value of this receipt's backflush consumption lines (absorbed fully);
+  - `B_r` = value of this receipt's backflush consumption lines read back from the movement (absorbed fully; 0 for a subcontract receipt, whose backflush is job-worker → `VIRT-PRODUCTION`, virtual to virtual);
   - `I_r` = (`P_I` − Σ earlier `I`) × `min(1, g_r ÷ M_r)`; `M_r ≤ 0` ⇒ ratio 1; `is_final` ⇒ all unabsorbed;
   - `A_r = B_r + I_r` (absorbed by this receipt).
-- **Split of `A_r`** in order: (1) by-product credit `C_r` = Σ qty × `by_product_unit_value` (null ⇒ 0), capped at `A_r` (`CST-OPEN-05`); (2) abnormal scrap `S_r` = (`A_r` − `C_r`) × abnormal-scrapped main ÷ (good + rejected + all scrapped main), valued to `VIRT-SCRAP`; normal scrap carries no value of its own; (3) `R_r = A_r − C_r − S_r` split over MAIN (100 − Σ co shares) and each CO_PRODUCT (`cost_share_percent`) by largest remainder; within an output, over its good + rejected quantity; `unit_cost` written with `cost_basis = PRODUCTION_ACTUAL`.
+- **Split of `A_r`** in order: (1) by-product credit `C_r` = Σ qty × `by_product_unit_value` (null ⇒ 0), capped at `A_r` (`CST-OPEN-05`); (2) abnormal scrap `S_r` = (`A_r` − `C_r`) × abnormal-scrapped main ÷ (good + rejected + all scrapped main), taken out of the pool as an **MFG-side loss record** (`whm_production_receipts.scrap_value`, WS-337) — the `SCRAPPED` line pair is `VIRT-PRODUCTION` → `VIRT-SCRAP`, virtual only, and the ledger cannot carry its value (R29 F20); normal scrap carries no value of its own; (3) `R_r = A_r − C_r − S_r` split over MAIN (100 − Σ co shares) and each CO_PRODUCT (`cost_share_percent`) by largest remainder; within an output, over its good + rejected quantity; each real output line **states `extendedCost`** (its share) with `costBasis` null — the type default — and the counter lines no cost (the VAS shape, `WhWorkOrderPostingService.java:78-93`; `PRODUCTION_ACTUAL` is not a known basis, `WhbMovementTypeValidationService.java:46`; R29 F19); `unit_cost` on MFG's own rows is display only (= extended ÷ base quantity).
+- **Same-item output** (rework): when the output grain nets to zero against its input the engine posts the grain's current average whatever is stated (`WhbCostingEngine.java:278-289`); the receipt states that figure (the F460 precedent), `A_r` = that figure, and the extras stay in the residual for the settlement (MD-33, R29 F7).
 - **Residual at close** `RES` = (`P_I` + Σ `B`) − Σ `A`.
 
 **Example 1 (`WH-SC-639`, `WH-SC-630`).** `PRD-000101`, planned 100, `P_I` = ₹4,00,000.
@@ -128,7 +130,7 @@ goes to the largest remainder (A, 0.7) → **69,580.01 / 29,820.00**; a tie woul
 **Example 3 (`WH-SC-641`, settlement).** `RES` = ₹2,000, outputs 100 `PUMP-100`, 40 still on hand →
 `ON_HAND_OUTPUT` ₹800 (spread over the on-hand lot/location positions by quantity, largest remainder),
 `COST_OF_SALES` ₹1,200. Residual is first split across targets by each target's share of Σ absorbed
-(MAIN, each CO_PRODUCT, `ABNORMAL_SCRAP`), then within an output by on-hand vs gone.
+(MAIN, each CO_PRODUCT, `ABNORMAL_SCRAP`), then within an output by on-hand vs gone. The `ABNORMAL_SCRAP` share is a record line (no movement line); only `ON_HAND_OUTPUT` and `COST_OF_SALES` lines reach the movement.
 
 ---
 
@@ -156,17 +158,18 @@ goes to the largest remainder (A, 0.7) → **69,580.01 / 29,820.00**; a tie woul
 
 | ID | When this happens | Then this other record must change | Enforced in |
 |---|---|---|---|
-| CST-T4-01 | Receipt post | `A_r` computed per §1.5; `unit_cost`/`extended_value` on output and consumption rows and on the movement lines (`PRODUCTION_ACTUAL`) | receipt post service, same transaction |
+| CST-T4-01 | Receipt post | `A_r` computed per §1.5; `extended_value` (and display `unit_cost`) on output and consumption rows; each real output movement line states `extendedCost`, `costBasis` null (MD-34) | receipt post service (`p10-07`), same transaction |
 | CST-T4-02 | Receipt with BY_PRODUCT output | by-product lines valued at NRV; credit deducted before the split | same |
-| CST-T4-03 | Receipt with `SCRAPPED` main units of an `is_abnormal` reason | `S_r` on the scrap line to `VIRT-SCRAP`; `whm_production_receipts.scrap_value` | same |
+| CST-T4-03 | Receipt with `SCRAPPED` main units of an `is_abnormal` reason | `S_r` leaves the pool into `whm_production_receipts.scrap_value` — an MFG-side record and a recorded accounting handover point; **no** value on the virtual scrap lines (R29 F20) | same |
 | CST-T4-04 | Receipt with CO_PRODUCT outputs | largest-remainder split (`CST-GRD-01`) | same |
-| CST-T4-05 | Close computes | settlement lines: `ON_HAND_OUTPUT` per (item, lot, location) of the order's output still held by the house owner at the site (any status); `COST_OF_SALES` for the rest; `ABNORMAL_SCRAP` share to `VIRT-SCRAP`; `quantity = 0` on every line | settlement service |
-| CST-T4-06 | Settlement posted | one `PRODUCTION_SETTLEMENT` movement, key `PRODUCTION_SETTLEMENT:<id>`, `source_document_type = PRODUCTION_SETTLEMENT`; counter-value from `VIRT-PRODUCTION` (`CST-OPEN-04`); `movement_id` set (deferred trigger refuses `POSTED` with null, FRD §5) | settlement service → `WhbStockLedgerWriter.post` |
+| CST-T4-05 | Close computes | settlement lines: `ON_HAND_OUTPUT` per (item, lot, location) of the order's output still held by the house owner at the site (any status); `COST_OF_SALES` for the rest; `ABNORMAL_SCRAP` share as a record line with no movement line; `quantity = 0` on every movement line | settlement service |
+| CST-T4-06 | Settlement posted | the landed-cost path (MD-34, R29 F8): (1) one `PRODUCTION_SETTLEMENT` movement through **`WhbValueOnlyMovementPoster`**, key `PRODUCTION_SETTLEMENT:<id>`, `source_document_type = PRODUCTION_SETTLEMENT` — stated lines `quantity = 0`, signed `extendedCost` on each on-hand output lot / location and on the site's `COST_OF_SALES` virtual location; the poster **generates** the `VALUE_OFFSET` counter line (`WhbValueOnlyMovementPoster.java:22-31`) — the "`+layer / +cogs / −whole`" shape; (2) `WhbCostingEngine.lockLayers` on every on-hand layer of those lots, re-check the split against what was read (refuse `409 SETTLEMENT_STALE` if a layer moved); (3) `restateLayerValue(warehouseId, layerId, part, actor, movementId, occurredAt)` per layer, because a zero-quantity line never touches a layer (`WhbCostingEngine.java:257`) and restatement is the caller's job (`:946-952`); `movement_id` set (deferred trigger refuses `POSTED` with null, FRD §5) | settlement service → `WhbValueOnlyMovementPoster`, `WhbCostingEngine` |
 | CST-T4-07 | Settlement posted | order `CLOSED`, `closed_at`, `settlement_id`; every reservation of holder `(WAREHOUSE_MANUFACTURING, PRODUCTION_ORDER, orderId, *)` released (`WhbReservationService.releaseByHolder`, `L-10`); open MRQ closed via `WhMaterialRequisitionPort.close`; event `CLOSED` | same transaction |
 | CST-T4-08 | Order `CLOSED` | cost-object resolver refuses further issues/returns `409 ORDER_NOT_OPEN` (`WH-SC-643`); MRP stops counting the order as supply | resolver, MRP |
 | CST-T4-09 | Any MFG movement posts (`PRODUCTION_RECEIPT`, `PRODUCTION_SETTLEMENT`, `SUBCONTRACT_*`) | standard envelope row in `whb_accounting_handovers` (handover point only) | base writer (`accounting-handover.contract.md`) |
 | CST-T4-10 | Operation confirmation minutes × work-centre `cost_rate_per_hour` | shown on the cost sheet as *recorded, not absorbed*; never in `A_r` | cost-sheet provider (`OD-43`) |
-| CST-T4-11 | Receipt reversal posted (FR-649) | absorbed values regress by the reversed movement's values; the pool is restored to `VIRT-PRODUCTION` | `mfg-production-receipt` |
+| CST-T4-11 | Receipt reversal posted (FR-649) | absorbed values regress by the reversed movement's values; the pool record is restored | `mfg-production-receipt` |
+| CST-T4-12 | Subcontract dispatch / recall / approved write-off posted (`SUB-T4-01`, `-08`, `-10`) | `P_D` += dispatched value / −= restored value / −= written-off value (written-off value → the abnormal-loss record) (MD-32) | `mfg-subcontracting` → costing service |
 
 ## 5. T5 — Screen contract (web only)
 
@@ -207,13 +210,14 @@ implements `WarehousePrintDataProvider`; kind seeded in `V560001`.
 | Labour / overhead absorption | `OD-43` — recorded only |
 | GL postings, journals, debit/credit notes | R-14, FR-657 |
 | Subcontract processing charge in FG cost | trade/accounting (FR-658); `SUB-OPEN-06` |
-| Period-end WIP revaluation | WIP stays at actual in `VIRT-PRODUCTION`; WS-337 reports it |
+| Period-end WIP revaluation | WIP stays at actual in the order's pool record (MFG); WS-337 reports it |
 
 ## 7. Amendments
 
 | Date | Row IDs affected | Change | Found by |
 |---|---|---|---|
 | 2026-10-22 | all | v0 derived from `docs/frd/FRD-MFG.md`; not ratified | contract derivation (design set) |
+| 2026-10-22 | §0, §1.5, `CST-T4-01`, `-03`, `-05`, `-06`, `-11`, `-12`, `CST-OPEN-04` | R29: subcontract dispatched value in the pool, recall and write-off out (F6, MD-32); same-item rework extras to settlement (F7, MD-33); settlement restates layers on the landed-cost path (F8); `extendedCost`, type-default basis (F19); abnormal scrap MFG-side (F20); absorption built in `p10-07` (F23, MD-37); `LANDED_COST_APPLY` row shape, `CST-OPEN-04` closed (F30, MD-34) | `R29-functional-review-mfg.md` |
 | 2026-10-22 | T1, §9 | Consistency pass: `DRAFT → POSTED` below threshold and partial unique index (MD-22), late issues on `COMPLETED` (MD-14), `403` self-approval (MD-21), `REQUESTED` write-off blocks close (MD-26) | FRD-MFG §9 |
 
 ## 8. Invariants and scenarios this workflow must not break
@@ -223,7 +227,7 @@ implements `WarehousePrintDataProvider`; kind seeded in `V560001`.
 | `L-15` value conservation | `CST-T4-06`, `MPR-T1-11`, `MPR-GRD-02` | `WH-SC-641` |
 | Exact split (`R-4`, `RF-009`) | `CST-GRD-01`, `CST-T4-04` | `WH-SC-640` |
 | One movement per posting document (FRD §5) | `CST-T4-06` | `WH-SC-641` |
-| `L-14` non-own never valued | `CST-GRD-09` | — (OD-42 v1.1) |
+| `L-14` non-own never valued | `CST-GRD-09` | — (OD-42 v1.2) |
 | `L-8` period-bound | `CST-T1-04` via `MPR-GRD-09`/`-10` | — |
 | Abnormal scrap outside good-unit cost | `CST-T4-03` | `WH-SC-630` |
 
@@ -234,7 +238,7 @@ implements `WarehousePrintDataProvider`; kind seeded in `V560001`.
 | CST-OPEN-01 *(resolved — MD-22)* | §5 ladder is `DRAFT → APPROVED → POSTED`, but FR-656 needs approval only above threshold; no `DRAFT → POSTED` path is listed | below threshold Close creates and posts in one transaction (`CST-T1-01`) | FR-656 vs §5 | resolved |
 | CST-OPEN-02 *(resolved — MD-22)* | `whm_production_settlements.order_id` is a plain **uk**: after a `REJECTED` settlement no new one can be created; FR-634 "reopen until a settlement exists" ignores `REJECTED` | partial uk `WHERE status <> 'REJECTED'` (the reversal-table shape); a `REJECTED` settlement does not block reopen | FRD §4, FR-634 | resolved |
 | CST-OPEN-03 *(resolved — MD-14: the resolver admits `COMPLETED` for issues and returns under the normal consumption policy; STORES `FR-533` / `SIR-GRD-01a` amended)* | `WH-SC-641` has a store issue **after** the final receipt, but the `PRODUCTION_ORDER` resolver accepts only `RELEASED`/`IN_PROGRESS` (§3.2, FR-640) and the final receipt sets `COMPLETED` — the residual's main source is unreachable | resolver admits `COMPLETED` for **returns** always and for issues with a `PRODUCTION_DEVIATION` reason (not under `STRICT`); or amend `WH-SC-641` to a return | FR-640, FR-656, `WH-SC-641` | resolved |
-| CST-OPEN-04 | `MPR-T1-11` balances a value-only movement against `VALUE_OFFSET`; the settlement's counter-value is the residual in `VIRT-PRODUCTION` | admit `VIRT-PRODUCTION` as the counter location for `PRODUCTION_SETTLEMENT` (type-level `value_counter_purpose`), else the pool never empties | `MPR-T1-11`, FR-656 | open |
+| CST-OPEN-04 *(resolved — R29 F30, MD-34; no base change)* | `MPR-T1-11` balances a value-only movement against `VALUE_OFFSET`; the settlement's counter-value is the residual in `VIRT-PRODUCTION` | the counter is `VALUE_OFFSET`, generated by `WhbValueOnlyMovementPoster`; the pool is MFG's record and empties on MFG's rows, so no `VIRT-PRODUCTION` counter is needed; `PRODUCTION_SETTLEMENT` copies the `LANDED_COST_APPLY` row (`V500003:225`) | `MPR-T1-11`, FR-656 | resolved |
 | CST-OPEN-05 | By-product NRV credit above the absorbed value (research §11) is undefined | cap at `A_r`; the excess is not credited; flagged on the cost sheet | FR-654 | open |
 | CST-OPEN-06 | FR-656 sends the consumed part to `VIRT-COST_OF_SALES`; output consumed by a **parent production order** (sub-assembly) is WIP of the parent, not cost of sales | consumed-into-order quantity → that parent's `VIRT-PRODUCTION` pool when it is still open, else COGS | FR-656, FR-633 | open |
 | CST-OPEN-07 | A negative residual larger than the on-hand lots' value would drive a lot's value below zero | cap the on-hand share at the positions' carried value; remainder to `COST_OF_SALES` | `L-15`, FR-656 | open |

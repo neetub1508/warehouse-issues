@@ -2,14 +2,19 @@
 
 > **What this is.** The functional truth for the commercial sales order in `warehouse-trade`: its three
 > types, the customer delivery schedule, dispatch planning from the FG store and the hand-off of each
-> dispatch release to a core demand order through the `p8-02` port, the order acknowledgement, delivery
-> commitment tracking and short-close. Picking, packing, shipping, the outward gate pass and the
+> dispatch release to the SO's one core demand order through the `p8-02` port, the order acknowledgement,
+> delivery commitment tracking and short-close. Picking, packing, shipping, the outward gate pass and the
 > challan / e-way bill are core's and `warehouse-india`'s; this contract only **reads** them.
 >
-> **Purchase twin.** [trade-purchase-order](trade-purchase-order.contract.md), row for row. Both sides
-> keep **one core execution document per trade order** and release by firming its schedule (FRD-TRADE §5 M18).
+> **Purchase twin.** [trade-purchase-order](trade-purchase-order.contract.md), **row for row**: every `TSO-*`
+> id below has the `TPO-*` row of the same number as its twin; a row says *same as*, states the difference, or
+> writes the refusal. Both sides keep **one core execution document per trade order** and release by firming
+> its schedule (FRD-TRADE §5 M18); the demand header follows STORES `OD-45` option (A).
 >
-> **Status.** Derived 2026-10-22 (v0). No code exists yet. Port signatures are what trade requires from `p8-02`.
+> **Port names.** Every port method, command field, operation key, event and refusal code below is
+> FRD-STORES *"Port & seam registry (authoritative)"*'s; trade's keys, principal and grants are FRD-TRADE §12a.
+>
+> **Status.** Derived 2026-10-22 (v0), R29 folded (v1). No code exists yet.
 
 ---
 
@@ -17,125 +22,226 @@
 
 | | |
 |---|---|
-| **Workflow** | Draft (manual / from won quotation) → submit → approve → acknowledge to customer → dispatch planning → dispatch releases (FIXED schedule lines, OPEN customer call-offs, BLANKET schedule lines) → core demand order → pick / pack / ship (core) → complete / short-close → closed; cancel before release; customer schedule revisions; commitment tracking |
-| **Module** | `warehouse-trade`; core `warehouse` through `WhDemandOrderPort` (`p8-02`, `ai.warehouse.port.demand`; [po-schedule-port](po-schedule-port.contract.md) `POS-T1-10`…`-12`) and read-only queries |
-| **Domain baseline** | FRD-TRADE FR-605…FR-611, FR-543, FR-545, `TRD-01`, `TRD-03`, `OD-32`, `OD-39` · R28 §4 D1–D3 |
+| **Workflow** | Draft (manual / from won quotation / from sales RC) → submit → approve (core demand order via port) → acknowledge to customer → dispatch planning → dispatch releases (OPEN customer call-offs, BLANKET schedule lines; FIXED needs none, `TRD-12`) → core pick / pack / ship → complete / short-close → closed (`closeDemand`); cancel before execution; customer schedule revisions; commitment tracking |
+| **Module** | `warehouse-trade`; core `warehouse` through `WhDemandOrderPort` and `WhAvailableToPromiseQuery` (`ai.warehouse.port.demand`; [po-schedule-port](po-schedule-port.contract.md) `POS-T1-10`…`-12b`, `POS-T4-05`…`-08`) and read-only queries |
+| **Domain baseline** | FRD-TRADE FR-605…FR-611, FR-543, FR-545, `TRD-01`, `TRD-03`, `TRD-12`, `TRD-13`, `OD-32`, `OD-39`, STORES `OD-45` · R28 §4 D1–D3 |
 | **Owning task bodies** | `issues/p9-09.md` (types, schedule, dispatch planning, releases, port, cancel, schedule import) · `issues/p9-10.md` (acknowledgement, commitments, short-close, auto-close) |
 | **Primary tables** | `wht_sales_orders`, `wht_sales_order_lines`, `wht_so_schedule_lines`, `wht_so_dispatch_releases`, `wht_so_dispatch_release_lines`, `wht_so_charges` (`V550080`); `wht_so_acknowledgements`, `wht_so_commitment_followups` (`V550090`) |
-| **Permission resources** | `wht_sales_orders:view/create/edit/export/submit/approve/cancel/issue/short_close/amend` · `wht_so_dispatch_releases:view/create/cancel/export` · `wht_so_commitment_followups:view/create` |
-| **Routes** | WS-303 `/warehouse/trade/sales/orders`, WS-304 `/[id]`, WS-305 `/dispatch-planning`, WS-306 `/commitments` · mobile: none |
-| **Contract status / version** | `derived` · `v0 — 2026-10-22` |
+| **Permission resources** | `wht_sales_orders:view/create/edit/export/submit/approve/cancel/issue/short_close/amend` · `wht_so_dispatch_releases:view/create/submit/approve/cancel/export` · `wht_so_commitment_followups:view/create/export`. The sales-executive, sales-approver and dispatch-planner bundles also hold core **`warehouse:orders:port`** (`TRD-13`, seeded in `V551090`) |
+| **Routes** | WS-303 `/warehouse/trade/sales/orders`, WS-304 `/[id]`, WS-313 `/dispatch-releases`, WS-306 `/commitments`, WS-305 `/dispatch-planning` · mobile: none |
+| **Contract status / version** | `derived` · `v1 — 2026-10-22` |
 
-**Fields** mirror `trade-purchase-order` §0 with: `so_number` (series `SO`, at submit; stored on the core
-demand order as `sales_order_ref` and `source_document_ref`), `so_type`, customer, `customer_po_number`,
-`customer_po_date`, `sales_exec_id`, `ship_to_address_id`, `dispatch_warehouse_id`, `quotation_id`,
-`rate_contract_id`, `price_list_id`; lines add `customer_part_number`, `customer_item_ref_id`,
-`floor_price_at_order`; schedule lines carry `committed_date` (our acknowledged date, defaults to the
-requested `delivery_date`), `customer_revised_date`, `zone`, `released_quantity`, `release_status`;
-dispatch release: `release_number` (`<so_number>-Dnn`), `release_date`, `planned_dispatch_date`,
-`status`, `core_schedule_line_ids` (firmed on the SO's one core demand order); header `core_demand_order_id`; release line: `so_line_id`, `schedule_line_id` (null for OPEN call-off),
-qty, `unit_price`.
+**Fields** (twin of `TPO` §0). Header: `so_number` (series `SO`, at submit; stored on the core demand order as
+`sales_order_ref` and `source_document_ref`), `so_type`, `version_no`, company, customer, `customer_po_number`,
+`customer_po_date`, `sales_exec_id`, `order_date`, `dispatch_warehouse_id`, `ship_to_address_id`, currency,
+terms, `quotation_id`, `rate_contract_id`, `price_list_id`, `valid_from`/`valid_to` (OPEN/BLANKET),
+`ceiling_value` (OPEN; null ⇒ `open_unbounded`), `price_basis` (`AGREEMENT`/`AT_RELEASE`),
+`terms_template_version_id`, `status`, `core_demand_order_id` ↓ `wh_demand_orders`, `issued_at`, `ack_status`
+(`PENDING`/`SENT`), `closed_at`, `short_close_reason_code`. Line: `line_no`, item, `customer_part_number`,
+`customer_item_ref_id`, `uom_code`, `quantity` (FIXED/BLANKET > 0; OPEN null), `ceiling_quantity` (OPEN),
+`unit_price`, `discount_percent`, `net_price`, `price_source`, `rate_contract_line_id`, `floor_price_at_order`,
+`over_tolerance_pct`, `under_tolerance_pct`, `is_free_of_charge` (FIXED / BLANKET only), `line_status`,
+`core_demand_line_id`. Schedule line: `delivery_date` (requested), `committed_date` (our acknowledged date,
+defaults to the requested one), `customer_revised_date`, `quantity`, `zone` (from
+`warehouse.trade.sales.firm_zone_days`), `released_quantity`, `pending_release_quantity`, `release_status`
+(FIXED: `RELEASED` at approval), `core_schedule_line_id`. Dispatch release: `release_number` (`<so_number>-Dnn`,
+per-order counter, at submit), `release_date`, `planned_dispatch_date`, `status`, `approval_request_id`,
+`is_replacement`, `source_sra_id`, `customer_calloff_ref`, `cancel_reason_code`; release line: `so_line_id`,
+`schedule_line_id` (null for an OPEN call-off or a replacement), qty, `unit_price`, `core_schedule_line_id`.
 
 ### Acceptance checks
 
 | # | Expects | Delivered by |
 |---|---|---|
-| A1 | Duplicate customer PO refused (`WH-SC-555`) | `TSO-GRD-02` |
-| A2 | Acknowledgement printed with committed dates (`WH-SC-556`) | `TSO-T1-06` |
-| A3 | Dispatch planning shows ATP; shortfall shown not blocked; over-release refused (`WH-SC-557`, `-558`) | `TSO-T1-09`, `TSO-GRD-06` |
-| A4 | Shipments read from core; fulfilment derived (`WH-SC-559`) | `TSO-T4-04` |
-| A5 | Customer schedule revision through amendment, firm-zone flagged (`WH-SC-560`) | `TSO-T1-12` |
-| A6 | At-risk commitments with a revised date apart from committed (`WH-SC-561`) | `TSO-T3-02` |
+| A1 | Approval of every type creates one core demand order in the approval transaction; a refusal rolls back (`WH-SC-555`, `-593`) | `TSO-T1-04`, `TSO-T4-01`, `-03` |
+| A2 | Idempotent approval and release | `TSO-GRD-12` |
+| A3 | OPEN call-offs within ceiling (pending included) and validity; RC ceiling (`WH-SC-588`) | `TSO-T1-08`, `TSO-GRD-06`, `-07` |
+| A4 | BLANKET dispatch planning shows ATP; shortfall shown not blocked; over-release refused; FIXED not released (`WH-SC-557`, `-558`, `-596`) | `TSO-T1-09`, `TSO-GRD-06`, `TSO-T4-12` |
+| A5 | Shipments read from core; fulfilment derived (`WH-SC-559`) | `TSO-T4-04` |
+| A6 | Short-close via port; tolerance (`TSO-T1-13`) | `TSO-T1-13`, `TSO-T4-06` |
+| A7 | Cancel only before execution and through `SO_CANCEL`; core cannot edit trade demand orders | `TSO-T1-05`, `TSO-GRD-09`, `TSO-UNR-02` |
+| A8 | Customer blocked: no new releases | `TSO-GRD-08` |
+| A9 | Acknowledgement printed with committed dates, re-sent after amendment (`WH-SC-556`, `-584`) | `TSO-T1-06`, `-11` |
+| A10 | At-risk commitments with a revised date apart from committed (`WH-SC-561`) | `TSO-T3-02` |
+| A11 | Auto-close calls `closeDemand`; the core order stays open across releases until then (`WH-SC-580`) | `TSO-T3-03`, `TSO-T4-10` |
+| A12 | A dispatch release can be cancelled, a rejected one gives its quantity back, and a release closes by its own core lines (`WH-SC-586`) | `TSO-T1-10a`…`-10c`, `-12` |
+| A13 | Customer schedule revision through amendment, firm-zone flagged; a newer import replaces a draft (`WH-SC-560`, `-589`) | `TSO-T1-15` |
+| A14 | Replacement release from a return (`WH-SC-587`) | `TSO-T1-16`, `TSO-GRD-06` |
 
 ## 1. T1 — State machine
 
 ### 1.1 Status inventory
 
-Header ladder is **identical** to `TPO` §1.1 (`DRAFT`, `SUBMITTED`, `REJECTED`, `APPROVED`, `ISSUED` =
-acknowledgement sent, `CLOSED`, `SHORT_CLOSED`, `CANCELLED`; derived fulfilment `NOT_STARTED` / `PARTIAL`
-/ `COMPLETE` and validity `EXPIRED`). There is **no `ACKNOWLEDGED` from the customer**: our
-acknowledgement *is* `ISSUED` (M22). Dispatch release: `DRAFT` → `RELEASED` → `CLOSED` (core demand
-order shipped / closed); `CANCELLED`.
+| Entity | Status | Reachable via | Exits via | Kind |
+|---|---|---|---|---|
+| SO | `DRAFT` | `-01`, win, return | `-02`, `-05` | initial |
+| SO | `SUBMITTED` | `-02` | `TAM`, `-03` | active |
+| SO | `REJECTED` | `TAM` | edit → `DRAFT` | active |
+| SO | `APPROVED` | `-04` | `-06`, `-05`, `-08`/`-09`, `-13` | active |
+| SO | `ISSUED` | `-06` (acknowledgement sent) | releases, `-11`, `-13`, `-05` | active |
+| SO | — (twin of `ACKNOWLEDGED`) | **refused**: we issue the acknowledgement, the customer does not return one (§5 M22); `ISSUED` is the acknowledged state | — | — |
+| SO | `CLOSED` | `TSO-T3-03` | none | terminal |
+| SO | `SHORT_CLOSED` | `-13a` header | none | terminal |
+| SO | `CANCELLED` | `-05`, `-05a` | none | terminal |
+| SO | *fulfilment* `NOT_STARTED` / `PARTIAL` / `COMPLETE`; *validity* `EXPIRED` (OPEN/BLANKET) | **derived on read** (`TSO-T4-04`) | — | derived |
+| Dispatch release | `DRAFT` | `-08`, `-09`, `-16`, return | submit, `-10b` | initial |
+| Dispatch release | `SUBMITTED` | `-08`, `-09`, `-16` | `-10`, `-10a`, `-10b` (withdraw) | active |
+| Dispatch release | `RELEASED` | `-10` | `-10c`, `-12` | active |
+| Dispatch release | `REJECTED` | `-10a` | edit → `DRAFT`, `-10b` | active |
+| Dispatch release | `CANCELLED` | `-10b`, `-10c` | none | terminal |
+| Dispatch release | `CLOSED` | `-12` | none | terminal |
+| Ack | `PENDING` (approved, not yet sent; or reset by an approved amendment) → `SENT` | `-04`, `-06`, `-11`, `TOA-T4-03` | — | — |
 
 ### 1.2 Transitions
 
 | ID | From | Action | To | Guard | Actor | Side effects | Comment | UI |
 |---|---|---|---|---|---|---|---|---|
-| TSO-T1-01 | — | Create (manual / from won quotation / from sales RC) | `DRAFT` | — | `:create` | prices `TRC-T4-04` | no | WS-303 Add |
-| TSO-T1-02 | `DRAFT`, `REJECTED` | Submit | `SUBMITTED` | `TSO-GRD-01`…`-05` | `:submit` | number; `TAM` doc `SO`, conditions `below_floor_price`, `discount_over_pct`, `manual_rate` | no | Submit |
-| TSO-T1-03 | `SUBMITTED` | Withdraw | `DRAFT` | `TAM-T1-09` | maker | — | no | — |
-| TSO-T1-04 | `SUBMITTED` | Approved | `APPROVED` | `TSO-GRD-10` | approver | `version_no = 1` snapshot; RC consumption for FIXED; **`WhDemandOrderPort.createDemand`** (`TSO-T4-01`) — FIXED schedule `FIRM`, BLANKET schedule `FORECAST`, OPEN none | — | WS-285 |
-| TSO-T1-05 | non-terminal | Cancel | `CANCELLED` | `TSO-GRD-08` | `:cancel` | planned demand withdrawn; RC consumption reversed | **yes** | row action |
-| TSO-T1-06 | `APPROVED` | Send acknowledgement | `ISSUED` | template exists | `:issue` | print `SALES_ORDER_ACK` with committed dates; `wht_so_acknowledgements` row | no | *Acknowledge* |
-| TSO-T1-07 | `APPROVED`, `ISSUED` | Record OPEN call-off (customer's) | release `DRAFT` | `TSO-GRD-06`, `-07` | `wht_so_dispatch_releases:create` | — | customer call-off ref | WS-304 |
-| TSO-T1-08 | release `DRAFT` | Release | `RELEASED` | `TSO-GRD-06`, `-07`, `-09` | same | **`WhDemandOrderPort.releaseSchedule`** (`TSO-T4-02`) in the same transaction; schedule `released_quantity` | no | WS-305 *Release* |
-| TSO-T1-09 | due schedule lines | Plan dispatch (multi-select, whole / part) | one release per SO × planned dispatch date | as `-08` | same | ATP shown (`TSO-T4-03`) | no | WS-305 |
-| TSO-T1-10 | release `RELEASED` | Cancel release | `CANCELLED` | core demand order not yet picked — asked via `WhDemandOrderPort.getFulfilmentPosition` | `wht_so_dispatch_releases:cancel` | `WhDemandOrderPort.amendDemand` returns the firmed lines to `FORECAST` (BLANKET) or `cancelLine` (OPEN call-off); schedule qty back to open | **yes** | WS-305 / detail |
-| TSO-T1-11 | line / header non-terminal | Short-close | `SHORT_CLOSED` | `TSO-GRD-11` | `:short_close` | `TAM` `SO_SHORT_CLOSE`; unreleased schedule cancelled; open demand cancelled through the port; planned demand withdrawn | **yes** | row action |
-| TSO-T1-12 | BLANKET non-terminal | Import / enter revised customer schedule | SO amendment `DRAFT` (`TOA-T1-01`) | `TSO-GRD-12` | `:amend` | firm-zone changes flagged (`schedule_change_in_firm_zone = true`, counted for `TCE`) | no | WS-304 *Revise schedule* (CSV dry-run → apply) |
-| TSO-T1-13 | any active | Log commitment follow-up | follow-up row; `customer_revised_date` | — | `wht_so_commitment_followups:create` | — | no | WS-306 |
+| TSO-T1-01 | — | Create (manual / from won quotation / from sales RC) | `DRAFT` | — | `:create` (win target: maker = the user who marked the win) | prices `TRC-T4-04`; quotation charges carried to `wht_so_charges` | no | WS-303 Add (type picker first) |
+| TSO-T1-02 | `DRAFT`, `REJECTED` | Submit | `SUBMITTED` | `TSO-GRD-01`…`-05`, `-08`, `-10`, `-17`, `-18` | `:submit` | number; `TAM-T1-03` doc `SO`, value as `TPO-T1-02` (OPEN without ceiling value: `open_unbounded`), conditions `below_floor_price`, `discount_over_pct`, `manual_rate` | no | Submit |
+| TSO-T1-03 | `SUBMITTED` | Withdraw | `DRAFT` | `TAM-T1-09` | maker | — | no | Withdraw |
+| TSO-T1-04 | `SUBMITTED` | Approved (last level) | `APPROVED` | `TSO-GRD-11`, `-12` | approver (holds `warehouse:orders:port`) | **`WhDemandOrderPort.createDemand`** (`POS-T1-10`) in the same transaction (`TSO-T4-01`) — every type; `version_no = 1` snapshot; RC consumption for FIXED and BLANKET lines; FIXED schedule lines → `RELEASED`; ack `PENDING` | — | WS-285 |
+| TSO-T1-04a | `SUBMITTED` | Rejected / returned | `REJECTED` / `DRAFT` | `TAM` | approver | maker notified | **yes** | WS-285 |
+| TSO-T1-05 | `DRAFT`; `SUBMITTED` (withdraw first); `APPROVED`, `ISSUED` | Cancel | `DRAFT`/`SUBMITTED`: `CANCELLED` at once; after approval: request `SO_CANCEL` (seeded zero-level) | `TSO-GRD-09`, `-14` (header) | `:cancel` | after approval → `-05a` | **yes**, reason code | row action |
+| TSO-T1-05a | `SO_CANCEL` request approved | Cancel takes effect | `CANCELLED` | `TSO-GRD-09` re-checked | approver / `SYSTEM` | **`cancelDemand`** (`TSO-T4-06`); RC consumption reversed; open releases `CANCELLED` | — | WS-285 |
+| TSO-T1-06 | `APPROVED` | Send acknowledgement | `ISSUED`; ack `SENT` | template exists | `:issue` | print `SALES_ORDER_ACK` with committed dates; `wht_so_acknowledgements` row for the version | no | *Acknowledge* |
+| TSO-T1-07 | any non-terminal | Reprint | — | — | `:view` | reprint flagged | no | Print |
+| TSO-T1-08 | OPEN, `APPROVED`/`ISSUED` | Record and submit a customer call-off release | release `DRAFT` → `SUBMITTED` | `TSO-GRD-06`, `-07`, `-08`, `-14` | `wht_so_dispatch_releases:create` / `:submit` | number `<so>-Dnn`; price by `price_basis`; `TAM` doc `SO_RELEASE` (seeded zero-level `EXACT`; `open_unbounded` / `release_price_manual` need an install rule), value Σ qty × price; `pending_release_quantity` += qty | customer call-off ref | WS-304 Releases tab, WS-313 *New call-off* |
+| TSO-T1-09 | BLANKET, same states | Plan dispatch — release due schedule line(s), whole or part (multi-select; one release per SO × planned dispatch date) | release `SUBMITTED` | `TSO-GRD-06`…`-08`, `-14`; FIXED lines not offered (`TRD-12`) | same | as `-08`; ATP shown (`TSO-T4-12`) | no | WS-305 *Release* |
+| TSO-T1-10 | release `SUBMITTED` | Approved | `RELEASED` | `TSO-GRD-15`, `-12` | approver / `SYSTEM` (submitter is the port's `actingUserId`) | **`firmScheduleLine`** / **`releaseSchedule`** (`POS-T1-11`, `-11a`) in the same transaction (`TSO-T4-02`); pending → `released_quantity`; RC consumption (OPEN) | — | — |
+| TSO-T1-10a | release `SUBMITTED` | Rejected / returned | `REJECTED` / `DRAFT` | `TAM` | approver | pending quantity reverted | **yes** | WS-285 |
+| TSO-T1-10b | release `DRAFT`, `REJECTED`; `SUBMITTED` after withdraw | Cancel | `CANCELLED` | — | `wht_so_dispatch_releases:cancel` | pending reverted; nothing sent to core | **yes**, reason code | WS-313 / WS-304 |
+| TSO-T1-10c | release `RELEASED`, nothing of it picked | Cancel | `CANCELLED` | `TSO-GRD-09` per release line (picked = 0 on its core schedule lines, `getFulfilmentPosition`); `TSO-GRD-14` | `wht_so_dispatch_releases:cancel` | **`unfirmScheduleLine`** for whole-firmed BLANKET lines (allocated 0; else core refuses `409 DEMAND_SCHEDULE_ALLOCATED` and the planner releases the allocation first), **`cancelScheduleLine`** for added `FIRM` lines (call-off, split, replacement) with a split `FORECAST` restored by `amendDemand` (`TSO-T4-09`); schedule qty open again; RC consumption reduced | **yes**, reason code | WS-313 / WS-304 |
+| TSO-T1-11 | `ISSUED` with ack `PENDING` (after an approved amendment) | Re-send acknowledgement | ack `SENT` | template exists | `:issue` | print `SALES_ORDER_ACK` of the new version with the amendment banner; new `wht_so_acknowledgements` row. Twin of `TPO-T1-11` (we issue, they record — §5 M22) | no | *Re-send acknowledgement* |
+| TSO-T1-12 | release `RELEASED` | Every core schedule line carrying its `releaseRef` is shipped or cancelled (`WH_DEMAND_SHIPPED`, `getFulfilmentPosition`) | `CLOSED` | — | system | — | — | — |
+| TSO-T1-13 | line `OPEN` / header non-terminal | Short-close line or header | request `SO_SHORT_CLOSE` (seeded zero-level) | `TSO-GRD-13`, `-14` | `:short_close` | — | **yes**, reason code | row action / line action |
+| TSO-T1-13a | `SO_SHORT_CLOSE` request approved | Short-close takes effect | line `SHORT_CLOSED`; header `SHORT_CLOSED` when header action | `TSO-GRD-13` re-checked | approver / `SYSTEM` | **`cancelScheduleLine`** for every open unpicked schedule line of the line (`FORECAST`, and `FIRM` with nothing picked — core releases its allocation); header: then **`closeDemand`** (`TSO-T4-06`); open releases closed; RC consumption reduced | — | WS-285 |
+| TSO-T1-14 | any active | Log commitment follow-up | follow-up row; `customer_revised_date` | — | `wht_so_commitment_followups:create` | — | no | WS-306, detail |
+| TSO-T1-15 | BLANKET non-terminal | Import / enter revised customer schedule | SO amendment `DRAFT` (`TOA-T1-01`, origin `CUSTOMER_SCHEDULE`); a `DRAFT` amendment of the same origin is `CANCELLED` and replaced | `TSO-GRD-19`; no `SUBMITTED` amendment open | `:amend` | changes inside the sales firm zone flagged (`in_firm_zone = true`, counted for `TCE`). Twin: `TPO-T1-11` *Accept changes* drafts the purchase amendment | no | WS-304 *Revise schedule* (CSV dry-run → apply) |
+| TSO-T1-16 | SRA `RECEIVED` / `PARTIALLY_RECEIVED` with intent `REPLACE` | Replacement release drafted | release `DRAFT`, `is_replacement`, `source_sra_id` | `TSO-GRD-06` (replacement bound) | system (`TSR-T4-02`); the planner submits it | lines for the received qty at the original net price, no schedule line. Twin: `TPO-T4-07` reinstates through an amendment (§5 M26) | no | WS-313 |
 
 ### 1.3 Guards
 
 | ID | Predicate | Refusal |
 |---|---|---|
 | TSO-GRD-01 | Customer profile exists, not sales-blocked; dispatch site in user scope and allows dispatch | `422 TRADE_CUSTOMER_BLOCKED` |
-| TSO-GRD-02 | `customer_po_required` ⇒ customer PO no + date; (customer, customer PO no) unique among non-cancelled SOs | field `422` / `409 TRADE_DUPLICATE_CUSTOMER_PO` |
-| TSO-GRD-03 | Type rules as `TPO-GRD-02`; BLANKET Σ schedule = qty, dates ∈ validity (`TPO-GRD-04` mirror) | as TPO |
-| TSO-GRD-04 | Part approval (FR-545) | `422 TRADE_CUSTOMER_PART_NOT_APPROVED` |
-| TSO-GRD-05 | Every line priced; currency = contract / price list currency | field `422` |
-| TSO-GRD-06 | Release qty ≤ schedule open qty (BLANKET/FIXED) or ≤ ceiling open (OPEN); dates ∈ validity | `422 TRADE_RELEASE_EXCEEDS_SCHEDULE` / `TRADE_CEILING_EXCEEDED` / `TRADE_OUTSIDE_VALIDITY` |
-| TSO-GRD-07 | No open SO amendment on the lines | `409 TRADE_AMENDMENT_OPEN` |
-| TSO-GRD-08 | Cancel: no release `RELEASED` whose demand order has been picked or shipped | `409 TRADE_EXECUTION_STARTED` |
-| TSO-GRD-09 | Customer not sales-blocked at release | `422 TRADE_CUSTOMER_BLOCKED` |
-| TSO-GRD-10 | Idempotency `(WHT_SALES_ORDER, id, version)` / `(WHT_SO_DISPATCH_RELEASE, id)` | — |
-| TSO-GRD-11 | Short-close: open qty > 0; in-flight (picked not shipped) blocks that part | `409 TRADE_IN_FLIGHT` |
-| TSO-GRD-12 | Revised schedule lines ≥ already released per line; dates ∈ validity (or validity extension in the same amendment) | `422 TRADE_AMEND_BELOW_COMMITTED` |
+| TSO-GRD-02 | Type rules as `TPO-GRD-02`: FIXED — qty > 0, Σ schedule = qty; OPEN — qty null, validity, unit price > 0; BLANKET — qty > 0, validity | field `422` |
+| TSO-GRD-03 | Every line priced (0 only free-of-charge + reason, never on OPEN); currency = contract / price list currency | field `422` |
+| TSO-GRD-04 | BLANKET: Σ schedule = line qty, dates ∈ validity; FIXED: schedule dates ≥ order date | `422 TRADE_SCHEDULE_TOTAL_MISMATCH` / `TRADE_OUTSIDE_VALIDITY` |
+| TSO-GRD-05 | Item active and sellable; UoM convertible (`whb_uom_conversions`, factor frozen); dispatch site in the user's scope (twin of `TPO-GRD-05`) | field `422` / `TRADE_UOM_NOT_CONVERTIBLE` |
+| TSO-GRD-06 | Release: dates ∈ validity; FIXED lines never released; qty ≤ schedule open (qty − released − pending) for BLANKET; OPEN: Σ released + pending ≤ line ceiling and ≤ header ceiling value; a **replacement** release (`is_replacement`) is exempt from schedule and ceiling bounds and bounded instead by the SRA's received quantity − already replaced | `422 TRADE_RELEASE_EXCEEDS_SCHEDULE` / `TRADE_CEILING_EXCEEDED` / `TRADE_OUTSIDE_VALIDITY` / `TRADE_NOT_RELEASABLE` / `TRADE_REPLACEMENT_EXCEEDS_RECEIVED` |
+| TSO-GRD-07 | RC ceiling consumed on release (`TRC-T4-01`) | `422 TRADE_CEILING_EXCEEDED` |
+| TSO-GRD-08 | Customer not sales-blocked at release / qty-increasing amendment (a replacement release is allowed) | `422 TRADE_CUSTOMER_BLOCKED` |
+| TSO-GRD-09 | Cancel (order, or a released part): nothing picked or shipped on the core schedule lines concerned (`getFulfilmentPosition`, `POS-T4-07`) | `409 TRADE_EXECUTION_STARTED` |
+| TSO-GRD-10 | Edit refused while an approval request or an amendment is open (twin of `TPO-GRD-10`) | `409 TRADE_APPROVAL_PENDING` / `TRADE_AMENDMENT_OPEN` |
+| TSO-GRD-11 | At approval: re-resolve contract / price-list prices; refuse if the source expired, ended or changed (twin of `TPO-GRD-11`) | `409 TRADE_PRICE_CHANGED_SINCE_SUBMIT` |
+| TSO-GRD-12 | Idempotency: FRD-TRADE §12a keys (`WHT_SALES_ORDER:<id>:<operation>:<sequence>`); a repeat returns the recorded result | `409 PORT_IDEMPOTENCY_CONFLICT` (relayed) |
+| TSO-GRD-13 | Short-close: open qty > 0; picked-not-shipped (`getFulfilmentPosition`) blocks that part | `409 TRADE_IN_FLIGHT` |
+| TSO-GRD-14 | Amendment lock (`TOA-GRD-04`): a release, release cancel or line short-close touching a schedule line an open amendment changes is refused; a header short-close or cancel is refused while any amendment is open | `409 TRADE_AMENDMENT_OPEN` |
+| TSO-GRD-15 | At release approval, under a lock on the SO header: `-06`, `-07`, `-08`, part approval (`-18`), price (`-11`) and `-14` re-checked | as each guard |
+| TSO-GRD-16 | — (twin of `TPO-GRD-16` receipt cut-off) | **refused**: shipping firm released quantity after validity is our own act; core has no despatch cut-off and needs none |
+| TSO-GRD-17 | `customer_po_required` ⇒ customer PO no + date; (customer, customer PO no) unique among non-cancelled SOs | field `422` / `409 TRADE_DUPLICATE_CUSTOMER_PO` |
+| TSO-GRD-18 | Part approval (FR-545) | `422 TRADE_CUSTOMER_PART_NOT_APPROVED` |
+| TSO-GRD-19 | Revised schedule lines ≥ released per line; dates ∈ validity (or validity extension in the same amendment) | `422 TRADE_AMEND_BELOW_COMMITTED` |
 
 ### 1.4 Unreachable
 
 | ID | Forbidden | Why |
 |---|---|---|
 | TSO-UNR-01 | Trade writing `wh_demand_orders` | port only |
-| TSO-UNR-02 | Core screens editing / cancelling a trade-created demand order's commercial fields | trade's `DemandOrderChangeGuard` bean (`p8-02`) refuses with `409 PO_OWNED_BY_SOURCE_MODULE` |
-| TSO-UNR-03 | A credit check blocking release | refused (FRD §11 R1) — no such guard exists |
-| TSO-UNR-04 | An SO invoice | refused (R2) |
-| TSO-UNR-05 | Release blocked by ATP shortfall | FR-607: shown, never blocked; core's fulfilment policy decides backorder |
+| TSO-UNR-02 | Core screens editing, releasing, cancelling or closing a trade-created demand order | trade's `DemandOrderChangeGuard` bean (`POS-GRD-14`) refuses `EDIT`, `RELEASE`, `CANCEL`, `CLOSE` with `409 DEMAND_OWNED_BY_SOURCE_MODULE`; `ALLOCATE` is allowed (`OD-39`) |
+| TSO-UNR-03 | Changing an approved SO except by amendment; a credit check blocking release | no edit after approval (`TOA`); credit refused (FRD §11 R1) — no such guard exists |
+| TSO-UNR-04 | Auto-release of a BLANKET schedule line; an SO invoice | releases are planner acts (twin of `TRD-11`); invoice refused (R2) |
+| TSO-UNR-05 | Storing shipped quantity in `wht_`; a release blocked by ATP shortfall | `TRD-03`; FR-607: shown, never blocked |
+| TSO-UNR-06 | Changing `so_type` after submit | not editable |
+| TSO-UNR-07 | A trade SO `CLOSED` while its core demand order can still take releases | auto-close and header short-close call `closeDemand` in the same transaction |
 
 ## 2. T2 — Action × role × state
 
-Mirror of `TPO` §2 with *Acknowledge* = send (`:issue`), *Release* = `wht_so_dispatch_releases:create`
-(dispatch planner), *Revise schedule* = `:amend`.
+| ID | Action | Permission | Allowed from |
+|---|---|---|---|
+| TSO-T2-01 | Add / edit | `:create` / `:edit` | `DRAFT`, `REJECTED` |
+| TSO-T2-02 | Submit / withdraw | `:submit` | `DRAFT`, `REJECTED` / `SUBMITTED` |
+| TSO-T2-03 | Approve | `:approve` (`TAM`) + `warehouse:orders:port` | `SUBMITTED`; `SO_CANCEL` / `SO_SHORT_CLOSE` requests |
+| TSO-T2-04 | Send acknowledgement / print | `:issue` / `:view` | `APPROVED`+ |
+| TSO-T2-05 | Re-send acknowledgement | `:issue` | `ISSUED` with ack `PENDING` |
+| TSO-T2-06 | Dispatch release — create / submit / approve / cancel | `wht_so_dispatch_releases:create` / `:submit` / `:approve` / `:cancel` (+ `warehouse:orders:port` as `TPO-T2-06`) | SO `APPROVED`, `ISSUED`; release per T1 |
+| TSO-T2-07 | Amend / revise schedule | `:amend` (`TOA`) | `APPROVED`, `ISSUED` |
+| TSO-T2-08 | Short-close | `:short_close` | non-terminal |
+| TSO-T2-09 | Cancel | `:cancel` | non-terminal, `TSO-GRD-09` |
+| TSO-T2-10 | Commitment follow-up | `wht_so_commitment_followups:create` | non-terminal |
+| TSO-T2-11 | Export | `:export`; `wht_so_dispatch_releases:export`; `wht_so_commitment_followups:export` (auditor: none) | — |
 
 ## 3. T3 — Time-driven rules
 
-| ID | Rule | Trigger | Changes | Notified | Job |
+| ID | Rule | Trigger | Changes | Notified (FRD-TRADE §12b) | Job |
 |---|---|---|---|---|---|
-| TSO-T3-01 | Dispatch due | schedule line open with `committed_date − warehouse.trade.sales.dispatch_horizon_days` (default 7) ≤ today | shown on WS-305 (computed) | dispatch planner digest | `TradeDispatchJob` daily |
-| TSO-T3-02 | At risk | open line due within `warehouse.trade.sales.at_risk_days` (default 5) and unreleased, or released with ATP short | computed `atRisk` | sales exec + planner | same |
-| TSO-T3-03 | Auto-close | mirror `TPO-T3-03` | `CLOSED` | sales exec | nightly |
-| TSO-T3-04 | Validity ending | mirror `TPO-T3-05` | none | sales exec | `TradeContractJob` |
+| TSO-T3-01 | Dispatch due (twin of the release proposal) | open BLANKET / OPEN schedule line with `committed_date − warehouse.trade.sales.dispatch_horizon_days` (default 7) ≤ today | shown on WS-305 (computed) | dispatch planners of the dispatch site, digest `TRADE_DISPATCH_DUE` | `TradeDispatchJob` daily |
+| TSO-T3-02 | At risk (twin of expediting) | open line due within `warehouse.trade.sales.at_risk_days` (default 5) and unreleased, or released with ATP short (`TSO-T4-12`) | computed `atRisk` | sales exec + planners, `TRADE_COMMITMENT_AT_RISK` | same |
+| TSO-T3-03 | Auto-close | every line `SHORT_CLOSED` or fulfilment `COMPLETE` (shipped ≥ qty × (1 − under tolerance)), no release open, **no SRA of the SO open**; OPEN/BLANKET also when validity ended and nothing open | `CLOSED`; `closeDemand` (`TSO-T4-10`) | sales exec, `TRADE_ORDER_CLOSED` | nightly `TradeSoCloseJob` (acts as the SO's sales executive) |
+| TSO-T3-04 | Ack not sent (twin of ack overdue) | ack `PENDING` `warehouse.trade.sales.ack_send_alert_days` (default 1) after approval or after the amendment that reset it | none | sales exec, `TRADE_SO_ACK_NOT_SENT` | `TradeDispatchJob` |
+| TSO-T3-05 | Validity ending | OPEN/BLANKET `valid_to − 30` | none | sales exec, `TRADE_SO_VALIDITY_ENDING` | `TradeContractJob` |
+| TSO-T3-06 | Dispatch overdue (twin of release overdue) | BLANKET / OPEN schedule line unreleased with `committed_date < today` | computed `dispatchOverdue` on WS-305 / WS-306; counted against our own `DELIVERY_OTIF` (`TCE`) | sales exec + planners (in the at-risk digest) | `TradeDispatchJob` |
 
 ## 4. T4 — Cross-entity effects
 
 | ID | When | Then | Enforced in |
 |---|---|---|---|
-| TSO-T4-01 | Approved | `WhDemandOrderPort.createDemand({sourceModule:'warehouse-trade', idempotencyKey:'WHT_SALES_ORDER:<id>:v<version>', actingUserId, sourceDocumentType:'WHT_SALES_ORDER', sourceDocumentId, sourceDocumentRef:<so_number>, salesOrderRef:<so_number>, customerPoRef, customerPoDate, demandType:'SALES', company, warehouse: dispatch site, customer, shipTo, lines[item, uom, qty], scheduleLines[lineNo, requestedDate: committed date, qty, kind]})` → one core demand order; id stored | approval transaction |
-| TSO-T4-02 | Dispatch release / schedule amendment | `WhDemandOrderPort.releaseSchedule({coreDemandOrderId, releaseRef, scheduleLines[lineRef, requestedDate: planned dispatch date, qty, kind:'FIRM']})` (OPEN call-off adds `FIRM` lines); `amendDemand` on amendment keeps the core `FORECAST` lines equal to the unreleased schedule, which MRP reads and which never reserve (`POS-UNR-03`, closes `OD-32`) | same transaction |
-| TSO-T4-03 | WS-305 read | ATP per item × dispatch site from core positions minus reservations (core query bean), computed in the backend | `DispatchPlanningQueryService` |
-| TSO-T4-04 | Detail / grid read | picked, shipped, delivered quantities, shipments, outward gate passes (`p8-03`), challans / e-way bills (india, when installed — read through core references only) from core by `core_demand_order_id` | `SalesOrderQueryService` |
-| TSO-T4-05 | SRA approved / RMA received | Returns tab; `REPLACE` drafts a replacement release (`TSR-T4-02`) | SRA service |
+| TSO-T4-01 | Approved (every type) | `WhDemandOrderPort.createDemand(CreateDemandCommand{ envelope(sourceModule 'warehouse-trade', idempotencyKey 'WHT_SALES_ORDER:<id>:DEMAND_CREATE:1', actingUserId = last approver), sourceDocumentType 'WHT_SALES_ORDER', sourceDocumentId, sourceDocumentRef <so_number>, demandType 'SALES', customerCounterpartyId, warehouseId = dispatch site, ownerId, salesOrderRef <so_number>, customerPoRef, customerPoDate, fulfilmentPolicy, lines[ lineRef <line_no>, itemId, uomCode, orderedQuantity (ignored for a schedule-driven line), unitPrice, requiredDate, schedule[ kind FIXED→FIRM · BLANKET→FORECAST (OPEN: none), requestedDate = committed date, quantity, releaseRef (FIXED: the SO number; BLANKET: `<so_number>-S<schedule no>`) ] ] })` → one core demand order, schedule-driven, its header following `OD-45` (A) (`POS-T1-12b`); ids stored. Ship-to is kept in trade until core's command carries it (FRD-TRADE §12c `CN-3`) | approval transaction |
+| TSO-T4-02 | Dispatch release approved | a whole BLANKET schedule line → `firmScheduleLine(DemandScheduleLineCommand{ scheduleLineId })` (key `…:DEMAND_FIRM:<release no>-<schedule no>`); an OPEN call-off, a split BLANKET line or a replacement → `releaseSchedule(ReleaseDemandScheduleCommand{ demandOrderId, releaseRef <release no>, entries[ demandLineId, FIRM, requestedDate = planned dispatch date, quantity ] })` (key `…:DEMAND_RELEASE:<release no>`) — for a split BLANKET line the `FORECAST` line is reduced to the remainder by `amendDemand` (key `…:DEMAND_AMEND:<release no>`); the core `FIRM` line ids stored. Core `FORECAST` lines stay equal to the unreleased schedule, which MRP reads and which never reserve (`POS-UNR-03`, closes `OD-32`) | release approval transaction |
+| TSO-T4-03 | Any port call refused | trade transaction rolls back; core error relayed (twin of `TPO-T4-03`) | port adapter |
+| TSO-T4-04 | Detail / grid read | allocated, picked, shipped, delivered, backordered quantities per line and schedule line (`getFulfilmentPosition`, `POS-T4-07`), shipments, outward gate passes (`p8-03`), challans / e-way bills (india, when installed — read through core references only) by `core_demand_order_id`; fulfilment `COMPLETE` when every line shipped ≥ qty × (1 − under tolerance) or short-closed | `SalesOrderQueryService` |
+| TSO-T4-05 | Ack sent / re-sent | trade only — the acknowledgement is our print; nothing goes to core (twin of `TPO-T4-05`) | ack transaction |
+| TSO-T4-06 | Short-close / cancel approved | `cancelScheduleLine(DemandScheduleLineCommand{ scheduleLineId, reasonCodeId })` per open unpicked schedule line, header: `closeDemand(CloseDemandCommand)`; cancel: `cancelDemand(CancelDemandCommand)`; keys `WHT_SALES_ORDER:<soId>:<op>:<request id>-<n>`; RC consumption reduced | same transaction |
+| TSO-T4-07 | SRA received with intent `REPLACE` | `TSO-T1-16` drafts the replacement release; the SO stays open (`TSO-T3-03`); on a `SHORT_CLOSED` / `CANCELLED` SO nothing is drafted and the SRA asks for a declined reason (`TSR-T1-05`) — twin of `TPO-T4-07` | SRA service |
+| TSO-T4-08 | Any write | `whb_audit_events` | services |
+| TSO-T4-09 | Dispatch release cancelled after approval | `unfirmScheduleLine` (key `…:DEMAND_UNFIRM:<release no>-X<n>`) or `cancelScheduleLine` (key `…:DEMAND_CANCEL_SCHEDULE:<release no>-X<n>`) + `amendDemand` restoring a split `FORECAST` (key `…:DEMAND_AMEND:<release no>-X`) | release cancel transaction |
+| TSO-T4-10 | Auto-close | `closeDemand(CloseDemandCommand{ demandOrderId, reasonCodeId = AUTO_CLOSE })`, key `…:DEMAND_CLOSE:AUTO` — the core order then follows its ordinary ladder (`POS-T1-12a`); nothing unshipped ⇒ `SHIPPED` at once | close job transaction |
+| TSO-T4-11 | Core events for this SO (`WH_DEMAND_SHIPPED` per `release_ref`, `WH_DEMAND_AMENDED`, `WH_DEMAND_CANCELLED`) | release close (`TSO-T1-12`), commitments refresh; a core-side cancel the trade SO did not cause is logged for the sales executive | outbox subscriber |
+| TSO-T4-12 | WS-305 / at-risk read | `WhAvailableToPromiseQuery.atp(AtpQuery{ warehouseId = dispatch site, ownerId, itemIds, horizonEnd })` → `availableNow`, open reservations, firm scheduled receipts by date; shortfall = due open − (`availableNow` + receipts before the date), computed in the backend, never a reservation (`POS-T4-08`) | `DispatchPlanningQueryService` |
 
 ## 5. T5 — Screen contract
 
-WS-303 grid `wht_sales_orders`, scope `WAREHOUSE_TRADE_SALES_ORDER` — columns mirror WS-292 with
-`customerName`, `customerPoNumber`, `customerPoDate`, `salesExecName`, `dispatchWarehouseName`,
-`shippedValue`. Tiles: awaiting approval, approved / ack not sent, at risk, overdue dispatch, open value.
-WS-304 tabs per FRD-TRADE §6. WS-305 *Dispatch Planning*: grid of open schedule lines
-`wht_so_dispatch_plan` — `soNumber`, `customerName`, `itemCode`, `customerPartNumber`, `committedDate`,
-`customerRevisedDate`, `openQuantity`, `atpQuantity`, `shortfall`, `zone`; filters `dispatchWarehouseId`
-(required), `customerId`, `horizonDays`, `atRiskOnly`; multi-select *Release* with per-line qty. WS-306
-*Delivery Commitments*: at-risk / overdue lines with follow-ups (mirror WS-295).
+### 5.1 WS-303 Sales Orders (reference **Service Vehicle**)
+Grid `wht_sales_orders`, scope `WAREHOUSE_TRADE_SALES_ORDER`, sort `e.order_date DESC`. Tiles: awaiting
+approval, approved / ack not sent, at risk, overdue dispatch, open value (company currency, plus *+n in other
+currencies*, FR-616). Columns: `soNumber`, `soType`, `versionNo`, `customerName`, `customerGrade`,
+`customerPoNumber`, `customerPoDate`, `dispatchWarehouseName`, `salesExecName`, `orderDate`, `validTo`,
+`currencyCode`, `orderValue`, `releasedValue`, `shippedValue`, `fulfilment` (derived), `ackStatus`, `status`,
+audit. Filters: `dispatchWarehouseId`; `soType`; `status`; `customerId` typeahead; `salesExecId`; `itemId`;
+`currencyCode`; `orderFrom`/`orderTo`; `atRiskOnly`; `ackPendingOnly`. Row actions: View · Edit · Submit ·
+Withdraw · Acknowledge · Re-send acknowledgement · Print · Release · Amend · Short-close · Cancel. Toolbar: Add ·
+Export (⊇ grid). Add/Edit modal tabs: Header · Lines · Schedule · Charges & terms.
+
+### 5.2 WS-304 Detail — tabs per FRD-TRADE §6.
+
+### 5.3 WS-313 Dispatch Releases (twin of WS-294)
+Grid `wht_so_dispatch_releases`, scope `WAREHOUSE_TRADE_SO_DISPATCH_RELEASE`, sort `e.release_date DESC`.
+Tiles: due (from WS-305), dispatch overdue, submitted, released (period), replacements pending — counts.
+Columns: `releaseNumber`, `soNumber`, `soType`, `customerName`, `releaseDate`, `plannedDispatchDate`,
+`lineCount`, `releaseValue`, `currencyCode`, `isReplacement`, `status`, `coreDemandOrderNumber`, audit.
+Filters: `customerId`, `dispatchWarehouseId`, `soId`, `status`, `replacementOnly`, `dueFrom`/`dueTo`. Actions:
+View · Submit · Withdraw · Cancel (`TSO-T1-10b`, `-10c`) · Open demand order (core, read). Export ⊇ grid
+(`wht_so_dispatch_releases:export`). Empty state: *No dispatch releases — plan them on Dispatch Planning.*
+Print: none (§5 M32 refusal).
+
+### 5.4 WS-306 Delivery Commitments (twin of WS-295)
+Grid `wht_so_commitments` (open schedule lines due within `at_risk_days` or overdue), scope
+`WAREHOUSE_TRADE_SO_COMMITMENT`, sort `e.committed_date ASC`. Tiles: at risk, dispatch overdue, follow-up due
+today, ack not sent, customer-revised later than committed — counts. Columns: `soNumber`, `releaseNumber`,
+`customerName`, `itemCode`, `customerPartNumber`, `committedDate`, `customerRevisedDate`, `openQuantity`,
+`atpQuantity`, `daysLate`, `lastFollowupAt`, `nextFollowupDate`. Filters: `customerId`, `salesExecId`,
+`dispatchWarehouseId`, `soType`, `atRiskOnly`, `overdue`, `followupDueToday`. Actions: Log follow-up · Open
+SO. Export ⊇ grid (`wht_so_commitment_followups:export`). Empty state: *No commitments at risk.*
+
+### 5.5 WS-305 Dispatch Planning (sales only; purchase counterpart is the WS-294 *Proposals* view)
+Grid `wht_so_dispatch_plan` (open schedule lines of every type in the horizon), scope
+`WAREHOUSE_TRADE_SO_DISPATCH_PLAN`, sort `e.committed_date ASC`; `grid_preferences` default filters
+`dispatchWarehouseId`, `horizonDays`. Tiles: due in horizon, ATP short, dispatch overdue, FIXED (no release
+needed), released not shipped — counts. Columns: `soNumber`, `soType`, `customerName`, `itemCode`,
+`customerPartNumber`, `committedDate`, `customerRevisedDate`, `openQuantity`, `atpQuantity`, `shortfall`,
+`zone`. Filters: `dispatchWarehouseId` (required), `customerId`, `soType`, `horizonDays`, `atRiskOnly`.
+Multi-select *Release* with per-line qty (BLANKET / OPEN rows only; FIXED rows show ATP only, `TRD-12`).
+Export ⊇ grid. Empty state: *Nothing due in the horizon.*
 
 ## 6. Out of scope
 
@@ -145,20 +251,23 @@ WS-304 tabs per FRD-TRADE §6. WS-305 *Dispatch Planning*: grid of open schedule
 | Credit limit, invoice, credit note | refused (FRD §11 R1–R3) |
 | Make-to-order production trigger | MFG reads `FORECAST` and `FIRM` demand schedule from core (`OD-32`) |
 | EDI schedules | refused (R7); CSV import is v1 |
+| A dispatch-release print | refused (§5 M32) |
 
 ## 7. Amendments
 
 | Date | Rows | Change | Found by |
 |---|---|---|---|
 | 2026-10-22 | all | v0 derived | TRADE author |
+| 2026-10-22 | all | R29 TS-F1, F2, F6, F7, F10, F11, F12, F14…F20, F24, F25, MA-01…MA-10, MA-14, MA-15, MA-17 and contract quality: rewritten row for row against `TPO` (same ids); registry-exact port commands and keys; `OD-45` (A) with `closeDemand`; `ISSUED` + `ack_status` + re-send; `SO_RELEASE` approval, ceiling consumption, reject-revert, cancel (`unfirmScheduleLine` / `cancelScheduleLine`), close by `releaseRef`; FIXED not released; replacement releases; guard twins; tolerances and `COMPLETE`; `SO_CANCEL`; amendment lock on changed lines; WS-313 and full screen contracts; `TSO-OPEN-02` closed by `POS-T4-07` | R29 |
 
 ## 8. Invariants and scenarios
 
-`WH-SC-555`…`WH-SC-561`.
+`WH-SC-555`…`WH-SC-561`, `WH-SC-580`, `WH-SC-584`, `WH-SC-586`…`WH-SC-589`, `WH-SC-591`, `WH-SC-593`,
+`WH-SC-594`, `WH-SC-596`.
 
 ## 9. Open rows
 
 | ID | Question | Status |
 |---|---|---|
-| TSO-OPEN-01 | Port signatures vs `p8-02` | reconcile when `p8-02` lands |
-| TSO-OPEN-02 | Does `getFulfilmentPosition` expose picked-not-shipped per schedule line (needed by `TSO-GRD-08`, `-11`)? | confirm with `p8-02` |
+| TSO-OPEN-01 | Port signatures vs `p8-02` | **Settled (R29):** aligned to FRD-STORES *Port & seam registry*; still missing there: FRD-TRADE §12c `CN-3`, `CN-4` |
+| TSO-OPEN-02 | Does `getFulfilmentPosition` expose picked-not-shipped per schedule line (needed by `TSO-GRD-09`, `-13`)? | **Settled by STORES:** yes, `POS-T4-07` |
