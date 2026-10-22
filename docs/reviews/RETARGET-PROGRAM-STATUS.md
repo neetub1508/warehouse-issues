@@ -32,6 +32,33 @@
 6. **BATCH files** in `classic/.claude/tasks/` via `/create-batch` (`BATCH-WAREHOUSE-P7…P10.md`, the same shape as `BATCH-WAREHOUSE-P*.md`, with the mandatory job text).
 7. **Stop for the user's go** before `/run-batch`.
 
+## Execution plan (user direction 2026-10-22) — identical to the earlier warehouse and accounting batches
+Reference: `docs/reviews/BATCH-PATTERN-REFERENCE.md`, which summarises `classic/.claude/commands/{create-batch,run-batch}.md`, `classic/.claude/tasks/BATCH-DISPATCH-RULE.md`, `BATCH-STANDARD-PARITY-TEXT.md`, `BATCH-WAREHOUSE-P4.md`, `LANE-BRIEF-WAREHOUSE-P4.md` and `BATCH-ACCOUNTING-P1.md` / `-FR-GAPS.md`.
+
+1. **Requirement completeness check before filing.**
+   - Each area FRD's R29 dispositions table maps every review finding to the task that carries it.
+   - Confirm that every FR and WH-SC in `docs/frd/*` is closed by exactly one `p7`…`p10` task (IMPLEMENTATION-PLAN §2; the checker's check-10 enforces this).
+   - Run the second dual-engine review (Remaining item 4).
+2. **GitHub issues first**, in `neetub1508/warehouse-issues`:
+   - Run `issues/create-issues.sh --file-tbd`: 4 EPICs (P7–P10) first, then the 56 tasks. The numbers are written back to `issue:` and `CREATED.md`.
+   - **Findings are folded into tasks, not filed separately.** That is the standing rule: never a duplicate task. Instead, post each task's own R29 findings (from the dispositions tables) as a comment on its issue, so every finding is traceable on GitHub.
+3. **BATCH files** via `/create-batch`, one per phase: `classic/.claude/tasks/BATCH-WAREHOUSE-P7.md`, `-P8.md`, `-P9.md`, `-P10.md`.
+   - Each has the mandatory job text, waves, `[P:lane]` / `[S]` / `[B]` markers, `#issue` on every task line, the OD BLOCKED-BY table, and a `## NEXT` line chaining P7 → P8 → {P9 ∥ P10}.
+   - Each needs a lane brief, `LANE-BRIEF-WAREHOUSE-P7…P10.md`.
+   - Phase order is a hard barrier: P7 (removal plus DB rebuild) must finish before P8.
+4. **Run with `/run-batch` in its pipeline (loop) mode**, per `BATCH-DISPATCH-RULE.md`:
+   - **S1 PRE-REVIEW:** the dual-engine functional-reviewer runs **before each task** and posts a PRE-BUILD FUNCTIONAL REVIEW gap list on the issue.
+   - **S2 BUILD:** `--parallel 3`, file-disjoint lanes.
+   - **S3 VERIFY:** reviewer plus functional-reviewer.
+   - **S4 FIX.**
+   - **S5 TEST:** tester, serialized.
+   - **S6 CLOSE:** commit by name to `main`, then close the issue with the template.
+   - Each round is one message: up to 4×S1, 3×S2, and every pending S3/S4.
+   - Shared-registry barrier: lanes RETURN their lines for `filterUtils.ts`, `CacheConfiguration.java` and `*SafeTranslation.tsx`, and one writer applies them at wave end under `/tmp/claude-stack.lock`.
+   - ci-gate is not run by the loop (manual).
+   - Mobile: none (user rule).
+5. **Stop for the user's go** before step 4 starts.
+
 ## Pending user items (do not act without approval)
 - `classic/CLAUDE.md`:
   - The SafeTranslation list names a non-existent `WarehouseAdapterDealerSafeTranslation.tsx`.
