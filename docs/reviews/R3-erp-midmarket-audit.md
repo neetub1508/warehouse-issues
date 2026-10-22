@@ -1,5 +1,7 @@
 # LENS R3 — ERP-embedded and mid-market inventory audit
 
+> **Superseded in scope (2026-10-22):** historical record, not edited — where it assumes a dealer or retail target, [`DECISIONS.md` `D-16`](../DECISIONS.md) and [R28](R28-manufacturing-storage-retarget-impact.md) win (manufacturing + storage).
+
 **NetSuite · D365 SCM · SAP B1 · Odoo 18 · ERPNext · Acumatica · Sage · Epicor Kinetic ·
 Zoho Inventory · Unleashed · Cin7 · Fishbowl · Katana · inFlow · Sortly · SkuVault · Ordoro ·
 Finale · QuickBooks Commerce · Tally Prime · Busy · Marg · Vyapar · Increff · Unicommerce ·

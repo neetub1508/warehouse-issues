@@ -1,5 +1,7 @@
 # Lens R5 — standards, statute, industry verticals and the operational surface
 
+> **Superseded in scope (2026-10-22):** historical record, not edited — where it assumes a dealer or retail target, [`DECISIONS.md` `D-16`](../DECISIONS.md) and [R28](R28-manufacturing-storage-retarget-impact.md) win (manufacturing + storage).
+
 **2026-09-01** · target: the **new** warehouse design set — `warehouse-base` (V900000–V909999) ·
 `warehouse` (V910000–V919999) · `warehouse-adapter-<vertical>` (V920000+) · `warehouse-3pl`
 (V930000–V939999). Primary market **India**, sold into the Classic multi-vertical suite.

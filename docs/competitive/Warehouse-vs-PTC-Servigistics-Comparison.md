@@ -1,5 +1,7 @@
 # Our Warehouse Suite vs PTC Servigistics — Gap Analysis for the SMB / Mid-Market Service-Parts Opportunity
 
+> **Superseded in scope (2026-10-22):** historical record, not edited — where it assumes a dealer or retail target, [`DECISIONS.md` `D-16`](../DECISIONS.md) and [R28](../reviews/R28-manufacturing-storage-retarget-impact.md) win (manufacturing + storage).
+
 *Prepared 2026-09-30. Sources: the `classic` codebase (`warehouse-base`, `warehouse`, `warehouse-3pl`, `warehouse-india`, `accessories`, `services`), the `neetub1508/warehouse-issues` design set (FRD FR-001…469, DECISIONS, COMPETITOR-BENCHMARK, 144 tasks) and its live GitHub issue state, plus public material on PTC Servigistics and its competitors (links at the end).*
 
 ---

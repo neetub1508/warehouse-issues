@@ -2,6 +2,8 @@ TITLE: [Warehouse] EPIC: P3 — Execution & mobile
 LABELS: epic,warehouse,phase-p3
 issue: 7
 ---
+> **Re-target — [`DECISIONS.md` `D-16`](../docs/DECISIONS.md) (2026-10-22).** **VOID:** `P3-19` (#95, OEM order interface). **Partially VOID:** `P3-18` (#90) — the OEM price file (`V520013`) is void; migration mappings and demand history stand. The field-service / assets adapters and `mobile` named in this epic's header are out of scope (adapters removed; no-mobile rule of 2026-09-11).
+
 Part of __MASTER__ · Modules `mobile` · `warehouse` · `warehouse-base` · `warehouse-adapter-field-service` · `warehouse-adapter-assets` · `warehouse-adapter-dealer` · Migrations — **11 blocks, enumerated below** · Ships in **v1.1**
 
 ## Overview

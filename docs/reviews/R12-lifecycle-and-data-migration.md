@@ -1,5 +1,7 @@
 # R12 — Master-data lifecycle, go-live, data migration, administration and retirement
 
+> **Superseded in scope (2026-10-22):** historical record, not edited — where it assumes a dealer or retail target, [`DECISIONS.md` `D-16`](../DECISIONS.md) and [R28](R28-manufacturing-storage-retarget-impact.md) win (manufacturing + storage).
+
 | | |
 |---|---|
 | **Date** | 2026-09-02 |

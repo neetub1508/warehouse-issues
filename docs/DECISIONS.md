@@ -20,11 +20,13 @@ Established 2026-09-01 from seven `functional-reviewer` lenses (`reviews/R1`–`
 
 ## 1. What is being built
 
-A **standalone-capable, country-neutral warehouse and inventory-management product**: one immutable,
-double-sided, append-only stock ledger at full grain, with the application layers that write to it, and
-a generic inbound movement port so that any number of future consumers — a logistics/TMS module, a
-supply-chain/procurement module, a POS, an eCommerce channel, or any vertical in the suite — can move
-stock **without `warehouse-base` ever depending on them**.
+A **standalone-capable, country-neutral warehouse and inventory-management product for manufacturing
+plant stores and storage** (D-16): one immutable, double-sided, append-only stock ledger at full grain,
+with the application layers that write to it, and a generic inbound movement port so that any number of
+consumers — `warehouse-trade` (purchase and sales), `warehouse-manufacturing` (BOM, production, MRP), a
+logistics/TMS module, or any other module in the suite — can move stock **without `warehouse-base` ever
+depending on them**. Dealer and retail/e-commerce are **not** target segments (D-16); the product is
+separate from the `dealer` module.
 
 It is not a replacement for anything currently shipping. It is the first real stock ledger in this
 suite: `services`, `field-service` and `assets` have **no** stock capability at all
@@ -35,7 +37,7 @@ suite: `services`, `field-service` and `assets` have **no** stock capability at 
 
 ## 2. D — the decisions. Do not re-litigate these.
 
-### D-1 · Five modules, not four
+### D-1 · Five modules, not four *(amended by D-16: the dealer/services adapters are removed; `warehouse-trade` and `warehouse-manufacturing` are added)*
 
 | Module | Java package | Depends on | Ships |
 |---|---|---|---|
@@ -44,19 +46,26 @@ suite: `services`, `field-service` and `assets` have **no** stock capability at 
 | **`warehouse-adapter-<vertical>`** | `ai.warehouseadapter<vertical>` — a **sibling**, never `ai.warehouse.adapter.*` | platform + `warehouse-base` + that vertical | v1 → v2, one per vertical |
 | **`warehouse-3pl`** | `ai.warehouse3pl` | platform + `warehouse-base` + `warehouse` | v2 |
 | **`warehouse-india`** | `ai.warehouseindia` | platform + `warehouse-base` + `warehouse` | v1 foundation / v2 extension |
+| **`warehouse-trade`** *(D-16)* | `ai.warehousetrade` | platform + `warehouse-base` + `warehouse` | P9 — purchase **and** sales, mirrored, one toggle |
+| **`warehouse-manufacturing`** *(D-16)* | `ai.warehousemanufacturing` | platform + `warehouse-base` + `warehouse` (+ `warehouse-india` seams for job work) | P10 — BOM, production order, MRP |
+
+**D-16 amendment.** The `warehouse-adapter-<vertical>` row survives only as the CI reference fixture
+`warehouse-adapter-example` (`D-11`). The dealer and services adapters were removed on 2026-09-21 and are
+**not** rebuilt; no dealer adapter, no retail sibling.
 
 `warehouse-india` is the **fifth** module and was not in the original brief. It exists because the
 brief's four modules carry a *vertical* axis and no *jurisdiction* axis, and every India rule —
 e-way bill, delivery challan, job work and ITC-04, the Rule 56 stock account, MRP declarations, bonded
 warehousing — would otherwise have to live either in `warehouse` (making the core product unsellable
-outside India) or in `warehouse-adapter-dealer` (making it invisible to a pharma customer). Accounting
+outside India) or in a vertical adapter (making it invisible to a customer outside that vertical). Accounting
 took the same decision and shipped `accounting-india`. Source: R5 `S-021`.
 
-**The adapter package must be a sibling.** `@ComponentScan("ai.warehouse")` would load
-`ai.warehouse.adapter.dealer` unconditionally, in every install, including ones where dealer is not
-built. This is the exact trap the accounting round-4 review found and corrected.
+**Every sibling package must be a sibling.** `@ComponentScan("ai.warehouse")` would load
+`ai.warehouse.<anything>` unconditionally, in every install, including ones where that module is not
+enabled — so `warehouse-trade` is `ai.warehousetrade` and `warehouse-manufacturing` is
+`ai.warehousemanufacturing`, never `ai.warehouse.trade` or `ai.warehouse.manufacturing` (D-16). This is the exact trap the accounting round-4 review found and corrected.
 
-### D-2 · Flyway bands are **V500000–V549999**, not V900000+
+### D-2 · Flyway bands are **V500000–V569999**, not V900000+ *(widened by D-16)*
 
 **The bands named in the original brief are occupied and are hard-reserved by platform code.** Verified:
 
@@ -76,15 +85,17 @@ loudly, it silently deletes a history row. Source: R1 `C-001`, `C-002`, `C-003`.
 |---|---|
 | `warehouse-base` | **V500000 – V509999** |
 | `warehouse` | **V510000 – V519999** |
-| `warehouse-adapter-*` (all adapters share the band, sub-allocated per adapter) | **V520000 – V529999** |
+| `warehouse-adapter-*` — **D-16:** dealer `V520000–V520999` and services `V521000–V521999` are removed and stay reserved, never reused; only `warehouse-adapter-example` (`V525000–V525999`, CI fixture) remains | **V520000 – V529999** |
 | `warehouse-3pl` | **V530000 – V539999** |
 | `warehouse-india` | **V540000 – V549999** |
+| `warehouse-trade` *(D-16)* | **V550000 – V559999** |
+| `warehouse-manufacturing` *(D-16)* | **V560000 – V569999** |
 
 Every task file pre-allocates its own migration numbers inside its module's band, so parallel work
 cannot collide. `tools/check-design-set.py` fails the build on double-ownership or an out-of-band
 number.
 
-**Five modules get a band; nothing else does.** `platform`, `mobile` and `logistics` are named on task
+**The warehouse modules in this table get a band; nothing else does** (seven since D-16). `platform`, `mobile` and `logistics` are named on task
 headers and hold **no band here**. For `platform` and `mobile` that is right by construction — a task
 writes to platform registries, it does not create platform tables (`DATA-MODEL.md` §8.3 note 2). For
 `logistics` it is a boundary, and `P6-08` states it: `logistics` is a first-class module of our own
@@ -105,8 +116,10 @@ every module's `src/` **last-write-wins**, so prefixes are not cosmetic.
 | `warehouse` | **`wh_`** | `wh_pick_tasks` |
 | `warehouse-3pl` | **`wh3_`** | `wh3_rate_cards` |
 | `warehouse-india` | **`whin_`** | `whin_eway_bills` |
-| adapter · dealer | **`whad_`** | `whad_part_supersessions` |
-| adapter · services | **`whas_`** | `whas_job_part_issues` |
+| `warehouse-trade` *(D-16)* | **`wht_`** | `wht_rate_contracts` |
+| `warehouse-manufacturing` *(D-16)* | **`whm_`** | `whm_production_orders` |
+| ~~adapter · dealer~~ — **removed by D-16**; prefix retired, never reused | ~~`whad_`~~ | — |
+| ~~adapter · services~~ — **removed by D-16**; prefix retired, never reused | ~~`whas_`~~ | — |
 | adapter · field-service | **`whaf_`** | `whaf_van_stock_assignments` |
 | adapter · assets | **`whaa_`** | `whaa_spare_consumptions` |
 | adapter · **reference example** (CI artefact, `D-11`) | **`whae_`** | `whae_demo_movements` |
@@ -200,8 +213,8 @@ directions. Source: R5 `S-078`.
 ### D-7 · Standalone is the reference configuration
 
 `platform + warehouse-base + warehouse` is a complete, shippable product — not a degraded mode. No
-capability in v1 may require `dealer`, `automotive`, `accounting` or any other vertical to be
-installed. This is what makes `warehouse-base`'s zero-vertical-dependency claim testable rather than
+capability may require `warehouse-trade`, `warehouse-manufacturing`, `accounting` or any other module
+to be installed (D-16); the `dealer` and `automotive` modules are never a dependency. This is what makes `warehouse-base`'s zero-vertical-dependency claim testable rather than
 aspirational.
 
 ### D-8 · Country-neutral core
@@ -213,6 +226,10 @@ they cannot be added later (`company_id` on the movement, `reason_code_id` from 
 catalogue, HSN on the item, `duty_status` in the position key). Sources: R3 §3, R5 §2.
 
 ### D-9 · `accessories` inventory stays permanently separate — and the cost is named, not hidden
+
+> **Amended by D-16 (`RN-051`):** accessories is never co-installed with the warehouse, so the two
+> mitigations below (the `ACCESSORIES` external-ref source row and the category-ownership rule with its
+> coexistence report) are **removed**. The separation itself stands.
 
 **User decision, taken 2026-09-01.** `accessories` keeps `accessory_warehouses`,
 `accessory_storage_bins`, `accessory_stock_levels`, `accessory_inventory_transactions`,
@@ -262,10 +279,11 @@ register its own permissions, menus, grids and filter scopes; own its own `wha*_
 vertical's tables.
 An adapter **must not**: be depended upon by `warehouse-base` or `warehouse`; write `whb_`/`wh_` tables
 directly; add a column to a base table; extend a base vocabulary by `ALTER`.
-**The test:** `warehouse-adapter-dealer` ships with **zero commits to `warehouse-base`**, enforced by an
-`ArchitectureInvariantsTest` in each module and by a `warehouse-adapter-example` reference adapter that
-CI builds. Adapter #2 (services) is in v1 for the same reason accounting put its adapter in v1: one
-adapter proves nothing about genericity. Source: R7 §4, R3 `E-006`.
+**The test:** every sibling (`warehouse-trade`, `warehouse-manufacturing`, `warehouse-3pl`,
+`warehouse-india`) ships with **zero commits to `warehouse-base`** for its own features, enforced by an
+`ArchitectureInvariantsTest` in each module and by the `warehouse-adapter-example` reference adapter that
+CI builds. The dealer and services adapters that once proved this are removed (D-16); the example
+fixture alone carries the build-time proof. Source: R7 §4, R3 `E-006`.
 
 ### D-12 · v1 is a cut line, not the scope limit
 
@@ -444,6 +462,73 @@ was adopted with the `GLOBAL-SETTINGS-DECISIONS.md` pass and folded into `P2-16`
 `P0-02` and `P2-16` carry it, and `WH-SC-151` asserts it. Restating was the alternative: it would have
 grown `I-2`'s allowlist by a sixth column in `V500030`, and it was declined.
 
+### D-16 · Warehouse is re-targeted to manufacturing + storage; dealer and retail code are removed
+
+**User decision, taken 2026-10-22** ([`reviews/R28`](reviews/R28-manufacturing-storage-retarget-impact.md)
+§8b `RN-050`…`RN-054`, which is authoritative; it follows the client gap review
+[`reviews/R27`](reviews/R27-client-p2p-stores-gap.md)). This decision **overrides every earlier document in
+this set** — reviews R1–R26, the gap registers and the competitive notes included — where they assume a
+dealer or retail target.
+
+1. **Target.** The product serves **manufacturing plant stores and storage**: raw material, consumables
+   and spares received against purchase, issued to departments and production, finished goods received
+   from production and despatched against sales, and storage sold to third parties (`warehouse-3pl`). It
+   has nothing to do with the `dealer` module and is a different product from it.
+2. **Retail/e-commerce is removed (`RN-050`).** AWB pools, NDR, COD remittances, channel accounts /
+   order imports / publish rules, tracking links and the public track page, marketplace claims, RTO
+   consignments, courier serviceability and rate quotes, and the "Channels" menu (`RN-010`…`RN-018`) are
+   deleted, not extracted. The `warehouse-retail` sibling (R28 §9) is withdrawn; retail is recreated
+   later only if a retail need appears. **Generic shipping stays in core:** carriers, service levels,
+   carrier accounts (with scopes), labels, manifests, handovers, pickups, consignments, status mappings,
+   tracking events, RMAs and return gradings. `whb_channels` keeps only the B2B kind.
+3. **Dealer items are removed or renamed (`RN-051`).** Renamed, not deleted: `VOR` → **line-stop /
+   machine-down**; `WORKSHOP` site type → **production store**; `OEM_PART_NUMBER` → **manufacturer part
+   no.**; Parts KPIs → **Stock KPIs**; item supersessions stay as **engineering change**. Deleted: OEM
+   obsolescence returns and the `OBSOLESCENCE` claim type, the garage/sub-dealer Trade Portal, accessories
+   coexistence (category ownership, external snapshots, coexistence report — amends `D-9`), the dead
+   adapter switches and labels (`RN-004`), and the dealer/retail seeded vocabulary (`RN-024`).
+4. **Clean rewrite, then one database rebuild (`RN-052`).** The removed features' migration files are
+   deleted; mixed files (`RN-046`) are rewritten so they neither create nor reference removed objects;
+   local/dev databases are dropped and rebuilt from scratch **once**. No drop migrations, no
+   compatibility shims. **For warehouse only**, this supersedes the standing "never wipe the dev DB" and
+   "never edit an applied migration" rules. There are no clients, so there is no data to preserve.
+5. **Module placement (`RN-053`).**
+   - **Core `warehouse`** keeps the shared stores pieces: gate entry (inward/outward, returnable gate
+     pass), GRN with bill no/date/billed quantity, configurable sampling bands, QC with a polymorphic
+     source and a manual "raise supplier return" action, MRN authorisation, material requisition, store
+     issue with a cost object on the issue lines (department / cost centre / production order — no ledger
+     column, `RN-034`), store return, PO/SO type and schedule-line schema, and the PO/SO creation ports.
+   - **New `warehouse-trade`** — package `ai.warehousetrade`, band **`V550000`–`V559999`**, prefix
+     **`wht_`** — holds purchase **and** sales under one toggle: PR / sales enquiry → RFQ / customer
+     quotation → award → rate contract → blanket/open/fixed order with delivery schedule → releases →
+     amendments → approval. Sales mirrors purchase row for row. Orders are created and released in core
+     through the published port, never by writing `wh_` tables.
+   - **New `warehouse-manufacturing`** — package `ai.warehousemanufacturing`, band
+     **`V560000`–`V569999`**, prefix **`whm_`** — multi-level BOM, production order (a separate document;
+     the VAS work order is not widened, `RN-033`), issue to WIP / backflush, FG and co-product receipt,
+     in-process and final QC, MRP. Job work runs through `warehouse-india`.
+   - `warehouse-3pl` and `warehouse-india` stay.
+   - Both new siblings follow the `warehouse-india` pattern: a sibling package; an
+     `@ConditionalOnExpression` enable flag; FKs point **down only**, never from a `wh_`/`whb_` table up to
+     a sibling; every vocabulary is code-list rows, never a CHECK on an extensible value (`D-10`); the
+     seed migration carries the owning-module guard (`V521000:117` pattern, `RL-003`).
+6. **Scope fence (`RN-054`).** The `dealer`, `automotive`, `accessories`, `insurance`, `services` and
+   `assets` modules are not edited by this program. **Accounting is deferred:** handover points are
+   recorded (`RM-030`…`RM-032`) but warehouse never generates a debit or credit note.
+7. **No mobile.** The user scope rule of 2026-09-11 (warehouse ships no mobile app) applies to all new
+   work; `D-13` is read subject to it.
+8. **Program order.** `P7` REM (removal + renames) runs first because everything builds on the cleaned
+   schema; then `P8` STORES (core additions); then `P9` TRADE and `P10` MFG, which may run in parallel
+   (`IMPLEMENTATION-PLAN.md`). Pre-allocated ids: REM `FR-480`…`499`, `WH-SC-660`…`679`, `OD-22`…`24`;
+   STORES `FR-500`…`539`, `WS-260`…`279`, `WH-SC-420`…`479`, `OD-25`…`29`; TRADE `FR-540`…`619`,
+   `WS-280`…`319`, `WH-SC-480`…`599`, `OD-30`…`39`; MFG `FR-620`…`669`, `WS-320`…`339`,
+   `WH-SC-600`…`659`, `OD-40`…`44`. Requirements for P7–P10 live in `docs/frd/FRD-<AREA>.md`.
+9. **What it withdraws.** FRs `FR-074`, `FR-279`, `FR-358`, `FR-359`, `FR-360`, `FR-365`, `FR-419`,
+   `FR-420` and `FR-422` are **WITHDRAWN** (kept, marked, never deleted). Tasks whose whole scope is dealer
+   or retail are **VOID** (header note in each file). `DATA-MODEL.md` §2.5.1 (`whad_`) and
+   `BUILD-SPEC-SCREENS.md` `WS-194`…`WS-198` are removed. R28 §8c item 1 names this decision "D-15"; that
+   number was already taken, so it is **D-16**.
+
 ---
 
 ## 3. OD — open decisions. Each names its deadline and who decides.
@@ -514,7 +599,7 @@ it can honour "reuses `P5-22`'s `max_clock_skew_seconds`". Recorded in `issues/p
 
 | # | Decision | Deadline | Recommendation |
 |---|---|---|---|
-| **OD-2** | **Does the dealer *vehicle* inventory (`pdi_vehicle_inventory`, `pdi_stock_yards`, `pdi_yard_storage_locations`, `pdi_storage_slot_assignments`) migrate onto the warehouse ledger?** A vehicle is a serial-controlled item in a location; the model fits. But it is a shipped, load-bearing dealer workflow | v3 planning, not before | **RESOLVED 2026-09-11.** Keep vehicle inventory in its existing authority in v1/v2. In v3 offer an opt-in adapter only after serial, custody, reconciliation, rollback and source-write-exclusion acceptance passes. No automatic migration and no dual writer. [Contract](GLOBAL-SETTINGS-DECISIONS.md). |
+| **OD-2** *(moot since D-16 — warehouse no longer serves dealers; kept for the record)* | **Does the dealer *vehicle* inventory (`pdi_vehicle_inventory`, `pdi_stock_yards`, `pdi_yard_storage_locations`, `pdi_storage_slot_assignments`) migrate onto the warehouse ledger?** A vehicle is a serial-controlled item in a location; the model fits. But it is a shipped, load-bearing dealer workflow | v3 planning, not before | **RESOLVED 2026-09-11.** Keep vehicle inventory in its existing authority in v1/v2. In v3 offer an opt-in adapter only after serial, custody, reconciliation, rollback and source-write-exclusion acceptance passes. No automatic migration and no dual writer. [Contract](GLOBAL-SETTINGS-DECISIONS.md). |
 | **OD-4** | **Who owns the shared supplier/counterparty master long-term?** `warehouse-base` owns `whb_counterparties` in v1 because nothing else does (`asset_vendors` is assets-owned; accessories receiving has no supplier field at all). If a supply-chain module is built in v3 it will want one too | v3 | **RESOLVED 2026-09-11.** warehouse-base keeps its counterparty master. Other products join through external references; no upward foreign key. A future extraction must preserve identifiers and port compatibility; it is not a customer toggle. [Contract](GLOBAL-SETTINGS-DECISIONS.md). |
 
 ### 3.4 Allocated 2026-09-03 by round 3 — open, escalated, and both move the v1 cut line
@@ -574,14 +659,15 @@ Per **D-12**, nothing is left undefined. Phases are the delivery unit; versions 
 
 | Version | Phases | What it is | Exit criterion |
 |---|---|---|---|
-| **v1** | **P0** ledger foundation · **P1** masters, identity, inbound · **P2** outbound, counting, valuation, returns, printing, reports | The stock ledger and inventory control: multi-site/bin stock at full grain, items & UoM, lots/expiry/serials, receiving & QC & putaway, allocation & pick/pack/dispatch, transfers with in-transit, adjustments, cycle & physical counts, costing & valuation, reorder, **basic returns**, **printing**, **the India movement documents**, the reports, **and the dealer-parts + services adapters** | On a **standalone** install (platform + `warehouse-base` + `warehouse`, no vertical, no accounting) a storekeeper creates a site, generates a bin grid, imports an item master and opening stock, receives against a purchase document, puts away, allocates and picks an order, ships it with a printed pick list and delivery document, takes a customer return back into stock, transfers stock to a second site through in-transit, counts a zone and posts the variance, and produces a stock ledger, a position report and a valuation report **that reconcile to each other and to a full ledger rebuild** |
+| **v1** | **P0** ledger foundation · **P1** masters, identity, inbound · **P2** outbound, counting, valuation, returns, printing, reports | The stock ledger and inventory control: multi-site/bin stock at full grain, items & UoM, lots/expiry/serials, receiving & QC & putaway, allocation & pick/pack/dispatch, transfers with in-transit, adjustments, cycle & physical counts, costing & valuation, reorder, **basic returns**, **printing**, **the India movement documents**, the reports. *(D-16: the dealer-parts and services adapters once listed here are removed)* | On a **standalone** install (platform + `warehouse-base` + `warehouse`, no vertical, no accounting) a storekeeper creates a site, generates a bin grid, imports an item master and opening stock, receives against a purchase document, puts away, allocates and picks an order, ships it with a printed pick list and delivery document, takes a customer return back into stock, transfers stock to a second site through in-transit, counts a zone and posts the variance, and produces a stock ledger, a position report and a valuation report **that reconcile to each other and to a full ledger rebuild** |
 | **v1.1** | **P3** execution & mobile | The warehouse floor: RF/handheld task flows, task management & priority, wave planning & release, batch/cluster/zone picking, packing & cartonisation, the print server & device management, dock appointments, van stock, the field-service and assets adapters | An operator completes a full receive→putaway→pick→pack→ship cycle **entirely on a handheld**, and a wave of 200 order lines releases, picks and ships with task interleaving |
-| **v2** | **P4** India statutory & compliance · **P5** 3PL, channels & reverse logistics | Sellable as a compliance product and to a 3PL: job work & ITC-04, the Rule 56 stock account, MRP & Legal Metrology, bonded/MOOWR, the regulated-goods packs; owner-of-goods billing, rate cards, storage & handling meters, the client portal, channel/marketplace order intake, carrier integration, full reverse logistics, NDR/RTO/COD | A 3PL bills a client for a month of storage and handling from metered events, and a customer files ITC-04 and the Rule 56 stock account from warehouse data |
+| **v2** | **P4** India statutory & compliance · **P5** 3PL, channels & reverse logistics | Sellable as a compliance product and to a 3PL: job work & ITC-04, the Rule 56 stock account, MRP & Legal Metrology, bonded/MOOWR, the regulated-goods packs; owner-of-goods billing, rate cards, storage & handling meters, the client portal, carrier integration, full reverse logistics. *(D-16: channel/marketplace order intake and NDR/RTO/COD are removed)* | A 3PL bills a client for a month of storage and handling from metered events, and a customer files ITC-04 and the Rule 56 stock account from warehouse data |
 | **v3** | **P6** optimisation, planning & the logistics seam | Slotting, replenishment optimisation, labour standards, ABC/XYZ & velocity, demand & reorder planning, supplier scorecards, EPCIS/GS1 event capture, automation interfaces, control-tower analytics — **and the `logistics` module itself**, consuming `warehouse-base` through the port with zero commits to it | The `logistics` module ships trips, ePOD and freight settlement, moves stock through the port, and `warehouse-base` has not been edited to allow it |
 
-**Adapter schedule:** dealer-parts **v1** (proves the port) · services **v1** (proves genericity —
-one adapter proves nothing) · field-service and assets **v1.1** · logistics **v3** · accessories
-**never** (D-9).
+**Sibling schedule (D-16):** `P7` removal and renames first · `P8` core stores additions · then
+`warehouse-trade` (`P9`) and `warehouse-manufacturing` (`P10`), which may run in parallel · logistics
+**v3** · accessories **never** (D-9). The dealer-parts and services adapters once scheduled for v1 are
+removed; field-service and assets adapters are not scheduled.
 
 ### 5.1 · Four amendments to the ladder, taken 2026-09-01 after the first authoring wave
 
@@ -607,15 +693,15 @@ That cannot happen here.
 
 | Kind | Namespace | Authority |
 |---|---|---|
-| Tasks | **`P0-01` … `P6-nn`** | `issues/pN-nn.md` — the file glob is the count |
-| Requirements | **`FR-001` …** | `WAREHOUSE-FUNCTIONAL-REQUIREMENTS.md` |
+| Tasks | **`P0-01` … `P10-nn`** (P7–P10 added by D-16) | `issues/pN-nn.md` — the file glob is the count |
+| Requirements | **`FR-001` …** | `WAREHOUSE-FUNCTIONAL-REQUIREMENTS.md` · and, since `D-16`, the area files `docs/frd/` `FRD-REM.md`, `FRD-STORES.md`, `FRD-TRADE.md`, `FRD-MFG.md` (ranges in `D-16` item 8) |
 | Decisions | **`D-1` …** | this file |
-| Open decisions | **`OD-1` …** | this file |
+| Open decisions | **`OD-1` …** | this file · and, since `D-16`, the area files `docs/frd/` `FRD-REM.md`, `FRD-STORES.md`, `FRD-TRADE.md`, `FRD-MFG.md` (ranges in `D-16` item 8) |
 | Invariants | **`L-1` … `L-14`** — plus **`L-15`, allocated 2026-09-03** by `OD-14` and **owed into §4**, which still stops at `L-14`. The row is written verbatim in [`OPEN-DECISIONS-RESOLVED.md`](OPEN-DECISIONS-RESOLVED.md) §2 so the later wave transcribes rather than re-derives it | this file |
 | Enforceable constraints | **`I-1` … `I-20`** — plus **`I-21`, allocated 2026-09-03** by `OD-14` as `L-15`'s database guard and **owed into `DATA-MODEL.md` §6.3**, which still stops at `I-20`. Allocating it here rather than there is deliberate: §6 is the allocation, and an id claimed in two places is the collision this table exists to prevent. **`I-22`, `I-23`, `I-24`** were **allocated 2026-09-10** by `GAP-REGISTER-R4.md` §4.0 and are owed into §6.3 after `I-21`: `I-22`, a movement at an instant with no `REGISTERED` link is refused (`V500030`); `I-23`, the `REGISTERED` history is exclusive and append-only (`V500037`); `I-24`, a rule row that a reservation or task references is immutable (`V500031`, `V500033`, `V510017`) | `DATA-MODEL.md` §invariants-as-SQL |
 | Irreversible rows | **`IRR-01` … `IRR-63`** — plus **`IRR-64` … `IRR-67`, allocated 2026-09-10** by `GAP-REGISTER-R4.md` §4.0 and owed into `IRREVERSIBLE.md` §2: registration history, v1 junction history, the outbox event schema, and non-ledger partitioning at `CREATE`. The next free is `IRR-68` | `IRREVERSIBLE.md` §2 |
-| Scenarios | **`WH-SC-001` …** | `SCENARIO-CATALOGUE.md` |
-| Screens | **`WS-001` … `WS-237`** — **`WS-238`** *Warehouse Grants* was **allocated 2026-09-11** to round 3's `RA-001` (`P1-18`). The same day's second fold (lane `W0-1b`) allocated **`WS-239`** *Item Prices* (`RA-002`, `P2-25`), **`WS-243`** *Location Utilisation* (`RC-009`, `P6-02`) and **`WS-244`** *Metric Targets* (`RC-007`, `P2-21`), and **reserved `WS-242`** for `P5-13`'s marketplace-claim queue. **`WS-240`** *Trade Portal* and **`WS-241`** *Approval Levels* were **allocated 2026-09-10** by `GAP-REGISTER-R4.md` §4.0. **`WS-245`** *Master Merge Log* was **allocated 2026-09-16** by `P1-21` | `BUILD-SPEC-SCREENS.md` §1 — the index is the allocation; the next free is `WS-246` |
+| Scenarios | **`WH-SC-001` …** | `SCENARIO-CATALOGUE.md` · and, since `D-16`, the area files `docs/frd/` `FRD-REM.md`, `FRD-STORES.md`, `FRD-TRADE.md`, `FRD-MFG.md` (ranges in `D-16` item 8) |
+| Screens | **`WS-001` … `WS-237`** — **`WS-238`** *Warehouse Grants* was **allocated 2026-09-11** to round 3's `RA-001` (`P1-18`). The same day's second fold (lane `W0-1b`) allocated **`WS-239`** *Item Prices* (`RA-002`, `P2-25`), **`WS-243`** *Location Utilisation* (`RC-009`, `P6-02`) and **`WS-244`** *Metric Targets* (`RC-007`, `P2-21`), and **reserved `WS-242`** for `P5-13`'s marketplace-claim queue. **`WS-240`** *Trade Portal* and **`WS-241`** *Approval Levels* were **allocated 2026-09-10** by `GAP-REGISTER-R4.md` §4.0. **`WS-245`** *Master Merge Log* was **allocated 2026-09-16** by `P1-21` | `BUILD-SPEC-SCREENS.md` §1 — the index is the allocation; the next free is `WS-246` · and, since `D-16`, the area files `docs/frd/` `FRD-REM.md`, `FRD-STORES.md`, `FRD-TRADE.md`, `FRD-MFG.md` (ranges in `D-16` item 8) |
 | Findings — R1 codebase reality | **`C-001` … `C-050`** | `reviews/R1` |
 | Findings — R2 tier-1 WMS | **`T-001` … `T-097`** | `reviews/R2` |
 | Findings — R3 ERP / mid-market | **`E-001` … `E-090`** | `reviews/R3` |

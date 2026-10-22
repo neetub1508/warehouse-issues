@@ -1,5 +1,7 @@
 # LENS R6 — Prior-Art Triage
 
+> **Superseded in scope (2026-10-22):** historical record, not edited — where it assumes a dealer or retail target, [`DECISIONS.md` `D-16`](../DECISIONS.md) and [R28](R28-manufacturing-storage-retarget-impact.md) win (manufacturing + storage).
+
 **Target:** a new Warehouse / Inventory design set for the Classic platform
 (`warehouse-base` · `warehouse` · `warehouse-adapter-<vertical>` · `warehouse-3pl` · `warehouse-india`)
 **Prior art triaged:** `/Users/bbhushan/work/git/workspace/classic-issues/` — `warehouse-base/docs/`, `warehouse-core/docs/`, `supply-chain-core/docs/` (+ the `logistics/docs/TMS/` folder, see §0.1)

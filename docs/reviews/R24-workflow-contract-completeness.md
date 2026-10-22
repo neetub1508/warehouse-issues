@@ -1,5 +1,7 @@
 # R24 — workflow contract completeness
 
+> **Superseded in scope (2026-10-22):** historical record, not edited — where it assumes a dealer or retail target, [`DECISIONS.md` `D-16`](../DECISIONS.md) and [R28](R28-manufacturing-storage-retarget-impact.md) win (manufacturing + storage).
+
 
 **Date** 2026-09-10 · **Prefix** `RJ-` · **Branch** `docs/round-4-cardinality-and-gaps` · **Mode** gap report (no code exists): I derived the contracts from the design set rather than from code.
 

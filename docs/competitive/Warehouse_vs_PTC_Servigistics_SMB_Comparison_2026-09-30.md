@@ -1,5 +1,7 @@
 # Warehouse and service parts management: comparison with PTC Servigistics
 
+> **Superseded in scope (2026-10-22):** historical record, not edited — where it assumes a dealer or retail target, [`DECISIONS.md` `D-16`](../DECISIONS.md) and [R28](../reviews/R28-manufacturing-storage-retarget-impact.md) win (manufacturing + storage).
+
 **Prepared:** 30 September 2026  
 **Purpose:** Identify what we already have, what is missing, and what to build for small and midsize service-parts businesses. This is a product and source-code assessment, not a claim of enterprise feature parity.
 

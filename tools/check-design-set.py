@@ -85,6 +85,10 @@ PLAN = "docs/IMPLEMENTATION-PLAN.md"
 DECISIONS = "docs/DECISIONS.md"
 IRREVERSIBLE = "docs/IRREVERSIBLE.md"
 ISSUE_MAP = "issues/CREATED.md"
+# D-16 (2026-10-22): the re-target areas define their own FR / WH-SC / WS / OD rows, one file per
+# area, in the same row shapes as the main authorities. Citations resolve against both.
+AREA_DIR = "docs/frd"
+OD_DEF_RE_TEXT = r"^\|\s*\*\*OD-(\d{1,2})\*\*\s*\|"
 
 REVIEWS = {
     "C": "docs/reviews/R1-codebase-reality.md",
@@ -189,13 +193,15 @@ BANDS = {
     "warehouse-adapter": (520000, 529999),
     "warehouse-3pl": (530000, 539999),
     "warehouse-india": (540000, 549999),
+    "warehouse-trade": (550000, 559999),           # D-16
+    "warehouse-manufacturing": (560000, 569999),   # D-16
 }
 # Named on a task header but carrying no band of their own. Declaring one of these alongside a
 # banded module is normal (a task edits `platform` registries too); declaring *only* one of these
 # while claiming a version is a defect, because no band authorises the number.
 UNBANDED_MODULES = ("platform", "mobile", "logistics", "—", "-")
 
-TASK_FILE_RE = re.compile(r"^p([0-6])(in)?-(\d{2})\.md$")
+TASK_FILE_RE = re.compile(r"^p(10|[0-9])(in)?-(\d{2})\.md$")  # P7-P10 added by D-16
 PHASE_EPIC = {
     "P0": "issues/01-EPIC-p0.md",
     "P1": "issues/02-EPIC-p1.md",
@@ -205,6 +211,11 @@ PHASE_EPIC = {
     "P4": "issues/06-EPIC-p4.md",
     "P5": "issues/07-EPIC-p5.md",
     "P6": "issues/08-EPIC-p6.md",
+    # D-16 re-target phases (IMPLEMENTATION-PLAN.md §1.9)
+    "P7": "issues/09-EPIC-p7.md",
+    "P8": "issues/10-EPIC-p8.md",
+    "P9": "issues/11-EPIC-p9.md",
+    "P10": "issues/12-EPIC-p10.md",
 }
 
 # --- citation and definition patterns -------------------------------------
@@ -214,7 +225,7 @@ SC_CITE_RE = re.compile(r"\bWH-SC-(\d+)\b")
 SC_DEF_RE = re.compile(r"^\|\s*\*\*WH-SC-(\d{3})\*\*")
 WS_CITE_RE = re.compile(r"\bWS-(\d+)\b")
 WS_DEF_RE = re.compile(r"^\|\s*WS-(\d{3})\s*\|")
-TABLE_RE = re.compile(r"\b(?:whb|wh3|whin|wha[a-z]|wh)_[a-z0-9_]+\b")
+TABLE_RE = re.compile(r"\b(?:whb|wh3|whin|wht|whm|wha[a-z]|wh)_[a-z0-9_]+\b")
 FINDING_CITE_RE = re.compile(r"\b(R[A-HJ-L]|[CTEFSPGQHUYZKOJ])-(\d{1,3}[a-z]?)\b(?!-\d)")
 ISSUE_CITE_RE = re.compile(r"(?<![\w/#])#(\d{1,4})\b")
 PR_REF_RE = re.compile(r"(?:\bPR|\bpull request)\s*#\d{1,4}\b", re.IGNORECASE)
@@ -222,8 +233,8 @@ ISSUE_MAP_ROW_RE = re.compile(r"^\|\s*#(\d+)\s*\|\s*`([^`]+)`")
 VERSION_RE = re.compile(r"\bV(\d{6})\b")
 VERSION_RANGE_RE = re.compile(r"V(\d{6})`?\s*[\u2013\u2014-]\s*`?V?(\d{6})")
 TASK_ID_RE = re.compile(r"\bP([0-6])(?:-IN)?-(\d{2})\b")
-PLAN_ROW_RE = re.compile(r"^\|\s*\*\*(P[0-6](?:-IN)?-\d{2})\*\*\s*\|")
-EPIC_CHECK_RE = re.compile(r"^-\s*\[[ xX]\]\s*\**\s*`?\s*(P[0-6](?:-IN)?-\d{2})\b")
+PLAN_ROW_RE = re.compile(r"^\|\s*\*\*(P(?:10|[0-9])(?:-IN)?-\d{2})\*\*\s*\|")
+EPIC_CHECK_RE = re.compile(r"^-\s*\[[ xX]\]\s*\**\s*`?\s*(P(?:10|[0-9])(?:-IN)?-\d{2})\b")
 HEADING_RE = re.compile(r"^#{2,3}\s+(.*)$")
 
 REQUIRED_SECTIONS = (
@@ -372,6 +383,22 @@ def iter_lines(lines):
             yield lineno, text, True
             continue
         yield lineno, text, fenced
+
+
+def area_files(root):
+    """docs/frd/*.md, sorted — the per-area requirement files added by DECISIONS.md D-16."""
+    d = os.path.join(root, AREA_DIR)
+    if not os.path.isdir(d):
+        return []
+    return sorted("%s/%s" % (AREA_DIR, n) for n in os.listdir(d) if n.endswith(".md"))
+
+
+def defined_with_areas(root, main, pattern):
+    """Ids defined in the main authority plus every docs/frd area file."""
+    out = defined_ints(read_lines(root, main), pattern)
+    for path in area_files(root):
+        out |= defined_ints(read_lines(root, path), pattern)
+    return out
 
 
 def defined_ints(lines, pattern):
@@ -620,35 +647,35 @@ class Scanner:
 # --------------------------------------------------------------------------
 
 def check_fr(root, scanner):
-    defined = defined_ints(read_lines(root, FRD), FR_DEF_RE)
+    defined = defined_with_areas(root, FRD, FR_DEF_RE)
     if not defined:
         die("no FR definitions found in %s — the parser is out of date" % FRD)
     out = scanner.scan(
         1, "fr-citations", FR_CITE_RE,
         lambda m: int(m.group(1)) not in defined,
-        lambda m: "FR-%03d is cited but not defined in %s" % (int(m.group(1)), FRD))
+        lambda m: "FR-%03d is cited but not defined in %s or %s/" % (int(m.group(1)), FRD, AREA_DIR))
     return sorted(out, key=lambda v: v.key())
 
 
 def check_scenarios(root, scanner):
-    defined = defined_ints(read_lines(root, SCENARIOS), SC_DEF_RE)
+    defined = defined_with_areas(root, SCENARIOS, SC_DEF_RE)
     if not defined:
         die("no WH-SC definitions found in %s — the parser is out of date" % SCENARIOS)
     out = scanner.scan(
         2, "scenario-citations", SC_CITE_RE,
         lambda m: int(m.group(1)) not in defined,
-        lambda m: "WH-SC-%03d is cited but not defined in %s" % (int(m.group(1)), SCENARIOS))
+        lambda m: "WH-SC-%03d is cited but not defined in %s or %s/" % (int(m.group(1)), SCENARIOS, AREA_DIR))
     return sorted(out, key=lambda v: v.key())
 
 
 def check_screens(root, scanner):
-    defined = defined_ints(read_lines(root, SCREENS), WS_DEF_RE)
+    defined = defined_with_areas(root, SCREENS, WS_DEF_RE)
     if not defined:
         die("no WS definitions found in %s — the parser is out of date" % SCREENS)
     out = scanner.scan(
         12, "screen-citations", WS_CITE_RE,
         lambda m: int(m.group(1)) not in defined,
-        lambda m: "WS-%03d is cited but has no row in %s §1" % (int(m.group(1)), SCREENS))
+        lambda m: "WS-%03d is cited but has no row in %s §1 or %s/" % (int(m.group(1)), SCREENS, AREA_DIR))
     return sorted(out, key=lambda v: v.key())
 
 
@@ -692,7 +719,8 @@ def header_line(lines):
 
 
 MODULE_TOKEN_RE = re.compile(
-    r"`(warehouse-adapter-[a-z-]+|warehouse-base|warehouse-3pl|warehouse-india|warehouse"
+    r"`(warehouse-adapter-[a-z-]+|warehouse-base|warehouse-3pl|warehouse-india"
+    r"|warehouse-trade|warehouse-manufacturing|warehouse"
     r"|platform|mobile|logistics|[—-])`")
 
 
@@ -1244,6 +1272,17 @@ def id_registers(root):
           lambda m: "OD-%s" % m.group(1), "open decisions", "open decision", "OD-")
     table(DECISIONS, re.compile(r"^\|\s*\*\*L-(\d{1,2})\*\*\s*\|"),
           lambda m: "L-%s" % m.group(1), "invariants", "invariant", "L-")
+    # D-16 area files: each is its own register, so an id defined both in a main authority and in
+    # an area file (or in two area files) is reported by (a) as a double definition.
+    for path in area_files(root):
+        table(path, FR_DEF_RE, lambda m: "FR-%03d" % int(m.group(1)),
+              "requirements", "requirement", "FR-")
+        table(path, SC_DEF_RE, lambda m: "WH-SC-%03d" % int(m.group(1)),
+              "scenarios", "scenario", "WH-SC-")
+        table(path, WS_DEF_RE, lambda m: "WS-%03d" % int(m.group(1)),
+              "screens", "screen", "WS-")
+        table(path, re.compile(OD_DEF_RE_TEXT), lambda m: "OD-%s" % m.group(1),
+              "open decisions", "open decision", "OD-")
     for prefix, path in sorted(REVIEWS.items()):
         table(path, FINDING_DEF_RE[prefix], lambda m, p=prefix: "%s-%s" % (p, m.group(1)),
               "findings — %s" % REVIEW_LABEL[prefix], "finding", "%s-" % prefix)

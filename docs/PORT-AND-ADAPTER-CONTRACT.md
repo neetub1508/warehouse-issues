@@ -5,9 +5,16 @@
 
 <!-- check-design-set: issue-citations file #2 #9 #790 #791 — `#2` and `#9` are ordinals in prose, not issue references — *Refusal #2*, *Adapter #2 (services)*, *ship-blocker #2*, *logistics needs #1, #2, #3, #5, #6, #10* — and at COMPETITOR-BENCHMARK.md:70/:146 `#9` is the markdown in-page anchor `[§9](#9--where-the-audits-disagree)`. In this repository `#2` and `#9` are in fact the two **pull requests** opened while the backlog was being filed, so no issue row can ever exist for either: see issues/CREATED.md. And `#790` and `#791` are issues in **`neetub1508/classic`**, cited as `classic#790, #791` with the second elided in the ordinary English way. The first resolves; the elided continuation reads to the checker as a bare `#NN`. It is a cross-repo citation, never a warehouse issue -->
 
-> **What this document is for.** The user's requirement is that warehouse serves the dealer module
-> now, a logistics/supply-chain module later, and *"if we have more in the future, we should be able
-> to do that"*. This is the document that turns that sentence into a **testable claim**. It is read
+> **Re-target · 2026-10-22 (`DECISIONS.md` `D-16`).** Warehouse serves **manufacturing plant stores and
+> storage**; it does not serve the dealer module, and dealer and retail code are removed. The port's
+> first real consumers are the siblings **`warehouse-trade`** (purchase + sales, `ai.warehousetrade`,
+> `wht_`, `V550000`–`V559999`) and **`warehouse-manufacturing`** (`ai.warehousemanufacturing`, `whm_`,
+> `V560000`–`V569999`) — §9.0. §9.1–§9.4 describe adapters that are **removed or unscheduled** and are
+> kept as the historical record. The wire contract itself (§2–§4, §10) is unchanged.
+
+> **What this document is for.** The user's original requirement was that warehouse serves the dealer
+> module now, a logistics/supply-chain module later, and *"if we have more in the future, we should be
+> able to do that"* — re-targeted by `D-16` to manufacturing + storage. This is the document that turns that sentence into a **testable claim**. It is read
 > by every adapter author, by whoever builds the `logistics` module, and by the reviewer who has to
 > decide whether a pull request broke the seam.
 >
@@ -183,14 +190,15 @@ admits only one implementation and is therefore useless for an N-consumer port:
 ```jsonc
 POST /api/warehouse/movements
 {
-  "source_system":            "ADAPTER_DEALER",     // FK -> whb_source_systems.code
-  "source_document_type":     "PARTS_INVOICE",      // FK -> whb_document_types.code
-  "source_document_id":       "PI-2026-004417",     // opaque string, the producer's id
+  // illustrative codes (D-16): a production-order issue posted by warehouse-manufacturing
+  "source_system":            "WAREHOUSE_MANUFACTURING", // FK -> whb_source_systems.code
+  "source_document_type":     "PRODUCTION_ORDER",   // FK -> whb_document_types.code
+  "source_document_id":       "PRO-2026-004417",    // opaque string, the producer's id
   "source_document_line_no":  3,                    // optional
-  "idempotency_key":          "ADAPTER_DEALER:PI-2026-004417:ISSUE:1",
+  "idempotency_key":          "WAREHOUSE_MANUFACTURING:PRO-2026-004417:ISSUE:1",
   "company_id":               "…uuid…",
   "warehouse_id":             "…uuid…",
-  "movement_type_code":       "SALE_ISSUE",         // FK -> whb_movement_types.code
+  "movement_type_code":       "ISSUE_TO_PRODUCTION", // FK -> whb_movement_types.code (illustrative)
   "occurred_at":              "2026-09-01T14:22:05.000Z",
   "occurred_at_tz_offset":    330,                  // minutes; optional, v1.1 feature
   "posting_date":             "2026-09-01",
@@ -357,8 +365,8 @@ afterwards (`RL-007`).
 > must be supplied; supplying two that disagree is `ITEM_IDENTIFIER_CONFLICT`. *(`FR-038`, `T-033`,
 > `G-040`.)*
 >
-> **Why the fourth is not optional.** A dealer's own part number, a job card's material code and an
-> OEM's number are **none of the first three**. Without the fourth, either every adapter stores a
+> **Why the fourth is not optional.** A manufacturer's part number, a drawing number and a supplier's
+> code are **none of the first three**. Without the fourth, either every adapter stores a
 > warehouse UUID in its own tables — a hidden coupling that makes a re-seed impossible — or the port
 > grows a per-vertical identifier column, which is the failure the port exists to prevent. `FR-061`.
 
@@ -1310,8 +1318,8 @@ extend: **logistics** needs #1, #2, #3, #5, #6, #10; a **supply-chain** module n
 > triggers a **blind `repair()` plus one retry** (`FlywayConfiguration.java:246-264`), so a migration
 > that is not individually idempotent will be partially re-run.
 
-The adapter sub-bands are pre-allocated so parallel work cannot collide — dealer `V520000–520999`,
-services `V521000–521999`, field-service `V522000–522999`, assets `V523000–523999`, **logistics
+The adapter sub-bands are pre-allocated so parallel work cannot collide — dealer `V520000–520999` and
+services `V521000–521999` (**both removed 2026-09-21, reserved, never reused — `D-16`**), field-service `V522000–522999`, assets `V523000–523999`, **logistics
 `V524000–524999`** — all inside `warehouse-adapter-*`'s `V520000–V529999` band (`D-2`, `G-043`).
 **No task in this design set writes a number inside the logistics sub-band** (`H-006`): the reservation
 exists so the `logistics` design set can number its own registration migration, and the example below
@@ -1626,8 +1634,9 @@ Three shapes must be copied, not paraphrased:
 **What must change for a warehouse ratchet to actually run:**
 
 - a `warehouse-ratchets` job, copied from `tests.yml:259-408`, re-scoped to `-Pwith-warehouse` and
-  `-pl warehouse-base/backend,warehouse/backend,warehouse-adapter-dealer/backend,warehouse-adapter-services/backend`
-  (adding `warehouse-3pl/backend,warehouse-india/backend` at v2), **without** `continue-on-error`,
+  `-pl warehouse-base/backend,warehouse/backend,warehouse-adapter-example/backend`
+  (adding `warehouse-3pl/backend,warehouse-india/backend,warehouse-trade/backend,warehouse-manufacturing/backend`
+  as each lands — `D-16`; the dealer/services adapter modules no longer exist), **without** `continue-on-error`,
   with one `dir:prefix` pair per warehouse module in the assertion step;
 - a **blocking** Jest step inside the existing `frontend` job, copied from `:123-128`, with
   `--passWithNoTests` (required — "no tests found" is a non-zero exit in Jest and the trees are empty
@@ -1644,11 +1653,32 @@ same holds for warehouse.
 
 # 9 · The concrete consumers, defined now
 
+## 9.0 The `D-16` consumers — `warehouse-trade` and `warehouse-manufacturing`
+
+Both are **modules**, not adapters, in the `warehouse-india` pattern: a sibling package, an
+`@ConditionalOnExpression` enable flag, FKs pointing **down only** (never from a `wh_`/`whb_` table up
+into `wht_`/`whm_`), vocabularies as code-list rows with no CHECK on an extensible value, and a seed
+migration carrying the owning-module guard (`V521000:117` pattern, `RL-003`). Neither writes a `wh_` or
+`whb_` table directly.
+
+| | `warehouse-trade` | `warehouse-manufacturing` |
+|---|---|---|
+| **Package · prefix · band** | `ai.warehousetrade` · `wht_` · `V550000`–`V559999` | `ai.warehousemanufacturing` · `whm_` · `V560000`–`V569999` |
+| **Owns** | PR / sales enquiry, RFQ / customer quotation, award, rate contract, blanket/open/fixed order agreements with delivery schedule, releases, amendments, approval — purchase and sales mirrored | multi-level BOM, production order, WIP, backflush rules, FG + co-product receipt, in-process / final QC plans, MRP |
+| **Reaches core through** | the PO creation/release port (`P8-01`) and the sales demand-order creation/release port (`P8-02`) | the movement port (issue to production, FG receipt) and the store-issue cost object (`P8-10`); QC through the polymorphic QC source (`P8-06`); job work through `warehouse-india` seams |
+| **Never** | writes `wh_purchase_*` / `wh_demand_orders` rows itself; generates a debit or credit note (accounting deferred, `RN-054`) | widens the VAS work order (`RN-033`); adds a ledger column for the cost object (`RN-034`) |
+| **Phase** | `P9` (after `P8`) | `P10` (after `P8`, parallel with `P9`) |
+
+Requirements: `docs/frd/FRD-TRADE.md`, `docs/frd/FRD-MFG.md`. Workflow contracts: `docs/contracts/`.
+
 Defined **now**, per `D-12`: nothing is left to "we'll look at it later". Each subsection says what
 the consumer posts, which types and document types it needs, which catalogue rows it seeds, what it
 reads, and its version.
 
-## 9.1 `warehouse-adapter-dealer` — spare parts · **v1**
+## 9.1 `warehouse-adapter-dealer` — spare parts · **v1** — **REMOVED (`D-16`)**
+
+> Removed 2026-09-21 and not rebuilt; `RN-051`. Kept for the record only — `FR-074`, `FR-358`, `FR-359`
+> are withdrawn and `P2-25` is VOID.
 
 | | |
 |---|---|
@@ -1661,7 +1691,10 @@ reads, and its version.
 | **Xrefs** | `whb_item_external_refs` with `source_module = 'DEALER'` for the dealer's own part numbers |
 | **Version** | **v1** — it is the adapter that proves the port |
 
-## 9.2 `warehouse-adapter-services` — job-card parts · **v1**
+## 9.2 `warehouse-adapter-services` — job-card parts · **v1** — **REMOVED (`D-16`)**
+
+> Removed 2026-09-21 and not rebuilt. `FR-360` is withdrawn and `P2-26` is VOID. Issue to a department or
+> a production order is core stores (`P8-09`/`P8-10`) and `warehouse-manufacturing`.
 
 | | |
 |---|---|
@@ -1674,11 +1707,11 @@ reads, and its version.
 | **Version** | **v1**, and it is the **largest consumer** |
 | **Note** | `services` has **no parts table today** — a clean sheet. `services.parts_used` is free `TEXT` (`services/…/V40095__Change_parts_used_from_jsonb_to_text.sql`). Material request → reservation before it is an order → issue in parts as the job progresses → **return to store crediting the job** → the warranty split (`FR-360`). **Parts issued to open jobs are neither stock nor cost of sale** and report as WIP at every month end (`FR-361`) |
 
-**Why it is in v1 and not v1.1:** *one adapter proves nothing about genericity* (`D-11`, `E-006`).
-The dealer adapter and the services adapter must both land without either forcing a base-schema
-change the other did not want. That is the whole acceptance test for the port.
+**Historical (superseded by `D-16`):** *one adapter proves nothing about genericity* (`D-11`, `E-006`).
+The acceptance test now falls on `warehouse-trade` and `warehouse-manufacturing`: both must land
+without either forcing a base-schema change the other did not want.
 
-## 9.3 `warehouse-adapter-field-service` — van stock · **v1.1**
+## 9.3 `warehouse-adapter-field-service` — van stock · **v1.1** — *not scheduled (`D-16`)*
 
 | | |
 |---|---|
@@ -1694,7 +1727,7 @@ The van is a `whb_locations` row with `location_type = 'MOBILE'`, its technician
 `CUSTODIAN` row of `whb_location_user_assignments` (`RG-004`). Replenished by a transfer, consumed at job close, cycle-counted,
 and its unreturned parts age (`FR-363`).
 
-## 9.4 `warehouse-adapter-assets` — spares · **v1.1**
+## 9.4 `warehouse-adapter-assets` — spares · **v1.1** — *not scheduled (`D-16`)*
 
 | | |
 |---|---|
@@ -1811,7 +1844,7 @@ that depart and never arrive.
 
 | | Decision | Source |
 |---|---|---|
-| **Dealer vehicle inventory** (`pdi_vehicle_inventory`, 26 `pdi_*` tables) | **Not migrated in v1 or v2.** The **test** is stated rather than the answer: *can `whb_serials` + `whb_movement_line_attributes` carry a chassis number, a colour, a variant and a PDI status **without `warehouse-base` acquiring a single vehicle-shaped column**?* If the answer needs a base column, the answer is **no, permanently**. Revisit at v3 | `OD-2`, `G-050`, `FR-365` |
+| **Dealer vehicle inventory** (`pdi_vehicle_inventory`, 26 `pdi_*` tables) | **Moot since `D-16` — warehouse does not serve dealers.** Historically: **not migrated in v1 or v2.** The **test** is stated rather than the answer: *can `whb_serials` + `whb_movement_line_attributes` carry a chassis number, a colour, a variant and a PDI status **without `warehouse-base` acquiring a single vehicle-shaped column**?* If the answer needs a base column, the answer is **no, permanently**. Revisit at v3 | `OD-2`, `G-050`, `FR-365` |
 | **A second item master** | No module other than `accessories` (`D-9`) may own one | `FR-048` |
 | **A shared `party-base`** | Not extracted now. **The trigger is recorded**: the **third** module that needs the same GSTIN to be authoritative for tax filing. Until then extraction is speculative; after then it is overdue. The cost of not extracting — up to **seven** party-shaped masters — is stated, not hidden | `OD-4`, `FR-121`, R7 §3.3 |
 

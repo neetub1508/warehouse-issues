@@ -1,5 +1,7 @@
 # DESIGN-SET-DEFECTS — the merged defect log
 
+> **Superseded in scope (2026-10-22):** historical record, not edited — where it assumes a dealer or retail target, [`DECISIONS.md` `D-16`](DECISIONS.md) and [R28](reviews/R28-manufacturing-storage-retarget-impact.md) win (manufacturing + storage).
+
 <!-- check-design-set: issue-citations file #2 — `#2` and `#9` are ordinals in prose, not issue references — *Refusal #2*, *Adapter #2 (services)*, *ship-blocker #2*, *logistics needs #1, #2, #3, #5, #6, #10* — and at COMPETITOR-BENCHMARK.md:70/:146 `#9` is the markdown in-page anchor `[§9](#9--where-the-audits-disagree)`. In this repository `#2` and `#9` are in fact the two **pull requests** opened while the backlog was being filed, so no issue row can ever exist for either: see issues/CREATED.md -->
 <!-- check-design-set: scenario-citations file WH-SC-306 WH-SC-328 — the allocation marker from SCENARIO-CATALOGUE.md §5 rule 3, not a scenario. X-006 established it and X-040 reports the checker's false positives on it. Round 2 took WH-SC-301-WH-SC-305 for SCENARIO-CATALOGUE.md 3.21, so the marker — and this declaration with it — moved to WH-SC-306. Round 4 took WH-SC-306-WH-SC-327 for SCENARIO-CATALOGUE.md 3.22 and the marker moved to WH-SC-328, which §5.3 cites; WH-SC-306 is now a real scenario and resolves normally -->
 <!-- check-design-set: finding-citations file T-244 T-264 T-325 T-326 T-337 E-754 E-1 E-8 — the eight dangling citations X-045 reports and §4.2 gives the citation rule for. Quoted as evidence, never used as references -->

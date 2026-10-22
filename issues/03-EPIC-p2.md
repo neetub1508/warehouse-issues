@@ -3,6 +3,8 @@ LABELS: epic,warehouse,phase-p2
 issue: 5
 <!-- check-design-set: issue-citations file #2 — `#2` and `#9` are ordinals in prose, not issue references — *Refusal #2*, *Adapter #2 (services)*, *ship-blocker #2*, *logistics needs #1, #2, #3, #5, #6, #10* — and at COMPETITOR-BENCHMARK.md:70/:146 `#9` is the markdown in-page anchor `[§9](#9--where-the-audits-disagree)`. In this repository `#2` and `#9` are in fact the two **pull requests** opened while the backlog was being filed, so no issue row can ever exist for either: see issues/CREATED.md — declared in the front matter, above the `---`, so the declaration never enters the issue body and cannot drift against the filed issue -->
 ---
+> **Re-target — [`DECISIONS.md` `D-16`](../docs/DECISIONS.md) (2026-10-22).** **VOID:** `P2-24` (#149), `P2-25` (#150), `P2-26` (#151) — the dealer and services adapters and the dealer counter are removed; their `V520000`–`V521149` blocks stay reserved and are never written. The port proof below is carried by `warehouse-adapter-example` and, later, `warehouse-trade` / `warehouse-manufacturing`. Every other P2 task stands.
+
 Part of __MASTER__ · Modules `warehouse` · `warehouse-base` · `warehouse-adapter-dealer` · `warehouse-adapter-services` · `platform` · Migrations — **12 blocks, enumerated below** · Ships in **v1**
 
 ## Overview

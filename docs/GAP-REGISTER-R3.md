@@ -1,5 +1,7 @@
 # GAP-REGISTER-R3 — the disposition of every round-3 finding
 
+> **Superseded in scope (2026-10-22):** historical record, not edited — where it assumes a dealer or retail target, [`DECISIONS.md` `D-16`](DECISIONS.md) and [R28](reviews/R28-manufacturing-storage-retarget-impact.md) win (manufacturing + storage).
+
 <!-- check-design-set: scenario-citations file WH-SC-306 — the SCENARIO-CATALOGUE.md §5 rule 3 next-free allocation marker, the same allocation GAP-REGISTER-R2.md, DESIGN-SET-DEFECTS.md and GAP-REGISTER.md already declare. Cited once in §4.4 as the precedent for how round 2's Q-006 moved the marker when it minted WH-SC-301-WH-SC-305; an allocation marker, not a citation of a scenario -->
 
 > **What this document is for.** `GAP-REGISTER.md` dispositions the **575** findings of review round 1.

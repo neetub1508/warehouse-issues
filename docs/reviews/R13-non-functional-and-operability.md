@@ -1,5 +1,7 @@
 # R13 — Non-functional: scale, concurrency, observability, security, resilience and operability
 
+> **Superseded in scope (2026-10-22):** historical record, not edited — where it assumes a dealer or retail target, [`DECISIONS.md` `D-16`](../DECISIONS.md) and [R28](R28-manufacturing-storage-retarget-impact.md) win (manufacturing + storage).
+
 > **Date** 2026-09-02 · **Branch** `docs/round-2-functional-review` · **Finding prefix** `K-`
 > (`grep -rohE "\bK-[0-9]{1,3}\b" docs/ issues/ | wc -l` → **0**, so the namespace was free)
 >

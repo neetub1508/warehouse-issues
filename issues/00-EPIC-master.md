@@ -3,6 +3,15 @@ LABELS: epic,warehouse
 issue: 1
 <!-- check-design-set: issue-citations file #2 — `#2` and `#9` are ordinals in prose, not issue references — *Refusal #2*, *Adapter #2 (services)*, *ship-blocker #2*, *logistics needs #1, #2, #3, #5, #6, #10* — and at COMPETITOR-BENCHMARK.md:70/:146 `#9` is the markdown in-page anchor `[§9](#9--where-the-audits-disagree)`. In this repository `#2` and `#9` are in fact the two **pull requests** opened while the backlog was being filed, so no issue row can ever exist for either: see issues/CREATED.md — declared in the front matter, above the `---`, so the declaration never enters the issue body and cannot drift against the filed issue -->
 ---
+> **Re-target — [`DECISIONS.md` `D-16`](../docs/DECISIONS.md) (2026-10-22), [R28](../docs/reviews/R28-manufacturing-storage-retarget-impact.md) §8b.** The product
+> serves **manufacturing plant stores + storage**; dealer and retail/e-commerce code are removed, the
+> dealer and services adapters are not rebuilt, and two modules are added (`warehouse-trade`,
+> `warehouse-manufacturing`). Four phases are added and run **`P7` → `P8` → {`P9`, `P10`}** (table below).
+> **VOID tasks:** `P2-24` #149 · `P2-25` #150 · `P2-26` #151 · `P3-19` #95 · `P5-12` #67 · `P5-15` #81 ·
+> `P6-09` #134. **Partially VOID:** `P3-18` #90 · `P5-08` #48 · `P5-09` #52 · `P5-11` #62 · `P5-13` #72 ·
+> `P5-23` #123. **Superseded:** `P6-12` #144 (BOM → `warehouse-manufacturing`). The counts and the
+> D-11 / D-13 / OD-2 rows below predate `D-16`; `DECISIONS.md` wins.
+
 Build a **standalone-capable, country-neutral warehouse and inventory-management product** for the
 Classic platform, as **five Maven modules plus adapters**.
 
@@ -42,6 +51,8 @@ shipping: `services`, `field-service` and `assets` have **no** stock capability 
 | **`warehouse-adapter-<vertical>`** | `ai.warehouseadapter<vertical>` — a **sibling**, never `ai.warehouse.adapter.*` | `whad_` dealer · `whas_` services · `whaf_` field-service · `whaa_` assets · `whae_` example | **V520000–V529999**, sub-allocated 1,000 per adapter | platform + base + that vertical | v1 → v1.1 |
 | **`warehouse-3pl`** | `ai.warehouse3pl` | **`wh3_`** | **V530000–V539999** | platform + base + app | v2 |
 | **`warehouse-india`** | `ai.warehouseindia` | **`whin_`** | **V540000–V549999** | platform + base + app | v1 (documents) + v2 (registers) |
+| **`warehouse-trade`** *(D-16)* | `ai.warehousetrade` | **`wht_`** | **V550000–V559999** | platform + base + app | P9 |
+| **`warehouse-manufacturing`** *(D-16)* | `ai.warehousemanufacturing` | **`whm_`** | **V560000–V569999** | platform + base + app | P10 |
 
 Reserved since v1 and built in v3: **`logistics`** — package `ai.logistics`, prefix **`log_`**, band
 **V524000–V524999**, and the `logistics:*` permission namespace seeded by `WHB-71` (`V501000`).
@@ -159,6 +170,10 @@ adapter proves nothing*) · field-service and assets **v1.1** · logistics **v3*
 | P4 | __P4__ | India statutory and compliance | **13** | v2 |
 | P5 | __P5__ | 3PL, channels and reverse logistics | **23** | v2 |
 | P6 | __P6__ | Optimisation, planning and the logistics seam | **12** | v3 |
+| P7 | __P7__ | REM — removal of dealer + retail code, renames, one DB rebuild (`D-16`) | see `09-EPIC-p7.md` | first |
+| P8 | __P8__ | STORES — gate entry, GRN bill, sampling, MRN, requisition, issue to cost object, store return, PO/SO ports (`D-16`) | see `10-EPIC-p8.md` | after P7 |
+| P9 | __P9__ | TRADE — `warehouse-trade`, purchase + sales mirrored (`D-16`) | see `11-EPIC-p9.md` | after P8, ‖ P10 |
+| P10 | __P10__ | MFG — `warehouse-manufacturing`, BOM, production, MRP (`D-16`) | see `12-EPIC-p10.md` | after P8, ‖ P9 |
 
 **144 tasks** — `ls issues/p*.md | wc -l`, and 17 + 22 + 29 + 4 + 24 + 13 + 23 + 12. Round 4 filed six
 (`P3-25`, `P5-24`…`P5-28`, `#156`–`#161`) and on 2026-09-10 folded each into its most similar existing

@@ -1,5 +1,7 @@
 # R25 — Competitor gap, round 3: what the benchmark and R15 both walked past
 
+> **Superseded in scope (2026-10-22):** historical record, not edited — where it assumes a dealer or retail target, [`DECISIONS.md` `D-16`](../DECISIONS.md) and [R28](R28-manufacturing-storage-retarget-impact.md) win (manufacturing + storage).
+
 **Date:** 2026-09-10 · **Finding prefix:** `RK-` · **Lens:** round 4, R25, third competitor pass
 
 **What this pass is, and is not.** [`COMPETITOR-BENCHMARK.md`](../COMPETITOR-BENCHMARK.md) scored 236
