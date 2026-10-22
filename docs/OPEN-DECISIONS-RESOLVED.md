@@ -1,5 +1,7 @@
 # Open decisions — resolved
 
+> **Superseded in scope (2026-10-22):** historical record, not edited — where it assumes a dealer or retail target, [`DECISIONS.md` `D-16`](DECISIONS.md) and [R28](reviews/R28-manufacturing-storage-retarget-impact.md) win (manufacturing + storage).
+
 > **Current adopted amendment (2026-09-11):** [Global settings and resolved behaviour](GLOBAL-SETTINGS-DECISIONS.md) supplies defaults, scoped choices, resolved OD answers and acceptance cases. Earlier open/escalated or contradictory wording is historical where explicitly superseded there. Implement these answers; do not re-ask the same design questions.
 
 

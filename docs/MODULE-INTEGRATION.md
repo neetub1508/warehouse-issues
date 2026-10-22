@@ -2,6 +2,13 @@
 
 <!-- check-design-set: issue-citations file #2 #791 — `#2` and `#9` are ordinals in prose, not issue references — *Refusal #2*, *Adapter #2 (services)*, *ship-blocker #2*, *logistics needs #1, #2, #3, #5, #6, #10* — and at COMPETITOR-BENCHMARK.md:70/:146 `#9` is the markdown in-page anchor `[§9](#9--where-the-audits-disagree)`. In this repository `#2` and `#9` are in fact the two **pull requests** opened while the backlog was being filed, so no issue row can ever exist for either: see issues/CREATED.md. And `#790` and `#791` are issues in **`neetub1508/classic`**, cited as `classic#790, #791` with the second elided in the ordinary English way. The first resolves; the elided continuation reads to the checker as a bare `#NN`. It is a cross-repo citation, never a warehouse issue -->
 
+> **Re-target · 2026-10-22 (`DECISIONS.md` `D-16`).** There is **no dealer profile and no services
+> profile**: `warehouse-adapter-dealer` and `warehouse-adapter-services` were removed on 2026-09-21 and
+> are not rebuilt, and their leftover enable switches and labels are deleted by `P7` (`RN-004`). Two
+> new modules land instead — **`warehouse-trade`** and **`warehouse-manufacturing`** (§0) — and each
+> follows the **`warehouse-india` column** of every table below, touchpoint for touchpoint. Wherever a
+> section below shows a dealer or services adapter shape, read it as historical.
+
 > **What this document is.** A runbook an engineer executes, top to bottom, to land
 > `warehouse-base`, `warehouse`, `warehouse-adapter-<vertical>`, `warehouse-3pl` and `warehouse-india`
 > in the `neetub1508/classic` monorepo. It is not a description of the build system. Every row names
@@ -32,14 +39,19 @@
 |---|---|---|---|---|---|---|---|---|
 | `warehouse-base` | `ai.warehousebase` | platform only | **V500000–V509999** | `whb_` | `ENABLE_WAREHOUSE_BASE` | `enable.warehouse.base` | `with-warehouse-base` | **yes** (v1) |
 | `warehouse` | `ai.warehouse` | platform + base | **V510000–V519999** | `wh_` | `ENABLE_WAREHOUSE` | `enable.warehouse` | `with-warehouse` | **yes** (v1) |
-| `warehouse-adapter-dealer` | `ai.warehouseadapterdealer` | platform + base + automotive + dealer | **V520000–V520999** | `whad_` | `ENABLE_WAREHOUSE_ADAPTER_DEALER` | `enable.warehouse.adapter.dealer` | `with-warehouse-dealer` | no (v1) |
-| `warehouse-adapter-services` | `ai.warehouseadapterservices` | platform + base + automotive + services | **V521000–V521999** | `whas_` | `ENABLE_WAREHOUSE_ADAPTER_SERVICES` | `enable.warehouse.adapter.services` | `with-warehouse-services` | no (v1) |
+| ~~`warehouse-adapter-dealer`~~ — **REMOVED (`D-16`)**, band reserved | — | — | ~~V520000–V520999~~ | ~~`whad_`~~ | — | — | — | — |
+| ~~`warehouse-adapter-services`~~ — **REMOVED (`D-16`)**, band reserved | — | — | ~~V521000–V521999~~ | ~~`whas_`~~ | — | — | — | — |
 | `warehouse-3pl` | `ai.warehouse3pl` | platform + base + `warehouse` | **V530000–V539999** | `wh3_` | `ENABLE_WAREHOUSE_3PL` | `enable.warehouse.3pl` | `with-warehouse-3pl` | **yes** (v2, client portal) |
 | `warehouse-india` | `ai.warehouseindia` | platform + base + `warehouse` | **V540000–V549999** | `whin_` | `ENABLE_WAREHOUSE_INDIA` | `enable.warehouse.india` | **yes** (v2, e-way bill / challan screens) |
+| `warehouse-trade` *(D-16)* | `ai.warehousetrade` | platform + base + `warehouse` | **V550000–V559999** | `wht_` | `ENABLE_WAREHOUSE_TRADE` | `enable.warehouse.trade` | `with-warehouse-trade` | **yes** (P9 — PR, RFQ, quotation, rate contract, order agreement screens) |
+| `warehouse-manufacturing` *(D-16)* | `ai.warehousemanufacturing` | platform + base + `warehouse` (+ `warehouse-india` seams) | **V560000–V569999** | `whm_` | `ENABLE_WAREHOUSE_MANUFACTURING` | `enable.warehouse.manufacturing` | `with-warehouse-manufacturing` | **yes** (P10 — BOM, production order, MRP screens) |
 
-D-1 lists five *kinds* of module; `warehouse-adapter-*` is one kind with one instance per vertical,
-and D-11 puts **two** adapters (dealer, services) in v1 because one adapter proves nothing about
-genericity. So the v1 landing is **four Maven modules** (base, app, two adapters) and the v2 landing
+**Since `D-16`:** the landing is base, app, `warehouse-adapter-example` (CI only), `warehouse-3pl`,
+`warehouse-india`, `warehouse-trade` and `warehouse-manufacturing`. The env-flag and property names for
+the two new modules follow the `warehouse-india` pattern and are confirmed by their scaffold tasks.
+*Historically:* D-1 lists five *kinds* of module; `warehouse-adapter-*` is one kind with one instance
+per vertical, and D-11 put **two** adapters (dealer, services) in v1 because one adapter proves nothing
+about genericity. So the v1 landing is **four Maven modules** (base, app, two adapters) and the v2 landing
 adds **two more** (3PL, India). Every table in this runbook carries all six columns so the v2 work is
 already specified.
 
@@ -94,6 +106,9 @@ migration files **3 297 → 3 300**. Commands for all three are in §16.
 ---
 
 ## 2. The complete touchpoint matrix
+
+> **`D-16`:** columns naming the dealer or services adapter are historical. `warehouse-trade` and
+> `warehouse-manufacturing` each take the `warehouse-india` cell of every row.
 
 **Legend.** **B** = build-time gate — miss it and the build fails, or the JAR/source is *silently
 omitted*. **R** = runtime gate — the build succeeds and the module is inert or 500s at first use.
@@ -194,7 +209,7 @@ Copy `pom.xml:219-284` and substitute. Two things are not cosmetic:
     </modules>
 </profile>
 
-<!-- Warehouse Dealer Adapter (dealer spare-parts documents -> movement envelopes; needs dealer at runtime) -->
+<!-- HISTORICAL (D-16: removed, do not add). Warehouse Dealer Adapter (dealer spare-parts documents -> movement envelopes; needs dealer at runtime) -->
 <profile>
     <id>with-warehouse-dealer</id>
     <activation>
@@ -548,8 +563,8 @@ entirely, including its javadoc, which carries four rules warehouse needs verbat
   ```java
   @ConditionalOnExpression(
       "${enable.warehouse.base:false} or ${enable.warehouse:false} "
-    + "or ${enable.warehouse.adapter.dealer:false} or ${enable.warehouse.adapter.services:false} "
-    + "or ${enable.warehouse.3pl:false} or ${enable.warehouse.india:false}"
+    + "or ${enable.warehouse.3pl:false} or ${enable.warehouse.india:false} "
+    + "or ${enable.warehouse.trade:false} or ${enable.warehouse.manufacturing:false}"   // D-16: dealer/services switches removed (RN-004)
   )
   ```
 - **`:50-52`** — `@ComponentScan("ai.warehousebase")`, `@EntityScan("ai.warehousebase.entity")`,

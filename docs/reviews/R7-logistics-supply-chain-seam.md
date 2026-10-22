@@ -1,5 +1,7 @@
 # Lens R7 — the logistics / supply-chain seam
 
+> **Superseded in scope (2026-10-22):** historical record, not edited — where it assumes a dealer or retail target, [`DECISIONS.md` `D-16`](../DECISIONS.md) and [R28](R28-manufacturing-storage-retarget-impact.md) win (manufacturing + storage).
+
 <!-- check-design-set: issue-citations file #2 #9 #790 #791 — `#2` and `#9` are ordinals in prose, not issue references — *Refusal #2*, *Adapter #2 (services)*, *ship-blocker #2*, *logistics needs #1, #2, #3, #5, #6, #10* — and at COMPETITOR-BENCHMARK.md:70/:146 `#9` is the markdown in-page anchor `[§9](#9--where-the-audits-disagree)`. In this repository `#2` and `#9` are in fact the two **pull requests** opened while the backlog was being filed, so no issue row can ever exist for either: see issues/CREATED.md. And `#790` and `#791` are issues in **`neetub1508/classic`**, cited as `classic#790, #791` with the second elided in the ordinary English way. The first resolves; the elided continuation reads to the checker as a bare `#NN`. It is a cross-repo citation, never a warehouse issue -->
 
 **Question this lens exists to answer:** what must `warehouse-base` commit to in **v1** so that a
@@ -359,6 +361,10 @@ exist in `warehouse` v1 only because logistics does not exist yet?* — gives **
 **All five obey R4's rule 2 verbatim: reference by a stable code resolved through a service, never by
 an FK from the referencing table into the relocatable one.** Applying that rule to one object and not
 the other four is how the move stops being cheap. (`G-013`)
+
+**Ruled 2026-10-14 (X-068, #474):** the carrier row's own masters (services, accounts, status mappings, serviceability, account scopes, AWB pools) move WITH the carriers, so FKs inside that set stand. `wh_shipment_tracking_events`, `wh_shipment_ndrs`, `wh_cod_remittances` and `wh_rate_quotes` reference the carrier by its party (`carrier_counterparty_id`) resolved through `WhCarrierResolver` — `V511306`.
+
+**Ruled 2026-10-16 (X-068, #487):** `wh_shipping_labels`, `wh_pickup_requests`, `wh_manifests` and `wh_handovers` stay with the warehouse and reference the carrier by its party too, and `wh_rate_quotes` names its carrier account by code resolved as (carrier party, code) — `V511308`. The "manifests" in the v2 `logistics` scope above are the own-fleet trip manifests, not v1's third-party AWB list. `wh_shipments.carrier_account_id` keeps its FK into `wh_carrier_accounts` as a recorded exception: the account boundary is not relocation-ready until it is re-keyed.
 
 ## 2.7 The events that cross — additions to R4 §4.4
 

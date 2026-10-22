@@ -4,14 +4,16 @@
 # automatically — and afterwards keep GitHub a mirror of these files.
 #
 #   1. master epic
-#   2. eight phase epics    (P0 P1 P2 P2-IN P3 P4 P5 P6 — each links back to the master)
+#   2. twelve phase epics   (P0 P1 P2 P2-IN P3 P4 P5 P6, and the D-16 re-target P7 P8 P9 P10 —
+#                            each links back to the master)
 #   3. 138 task issues      (each links back to its phase epic)
 #   4. phase epics patched  with their real task checklists
 #   5. master epic patched  with the real phase-epic numbers
 #   6. issues/CREATED.md    written — the map tools/check-design-set.py check 5 resolves `#NN` against
 #
 # Placeholders substituted at creation time:
-#   __MASTER__ __P0__ __P1__ __P2__ __P2IN__ __P3__ __P4__ __P5__ __P6__ __TASKS__
+#   __MASTER__ __P0__ __P1__ __P2__ __P2IN__ __P3__ __P4__ __P5__ __P6__
+#   __P7__ __P8__ __P9__ __P10__ __TASKS__
 # which is why the .md files are **not valid issue bodies until this script runs**.
 #
 # `DECISIONS.md` §7 rule 5: the .md files in this repository are authoritative and GitHub is a
@@ -25,6 +27,13 @@
 #   ./create-issues.sh [--dry-run]            file the whole backlog (first run only)
 #   ./create-issues.sh --sync    [--dry-run]  push every .md carrying an `issue: NN` line to its issue
 #   ./create-issues.sh --check                diff each filed body against its .md; non-zero on drift
+#   ./create-issues.sh --file-tbd [--dry-run] file ONLY the .md files whose front matter says
+#                                             `issue: TBD` (master, epics, then tasks, in phase order),
+#                                             write each new number back over the TBD, re-patch the
+#                                             epics whose checklist changed, append rows to CREATED.md.
+#                                             For a backlog that is already filed (D-16: P7-P10).
+#
+# `issue: TBD` means "not filed yet": it is never substituted as a number; --sync/--check skip it.
 #
 set -euo pipefail
 
@@ -38,6 +47,7 @@ for arg in "$@"; do
     --dry-run) DRY_RUN=1 ;;
     --sync)    MODE=sync ;;
     --check)   MODE=check ;;
+    --file-tbd) MODE=file_tbd ;;
     -h|--help) sed -n '2,30p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *)         echo "unknown argument: $arg" >&2; exit 2 ;;
   esac
@@ -46,10 +56,12 @@ done
 # ---- the phase table -------------------------------------------------------
 # Parallel arrays, in filing order. `p2in` is phase **P2-IN** and its epic is 04-EPIC-p2in.md —
 # the one place where the file stem, the phase id and the placeholder all differ.
-PHASES=(p0     p1     p2     p2in     p3     p4     p5     p6)
-EPICNUM=(01    02     03     04       05     06     07     08)
-PLACEHOLDER=(__P0__ __P1__ __P2__ __P2IN__ __P3__ __P4__ __P5__ __P6__)
-PHASE_ID=(P0    P1     P2     P2-IN    P3     P4     P5     P6)
+# P7-P10 are the D-16 re-target phases (filing order P7 -> P8 -> P9, P10). `p1-*.md` never
+# matches `p10-*.md`: the glob is `${PHASES[i]}-*`, so the dash separates them.
+PHASES=(p0     p1     p2     p2in     p3     p4     p5     p6     p7     p8     p9     p10)
+EPICNUM=(01    02     03     04       05     06     07     08     09     10     11     12)
+PLACEHOLDER=(__P0__ __P1__ __P2__ __P2IN__ __P3__ __P4__ __P5__ __P6__ __P7__ __P8__ __P9__ __P10__)
+PHASE_ID=(P0    P1     P2     P2-IN    P3     P4     P5     P6     P7     P8     P9     P10)
 NPHASE=${#PHASES[@]}
 
 epic_file() { echo "$DIR/${EPICNUM[$1]}-EPIC-${PHASES[$1]}.md"; }
@@ -61,7 +73,10 @@ is_issue_file() { grep -q '^TITLE: ' "$1"; }
 
 title_of()  { sed -n 's/^TITLE: //p' "$1" | head -1; }
 labels_of() { sed -n 's/^LABELS: //p' "$1" | head -1; }
-issue_of()  { sed -n 's/^issue: *//p' "$1" | head -1; }
+issue_raw() { sed -n 's/^issue: *//p' "$1" | head -1 | tr -d '[:space:]'; }
+# Only a number is an issue reference; `TBD` (or anything else) reads as "not filed".
+issue_of()  { local v; v="$(issue_raw "$1")"; if [[ "$v" =~ ^[0-9]+$ ]]; then echo "$v"; fi; }
+is_tbd()    { [[ "$(issue_raw "$1")" == "TBD" ]]; }
 body_of()   { sed '1,/^---$/d' "$1"; }
 short_of()  { title_of "$1" | sed 's/^\[Warehouse\] //'; }
 
@@ -138,7 +153,10 @@ set_subst() { # set_subst KEY=VAL ...
 # step anywhere else. The colour is derived from the label name so re-runs are stable.
 ensure_labels() {
   local all l colour n=0
-  all=$(sed -n 's/^LABELS: //p' "$DIR"/*.md | tr ',' '\n' | sed 's/^ *//; s/ *$//' | sort -u)
+  # The D-16 phase and module labels are ensured even before a file names them.
+  all=$( { sed -n 's/^LABELS: //p' "$DIR"/*.md | tr ',' '\n'
+           printf '%s\n' phase-p7 phase-p8 phase-p9 phase-p10 warehouse-trade warehouse-manufacturing; } \
+         | sed 's/^ *//; s/ *$//' | sort -u)
   while IFS= read -r l; do
     [[ -z "$l" ]] && continue
     n=$((n + 1))
@@ -180,8 +198,13 @@ stamp_issue() { # stamp_issue <file> <number>
   [[ $DRY_RUN -eq 1 ]] && return
   [[ -n "$(issue_of "$file")" ]] && return
   tmp="$(mktemp)"
-  awk -v num="$num" 'BEGIN{done=0} /^---$/ && !done {print "issue: " num; done=1} {print}' \
-      "$file" > "$tmp"
+  if is_tbd "$file"; then   # overwrite the `issue: TBD` line in place
+    awk -v num="$num" 'BEGIN{done=0} /^issue: *TBD *$/ && !done {print "issue: " num; done=1; next} {print}' \
+        "$file" > "$tmp"
+  else
+    awk -v num="$num" 'BEGIN{done=0} /^---$/ && !done {print "issue: " num; done=1} {print}' \
+        "$file" > "$tmp"
+  fi
   mv "$tmp" "$file"
 }
 
@@ -287,9 +310,72 @@ check_all() {
   return 1
 }
 
+# ---- file only the `issue: TBD` files ----------------------------------------
+# For a backlog already on GitHub: files the TBD master/epics/tasks only, and touches a numbered
+# issue only to re-patch the epic (and master) whose checklist or references changed.
+file_tbd() {
+  local i f n t master_new=0
+  local created=() touched=()
+  load_refs
+  echo "==> labels"; ensure_labels
+  if is_tbd "$(master_file)"; then
+    set_phase_subst; TASKS_BLOCK=""
+    n=$(create "$(master_file)"); stamp_issue "$(master_file)" "$n"
+    MASTER_REF="#$n"; master_new=1
+    created+=("#$n|issues/00-EPIC-master.md|$(short_of "$(master_file)")")
+    echo "    master epic = #$n"
+  fi
+  echo "==> phase epics marked TBD"
+  for ((i = 0; i < NPHASE; i++)); do
+    f="$(epic_file "$i")"
+    [[ -e "$f" ]] && is_tbd "$f" || continue
+    set_phase_subst; TASKS_BLOCK=""
+    n=$(create "$f"); stamp_issue "$f" "$n"
+    EPIC_REF[$i]="#$n"; touched[$i]=1; master_new=1
+    created+=("#$n|issues/$(basename "$f")|$(short_of "$f")")
+    echo "    ${PHASE_ID[$i]} epic = #$n"
+  done
+  echo "==> task issues marked TBD"
+  for ((i = 0; i < NPHASE; i++)); do
+    for f in "$DIR"/${PHASES[$i]}-*.md; do
+      [[ -e "$f" ]] && is_tbd "$f" || continue
+      if [[ $DRY_RUN -eq 0 && ! "${EPIC_REF[$i]}" =~ ^#[0-9]+$ ]]; then
+        echo "REFUSING: $(basename "$f") — phase epic ${PHASE_ID[$i]} has no issue number" >&2
+        exit 1
+      fi
+      set_phase_subst; TASKS_BLOCK=""
+      n=$(create "$f"); stamp_issue "$f" "$n"; touched[$i]=1
+      created+=("#$n|issues/$(basename "$f")|$(short_of "$f")")
+      echo "    #$n  $(short_of "$f")"
+    done
+  done
+  echo "==> re-patch the epics whose checklist changed"
+  for ((i = 0; i < NPHASE; i++)); do
+    [[ -n "${touched[$i]:-}" ]] || continue
+    build_tasklist "$i"; set_phase_subst
+    patch "${EPIC_REF[$i]#\#}" "$(epic_file "$i")"
+    echo "    patched ${PHASE_ID[$i]} epic ${EPIC_REF[$i]}"
+  done
+  if [[ $master_new -eq 1 ]]; then
+    set_phase_subst; TASKS_BLOCK=""
+    patch "${MASTER_REF#\#}" "$(master_file)"
+    echo "    patched master epic $MASTER_REF"
+  fi
+  if [[ $DRY_RUN -eq 1 ]]; then
+    echo "    DRY: would append ${#created[@]} row(s) to $DIR/CREATED.md"
+  else
+    for ((i = 0; i < ${#created[@]}; i++)); do
+      IFS='|' read -r n f t <<< "${created[$i]}"
+      printf '| %s | `%s` | %s |\n' "$n" "$f" "$t" >> "$DIR/CREATED.md"
+    done
+  fi
+  echo "==> ${#created[@]} issue(s) filed"
+}
+
 assert_placeholder_lines
 
 case "$MODE" in
+  file_tbd) file_tbd; exit 0 ;;
   sync)  load_refs; sync_all; exit 0 ;;
   check) load_refs; if check_all; then exit 0; else exit 1; fi ;;
 esac

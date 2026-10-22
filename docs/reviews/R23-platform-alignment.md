@@ -1,5 +1,7 @@
 # R23 — platform alignment
 
+> **Superseded in scope (2026-10-22):** historical record, not edited — where it assumes a dealer or retail target, [`DECISIONS.md` `D-16`](../DECISIONS.md) and [R28](R28-manufacturing-storage-retarget-impact.md) win (manufacturing + storage).
+
 **Date** 2026-09-10 · **Prefix** `RH-` · **Branch** `docs/round-4-cardinality-and-gaps`
 
 **File set read — 16 design files, ~70 codebase files.**

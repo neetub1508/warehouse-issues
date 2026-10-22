@@ -5,9 +5,16 @@
 
 <!-- check-design-set: issue-citations file #2 #9 #790 #791 — `#2` and `#9` are ordinals in prose, not issue references — *Refusal #2*, *Adapter #2 (services)*, *ship-blocker #2*, *logistics needs #1, #2, #3, #5, #6, #10* — and at COMPETITOR-BENCHMARK.md:70/:146 `#9` is the markdown in-page anchor `[§9](#9--where-the-audits-disagree)`. In this repository `#2` and `#9` are in fact the two **pull requests** opened while the backlog was being filed, so no issue row can ever exist for either: see issues/CREATED.md. And `#790` and `#791` are issues in **`neetub1508/classic`**, cited as `classic#790, #791` with the second elided in the ordinary English way. The first resolves; the elided continuation reads to the checker as a bare `#NN`. It is a cross-repo citation, never a warehouse issue -->
 
-> **What this document is for.** The user's requirement is that warehouse serves the dealer module
-> now, a logistics/supply-chain module later, and *"if we have more in the future, we should be able
-> to do that"*. This is the document that turns that sentence into a **testable claim**. It is read
+> **Re-target · 2026-10-22 (`DECISIONS.md` `D-16`).** Warehouse serves **manufacturing plant stores and
+> storage**; it does not serve the dealer module, and dealer and retail code are removed. The port's
+> first real consumers are the siblings **`warehouse-trade`** (purchase + sales, `ai.warehousetrade`,
+> `wht_`, `V550000`–`V559999`) and **`warehouse-manufacturing`** (`ai.warehousemanufacturing`, `whm_`,
+> `V560000`–`V569999`) — §9.0. §9.1–§9.4 describe adapters that are **removed or unscheduled** and are
+> kept as the historical record. The wire contract itself (§2–§4, §10) is unchanged.
+
+> **What this document is for.** The user's original requirement was that warehouse serves the dealer
+> module now, a logistics/supply-chain module later, and *"if we have more in the future, we should be
+> able to do that"* — re-targeted by `D-16` to manufacturing + storage. This is the document that turns that sentence into a **testable claim**. It is read
 > by every adapter author, by whoever builds the `logistics` module, and by the reviewer who has to
 > decide whether a pull request broke the seam.
 >
@@ -183,14 +190,15 @@ admits only one implementation and is therefore useless for an N-consumer port:
 ```jsonc
 POST /api/warehouse/movements
 {
-  "source_system":            "ADAPTER_DEALER",     // FK -> whb_source_systems.code
-  "source_document_type":     "PARTS_INVOICE",      // FK -> whb_document_types.code
-  "source_document_id":       "PI-2026-004417",     // opaque string, the producer's id
+  // illustrative codes (D-16): a production-order issue posted by warehouse-manufacturing
+  "source_system":            "WAREHOUSE_MANUFACTURING", // FK -> whb_source_systems.code
+  "source_document_type":     "PRODUCTION_ORDER",   // FK -> whb_document_types.code
+  "source_document_id":       "PRO-2026-004417",    // opaque string, the producer's id
   "source_document_line_no":  3,                    // optional
-  "idempotency_key":          "ADAPTER_DEALER:PI-2026-004417:ISSUE:1",
+  "idempotency_key":          "WAREHOUSE_MANUFACTURING:PRO-2026-004417:ISSUE:1",
   "company_id":               "…uuid…",
   "warehouse_id":             "…uuid…",
-  "movement_type_code":       "SALE_ISSUE",         // FK -> whb_movement_types.code
+  "movement_type_code":       "ISSUE_TO_PRODUCTION", // FK -> whb_movement_types.code (illustrative)
   "occurred_at":              "2026-09-01T14:22:05.000Z",
   "occurred_at_tz_offset":    330,                  // minutes; optional, v1.1 feature
   "posting_date":             "2026-09-01",
@@ -290,6 +298,8 @@ code, any free-text `reference`. §2.9 gives each one its home.
 | `unit_cost` | DECIMAL(19,6) *(`OD-7`)* | O | per base unit | Warehouse owns cost (`D-6`). A **price** is a commercial fact about a sale and never rides the line (`FR-041`) |
 | `cost_currency_code` | CHAR(3) | O | — | **Retro-fitting currency onto a cost history is guessing.** Column v1, multi-currency v2. `IRR-36` |
 | `extended_cost` | DECIMAL(19,4) | O | the value effect of this line | The carrier of a value-only movement (§2.7) |
+| `exchange_rate` | DECIMAL(19,8) | O / conditionally **R** | base-currency units per one `cost_currency_code` unit, **frozen at submission**; 1 for base-currency input, no default | **A rate re-read later restates the past.** Required with a foreign-currency cost; a non-positive rate, or a base-currency cost with a rate other than 1, is `EXCHANGE_RATE_REQUIRED` (§3.9.2). Stored on the line as `whb_stock_movement_lines.exchange_rate` (`V501122`) *(amended — ratified 2026-10-14 (#203))* |
+| `cost_source_line_id` | UUID | O | the movement line this line takes its cost from — a matched return's issue line, a return to vendor's receipt line, a transfer arrival's sending line, a reversal's original | Without it a matched return that waits for approval loses its link and is costed as unmatched. A line that is not a line of the movement's own company — a missing line included — is `COMPANY_MISMATCH` on `lines[n].cost_source_line_id`; its cost is never read *(amended — ratified 2026-10-14 (#203))* |
 | `cost_basis` | VARCHAR(30) | **R** | `ACTUAL` · `STANDARD` · `AVERAGE` · `INFORMATIONAL` · `ZERO_BAILMENT` | **Decides whether an accounting envelope is emitted at all.** Decided downstream = a year of wrong journals, unwound by hand. `L-14`, `FR-112`, `IRR-36` |
 | `moving_average_after` · `cost_layer_id` | DECIMAL(19,6) · UUID | S | valuation snapshots | Without the snapshot the 31-March cost is **not reproducible**. Columns v1; AVCO v1.1, FIFO v1.1. `IRR-38`, `IRR-39`. *(Whose table the layers live in is `OD-1`/`OD-6`; the **columns** are not in doubt — `IRREVERSIBLE.md` §7.3 item 1)* |
 | `tax_classification_code` · `tax_classification_scheme` | VARCHAR(20) · VARCHAR(20) | S | snapshotted from the item at post: the code (HSN/SAC under `warehouse-india`) and the scheme that issued it | **Reading the item master later gives the *new* code for *old* documents**, on a filed return. Named for no one country's scheme, so a second jurisdiction is a new scheme value, not a renamed ledger column (`RL-008`). `FR-066`, `IRR-42` |
@@ -297,6 +307,24 @@ code, any free-text `reference`. §2.9 gives each one its home.
 | `source_line_ref` | VARCHAR(100) | O | **the producer's own line identity** | Distinct from the header's `source_document_line_no`: the header field points at *a line of the producer's document*; this points at *the producer's own line-level identity*, which for a scan-gun batch or a marketplace order is not an ordinal. Without both, a partially reversed multi-line document cannot be reconciled. R7 §6 item 3, `FR-018` |
 | `expiry_date_override` · `qc_result_code` | DATE · VARCHAR(30) | O | producer knows an expiry the lot does not yet carry; receipt already inspected | — |
 | `read_point_location_id` · `biz_location_id` | UUID FK · UUID FK | O | EPCIS: where the scan happened vs where the goods then were | Two different facts. Columns v1, feature v2. `IRR-20` |
+
+> **Amended — ratified 2026-10-14 (#203).** W09 (`#203` G3 / G4, `#172` items 4 and 5). **The port's cost
+> fields:** `exchange_rate` and `cost_source_line_id` are on the wire line (`WhbMovementEnvelopeCodec`
+> `LINE_FIELDS`), both optional; the body hash is the body as received, so an envelope without them
+> hashes as before. The producer's source figures land on the line as `source_currency_code`,
+> `source_unit_cost`, `source_extended_cost`, `exchange_rate` and `cost_source_line_id`, **written once
+> at INSERT and never restated** (`V501122`, `DATA-MODEL.md` §2 type table); `unit_cost` /
+> `cost_currency_code` / `extended_cost` stay the base-currency value the line posted at, and an
+> approval-gated line's approved value goes to `whb_movement_line_approved_costs`, never onto the line.
+> **The average is spelled two ways, by design:** the movement type's `cost_basis_default` (and the
+> line basis it declares) is {`ACTUAL`, `WEIGHTED_AVERAGE`, `ESTIMATED`, `NONE`}
+> (`WhbMovementTypeValidationService`); the layer / owner / port `cost_basis` above is {`ACTUAL`,
+> `STANDARD`, `AVERAGE`, `INFORMATIONAL`, `ZERO_BAILMENT`} (`WhbCostingEngine.BASIS_AVERAGE`). The
+> mapping is **movement-type `WEIGHTED_AVERAGE` ↔ layer / port `AVERAGE`**. Ledger lines are immutable
+> (I-2), so lines already posted keep whichever spelling they carry, and **every receiver accepts
+> both**.
+
+> **v1 receipt scope — DECIDED (b) 2026-10-14 (#329):** a foreign-currency source amount and its rate reach warehouse only through the movement port; a native GRN keys cost in company base currency at rate 1 and never converts a foreign PO price. `warehouse.cost.exchange_rate_source` = `SOURCE_RATE` (the rate carried on the line); `PROVIDER_RATE` is not implemented in v1 (capability `enable.warehouse.rate_provider` absent, V511200) - v2.
 
 **Attributes side table** — `whb_movement_line_attributes (movement_line_id, occurred_at,
 attribute_key_id FK → whb_attribute_keys, value_string, value_number, value_date, value_boolean)`:
@@ -337,8 +365,8 @@ afterwards (`RL-007`).
 > must be supplied; supplying two that disagree is `ITEM_IDENTIFIER_CONFLICT`. *(`FR-038`, `T-033`,
 > `G-040`.)*
 >
-> **Why the fourth is not optional.** A dealer's own part number, a job card's material code and an
-> OEM's number are **none of the first three**. Without the fourth, either every adapter stores a
+> **Why the fourth is not optional.** A manufacturer's part number, a drawing number and a supplier's
+> code are **none of the first three**. Without the fourth, either every adapter stores a
 > warehouse UUID in its own tables — a hidden coupling that makes a re-seed impossible — or the port
 > grows a per-vertical identifier column, which is the failure the port exists to prevent. `FR-061`.
 
@@ -681,14 +709,26 @@ Marked as **additions**, each with the clause that makes it necessary. They are 
 | `MOVEMENT_NOT_SUBMITTER` | 403 | no | `RA-004` — Withdraw by anyone but the submitting actor, a replay included (`MPR-GRD-28`) |
 | `UNKNOWN_ATTRIBUTE_KEY` | 422 | no | `RL-007` — a line attribute naming no active `MOVEMENT_LINE` key (`MPR-GRD-24`) |
 | `ATTRIBUTE_VALUE_TYPE_MISMATCH` | 422 | no | `RL-007` — a line attribute's value not in the one typed column its key's `value_type` names (`MPR-GRD-24`) |
+| `WAREHOUSE_SITE_NOT_PERMITTED` | 403 | no | W30 (`#224`) — the movement's site is outside the caller's warehouse scope: the port's post, batch member, simulate and as-at refusal; the built `WhbScopeRefusedException.SITE_NOT_PERMITTED`, referenced, never re-spelled (header; classic `815ef9c76a`, `b1d7b05cfe`) *(amended — ratified 2026-10-14 (#203))* |
+| `BIN_MOVE_SHAPE_INVALID` | 422 | no | W14 (`#208`, `FR-150`) — a `BIN_MOVE` that is not two lines of loose stock between two locations at one site with owner, item, lot, serial, stock status and duty status unchanged (`bin-move.contract.md` `BM-GRD-01`); its capacity refusal reuses `LOCATION_POLICY_VIOLATED` (header; classic `c5ab158c52`) *(amended — ratified 2026-10-14 (#203))* |
+| `EXCHANGE_RATE_REQUIRED` | 422 | no | `OD-16` / §2.5 — a foreign-currency cost without a positive frozen `exchange_rate`, or a base-currency cost with a rate other than 1 (line) *(amended — ratified 2026-10-14 (#203))* |
+| `VALUATION_METHOD_NOT_SUPPORTED` | 422 | conditionally | `FR-235` — the resolved valuation policy names a method other than AVCO or FIFO; LIFO and STANDARD are refused (line) *(amended — ratified 2026-10-14 (#203))* |
+| `BASE_CURRENCY_REQUIRED` | 422 | conditionally | `OD-16` — the company has no base currency and the platform no default, so the valuation would be in no currency (header) *(amended — ratified 2026-10-14 (#203))* |
 | `MOVEMENT_TYPE_NOT_PORT_POSTABLE` | 403 | no | `#285` (2026-10-14, build `V501210`) — over HTTP (`POST /movements`, `/batch`, `/ratio-pack`, Simulate, the reprocess of an HTTP-recorded row) the movement type's `port_post_permission` is NULL or not held by the caller. Seeded: `BIN_MOVE` → `warehouse:movements:post`; `RECEIPT`, `ISSUE`, `RECEIPT_REVERSAL`, `ISSUE_REVERSAL` (the four `/ratio-pack` admits) → `warehouse:movements:post_external` (ADMIN only, granted per install); every other type NULL. An in-process adapter posting through `WhbMovementPortService.post` (§8.2) is not checked |
 
-**Total: 31 ratified + 27 additions = 58** — the set `FR-039` names, folded by `RD-008` (2026-09-16), and the
-set `WhbLedgerErrorCodes.VOCABULARY` publishes; `WhbLedgerErrorCodesTest` asserts the 58. Counted from the two
-tables above.
-`#285` (2026-10-14) adds `MOVEMENT_TYPE_NOT_PORT_POSTABLE`: the build's `WhbLedgerErrorCodes.VOCABULARY` now publishes
-64 (`WhbLedgerErrorCodesTest`), the 58 above plus W30's `WAREHOUSE_SITE_NOT_PERMITTED`, W14's `BIN_MOVE_SHAPE_INVALID`,
-W09's three costing codes and this one.
+**Total: 31 ratified + 32 additions (30 contract additions + the two built precedents) = 63** — the set `FR-039`
+names, folded by `RD-008` (2026-09-16), and the set `WhbLedgerErrorCodes.VOCABULARY` publishes;
+`WhbLedgerErrorCodesTest` asserts the 63. Counted from the two tables above *(amended — ratified 2026-10-14 (#203))*.
+
+> **Amended — ratified 2026-10-14 (#203).** W09 (`#203`, `#172` item 5, classic `a4fd80d378`) adds the costing
+> engine's three refusals above, referenced from `WhbCostingEngine`, never re-spelled
+> (`WhbLedgerErrorCodes.java:134-138`, `:217-221`), so a blocked-movement record and the Rejection
+> filter accept them. `WhbLedgerErrorCodes.VOCABULARY` now publishes **63** (31 ratified + 30
+> additions + the two built codes, as its javadoc counts them). The tables above now list all **63**
+> (31 + 32 codes in §3.9.2): W30's `WAREHOUSE_SITE_NOT_PERMITTED` (403) and W14's
+> `BIN_MOVE_SHAPE_INVALID` (422) are folded in *(amended — ratified 2026-10-14 (#203))*.
+
+> **Amended — #285 (2026-10-14, build `V501210`).** `MOVEMENT_TYPE_NOT_PORT_POSTABLE` (403) is added above, so `WhbLedgerErrorCodes.VOCABULARY` publishes **64** (`WhbLedgerErrorCodesTest`): the 63 counted above plus this one.
 
 ## 3.10 Authentication, authorisation and the permission a caller needs
 
@@ -1282,8 +1322,8 @@ extend: **logistics** needs #1, #2, #3, #5, #6, #10; a **supply-chain** module n
 > triggers a **blind `repair()` plus one retry** (`FlywayConfiguration.java:246-264`), so a migration
 > that is not individually idempotent will be partially re-run.
 
-The adapter sub-bands are pre-allocated so parallel work cannot collide — dealer `V520000–520999`,
-services `V521000–521999`, field-service `V522000–522999`, assets `V523000–523999`, **logistics
+The adapter sub-bands are pre-allocated so parallel work cannot collide — dealer `V520000–520999` and
+services `V521000–521999` (**both removed 2026-09-21, reserved, never reused — `D-16`**), field-service `V522000–522999`, assets `V523000–523999`, **logistics
 `V524000–524999`** — all inside `warehouse-adapter-*`'s `V520000–V529999` band (`D-2`, `G-043`).
 **No task in this design set writes a number inside the logistics sub-band** (`H-006`): the reservation
 exists so the `logistics` design set can number its own registration migration, and the example below
@@ -1598,8 +1638,9 @@ Three shapes must be copied, not paraphrased:
 **What must change for a warehouse ratchet to actually run:**
 
 - a `warehouse-ratchets` job, copied from `tests.yml:259-408`, re-scoped to `-Pwith-warehouse` and
-  `-pl warehouse-base/backend,warehouse/backend,warehouse-adapter-dealer/backend,warehouse-adapter-services/backend`
-  (adding `warehouse-3pl/backend,warehouse-india/backend` at v2), **without** `continue-on-error`,
+  `-pl warehouse-base/backend,warehouse/backend,warehouse-adapter-example/backend`
+  (adding `warehouse-3pl/backend,warehouse-india/backend,warehouse-trade/backend,warehouse-manufacturing/backend`
+  as each lands — `D-16`; the dealer/services adapter modules no longer exist), **without** `continue-on-error`,
   with one `dir:prefix` pair per warehouse module in the assertion step;
 - a **blocking** Jest step inside the existing `frontend` job, copied from `:123-128`, with
   `--passWithNoTests` (required — "no tests found" is a non-zero exit in Jest and the trees are empty
@@ -1616,11 +1657,32 @@ same holds for warehouse.
 
 # 9 · The concrete consumers, defined now
 
+## 9.0 The `D-16` consumers — `warehouse-trade` and `warehouse-manufacturing`
+
+Both are **modules**, not adapters, in the `warehouse-india` pattern: a sibling package, an
+`@ConditionalOnExpression` enable flag, FKs pointing **down only** (never from a `wh_`/`whb_` table up
+into `wht_`/`whm_`), vocabularies as code-list rows with no CHECK on an extensible value, and a seed
+migration carrying the owning-module guard (`V521000:117` pattern, `RL-003`). Neither writes a `wh_` or
+`whb_` table directly.
+
+| | `warehouse-trade` | `warehouse-manufacturing` |
+|---|---|---|
+| **Package · prefix · band** | `ai.warehousetrade` · `wht_` · `V550000`–`V559999` | `ai.warehousemanufacturing` · `whm_` · `V560000`–`V569999` |
+| **Owns** | PR / sales enquiry, RFQ / customer quotation, award, rate contract, blanket/open/fixed order agreements with delivery schedule, releases, amendments, approval — purchase and sales mirrored | multi-level BOM, production order, WIP, backflush rules, FG + co-product receipt, in-process / final QC plans, MRP |
+| **Reaches core through** | the PO creation/release port (`P8-01`) and the sales demand-order creation/release port (`P8-02`) | the movement port (issue to production, FG receipt) and the store-issue cost object (`P8-10`); QC through the polymorphic QC source (`P8-06`); job work through `warehouse-india` seams |
+| **Never** | writes `wh_purchase_*` / `wh_demand_orders` rows itself; generates a debit or credit note (accounting deferred, `RN-054`) | widens the VAS work order (`RN-033`); adds a ledger column for the cost object (`RN-034`) |
+| **Phase** | `P9` (after `P8`) | `P10` (after `P8`, parallel with `P9`) |
+
+Requirements: `docs/frd/FRD-TRADE.md`, `docs/frd/FRD-MFG.md`. Workflow contracts: `docs/contracts/`.
+
 Defined **now**, per `D-12`: nothing is left to "we'll look at it later". Each subsection says what
 the consumer posts, which types and document types it needs, which catalogue rows it seeds, what it
 reads, and its version.
 
-## 9.1 `warehouse-adapter-dealer` — spare parts · **v1**
+## 9.1 `warehouse-adapter-dealer` — spare parts · **v1** — **REMOVED (`D-16`)**
+
+> Removed 2026-09-21 and not rebuilt; `RN-051`. Kept for the record only — `FR-074`, `FR-358`, `FR-359`
+> are withdrawn and `P2-25` is VOID.
 
 | | |
 |---|---|
@@ -1633,7 +1695,10 @@ reads, and its version.
 | **Xrefs** | `whb_item_external_refs` with `source_module = 'DEALER'` for the dealer's own part numbers |
 | **Version** | **v1** — it is the adapter that proves the port |
 
-## 9.2 `warehouse-adapter-services` — job-card parts · **v1**
+## 9.2 `warehouse-adapter-services` — job-card parts · **v1** — **REMOVED (`D-16`)**
+
+> Removed 2026-09-21 and not rebuilt. `FR-360` is withdrawn and `P2-26` is VOID. Issue to a department or
+> a production order is core stores (`P8-09`/`P8-10`) and `warehouse-manufacturing`.
 
 | | |
 |---|---|
@@ -1646,11 +1711,11 @@ reads, and its version.
 | **Version** | **v1**, and it is the **largest consumer** |
 | **Note** | `services` has **no parts table today** — a clean sheet. `services.parts_used` is free `TEXT` (`services/…/V40095__Change_parts_used_from_jsonb_to_text.sql`). Material request → reservation before it is an order → issue in parts as the job progresses → **return to store crediting the job** → the warranty split (`FR-360`). **Parts issued to open jobs are neither stock nor cost of sale** and report as WIP at every month end (`FR-361`) |
 
-**Why it is in v1 and not v1.1:** *one adapter proves nothing about genericity* (`D-11`, `E-006`).
-The dealer adapter and the services adapter must both land without either forcing a base-schema
-change the other did not want. That is the whole acceptance test for the port.
+**Historical (superseded by `D-16`):** *one adapter proves nothing about genericity* (`D-11`, `E-006`).
+The acceptance test now falls on `warehouse-trade` and `warehouse-manufacturing`: both must land
+without either forcing a base-schema change the other did not want.
 
-## 9.3 `warehouse-adapter-field-service` — van stock · **v1.1**
+## 9.3 `warehouse-adapter-field-service` — van stock · **v1.1** — *not scheduled (`D-16`)*
 
 | | |
 |---|---|
@@ -1666,7 +1731,7 @@ The van is a `whb_locations` row with `location_type = 'MOBILE'`, its technician
 `CUSTODIAN` row of `whb_location_user_assignments` (`RG-004`). Replenished by a transfer, consumed at job close, cycle-counted,
 and its unreturned parts age (`FR-363`).
 
-## 9.4 `warehouse-adapter-assets` — spares · **v1.1**
+## 9.4 `warehouse-adapter-assets` — spares · **v1.1** — *not scheduled (`D-16`)*
 
 | | |
 |---|---|
@@ -1783,7 +1848,7 @@ that depart and never arrive.
 
 | | Decision | Source |
 |---|---|---|
-| **Dealer vehicle inventory** (`pdi_vehicle_inventory`, 26 `pdi_*` tables) | **Not migrated in v1 or v2.** The **test** is stated rather than the answer: *can `whb_serials` + `whb_movement_line_attributes` carry a chassis number, a colour, a variant and a PDI status **without `warehouse-base` acquiring a single vehicle-shaped column**?* If the answer needs a base column, the answer is **no, permanently**. Revisit at v3 | `OD-2`, `G-050`, `FR-365` |
+| **Dealer vehicle inventory** (`pdi_vehicle_inventory`, 26 `pdi_*` tables) | **Moot since `D-16` — warehouse does not serve dealers.** Historically: **not migrated in v1 or v2.** The **test** is stated rather than the answer: *can `whb_serials` + `whb_movement_line_attributes` carry a chassis number, a colour, a variant and a PDI status **without `warehouse-base` acquiring a single vehicle-shaped column**?* If the answer needs a base column, the answer is **no, permanently**. Revisit at v3 | `OD-2`, `G-050`, `FR-365` |
 | **A second item master** | No module other than `accessories` (`D-9`) may own one | `FR-048` |
 | **A shared `party-base`** | Not extracted now. **The trigger is recorded**: the **third** module that needs the same GSTIN to be authoritative for tax filing. Until then extraction is speculative; after then it is overdue. The cost of not extracting — up to **seven** party-shaped masters — is stated, not hidden | `OD-4`, `FR-121`, R7 §3.3 |
 
@@ -2176,7 +2241,7 @@ argument, and both should be reflected into the FRD.
 | 2 | **Out-of-process caller authentication** (`PC-33`) | before `whb_outbox_subscriptions` HTTP delivery in v1.1 | A platform service principal with owner grants, so `PC-05` and `PC-32` apply unchanged. **Needs an `OD-` row in `DECISIONS.md`** — allocating `OD-` ids is that document's business |
 | 3 | **Value conservation on a value-only movement** (`PC-12`) | before `P0-02` writes the ledger | Either a `value_balance_rule` behaviour column on `whb_movement_types`, or a fifteenth `L-` invariant. `L-1`…`L-14` currently conserve **quantity only** |
 | 4 | **A value-offset virtual location** (`PC-12`) | with the above | `FR-084`'s seeded list has no value-offset row. One seed row (`LANDED_COST_OFFSET`) or the reuse of an `ADJUSTMENT_OFFSET`-typed location. **Flagged, not assumed** |
-| 5 | **§3.9.2's twelve added error codes** | before v1 ships | Fold into `FR-039`. `PC-29` forbids renaming after the fact, so adding them late is the failure it prevents |
+| 5 | ~~**§3.9.2's twelve added error codes**~~ **Resolved by `#458`** — restated as §3.9.2's **32** added codes (63 in all), folded into `FR-039` *(amended — ratified 2026-10-14 (#203))* | before v1 ships | Fold into `FR-039`. `PC-29` forbids renaming after the fact, so adding them late is the failure it prevents |
 | 6 | **`OD-1` / `OD-6` — where the cost-layer tables live** | before `P2` | Not this document's. What is **not** in doubt: `cost_basis`, `unit_cost`, `cost_currency_code`, `moving_average_after` and `cost_layer_id` are **columns on the ledger line** whoever computes the numbers (`IRREVERSIBLE.md` §7.3) |
 | 7 | **`OD-7` — precision** | before `P0-02` | Every numeric type in §2 is a recommendation carrying a citation, not a ruling. `conversion_factor_used` in particular: R4 proposes `numeric(18,8)`; the accounting set's `DECIMAL(19,8)` is explicitly *"the **currency-conversion** type and nothing else"* |
 | 8 | **`OD-3` — one DB per customer vs shared multi-tenancy** | before `warehouse-3pl` P5 | Not this document's. Note only that `PC-32`'s owner scope is what carries the 3PL case either way |
@@ -2224,6 +2289,6 @@ current.*
 
 ## Adopted configuration integration boundary — 2026-09-11
 
-The base-owned port accepts base-valued `unit_cost`/`extended_value` and explicit source currency/rate evidence; adapters normalize original prices once. A foreign-currency source without a positive rate is refused atomically; repeat identity with changed normalized payload conflicts. The source snapshot preserves original amount, currency and rate evidence for audit; no base-to-accounting table access.
+The base-owned port accepts base-valued `unit_cost`/`extended_value` and explicit source currency/rate evidence; adapters normalize original prices once. A foreign-currency source without a positive rate is refused atomically; repeat identity with changed normalized payload conflicts. The source snapshot preserves original amount, currency and rate evidence for audit; no base-to-accounting table access. *(Amended — ratified 2026-10-14 (#203): that source evidence — `source_currency_code`, `source_unit_cost`, `source_extended_cost`, `exchange_rate`, `cost_source_line_id` on `whb_stock_movement_lines`, `V501122` — is **written once at INSERT** and never restated; an approval-gated line's approved value is a separate append-only `whb_movement_line_approved_costs` row, §2.5.)*
 
 Tax/cost provider capabilities are lower-layer interfaces with optional adapter registrations. A dealer adapter does not import warehouse-india classes or tables. The composition layer selects an installed provider under Global Settings, captures its result or external evidence in the owning document's audit payload, and blocks the affected finalization when absent. Core stock-only operations do not acquire a tax-engine dependency. All callbacks verify document identity and retain accepted results; timeout/retry is not permission to create a second invoice.

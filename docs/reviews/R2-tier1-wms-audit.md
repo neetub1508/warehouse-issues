@@ -1,5 +1,7 @@
 # LENS R2 — Tier-1 / enterprise WMS feature-by-feature audit
 
+> **Superseded in scope (2026-10-22):** historical record, not edited — where it assumes a dealer or retail target, [`DECISIONS.md` `D-16`](../DECISIONS.md) and [R28](R28-manufacturing-storage-retarget-impact.md) win (manufacturing + storage).
+
 <!-- check-design-set: issue-citations file #230 #263 #275 #303 #312 #314 #325 #334 #375 #388 — `#230` `#263` `#275` `#303` `#312` `#314` `#325` `#334` `#375` `#388` are **row numbers in R2's own feature tables** — *“the single most important row in this table is #263”*, *“Gap. #230.”* — not issue references. This lens numbers its rows and refers back to them by number throughout -->
 
 **Audited:** the *proposed* four-module Warehouse / Inventory design set for the Classic platform —

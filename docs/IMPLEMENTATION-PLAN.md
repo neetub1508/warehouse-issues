@@ -9,6 +9,15 @@
 *(Round 4, 2026-09-10: six task files, ten requirements and two screens added by `GAP-REGISTER-R4.md`
 §4.0. The table figure is `DATA-MODEL.md` §8.2's to regenerate.)*
 
+> **Re-target amendment · 2026-10-22 (`DECISIONS.md` `D-16`, [`reviews/R28`](reviews/R28-manufacturing-storage-retarget-impact.md)
+> §8b–§8c).** The product is re-targeted to **manufacturing plant stores + storage**. Four phases are
+> added — **`P7` REM** (removal of dealer and retail code + renames), **`P8` STORES** (core stores
+> additions), **`P9` TRADE** (`warehouse-trade`) and **`P10` MFG** (`warehouse-manufacturing`) — and run in
+> the order **`P7` → `P8` → {`P9`, `P10`}** (§1.9). Tasks whose whole scope is dealer or retail are
+> **VOID**: `P2-24`, `P2-25`, `P2-26`, `P3-19`, `P5-12`, `P5-15`, `P6-09`; partially VOID: `P3-18`,
+> `P5-08`, `P5-09`, `P5-11`, `P5-13` (each file's header names the void part). The counts in the line
+> above predate `D-16` and are not regenerated here.
+
 > **What wins, and in what order.** [`DECISIONS.md`](DECISIONS.md) wins over this document on module
 > names, bands, prefixes, id namespaces and the version ladder.
 > [`DATA-MODEL.md`](DATA-MODEL.md) §7 wins on **migration numbers** — where §2 of this page and §7 of
@@ -33,8 +42,8 @@ ship it, count it, correct it and value it** — and on whether the number the f
 prints at month end can be **rebuilt from the movements that produced it**. Everything that makes
 that loop work is in v1, including the three things the first authoring wave had cut and the
 amendments in `DECISIONS.md` §5.1 put back: **returns** (`A-1`), **printing** (`A-2`) and **the India
-movement documents** (`A-4`). Waving, labour management, slotting, 3PL billing and the marketplace
-surface are not in v1, and none of them is a column — they are screens on a schema that v1 already
+movement documents** (`A-4`). Waving, labour management, slotting and 3PL billing
+are not in v1 (the marketplace surface is removed altogether by `D-16`), and none of them is a column — they are screens on a schema that v1 already
 carries. What v1 must not get wrong is the **grain**: `owner_id`, `duty_status`, `stock_status_code`,
 `lot_id`, `serial_id`, `lpn_id`, `company_id` and three separate timestamps are free today and
 unbackfillable the moment `V500030` runs. That is the whole argument of this plan, and it is why
@@ -53,12 +62,16 @@ digit and a hyphen-separated pair, as `DECISIONS.md` §6 requires.
 |---|---|---|---|---:|---:|---|
 | **P0** | Ledger foundation | v1 | `warehouse-base`, `warehouse-adapter-example` | 17 | 117 | `V500000`–`V500021`, `V500030`–`V500036`, `V500040`–`V500046`, `V500200`, `V501000`–`V501049`, `V501100`, `V525000`–`V525010` |
 | **P1** | Masters, identity, inbound | v1 | `warehouse-base` + `warehouse` | 21 | 107 | `V500009`–`V500020`, `V500050`–`V500055`, `V510010`–`V510018`, `V510031`, `V511000`, `V511001`, `V511010`, `V511200` |
-| **P2** | Outbound, counting, valuation, returns, printing, reports | v1 | `warehouse` + `warehouse-base` + two adapters | 29 | 102 | `V500021`\*, `V501070`–`V501099`, `V510019`–`V510090`, `V511060`–`V511139`, `V520000`–`V520149`, `V521000`–`V521149` |
+| **P2** | Outbound, counting, valuation, returns, printing, reports | v1 | `warehouse` + `warehouse-base` *(the two adapters are removed by `D-16`)* | 29 | 102 | `V500021`\*, `V501070`–`V501099`, `V510019`–`V510090`, `V511060`–`V511139`, `V520000`–`V520149`, `V521000`–`V521149` |
 | **P2-IN** | The India movement documents | v1 | `warehouse-india` (wave 1) | 4 | 7 | `V540000`–`V540030`, `V541000`–`V541049` |
-| **P3** | Execution & mobile | v1.1 | `warehouse` + base + mobile + two adapters | 24 | 43 | `V500056`, `V500060`–`V500063`, `V501101`–`V501109`, `V510012`, `V510100`–`V510108`, `V511140`–`V511179`, `V520013`, `V522000`–`V522149`, `V523000`–`V523149` |
+| **P3** | Execution & mobile | v1.1 | `warehouse` + base *(mobile and the two adapters are out by `D-16` / the 2026-09-11 no-mobile rule)* | 24 | 43 | `V500056`, `V500060`–`V500063`, `V501101`–`V501109`, `V510012`, `V510100`–`V510108`, `V511140`–`V511179`, `V520013`, `V522000`–`V522149`, `V523000`–`V523149` |
 | **P4** | India statutory & compliance | v2 | `warehouse-india` (wave 2) | 13 | 18 | `V530060`, `V540100`–`V540180`, `V540183`, `V541100`–`V541149` |
-| **P5** | 3PL, channels & reverse logistics | v2 | `warehouse-3pl` + `warehouse` + adapters | 23 | 49 | `V500066`, `V510200`–`V510214`, `V510216`, `V520014`, `V521013`, `V530000`–`V530050`, `V531000`–`V531099` |
+| **P5** | 3PL, channels & reverse logistics | v2 | `warehouse-3pl` + `warehouse` *(channels, NDR/COD and the adapters removed by `D-16`)* | 23 | 49 | `V500066`, `V510200`–`V510214`, `V510216`, `V520014`, `V521013`, `V530000`–`V530050`, `V531000`–`V531099` |
 | **P6** | Optimisation, planning & the logistics seam | v3 | `warehouse-base`, `warehouse`, `warehouse-3pl`, `logistics` | 12 | 16 | `V500100`–`V500101`, `V510300`–`V510302`, `V530100`–`V530111` (**no `V524xxx`** — §11's withdrawal, `H-006`) |
+| **P7** *(D-16)* | REM — removal of dealer + retail code, renames | — | `warehouse-base`, `warehouse` | see `issues/09-EPIC-p7.md` | `FR-480`–`499` | rewrites `V5000xx`/`V51xxxx` in place (`RN-052`); no new band |
+| **P8** *(D-16)* | STORES — core stores additions | — | `warehouse` (+ `warehouse-base`) | see `issues/10-EPIC-p8.md` | `FR-500`–`539` | inside `V510000`–`V519999` |
+| **P9** *(D-16)* | TRADE — purchase + sales, mirrored | — | `warehouse-trade` | see `issues/11-EPIC-p9.md` | `FR-540`–`619` | `V550000`–`V559999` |
+| **P10** *(D-16)* | MFG — BOM, production, MRP | — | `warehouse-manufacturing` | see `issues/12-EPIC-p10.md` | `FR-620`–`669` | `V560000`–`V569999` |
 
 \* `V500021` (`whb_valuation_policies`, `whb_cost_layers`, `whb_cost_layer_consumptions`) is owned by
 **`P0-17`**, a P0 task, because `whb_stock_movement_lines.cost_layer_id` is a real FK and the table
@@ -161,8 +174,8 @@ cross-dock, none of which exists yet. Blind receipt (`FR-128`) is what covers th
 
 ### 1.3 · P2 — Outbound, counting, valuation, returns, printing, reports · **v1**
 
-**Modules.** `warehouse` (the bulk) + `warehouse-base` (costing, snapshots, the interface queue) +
-`warehouse-adapter-dealer` + `warehouse-adapter-services`.
+**Modules.** `warehouse` (the bulk) + `warehouse-base` (costing, snapshots, the interface queue).
+*(`D-16`: the dealer and services adapters once listed here are removed; `P2-24`–`P2-26` are VOID.)*
 
 **What it delivers.** The other half of the daily loop and the numbers that prove it: adjustments
 with value-based approval thresholds, three-leg transfers through a per-transfer in-transit location,
@@ -171,16 +184,14 @@ allocation and discrete picking to a real staging location, ship confirm as the 
 event, cartons and pack evidence, basic returns and return-to-vendor, **templated document and label
 printing including a ZPL path**, replenishment suggestions and demand history, the costing engine
 (weighted average + FIFO on `whb_cost_layers`), landed cost and revaluation, the accounting handover
-and the stock-to-GL reconciliation, opening stock and cut-over, the report pack, and **both v1
-adapters**, because one adapter proves nothing about genericity.
+and the stock-to-GL reconciliation, opening stock and cut-over, and the report pack.
 
 **Migration blocks.** `V510019`–`V510020` (reconciliation cases, supplier returns) ·
 `V510030`–`V510035` (adjustments, holds, counts, insufficient-stock and blocked-move logs,
 reconciliation exceptions) · `V510040`–`V510044` (demand orders, pick tasks, cartons, shipments,
 carriers) · `V510050` (returns) · `V510060` (printing) · `V510070` (replenishment) · `V510080`
 (landed cost, revaluation) · `V510090` (opening stock, cut-over) · `V501070`–`V501099` and
-`V511060`–`V511139` (grids wave 3) · `V520000`–`V520149` (dealer adapter) ·
-`V521000`–`V521149` (services adapter).
+`V511060`–`V511139` (grids wave 3). *(`V520000`–`V520149` and `V521000`–`V521149`, the removed adapters, stay reserved — `D-2`.)*
 
 **Exit criterion.** `DECISIONS.md` §5's v1 sentence, decomposed by `SCENARIO-CATALOGUE.md` §3.2 into
 **nineteen scenarios `WH-SC-044`…`WH-SC-062`, run in order, on one Mode-A install, in one sitting**.
@@ -195,8 +206,9 @@ The three that decide it are the last three:
 - **`WH-SC-062`** — the valuation is produced **with no accounting module installed**, because
   warehouse holds the grain (`D-6`).
 
-Plus the port proof: `warehouse-adapter-dealer` and `warehouse-adapter-services` both post through
-`POST /api/warehouse/movements` with **zero commits to `warehouse-base`** (`D-11`, `FR-352`).
+Plus the port proof: `warehouse-adapter-example` posts through `POST /api/warehouse/movements` with
+**zero commits to `warehouse-base`** (`D-11`, `FR-352`); since `D-16` the real consumers that repeat the
+proof are `warehouse-trade` and `warehouse-manufacturing`.
 
 **What P2 deliberately does not do.** No waves (v1 ships the **Release** action on the demand header
 and says so — `FR-187`). Discrete picking only; batch, cluster and zone picking are `P3-06`. No pack
@@ -252,8 +264,8 @@ no bonded warehousing, no ITC-04. All of that is P4.
 
 ### 1.5 · P3 — Execution & mobile · **v1.1**
 
-**Modules.** `warehouse` + `warehouse-base` + `mobile` + `warehouse-adapter-field-service` +
-`warehouse-adapter-assets`.
+**Modules.** `warehouse` + `warehouse-base`. *(`D-16` and the 2026-09-11 no-mobile rule: `mobile` and
+the field-service/assets adapters are out of scope.)*
 
 **What it delivers.** The warehouse floor. The RF screen family with its own interaction contract —
 one active input, scan advances, no free text where a scan exists, no mouse (`FR-219`) — and its nine
@@ -269,8 +281,8 @@ workbench; and the field-service and assets adapters.
 **Migration blocks.** `V500060`–`V500063` (kits, item×location, devices, alerts) · `V501101`–`V501109`
 (base grids, wave 4) · `V510012` (ASN) · `V510100`–`V510108` (waves, pack sessions, work orders,
 printers, manifests, order-edit rules, KPI snapshots, migration mappings, replenishment tasks) ·
-`V511140`–`V511179` (app grids, wave 4) · `V520013` (dealer price files) ·
-`V522000`–`V522149` and `V523000`–`V523149` (the two v1.1 adapters).
+`V511140`–`V511179` (app grids, wave 4). *(`V520013` dealer price files is void by `D-16`; the
+`V522000`/`V523000` adapter blocks are unscheduled.)*
 
 **Exit criterion.** `DECISIONS.md` §5, verbatim: *an operator completes a full
 receive→putaway→pick→pack→ship cycle **entirely on a handheld**, and a wave of 200 order lines
@@ -317,8 +329,10 @@ tables that a warehouse-side tax engine would have needed.
 
 ### 1.7 · P5 — 3PL, channels & reverse logistics · **v2**
 
-**Modules.** `warehouse-3pl` (new) + `warehouse` + `warehouse-adapter-dealer` +
-`warehouse-adapter-services`.
+**Modules.** `warehouse-3pl` (new) + `warehouse`. *(`D-16`: the adapters are removed; channels,
+AWB, NDR, COD, RTO, tracking links, marketplace claims and OEM obsolescence returns are void — `P5-12`
+and `P5-15` are VOID, `P5-08`/`P5-09`/`P5-11`/`P5-13` partially VOID. Read the paragraph below
+subject to that.)*
 
 **What it delivers.** Three products that share one base. **3PL**: clients as objects with contracts
 and onboarding templates, charge codes, versioned effective-dated rate cards, the append-only
@@ -335,15 +349,15 @@ write-down as a register, the COGS recognition policy.
 
 **Migration blocks.** `V510200`–`V510214` (cross-dock, three-way match, calendars, tracking, rate
 quotes, AWB, NDR, COD, channels, tracking links, grading, recalls, NRV, weighing, labour) ·
-`V520014` (core exchanges) · `V521013` (warranty holds) · `V530000`–`V530050` (the whole 3PL module) ·
+*(D-16: the AWB, NDR, COD, channel, tracking-link, rate-quote and marketplace blocks and `V520014`/`V521013` are void)* · `V530000`–`V530050` (the whole 3PL module) ·
 `V531000`–`V531099` (config).
 
 **Exit criterion.** `DECISIONS.md` §5's other v2 half — *a 3PL bills a client for a month of storage
 and handling from metered events* — with three additions that make it a real test: the invoice
 arithmetic is **reproducible from the meter** (re-rating the same period against the same card
 version returns the same total); a client user logged into the portal **cannot see another client's
-stock through any endpoint**, proved by a negative test per endpoint (`FR-300`); and a channel order
-imported twice on the same `(channel account, external order id)` produces **one** demand order.
+stock through any endpoint**, proved by a negative test per endpoint (`FR-300`). *(The channel-order
+idempotency clause is withdrawn with channel import, `D-16`.)*
 
 **What P5 deliberately does not do.** No rate escalation, no SLA penalty posting, no client
 profitability — all P6, and each is deferred with a stated reason rather than silently. No
@@ -361,8 +375,8 @@ the cut-off before it moves a row, so the rebuild still reproduces; the computed
 with phase-in and phase-out; labour standards measured from a year of our own data; the automation and
 AS/RS event contract; supplier scorecard evidence emission; the `party-base` extraction trigger;
 rate escalation, SLA penalty events and client profitability; the operations dashboard on the
-platform widget framework; the documented accessories absorption path and the dealer vehicle-inventory
-test; and **the `logistics` module itself**.
+platform widget framework; the documented accessories absorption path *(the dealer vehicle-inventory test, `P6-09`, is VOID by
+`D-16`)*; and **the `logistics` module itself**.
 
 **Migration blocks.** `V500100`–`V500101` (archiving, the automation event contract) ·
 `V510300`–`V510302` (stocking level, labour standards, dashboard) · `V530100`, `V530110`–`V530111`
@@ -381,11 +395,26 @@ picking as a built capability, AS/RS control, multi-level BOM with routings, dem
 warehouse, a consumer returns portal, retail-compliance EDI, UDI healthcare, international trade
 compliance. Each has a stated re-entry path and none is a gap.
 
+### 1.9 · P7–P10 — the manufacturing + storage re-target (`D-16`)
+
+**Order: `P7` → `P8` → {`P9`, `P10`}.** `P7` runs first because every later task builds on the cleaned
+schema; `P9` and `P10` depend on `P8`'s core ports and may run in parallel.
+
+| Phase | What it delivers | Module(s) | Depends on | Requirements |
+|---|---|---|---|---|
+| **P7 REM** | Delete the dealer and retail/e-commerce features (`RN-010`…`RN-018`, `RN-020`…`RN-024`): their Java, pages, menus, permissions, i18n and migration files; rewrite the mixed migrations so they neither create nor reference removed objects; apply the renames (line-stop / machine-down, production store, manufacturer part no., Stock KPIs, engineering change); remove the dead adapter switches (`RN-004`); then **rebuild the dev database once** (`RN-052`) | `warehouse-base`, `warehouse` | — | `docs/frd/FRD-REM.md` |
+| **P8 STORES** | `P8-01` PO type + schedule lines + PO creation/release port · `P8-02` sales demand-order creation/release port · `P8-03` gate entry register + gate passes · `P8-04` GRN bill fields + short/excess · `P8-05` sampling bands · `P8-06` QC polymorphic source · `P8-07` QC reject → raise supplier return · `P8-08` MRN authorisation + print · `P8-09` material requisition · `P8-10` store issue with cost object · `P8-11` store return (+ `P8-12`… as STORES adds) | `warehouse` (+ `warehouse-base`) | P7 | `docs/frd/FRD-STORES.md` |
+| **P9 TRADE** | PR / sales enquiry → RFQ / customer quotation → award → rate contract → blanket/open/fixed order with delivery schedule → releases → amendments → approval; sales mirrors purchase row for row; orders reach core only through the `P8-01`/`P8-02` ports | `warehouse-trade` (`ai.warehousetrade`, `wht_`) | P8 | `docs/frd/FRD-TRADE.md` |
+| **P10 MFG** | Multi-level BOM, production order, issue to WIP / backflush, FG + co-product receipt, in-process / final QC (`P8-06`), MRP; job work through `warehouse-india` | `warehouse-manufacturing` (`ai.warehousemanufacturing`, `whm_`) | P8 | `docs/frd/FRD-MFG.md` |
+
+Accounting stays deferred (`RN-054`): no phase generates a debit or credit note. No phase has a mobile
+screen.
+
 ---
 
 ## 2. The task list
 
-**144 tasks.** The count fell out of the decomposition; it was not targeted. Round 5 (2026-09-14) added `P1-22` to correct built work under `D-14` item 8. Round 4 filed six —
+**144 tasks, plus 56 re-target tasks in P7–P10 (`D-16`, §2.8.1–§2.8.4) — 200 in all.** The count fell out of the decomposition; it was not targeted. Round 5 (2026-09-14) added `P1-22` to correct built work under `D-14` item 8. Round 4 filed six —
 `P3-25` at v1.1 and `P5-24`…`P5-28` at v2 — under `D-14` item 7, and on 2026-09-10 folded each into its
 most similar existing task under the user rule *no duplicate tasks* (`GAP-REGISTER-R4.md` §4.6). A
 folded item keeps its own version and is marked in its host as a *v1.1* or *v2 increment*. Sizing rule: one task is
@@ -491,9 +520,9 @@ lost. §8.2 lists all 51 with both ends.
 | **P2-21** | Report pack 2: the adjustment register by reason, user and value — *the first report an auditor asks for*; the count history and variance register including recounts; low / insufficient stock and replenishment suggestions as **shipped reports, not grid filters**; operational KPIs computed from the lifecycle timestamps; the **four parts KPIs with frozen definitions rendered in the metric explainer**; the twenty-nine-metric warehouse KPI list; **forward and backward traceability** — lot → every shipment and consignee, serial → supplier lot and receipt; KPI targets as data — `whb_metric_definitions`, `wh_metric_targets` and the Metric Targets screen (`RC-007`) | app+base | `V500048` `V510091` `V511211` `V511241` | `WS-213`…`WS-218` `WS-244` | `FR-389…FR-394` `FR-396` `FR-470` | P2-20 |
 | **P2-22** | The **interface error queue** over failed inbound messages and failed posting events, with a reprocess action that is idempotent by construction and an escalation path | base | — | — | `FR-045` | P0-08 P0-11 |
 | **P2-23** | **Approval permissions distinct from execution permissions**, and the approver may not be the actor — the counter may not approve their own count variance, the adjuster may not approve their own write-off. *v2 increment* (from `P5-27`): value-banded approval levels, `wh_approval_levels` — ordered typed rows, not a workflow engine (`RK-008`) | app | `V510222` `V511180` `V511210` `V511240` | `WS-241` | `FR-408` `FR-466` | P2-01 P2-04 (v2 increment: P1-12 P2-02) |
-| **P2-24** | Supersession **stock and demand treatment** — `KEEP_SEPARATE`, `MERGE_DEMAND` weighted by the quantity ratio, or `MERGE_STOCK` as a movement; bidirectional interchange with the counter enquiry showing *"not in stock — 2 available as `<interchange>`"*; and **vehicle fitment in `warehouse-adapter-dealer`**, never in base | app+ad-dealer | `V520010` | `WS-195` | `FR-072…FR-074` | P1-03 P2-25 |
-| **P2-25** | **`warehouse-adapter-dealer`** — the first port proof. Counter sale (**keyboard-first**: scan or part number, quantity, price level, print, next — a sub-ten-second bill with trade price levels), OEM order, core return; its own movement types, document types and item cross-references registered by **idempotent migration in its own sub-band**, with **zero commits to `warehouse-base`**; the serving-branch rule at the counter — direct only on a same-GSTIN link, else `422 CROSS_GSTIN_COUNTER_SALE` and *Raise request* (`RK-002`); item prices by price level, loaded by import (`RA-002`) | ad-dealer | `V520000` `V520011` `V520012` `V520015` `V520100`–`V520149` | `WS-194` `WS-239` | `FR-352` `FR-358` `FR-359` `FR-461` | P0-14 P2-09 |
-| **P2-26** | **`warehouse-adapter-services`** — the genericity proof, because one adapter proves nothing. A material request against a job card → a reservation before it is an issue; parts issued to open jobs reported as **work-in-progress at every month end** (neither stock nor cost of sale); a serialised part **records the vehicle it was fitted to at issue time**, because retro-linking a year of issues is guesswork | ad-services | `V521000` `V521010` `V521011` `V521012` `V521100`–`V521149` | `WS-199` `WS-200` `WS-201` | `FR-360…FR-362` | P0-14 P2-09 |
+| **P2-24** | **VOID (`D-16`)** — Supersession **stock and demand treatment** — `KEEP_SEPARATE`, `MERGE_DEMAND` weighted by the quantity ratio, or `MERGE_STOCK` as a movement; bidirectional interchange with the counter enquiry showing *"not in stock — 2 available as `<interchange>`"*; and **vehicle fitment in `warehouse-adapter-dealer`**, never in base *Scope note 2026-10-02 (W58 `#252`): `MERGE_DEMAND` is recorded only. No demand fold or ratio weighting ships, because demand planning is v3/P6 and excluded by the 2026-09-30 ruling. Vehicle fitment's home `warehouse-adapter-dealer` was removed 2026-09-21 (band reserved, not rebuilt).* | app+ad-dealer | `V520010` | `WS-195` | `FR-072…FR-074` | P1-03 P2-25 |
+| **P2-25** | **VOID (`D-16`)** — **`warehouse-adapter-dealer`** — the first port proof. Counter sale (**keyboard-first**: scan or part number, quantity, price level, print, next — a sub-ten-second bill with trade price levels), OEM order, core return; its own movement types, document types and item cross-references registered by **idempotent migration in its own sub-band**, with **zero commits to `warehouse-base`**; the serving-branch rule at the counter — direct only on a same-GSTIN link, else `422 CROSS_GSTIN_COUNTER_SALE` and *Raise request* (`RK-002`); item prices by price level, loaded by import (`RA-002`) | ad-dealer | `V520000` `V520011` `V520012` `V520015` `V520100`–`V520149` | `WS-194` `WS-239` | `FR-352` `FR-358` `FR-359` `FR-461` | P0-14 P2-09 |
+| **P2-26** | **VOID (`D-16`)** — **`warehouse-adapter-services`** — the genericity proof, because one adapter proves nothing. A material request against a job card → a reservation before it is an issue; parts issued to open jobs reported as **work-in-progress at every month end** (neither stock nor cost of sale); a serialised part **records the vehicle it was fitted to at issue time**, because retro-linking a year of issues is guesswork | ad-services | `V521000` `V521010` `V521011` `V521012` `V521100`–`V521149` | `WS-199` `WS-200` `WS-201` | `FR-360…FR-362` | P0-14 P2-09 |
 | **P2-27** | The `D-9` coexistence reports: the **category-ownership reconciliation** naming every violation, and the counted cost of the separation surfaced **in the product** — 17 duplicated tables, 71 backend files, 11 reports, 33 mobile screens, two stock truths, no unified report | app | — | `WS-225` | `FR-369` `FR-370` | P1-04 P2-20 |
 | **P2-28** | Value-only movements: the `VALUE_OFFSET` virtual location and the **value-conservation invariant** for lines where `quantity = 0 AND unit_cost IS NOT NULL` (`OD-11`); freight capitalisation crossing the seam as a zero-quantity value movement; and **daily storage snapshots persisted, not recomputed** — one row per date, client, owner, warehouse, basis and identity, carrying the oldest receipt date | base | — | — | `FR-289` `FR-345` | P2-16 P0-02 |
 | **P2-29** | Grid configuration wave 3, and the two rules that decide whether a grid works: **export follows the visible columns and is a superset of them**, carrying created-by and updated-by wherever the grid shows them, with a 100,000-row target that requires a **streaming** path rather than `BaseExportService`'s materialising one; and **filter-aware statistics carry no cache name** — the platform cache registry already records that exact mistake with its issue numbers | app+platform | `V501070`–`V501099` `V511060`–`V511139` | — | `FR-395` `FR-400` | P1-20 |
@@ -532,8 +561,8 @@ lost. §8.2 lists all 51 with both ends.
 | **P3-15** | LPN handling: an LPN move is **one movement whose lines the service expands from the LPN's current contents and stores**, never leaves implicit; nested LPNs; and **GS1 element-string parsing** (AI `01`/`10`/`17`/`21`/`00`/`310n`, fixed vs variable length, FNC1) returning a composite | base | — | — | `FR-063` `FR-101` | P1-07 P1-02 |
 | **P3-16** | Alert rules with conditions and recipients, alert events, and **per-install health signals**: movements posted today against a baseline, handovers stuck pending, counts overdue, negative positions, orphaned reservations | base+app | `V500063` | `WS-069` `WS-070` `WS-223` | `FR-398` | P0-13 P2-06 |
 | **P3-17** | KPI snapshots, and the disputed-but-built `D-9` mitigations: the **consolidated valuation view spanning both inventories, tagged by source system, with the differing-valuation-method caveat rendered on the report** — never a grand total; the cross-system availability lookup; one reporting scope | app | `V510106` | `WS-222` | `FR-397` | P2-21 P2-27 |
-| **P3-18** | **Migration mapping profiles** for the incumbent products (item master with classification, UoM and alternate units, godowns, parties, opening stock); **twelve months of demand history importable and marked as migrated**, because otherwise the computed stocking level takes a year to become useful; and the OEM price file with a **dry-run diff before apply**; and the **configuration-package** import kinds that carry install configuration between databases (`RL-012`, `OD-3`) | app+ad-dealer | `V510107` `V520013` | `WS-152` `WS-197` | `FR-414` `FR-415` `FR-419` | P1-10 P2-19 |
-| **P3-19** | The **OEM order interface** — transmit the order, consume the acknowledgement (allocated and back-ordered quantities and an ETA per line) | ad-dealer | — | `WS-196` | `FR-420` | P2-25 |
+| **P3-18** | **PARTIALLY VOID (`D-16`; see the task header)** — **Migration mapping profiles** for the incumbent products (item master with classification, UoM and alternate units, godowns, parties, opening stock); **twelve months of demand history importable and marked as migrated**, because otherwise the computed stocking level takes a year to become useful; and the OEM price file with a **dry-run diff before apply**; and the **configuration-package** import kinds that carry install configuration between databases (`RL-012`, `OD-3`) | app+ad-dealer | `V510107` `V520013` | `WS-152` `WS-197` | `FR-414` `FR-415` `FR-419` | P1-10 P2-19 |
+| **P3-19** | **VOID (`D-16`)** — The **OEM order interface** — transmit the order, consume the acknowledgement (allocated and back-ordered quantities and an ETA per line) | ad-dealer | — | `WS-196` | `FR-420` | P2-25 |
 | **P3-20** | **`warehouse-adapter-field-service`** — the van as a **mobile location owned by a technician**, replenished by a transfer, consumed at the job. It works because the current `CUSTODIAN` row of `whb_location_user_assignments` and the `MOBILE`/`VEHICLE` location types shipped in `P1-05` | ad-fs | `V522000` `V522010` `V522011` `V522012` `V522100`–`V522149` | `WS-203` `WS-204` `WS-205` | `FR-363` | P0-14 P2-02 |
 | **P3-21** | **`warehouse-adapter-assets`** — spares issued against a complaint resolution, with the boundary stated: warehouse owns the item and the movement, assets owns the asset and the complaint | ad-assets | `V523000` `V523010` `V523011` `V523100`–`V523149` | `WS-206` `WS-207` | `FR-364` | P0-14 P2-09 |
 | **P3-22** | The event stream as **the adapters' subscription point** and the automation vendor's integration surface — in-process and HTTP subscribers registered by the consumer, never by base; `document.status_changed` from the single transition helper and the `WhTransitionGuard` SPI (`RL-014`) | base | — | — | `FR-334` | P0-11 P0-14 |
@@ -573,14 +602,14 @@ lost. §8.2 lists all 51 with both ends.
 | **P5-05** | The **billing run as an object with a frozen approved state** — period, type, status ladder, rated/approved/invoiced timestamps, totals; **accessorials** as ad-hoc charges with an author, date, reason and a second-approver threshold; **disputes as records** raisable from the portal, an upheld dispute posting a reversing event; and the AR handover — **`warehouse-3pl` contains no invoice, no numbering sequence and no tax engine, in any version**; `line_no` on the run line as `R-4`'s tie-break (`RF-009`) | 3pl | `V530040` `V530041` `V530042` `V530043` | `WS-162` `WS-163` `WS-164` `WS-170` | `FR-291…FR-294` | P5-02 P5-04 |
 | **P5-06** | **Four freight-billing modes** — at cost, cost plus percent, cost plus fixed, own published tariff, and the client's own carrier account with no freight billing at all | 3pl | `V530044` | `WS-165` | `FR-295` | P5-05 |
 | **P5-07** | **SLA definitions, measurements and breaches as objects** — a metric, a target, a comparison, a measurement window, a calendar, exclusions; and the portal's performance tab rendering trend plus current period with drill-through to the failing orders | 3pl | `V530050` | `WS-166` `WS-167` `WS-168` | `FR-297` `FR-298` | P5-01 P2-21 |
-| **P5-08** | The **client portal as a permission surface over the existing screens**, not a second application with its own authentication; **owner segregation enforced at the row level in the query layer with a negative test per endpoint**; and the custody-liability and insured-value report for non-own stock — **a different number, on a different report**, never mixed into the inventory asset. Plus the trade-customer persona (from `P5-25`, `RK-006`): a second persona on the same surface and resolver — availability as a flag, `DRAFT` orders, no pricing or payment — built as its own increment so the 3PL portal ships alone | 3pl+app | `V510221` `V511209` `V511239` | `WS-172` `WS-227` `WS-240` | `FR-115` `FR-284` `FR-300` `FR-464` | P5-01 P0-06 P2-08 P1-08 |
-| **P5-09** | Channel accounts; **channel order import idempotent on `(channel account, external order id)`** with an external version so a stale re-poll is discarded; **publish rules as the oversell control** (basis, buffer, maximum, floor); the signed expiring public tracking link and consumer notification rules; and cross-dock plans; channel accounts fulfil from several sites through `wh_channel_account_warehouses` (`RG-017`); and drop-shipment as `OD-18` decides — **blocked on `OD-18`** (`RK-005`) | app | `V510200` `V510208` `V510209` | `WS-087` `WS-123`…`WS-126` | `FR-208…FR-210` `FR-467` | P1-11 P2-08 |
+| **P5-08** | **PARTIALLY VOID (`D-16`; see the task header)** — The **client portal as a permission surface over the existing screens**, not a second application with its own authentication; **owner segregation enforced at the row level in the query layer with a negative test per endpoint**; and the custody-liability and insured-value report for non-own stock — **a different number, on a different report**, never mixed into the inventory asset. Plus the trade-customer persona (from `P5-25`, `RK-006`): a second persona on the same surface and resolver — availability as a flag, `DRAFT` orders, no pricing or payment — built as its own increment so the 3PL portal ships alone | 3pl+app | `V510221` `V511209` `V511239` | `WS-172` `WS-227` `WS-240` | `FR-115` `FR-284` `FR-300` `FR-464` | P5-01 P0-06 P2-08 P1-08 |
+| **P5-09** | **PARTIALLY VOID (`D-16`; see the task header)** — Channel accounts; **channel order import idempotent on `(channel account, external order id)`** with an external version so a stale re-poll is discarded; **publish rules as the oversell control** (basis, buffer, maximum, floor); the signed expiring public tracking link and consumer notification rules; and cross-dock plans; channel accounts fulfil from several sites through `wh_channel_account_warehouses` (`RG-017`); and drop-shipment as `OD-18` decides — **blocked on `OD-18`** (`RK-005`) | app | `V510200` `V510208` `V510209` | `WS-087` `WS-123`…`WS-126` | `FR-208…FR-210` `FR-467` | P1-11 P2-08 |
 | **P5-10** | The **three-way match built on an allocation junction** — invoice line × GRN line × PO line with an allocated quantity and amount, never a 1:1:1 header assumption; and a **working calendar** with per-warehouse and per-client working days, open/close and cut-off times and holidays, used by **the same code** for both | app | `V510201` `V510202` | `WS-088` `WS-127` | `FR-140` `FR-181` | P1-12 P2-13 |
-| **P5-11** | Carrier integration: tracking events stored **normalised and raw** with per-carrier status mappings held as **data** so a mapping can be corrected and the history re-derived; **rate shopping that persists the quote** (carrier, service, account, amount, transit estimate, billable weight, selected and why); **pincode serviceability gating the rate shop while address validation only warns**; and an **AWB pool** claimed transactionally from blocks fetched ahead of time; the carrier connectors are `PC-04` adapter beans, not a module (`RD-005`) | app | `V510203` `V510204` `V510205` | `WS-115`…`WS-119` | `FR-198` `FR-200…FR-202` | P2-10 |
-| **P5-12** | **NDR as a workflow with a response clock**, not an exception code — a reason, a computed response-due time from a per-carrier SLA, an action, an escalation; and **COD remittance reconciliation where the AWB lives** — a UTR, gross, deductions and net, with lines matched to shipments | app | `V510206` `V510207` | `WS-120` `WS-121` | `FR-203` `FR-204` | P5-11 |
-| **P5-13** | **Inspection and grading at the point of receipt** — a condition grade from a seeded vocabulary, notes, photographs, serial and lot verification; **obsolescence return to the OEM** with an authorisation window, allowance and claimed amounts, per-line eligibility and a restocking fee; and the **marketplace return-claim window** with a due date computed at receipt from a per-channel window | app+ad | `V510210` · `V510215` | `WS-137` `WS-138` `WS-242` | `FR-272` `FR-276` `FR-279` | P2-12 P5-09 |
+| **P5-11** | **PARTIALLY VOID (`D-16`; see the task header)** — Carrier integration: tracking events stored **normalised and raw** with per-carrier status mappings held as **data** so a mapping can be corrected and the history re-derived; **rate shopping that persists the quote** (carrier, service, account, amount, transit estimate, billable weight, selected and why); **pincode serviceability gating the rate shop while address validation only warns**; and an **AWB pool** claimed transactionally from blocks fetched ahead of time; the carrier connectors are `PC-04` adapter beans, not a module (`RD-005`) | app | `V510203` `V510204` `V510205` | `WS-115`…`WS-119` | `FR-198` `FR-200…FR-202` | P2-10 |
+| **P5-12** | **VOID (`D-16`)** — **NDR as a workflow with a response clock**, not an exception code — a reason, a computed response-due time from a per-carrier SLA, an action, an escalation; and **COD remittance reconciliation where the AWB lives** — a UTR, gross, deductions and net, with lines matched to shipments | app | `V510206` `V510207` | `WS-120` `WS-121` | `FR-203` `FR-204` | P5-11 |
+| **P5-13** | **PARTIALLY VOID (`D-16`; see the task header)** — **Inspection and grading at the point of receipt** — a condition grade from a seeded vocabulary, notes, photographs, serial and lot verification; **obsolescence return to the OEM** with an authorisation window, allowance and claimed amounts, per-line eligibility and a restocking fee; and the **marketplace return-claim window** with a due date computed at receipt from a per-channel window | app+ad | `V510210` · `V510215` | `WS-137` `WS-138` `WS-242` | `FR-272` `FR-276` `FR-279` | P2-12 P5-09 |
 | **P5-14** | **Recall**: quarantine all matching on-hand stock **in place** with a status-change movement, list every shipment that carried the lot with its consignee, and drive the notification | app | `V510211` | `WS-139` | `FR-280` | P2-12 P2-21 |
-| **P5-15** | **Cores are inventory** — a `CORE` item type linked to the serviceable part, a core charge, a **core-bank location with its own valuation**, a core transaction ledger; and **warranty scrap-and-hold** — a part replaced under warranty moved to a warranty-hold location tagged with the claim and held to a retention date | app+ad | `V520014` `V521013` | `WS-198` `WS-202` | `FR-277` `FR-278` | P2-25 P2-26 |
+| **P5-15** | **VOID (`D-16`)** — **Cores are inventory** — a `CORE` item type linked to the serviceable part, a core charge, a **core-bank location with its own valuation**, a core transaction ledger; and **warranty scrap-and-hold** — a part replaced under warranty moved to a warranty-hold location tagged with the claim and held to a retention date | app+ad | `V520014` `V521013` | `WS-198` `WS-202` | `FR-277` `FR-278` | P2-25 P2-26 |
 | **P5-16** | **NRV write-down as a register, not a one-way provision column** — item or lot, assessed net realisable value, basis, assessor, date, amount, **and the reversal**; and the **COGS recognition point as a configured policy** (dispatch / delivery / invoice) with a stock state per stage and an in-transit account | app+base | `V510212` | `WS-149` | `FR-241` `FR-243` | P2-16 P2-18 |
 | **P5-17** | A weighing or measuring instrument as a **legal instrument** — a verification certificate number and validity, with a weighing performed on an expired instrument flagged; and **labour tasks timed** (who, from when to when, paused seconds, units, reference, device) as the only honest input to a future standard | app | `V510213` `V510214` | `WS-129` `WS-130` `WS-146` | `FR-223` `FR-227` | P3-02 P2-11 |
 | **P5-18** | Replenishment beyond the reorder point: the run **proposing a sister-branch transfer before a purchase** where another branch holds stock above its own minimum; and emergency replenishment on a short pick, opportunistic top-off during idle time, and break-case replenishment from case reserve to an each pick face | app | — | — | `FR-254` `FR-259` | P2-15 P3-12 |
@@ -604,10 +633,97 @@ lost. §8.2 lists all 51 with both ends.
 | **P6-06** | The trigger for extracting a shared `party-base` is **recorded rather than acted on**: the third module that needs the same GSTIN to be authoritative for tax filing. Until then, extraction is speculative | base | — | — | `FR-121` | P1-08 |
 | **P6-07** | 3PL v3: **rate escalation generating a new rate-card version for review, never mutating an active card**; a confirmed SLA breach posting a **negative billable event** on the SLA-credit code subject to approval and visible on the invoice; and **client profitability** joining metered revenue to labour minutes at a loaded rate and storage snapshots at a space cost | 3pl | `V530100` `V530110` `V530111` | `WS-171` | `FR-296` `FR-299` `FR-302` | P5-05 P5-07 P6-03 |
 | **P6-08** | **The `logistics` module** in the band, prefix and permission namespace reserved for it since v1: trips, ePOD and freight settlement, posting through the port and getting **no adapter** — an adapter exists to translate a vertical that does not know about warehouse, and logistics will. Plus the pre-flight enumeration of the four transport-shaped surfaces already in this monorepo, and the naming of the driver/vehicle master overlap with platform HR and two verticals | platform+logistics | — (outside these bands) | — | `FR-347` `FR-348` `FR-366` | P0-08 P0-14 P1-11 |
-| **P6-09** | The dealer **vehicle-inventory test**, stated rather than answered (`OD-2`): *can the serial-controlled item model carry a vehicle without weakening it?* The ledger is proved on parts first; the answer is a v3 decision | ad-dealer | — | — | `FR-365` | P2-25 |
+| **P6-09** | **VOID (`D-16`)** — The dealer **vehicle-inventory test**, stated rather than answered (`OD-2`): *can the serial-controlled item model carry a vehicle without weakening it?* The ledger is proved on parts first; the answer is a v3 decision | ad-dealer | — | — | `FR-365` | P2-25 |
 | **P6-10** | A **real-time operations dashboard** on the platform's widget framework — possible only because `P0-01` widened `widget_definitions.chk_module` to admit `warehouse` before the first widget insert | app | `V510302` | `WS-228` | `FR-399` | P0-01 P2-21 |
 | **P6-11** | The accessories absorption path, **stated in advance** so it is a decision rather than a discovery: import current balances as opening-balance movements at a cut-over date, keep the cross-map, retire the second item master. Only if the decision is ever taken | app | — | — | `FR-421` | P2-27 P2-19 |
 | **P6-12** | **Multi-level BOM with routings is not built.** It belongs to a manufacturing module; the re-entry path is that a manufacturing system posts N issues and one receipt through the port. Recorded so the refusal is a decision with a way back in | — | — | — | `FR-268` | P3-11 |
+
+**Phase order for the re-target (`DECISIONS.md` `D-16`): P7 → P8 → {P9, P10}.** The row shape is the one above; `Mod` adds `trade` (`warehouse-trade`) and `mfg` (`warehouse-manufacturing`).
+
+### 2.8.1 · P7 — Removal of dealer and retail code, dual-use renames · 13 tasks · v1 · `warehouse` + `warehouse-base` (`D-16`)
+
+Runs **first** among P7–P10: every later phase builds on the cleaned schema and the one dev-DB rebuild (`RN-052`). Requirements: [`frd/FRD-REM.md`](frd/FRD-REM.md). `P7-01` and `P7-12` close no FR of their own (enabling work).
+
+| Task | Title | Mod | Migrations | Screens | Closes | Dep |
+|---|---|---|---|---|---|---|
+| **P7-01** | Relocate the four generic helpers that kept code reaches through removed classes — the stocking-category picker, the claim-transition type, the claim line-value helper and the order fingerprint hash | base · app | — | — | — | — |
+| **P7-02** | Remove AWB pools, courier serviceability and rate quotes; keep carrier account scopes; cut the carrier delete-guard SQL and trim the carrier connector | app | delete/rewrite `V510205` `V511277` `V510204` `V510227` `V511000` `V511275` `V511306` `V511308` | `WS-117` `WS-119` | `FR-480` `FR-481` `FR-489` | — |
+| **P7-03** | Remove the NDR workflow, COD remittances, customer tracking links and the public tracking page; drop the NDR/RTO carrier statuses and the carrier NDR/COD clocks | app | delete/rewrite `V510206` `V510207` `V510209` `V511274` `V511276` `V510203` `V510044` `V511000` `V511306` `V910031` `V910021` | — | `FR-482` `FR-483` `FR-485` | P7-02 |
+| **P7-04** | Remove channel accounts, channel order imports and channel publish rules; drop the demand-order payment mode, COD amount and channel account; keep whb_channels and channel_id | app · base | delete/rewrite `V500010` `V510208` `V510225` `V510226` `V511304` `V510040` `V510100` `V910031` `V910032` `V910033` | `WS-123` `WS-125` | `FR-484` | P7-01 P7-02 |
+| **P7-05** | Remove RTO consignments and marketplace claims; return receipts post and reverse with the same stock movements; drop the RTO and MARKETPLACE return types | app · base | delete/rewrite `V500010` `V510215` `V510050` `V511235` `V511248` `V511268` | `WS-122` | `FR-486` `FR-487` | P7-03 |
+| **P7-06** | Replace the Channels L1 menu with Shipping → Carrier Tracking & Planning and re-home its four generic leaves | app | delete/rewrite `V511271` `V511272` `V511273` | — | `FR-488` | P7-02 P7-03 P7-04 |
+| **P7-07** | Remove OEM obsolescence returns and the OBSOLESCENCE claim type; supplier claims keep four types | app | delete/rewrite `V511270` `V510210` `V510216` `V511268` `V910021` | `WS-138` | `FR-490` | P7-01 P7-05 |
+| **P7-08** | Remove the trade portal, the Warehouse Trade Customer role and the customer persona in the owner-scope resolver | app · base | delete/rewrite `V510221` `V511209` `V511239` | — | `FR-491` | — |
+| **P7-09** | Remove accessories coexistence — category stocking ownership, external stock snapshots, the coexistence report, consolidated valuation and is_dual_eligible | base · app · india | delete/rewrite `V540130` `V500053` `V511249` `V511262` `V500014` `V500046` `V501000` `V501002` `V501101` | `WS-066` `WS-067` `WS-225` `WS-222` | `FR-492` | P7-01 |
+| **P7-10** | Remove the dealer and retail seeded vocabulary and the dead adapter switches; whb_channels keeps only the B2B kind | base · app | delete/rewrite `V501117` `V500002` `V500003` `V500004` `V500084` `V500010` `V511248` `V511208` | — | `FR-493` `FR-494` `FR-495` | P7-02 P7-09 |
+| **P7-11** | Rename the dual-use codes in storage — LINE_STOP, PRODUCTION_STORE, MANUFACTURER_PART_NUMBER — and Parts KPIs to Stock KPIs on every surface | app · base · 3pl · india | delete/rewrite `V510011` `V510021` `V500012` `V500010` `V511211` `V511241` | `WS-217` | `FR-496` `FR-497` | P7-10 |
+| **P7-12** | Bring classic's docs, QA notes, contracts and the ci-gate ledger in line with the removal | app | — | — | — | P7-02 P7-11 |
+| **P7-13** | Rebuild the dev database once on the clean migration set, prove Flyway history and every grep gate, and turn ci-gate green | app | — | — | `FR-498` `FR-499` | P7-01 P7-12 |
+
+### 2.8.2 · P8 — Manufacturing stores in core `warehouse` · 16 tasks · v1.1 (`D-16`)
+
+After P7, before P9 and P10 — the ports (`p8-01`, `p8-02`, `p8-09`, `p8-15`, `p8-16`) are what TRADE and MFG consume. Requirements: [`frd/FRD-STORES.md`](frd/FRD-STORES.md). `P8-14` and `P8-16` close no FR of their own.
+
+| Task | Title | Mod | Migrations | Screens | Closes | Dep |
+|---|---|---|---|---|---|---|
+| **P8-01** | PO type (FIXED / OPEN / BLANKET_RELEASE), schedule lines with open quantity, receipt allocation, and the purchase-order port | app | `V510400` `V511400` | `WS-072` `WS-073` `WS-275` | `FR-500` `FR-501` `FR-502` `FR-503` `FR-504` | P7 |
+| **P8-02** | The demand-order port for sales orders — SO and customer-PO references, a customer delivery schedule, firm-within-horizon allocation | app | `V510401` `V511401` | `WS-276` | `FR-505` | P8-01 |
+| **P8-03** | Gate entry register (inward / outward) with PO, bill and weighment on arrival, and returnable / non-returnable gate passes with return tracking and overdue | app | `V510402` `V500300` `V511402` | `WS-260` `WS-261` `WS-262` `WS-263` `WS-075` | `FR-507…FR-515` | P8-01 P5-17 P1-13 P8-04 |
+| **P8-04** | GRN bill number / date / billed quantity, the duplicate-bill guard, short receipt opening a supplier claim, and excess accepted within an approved excess or refused | app | `V510403` `V511403` | `WS-076` `WS-077` | `FR-516…FR-520` | P8-03 P8-01 P5-23 P2-13 |
+| **P8-05** | Configurable sampling — band tables per item / category / supplier, FIXED_QUANTITY and PERCENTAGE fixed, the Z1.4 table kept as one option, lot verdict from Ac/Re, destructive test quantity | app | `V510404` `V511404` | `WS-264` `WS-265` `WS-079` `WS-080` | `FR-521…FR-524` | P1-14 P8-06 |
+| **P8-06** | QC with a polymorphic source — goods receipt, store return, production receipt, in-process, stock — through resolver beans, so manufacturing can inspect without a GRN | app | `V510405` `V500301` `V511405` | `WS-080` | `FR-525` | P8-05 |
+| **P8-07** | QC reject → an explicit, manual "Raise supplier return" action (FR-139 amended — never automatic) | app | `V510406` `V511406` | `WS-080` `WS-084` | `FR-526` | P8-06 P2-13 |
+| **P8-08** | MRN — material receipt note authorised by a second person, MRN_PENDING as the stock-availability rule, putaway on authorisation, MRN and GRN print | app | `V510407` `V500302` `V511407` | `WS-266` `WS-267` `WS-077` | `FR-527` | P8-04 P8-06 P2-14 P8-12 |
+| **P8-09** | Material requisition (indent) for a department, cost centre or production order — per-line approval, reservation, partial issue, closure — the cost-object seam, cost centres, and the back-to-back purchase-requisition hand-off | app | `V510408` `V500303` `V511408` | `WS-268` `WS-269` `WS-273` `WS-274` | `FR-528…FR-532` | P0-09 P1-18 |
+| **P8-10** | Store issue to VIRT-CONSUMED with a cost object (department / cost centre / production order) on every issue line — S-052 resolved per RN-034 | app | `V510409` `V500304` `V511409` | `WS-270` `WS-271` | `FR-533` `FR-535` | P8-09 |
+| **P8-11** | Store return — linked to the issue line, partial, valued at the issue cost, condition decides status and QC, through a new ISSUE_RETURN movement type | app | `V510410` `V500305` `V511410` | `WS-272` `WS-271` | `FR-536` `FR-537` | P8-10 P8-06 P8-03 |
+| **P8-12** | Stores print documents — gate entry slip, RGP/NRGP gate pass, GRN with the bill block, MRN, material requisition, store issue slip, store return note | app | `V510411` `V511411` | `WS-261` `WS-263` `WS-077` `WS-267` `WS-269` `WS-271` `WS-272` | `FR-538` | P2-14 P8-03 P8-04 P8-08 P8-09 P8-10 P8-11 |
+| **P8-13** | Stores registers and performance — RGP pending / overdue, requisitions pending issue, issue register by cost object, consumption by department, stores performance benchmarks | app | `V511412` | `WS-277` | `FR-534` `FR-539` | P8-03 P8-09 P8-10 P8-11 |
+| **P8-14** | Stores menus, settings registry, i18n and filter-scope wave for P8 — within the 8-leaf / 10-section caps | app | `V511413` `V511414` | `WS-260` `WS-277` | — | P8-01 P8-03 P8-09 |
+| **P8-15** | The RMA-creation port for sales-return authorisation, and the supplier-return intent (REPLACE / CREDIT / NO_ACTION) with a dispatched event | app | `V510412` `V511415` | `WS-084` | `FR-506` | P8-01 P8-02 P8-07 P2-12 |
+| **P8-16** | External replenishment suggestions — the MRP supply seam (origin MRP), converted once: to a draft core PO with trade off, to a PR by trade with trade on | app | `V510413` `V511416` | — | — | P8-01 P2-15 |
+
+### 2.8.3 · P9 — `warehouse-trade`: purchase and sales, mirrored · 14 tasks · v1 (`D-16`)
+
+After P8; **parallel with P10** — neither sibling depends on the other (FKs down only). Requirements: [`frd/FRD-TRADE.md`](frd/FRD-TRADE.md). `FR-616…FR-618` apply to every P9 task; ownership is as stated in the row.
+
+| Task | Title | Mod | Migrations | Screens | Closes | Dep |
+|---|---|---|---|---|---|---|
+| **P9-01** | The trade module — `warehouse-trade` scaffold, enable flag, menu tree and the platform touchpoints | trade | `V550000` `V551000` | — | `FR-540` | P8-01 P8-02 P8-14 |
+| **P9-02** | Trade masters — supplier and customer trade profiles, approved vendor list, customer item references, T&C templates and the trade vocabularies | trade | `V550010` `V550011` `V551020` `V551021` | `WS-280` `WS-281` `WS-282` `WS-283` `WS-311` | `FR-541…FR-547` `FR-584` | P9-01 |
+| **P9-03** | The trade approval matrix — rules, levels, maker ≠ checker, delegation, escalation and My Approvals | trade | `V550020` `V551030` `V551031` | `WS-284` `WS-285` | `FR-548…FR-555` | P9-01 |
+| **P9-04** | Purchase requisition — manual, from stores shortage, from replenishment / MRP; approval, consolidation and partial conversion | trade | `V550030` `V551040` `V551041` | `WS-286` `WS-287` | `FR-556…FR-561` | P9-01 |
+| **P9-05** | Sourcing — RFQ to many suppliers, vendor quotations with versions, comparative statement with L1 and the approved award | trade | `V550040` `V551050` `V551051` | `WS-288` `WS-289` `WS-290` | `FR-562…FR-569` | P9-01 |
+| **P9-06** | Agreed prices, both sides — purchase rate contracts, sales rate contracts, price lists, dated revisions, slabs, ceilings and the two price-resolution services | trade | `V550050` `V551060` `V551061` | `WS-291` `WS-301` `WS-302` | `FR-570…FR-574` `FR-602` `FR-603` `FR-604` | P9-01 |
+| **P9-07** | Purchase orders — FIXED, OPEN and BLANKET with delivery schedules, releases, and the hand-off to core through the PO port | trade | `V550060` `V551070` `V551071` | `WS-292` `WS-293` `WS-294` | `FR-575…FR-583` `FR-585` `FR-618` | P9-01 |
+| **P9-08** | Pre-sales — sales enquiry, customer quotation with versions, regret, won / lost and the win/loss analysis | trade | `V550070` `V551080` `V551081` | `WS-298` `WS-299` `WS-300` | `FR-598…FR-601` | P9-01 |
+| **P9-09** | Sales orders — FIXED, OPEN and BLANKET with the customer delivery schedule, dispatch planning from the FG store, and the hand-off to core through the demand-order port | trade | `V550080` `V551090` `V551091` | `WS-303` `WS-304` `WS-305` | `FR-605` `FR-607` `FR-608` `FR-609` `FR-611` | P9-01 |
+| **P9-10** | Acknowledgement, expediting / commitment tracking, short-close and auto-close — both sides | trade | `V550090` `V551100` `V551101` | `WS-295` `WS-306` `WS-293` `WS-304` | `FR-586…FR-589` `FR-606` `FR-610` | P9-01 |
+| **P9-11** | Order amendments and versions — one engine, PO and SO, with snapshots, port push, amendment prints and version compare | trade | `V550100` `V551110` `V551111` | `WS-296` `WS-307` `WS-293` `WS-304` | `FR-590…FR-593` | P9-01 |
+| **P9-12** | Counterparty evaluation — vendor rating and customer rating / OTIF on one weighted engine, with grade-driven review tasks | trade | `V550110` `V551120` `V551121` | `WS-297` `WS-309` `WS-310` | `FR-594…FR-597` `FR-614` | P9-01 |
+| **P9-13** | Sales return authorisation → core RMA, and the purchase-side replacement reinstatement | trade | `V550120` `V551130` `V551131` | `WS-308` `WS-304` `WS-293` | `FR-612` `FR-613` | P9-01 |
+| **P9-14** | Trade print documents and the trade reports pack | trade | `V551140` `V551141` | `WS-312` | `FR-615` `FR-616` `FR-617` `FR-619` | P9-01 |
+
+### 2.8.4 · P10 — `warehouse-manufacturing`: BOM, production, subcontracting, MRP · 13 tasks · v1 (`D-16`)
+
+After P8; **parallel with P9**. Requirements: [`frd/FRD-MFG.md`](frd/FRD-MFG.md). `FR-669` (screens, permissions, grids) is owned by `P10-01` and obliges every P10 task.
+
+| Task | Title | Mod | Migrations | Screens | Closes | Dep |
+|---|---|---|---|---|---|---|
+| **P10-01** | The manufacturing module — `warehouse-manufacturing` scaffold, enable flag, menu tree, settings registry and the platform touchpoints | mfg | `V560000` `V561000` | — | `FR-620` `FR-669` | P8-01 P8-02 P8-03 P8-06 P8-09 P8-10 P8-11 P8-16 P8-14 |
+| **P10-02** | Manufacturing registries — movement, document and location types, code lists, reason contexts, the REWORK disposition, print kinds and number series, under the RL-003 owning-module guard | mfg | `V560001` | — | `FR-621` | P10-01 P8-06 P8-09 P8-12 |
+| **P10-03** | Bill of materials — multi-level, versioned, maker–checker BOMs with alternates, scrap, phantoms, co-/by-products; explosion, where-used and cost roll-up | mfg | `V560010` `V561010` | `WS-320` `WS-321` | `FR-622…FR-629` | P10-01 P10-02 |
+| **P10-04** | Work centres and the optional BOM operation list — a lightweight routing that is never mandatory | mfg | `V560020` `V561020` | `WS-322` `WS-320` | `FR-630` `FR-631` | P10-01 P10-02 P10-03 |
+| **P10-05** | Production orders — BOM snapshot, release with availability check and component reservations, hold, complete, reopen, MTO link, the PRODUCTION_ORDER cost-object resolver and the traveller | mfg | `V560030` `V561030` | `WS-323` `WS-324` | `FR-632…FR-637` | P10-01 P10-02 P10-03 P10-04 P8-09 P8-02 P8-12 |
+| **P10-06** | Material to the order — staging to line-side, manual issue and return through core store documents, component substitution and the consumption policy | mfg | `V560040` `V561040` | `WS-325` `WS-324` | `FR-638…FR-643` | P10-05 P8-09 P8-10 P8-11 P8-12 |
+| **P10-07** | Production receipt — FG, co- and by-products in one movement with backflush and scrap, tolerances and completion, lot genealogy, maker–checker reversal and the FG receipt note | mfg | `V560050` `V561050` | `WS-326` `WS-327` `WS-324` | `FR-644…FR-650` | P10-05 P10-06 P8-06 |
+| **P10-08** | Operation confirmations, in-process and final QC through the core polymorphic source, and the REWORK disposition that creates a rework order | mfg | `V560060` `V561060` | `WS-328` `WS-324` | `FR-651…FR-653` | P10-04 P10-05 P10-07 P8-06 P10-02 |
+| **P10-09** | Actual costing of output, exact co-product split, close by settlement, and the cost sheet — accounting as handover only | mfg | `V560070` `V561070` | `WS-329` `WS-324` | `FR-654…FR-657` | P10-05 P10-06 P10-07 P8-09 P8-10 P8-11 |
+| **P10-10** | Subcontracting and job work — subcontract orders, dispatch to the job worker, processed-item receipt, reconciliation, and the India challan / ITC-04 path through a core port | mfg · app · india | `V560080` `V561080` `V540190` | `WS-330` | `FR-658…FR-661` | P10-05 P10-07 P10-09 P8-03 P9-07 P4-02 |
+| **P10-11** | Planning masters — item planning parameters per item × site and demand plans (forecast / MPS-lite) with consumption modes | mfg | `V560090` `V561090` | `WS-331` `WS-332` | `FR-662` `FR-663` | P10-01 P10-02 P10-03 P1-10 |
+| **P10-12** | MRP — regenerative per-site run, netting with low-level codes, lot sizing and fences, pegged proposals, firm / convert / dismiss, BUY to core replenishment suggestions, exception messages | mfg | `V560100` `V561100` | `WS-333` `WS-334` `WS-335` | `FR-664…FR-667` | P10-03 P10-05 P10-11 P8-02 P8-01 P8-09 P8-16 P9-04 |
+| **P10-13** | Capacity load (infinite, visible) and the manufacturing registers — production, WIP by order, scrap, yield, consumption variance | mfg | `V561110` | `WS-336` `WS-337` | `FR-668` | P10-04 P10-05 P10-07 P10-09 P10-12 |
+
 
 ---
 
@@ -1180,8 +1296,8 @@ which is `P0-04`'s own screens.
 
 ### R4 · `P0-08` — the movement port · **a wire contract you cannot take back**
 
-This is the API a future `logistics` module, a POS, an eCommerce channel and every adapter builds
-against. `PORT-AND-ADAPTER-CONTRACT.md` §10.6 names four API decisions that are unrecoverable later, and
+This is the API `warehouse-trade`, `warehouse-manufacturing`, a future `logistics` module and every
+sibling builds against (`D-16`). `PORT-AND-ADAPTER-CONTRACT.md` §10.6 names four API decisions that are unrecoverable later, and
 §2.10 names **twelve provably unaddable properties**. The idempotency semantics in particular are
 either exact or worthless: unseen key → `201`; seen key with an identical `payload_hash` → the original
 movement and **nothing written**; seen key with a different hash → `409`. And `L-9`'s hardest clause —
@@ -1248,7 +1364,8 @@ and printer routing, dock appointments live, ASN, kits and VAS, the device regis
 item×location replenishment, order-edit rules, the migration workbench, GS1 parsing, the field-service
 and assets adapters — **all v1.1/P3**. The India statutory registers, job work and ITC-04, the Rule 56
 stock account, MRP as a dimension, bonded/MOOWR, EPR — **v2/P4**. 3PL billing, the client portal,
-channels, carrier integration, NDR/COD/RTO, grading, recall, cores — **v2/P5**. Slotting, planning,
+carrier integration, grading, recall — **v2/P5** *(channels, NDR/COD/RTO and cores are removed by
+`D-16`)*. Manufacturing stores, trade and production — **P7–P10** (`D-16`). Slotting, planning,
 labour standards, the logistics module — **v3/P6**.
 
 ### 5.3 What a v1 buyer does not get — cross-referenced to `COMPETITOR-BENCHMARK.md` §4.1
@@ -1275,23 +1392,23 @@ rest stand.
 
 | We lose to | On | Closes at |
 |---|---|---|
-| **CDK · Reynolds · Tekion · Karmak · Autologue** | **Computed best stocking level** (`FR-258`) — *"the single row a parts manager tests us on"*. Lost-sale capture and OEM interfaces are closer, but the computed level is v3 | `P6-02` (v3) — **the most commercially dangerous deferral in the plan**, in the one segment we are best positioned to win |
+| **CDK · Reynolds · Tekion · Karmak · Autologue** *(segment not entered — `D-16`)* | **Computed best stocking level** (`FR-258`) — *"the single row a parts manager tests us on"*. Lost-sale capture and OEM interfaces are closer, but the computed level is v3 | `P6-02` (v3) — **the most commercially dangerous deferral in the plan**, in the one segment we are best positioned to win |
 | **Oracle WMS Cloud · Körber** | RF flows the customer configures without the vendor; LPN-native receiving | v1.1 (LPN), v3 (RF config). Do not bid |
 | **Manhattan · Blue Yonder · SAP EWM** | Waving, labour management, slotting, integrated planning, MFS/AS-RS | v1.1 waves; the rest refused. Correct loss — Manhattan's labour management alone is larger than our whole v1 |
 | **Infor WMS · Extensiv · Camelot · Infoplus · Logiwa · CartonCloud** | 3PL billing, rate cards, storage/handling meters, client portal — **we cannot bill for stored goods at all in v1** | v2 · `P5`. We *can* hold them correctly, which is the part that cannot be added later |
-| **Unicommerce · EasyEcom · Vinculum · Shiprocket · WareIQ · Cin7 Omni** | The entire Indian D2C surface — marketplace connectors, AWB pools, pincode serviceability, NDR, COD, RTO | v2 · `P5`. **Do not bid the segment at v1** |
+| **Unicommerce · EasyEcom · Vinculum · Shiprocket · WareIQ · Cin7 Omni** | The entire Indian D2C surface — marketplace connectors, AWB pools, pincode serviceability, NDR, COD, RTO | never — segment not entered (`D-16`, `RN-050`) |
 | **SkuVault · Increff · Cin7 · NetSuite WMS · D365 Advanced** | Wave/cluster picking, putaway optimisation, handling units, cartonisation, offline RF | v1.1–v2. Right loss: a 400–5,000 SKU parts store does not pick in waves |
 | **Marg · GoFrugal · Busy** | Schemes beyond free quantity, van sales, expiry/breakage claim automation, decades of Indian distribution muscle memory, a price point we cannot match | v2 / unplaced. Acceptable — provided we do not also lose on batch, expiry, MRP, godown statement, challan or as-at date, **all of which are in the v1 cut for exactly this reason** |
 | **Tally Prime** | Ten valuation methods, instant back-dated everything, universal accountant familiarity | never. Not the fight. We win as the *operational* system feeding one GL |
 | **Zoho Inventory · Unleashed · Katana · inFlow · Fishbowl** | Polish, onboarding speed, price | never, **and it does not matter** — none of them can issue a part to a job card, model a core or a supersession, or produce a godown-wise stock statement |
 
 **Segments a v1 install cannot serve at all:** pharmaceutical distribution, cold chain, 3PL contract
-logistics and eCommerce fulfilment — all v2. Apparel and footwear becomes servable at v2 **because**
+logistics — v2. eCommerce fulfilment is not a target segment (`D-16`). Apparel and footwear becomes servable at v2 **because**
 `A-3` put the variant schema in v1; had it not, the segment would have been permanently declined.
 
 ### 5.4 The honest one-line summary
 
-A v1 install is a **correct, auditable, multi-site, multi-owner stock ledger with a parts catalogue, an
+A v1 install is a **correct, auditable, multi-site, multi-owner stock ledger with an item catalogue, an
 Indian-legal movement document set and enough screens for a storekeeper to run a day** — and it is not
 a warehouse *execution* system, a 3PL platform, a fulfilment platform or a compliance filing product
 until v1.1, v2 and v2 respectively.
@@ -1361,7 +1478,7 @@ must be answered. An `OD-` row is not a note — it is a **merge gate on a named
 | **OD-9** | **Does `warehouse` carry a tax engine, or never compute tax?** `FR-325` has it carrying one; `FR-294` and R3 say it never computes tax. The India pack is **50 or 56 tables** depending on the answer | **`P2-IN-01`** and **`P4-01`** | **before `P2-IN`** | **Warehouse never computes tax.** It captures the facts (HSN, place of supply, `is_taxable_supply` frozen at creation, taxable value) and hands them over. Same three-state shape as `OD-1`. **This drops the 6 conditional tables** |
 | **OD-3** | **One database per customer, or shared multi-tenancy?** `grep -ril "tenant" platform/backend/src/main/java` → **0 files** | **`P5-01`** | **before `warehouse-3pl` starts** | Keep one-DB-per-customer. `owner_id` already carries the 3PL case. **Do not re-litigate.** Two consequences that are easy to miss: the second customer is a *different database*, so every mapping profile, import template, label template and reason-code catalogue must be exportable and importable; and `platform/…/db/client/` version numbers are deliberately reused across clients, which is why `V910000+` was unusable and `D-2` moved the bands |
 | **OD-4** | **Who owns the shared supplier/counterparty master long-term?** | **`P6-06`** (`P1-08` proceeds regardless) | v3 | `warehouse-base` keeps its own; any future module joins through `whb_counterparty_external_refs`. **Never an FK from base into another module** — the previous attempt at this seam died of exactly that: 84 FK references into `scc_*`, several to tables that never existed |
-| **OD-2** | **Does the dealer vehicle inventory migrate onto the warehouse ledger?** | **`P6-09`** | **v3 planning, not before** | **Do not migrate in v1 or v2.** Model it as a documented future adapter and **prove the ledger on parts first**. `FR-365` states the *test* rather than the answer: can the serial-controlled item model carry a vehicle without weakening it? |
+| **OD-2** *(moot since `D-16`; `P6-09` is VOID)* | **Does the dealer vehicle inventory migrate onto the warehouse ledger?** | **`P6-09`** | **v3 planning, not before** | **Do not migrate in v1 or v2.** Model it as a documented future adapter and **prove the ledger on parts first**. `FR-365` states the *test* rather than the answer: can the serial-controlled item model carry a vehicle without weakening it? |
 | **OD-19** | **The statutory treatment of on-hand stock when a site's `REGISTERED` branch moves to another GSTIN** (`RG-001`, `D-14` item 4) | **`P1-05`'s *Change registration* action** only; the `V500012` history table does not wait | **before `P1-05` ships *Change registration*** | **Escalated.** The safe default is in force until it is answered: the change is **refused** while the site holds stock under a different GSTIN, and the operator empties the site by taxable transfers first. A different ruling relaxes `P1-05`'s guard and `P4-03`'s split with no schema change |
 | **OD-18** | **What does v1 record for a drop-shipment?** (`RK-005`) | **`P5-09`** — `FR-467` | **the first drop-shipped purchase** | **Escalated.** Recommended: one movement, `−q` at `SUPPLIER` and `+q` at `CUSTOMER`, both documents in the source quad, serial and lot capture mandatory where tracked. The movement type is **not** seeded in v1; `D-10` lets any module seed it once the row is answered |
 | **⛔ unnumbered** | **The ledger's partition key: `occurred_at` or `posting_date`?** `FR-022` and `DATA-MODEL.md` `WHB-30` say `occurred_at`; `PLATFORM-DEPENDENCIES.md` `PD-D5` says `posting_date`. **Nothing resolves them** | **`P0-02`** | **before `P0-02`** — *"a partition key cannot be added to a populated table without a rewrite"* | **Needs an `OD-` row in `DECISIONS.md` before `P0-02` is written.** This plan does not choose; it refuses to let the conflict be discovered at `CREATE TABLE`. Note the substantive argument on each side: `occurred_at` partitions by when it physically happened, which is what the as-at query and EPCIS want; `posting_date` partitions by the accounting date, which is what period close and the statutory register want. `L-13` says these are **different columns**, so the choice is real |
@@ -1430,7 +1547,7 @@ cited but non-existent  : none
 
 **459 of 459 owned, by exactly one task each. No requirement is unowned; no citation dangles.**
 
-**Round 4 (2026-09-10) moves the expected figures to 469 requirements and, after the same day's fold, 143 tasks.** `FR-460`…`FR-469`
+**Round 4 (2026-09-10) moves the expected figures to 469 requirements and, after the same day's fold, 143 tasks.** `FR-460…FR-469`
 are assigned in §2 to `P1-05`, `P2-25`, `P2-02`, `P1-03`, `P5-08`, `P1-17`, `P2-23`, `P5-09`, `P1-05` and
 `P1-19` (the six round-4 task files were folded into these hosts); `FR-382` moves from `P3-04` to `P0-16`. The result block above is the 2026-09-02 run and is
 not restated until it is re-run. `tools/check-design-set.py --check 10` asserts the new figures once all
@@ -1621,7 +1738,7 @@ Every `Ver · Ph` in that index also matches the phase of the task that claims i
 | Tasks | **144** | `awk 'NF' assign.txt \| wc -l` · `ls issues/p*.md \| wc -l` |
 | Tasks per phase | P0 17 · P1 22 · P2 29 · P2-IN 4 · P3 24 · P4 13 · P5 23 · P6 12 | `awk '{split($1,a,"-"); print (a[1]=="P2"&&a[2]=="IN")?"P2-IN":a[1]}' assign.txt \| sort \| uniq -c` |
 | Tasks per version | v1 **72** · v1.1 **24** · v2 **36** · v3 **12** | §9 |
-| Requirements per version of owning task | v1 **343** · v1.1 **42** · v2 **69** · v3 **17** — round 3 (`W0-1b`, 2026-09-11): v1 +1 (`FR-470`, `P2-21`), v3 +1 (`FR-471`, `P6-02`) — round 4: v1 +4 (`FR-460`…`FR-462`, and `FR-382` in from v1.1), v1.1 −1 (`FR-382` out), v2 +1 (`FR-467`); and since the 2026-09-10 fold five round-4 requirements are owned by v1 hosts as later-version increments (`FR-463` v1.1 in `P1-03`; `FR-465`, `FR-466`, `FR-468`, `FR-469` v2 in `P1-17`, `P2-23`, `P1-05`, `P1-19`) — `FR-464` stays v2 in `P5-08` | §9 |
+| Requirements per version of owning task | v1 **343** · v1.1 **42** · v2 **69** · v3 **17** — round 3 (`W0-1b`, 2026-09-11): v1 +1 (`FR-470`, `P2-21`), v3 +1 (`FR-471`, `P6-02`) — round 4: v1 +4 (`FR-460…FR-462`, and `FR-382` in from v1.1), v1.1 −1 (`FR-382` out), v2 +1 (`FR-467`); and since the 2026-09-10 fold five round-4 requirements are owned by v1 hosts as later-version increments (`FR-463` v1.1 in `P1-03`; `FR-465`, `FR-466`, `FR-468`, `FR-469` v2 in `P1-17`, `P2-23`, `P1-05`, `P1-19`) — `FR-464` stays v2 in `P5-08` | §9 |
 | Migration numbers allocated | **861** | §8.3 |
 | Tables | **317** | `DATA-MODEL.md` §8.2 |
 | Tables per version | v1 **199** · v1.1 **42** · v2 **120** · v3 **4** | `awk '/TABLE-VERSIONS-BEGIN/,/TABLE-VERSIONS-END/' docs/DATA-MODEL.md \| grep -E '^wh' \| awk '{print $2}' \| sort \| uniq -c` |

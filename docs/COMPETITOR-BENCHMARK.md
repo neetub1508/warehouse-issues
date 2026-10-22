@@ -2,6 +2,14 @@
 
 <!-- check-design-set: issue-citations file #2 #9 — `#2` and `#9` are ordinals in prose, not issue references — *Refusal #2*, *Adapter #2 (services)*, *ship-blocker #2*, *logistics needs #1, #2, #3, #5, #6, #10* — and at COMPETITOR-BENCHMARK.md:70/:146 `#9` is the markdown in-page anchor `[§9](#9--where-the-audits-disagree)`. In this repository `#2` and `#9` are in fact the two **pull requests** opened while the backlog was being filed, so no issue row can ever exist for either: see issues/CREATED.md -->
 
+> **Re-target · 2026-10-22 (`DECISIONS.md` `D-16`, [`reviews/R28`](reviews/R28-manufacturing-storage-retarget-impact.md)).**
+> The **target segment is manufacturing plant stores + storage** (own warehouses and 3PL storage). The
+> dealer-parts and D2C/marketplace segments are **not entered**; their competitor cells below are kept
+> as the historical audit record, but no row in this document is a commitment to build a dealer or
+> retail capability. Procurement and sales touchpoints ship in `warehouse-trade`, production in
+> `warehouse-manufacturing`. Where a row below names a dealer or retail feature as "ours", read it as
+> **NO (`D-16`)**.
+
 > **Authority.** [`DECISIONS.md`](DECISIONS.md) wins over this document on every question of module
 > names, Flyway bands, table prefixes, invariants and the version ladder. This document does not
 > re-decide anything; it reads the five audits against that spine and turns them into one picture a
@@ -56,9 +64,10 @@ Never a bare tick. Always `v1` · `v1.1` · `v2` · `v3` · `NO`, per the `DECIS
 
 | Version | Phases | What lands |
 |---|---|---|
-| **v1** | P0 ledger · P1 masters & inbound · P2 outbound, counting, valuation, reports | the stock ledger and inventory control, plus the dealer-parts and services adapters |
+| **v1** | P0 ledger · P1 masters & inbound · P2 outbound, counting, valuation, reports | the stock ledger and inventory control *(D-16: the dealer-parts and services adapters are removed)* |
 | **v1.1** | P3 execution & mobile | RF/handheld, tasks, waves, batch/cluster/zone picking, packing, labels, dock appointments, van stock, field-service + assets adapters |
-| **v2** | P4 India & statutory · P5 3PL, channels & reverse logistics | `warehouse-india`, `warehouse-3pl`, channel/carrier intake, RMA & reverse logistics, NDR/RTO/COD |
+| **v2** | P4 India & statutory · P5 3PL, channels & reverse logistics | `warehouse-india`, `warehouse-3pl`, carrier integration, RMA & reverse logistics *(D-16: channel intake and NDR/RTO/COD removed)* |
+| **P7–P10** *(D-16)* | P7 removal & renames · P8 core stores · P9 `warehouse-trade` · P10 `warehouse-manufacturing` | gate entry, GRN bill fields, sampling bands, MRN, material requisition, store issue to a cost object, store return; PR → RFQ → award → rate contract → scheduled orders for purchase and sales; BOM, production order, WIP, FG receipt, MRP |
 | **v3** | P6 optimisation, planning & the logistics seam | slotting, replenishment optimisation, labour standards reporting, ABC/XYZ, planning, EPCIS, automation interfaces, the `logistics` module |
 
 Where a row says `v1 schema / v2 feature`, the column exists in the first migration and the screen
@@ -96,13 +105,14 @@ This document uses D-3 prefixes and the D-2 bands throughout.
 
 | # | Segment | Who owns it today | Do we compete? | From which version |
 |---|---|---|---|---|
-| 1 | **Vehicle-dealership parts department** (multi-branch, India) | CDK · Reynolds · Tekion · Karmak · Autologue; in India the OEM's own DMS, Marg, or a spreadsheet | **YES — this is the target** | v1 |
-| 2 | **Workshop / service parts issue** | *nothing* — in this suite `service_entries.parts_used` is free `TEXT` (`services/…/V40095`, R5 Fact 2) | **YES — greenfield** | v1 (`warehouse-adapter-services`) |
-| 3 | **Field-service van stock & asset spares** | Tecsys point-of-use is the closest analogue; `assets/` and `field-service/` have no parts tables at all (R1 `C-034`) | **YES** | v1.1 (adapters) |
-| 4 | **Auto-parts distribution / wholesale (India)** | Marg · Busy · GoFrugal · Tally | **YES, partially** — we lose on schemes, van sales, price | v1, competitive at v2 |
+| 0 | **Manufacturing plant stores** (raw material, bought-out parts, consumables, maintenance spares, WIP and FG stores; India SME and mid-market) | Tally Prime · Busy · Marg; ERP-embedded (SAP B1, Odoo, ERPNext, D365); SAP Stock Room Management sites; spreadsheets | **YES — this is the target (`D-16`)** | v1 ledger + P8 stores, P9 trade, P10 manufacturing |
+| 1 | ~~Vehicle-dealership parts department~~ | CDK · Reynolds · Tekion · Karmak · Autologue | **NO — withdrawn by `D-16`** | — |
+| 2 | ~~Workshop / service parts issue~~ | — | **NO — `D-16`** (services adapter removed) | — |
+| 3 | **Field-service van stock & asset spares** | Tecsys point-of-use is the closest analogue | **Not scheduled** (`D-16`; adapters removed) | — |
+| 4 | ~~Auto-parts distribution / wholesale (India)~~ | Marg · Busy · GoFrugal · Tally | **NO — `D-16`** | — |
 | 5 | **General SME multi-godown inventory (India)** | Tally Prime · Busy · Marg · Vyapar | **YES on operations, never on the GL** | v1 |
 | 6 | **Contract logistics / 3PL** | Extensiv · Camelot · Infoplus · Made4net · Logiwa; Increff in India | **YES** — one v1 column decides it (R5 §6, `S-064`) | v2 (`warehouse-3pl`) |
-| 7 | **D2C / marketplace eCommerce fulfilment (India)** | Unicommerce · EasyEcom · Vinculum · Increff · WareIQ · Shiprocket Fulfilment | **YES, late and not on connector breadth** | v2 |
+| 7 | ~~D2C / marketplace eCommerce fulfilment (India)~~ | Unicommerce · EasyEcom · Vinculum · Increff · WareIQ · Shiprocket Fulfilment | **NO — withdrawn by `D-16` (`RN-050`)** | — |
 | 8 | **Bonded / MOOWR / SEZ / FTWZ warehousing** | SAP GTS as a separate product; nobody in the Indian generic set | **YES — an unusual opening** | v1 column, v2 feature (`S-044`) |
 | 9 | **Food & FMCG distribution** | Marg · Busy · ERP-embedded | **YES with additions** (`S-038`, `S-039`, `S-040`) | v1 columns, v1.1/v2 features |
 | 10 | **Electronics / high-value serialised** | ERP-embedded; SkuVault; Increff | **YES with additions** (`S-057`, `S-065`) | v1, v1.1 |
@@ -125,6 +135,10 @@ Blunt, because an unstated absence reads as an oversight:
   (`grep -ril "tenant" platform/backend/src/main/java` → 0 files, R5 Fact 3; `DECISIONS.md` OD-3).
   `owner_id` gives multi-*client*, which a 3PL needs; it is not the same thing and must never be
   conflated in a sales conversation. Refusal #12.
+- **Dealer parts departments and DMS parts modules** (`D-16`, `RN-051`). Warehouse is a separate
+  product from the `dealer` module; counter sale, workshop issue, OEM interfaces and fitment are refused.
+- **D2C / marketplace / e-commerce fulfilment** (`D-16`, `RN-050`). AWB pools, NDR, COD, RTO, channel
+  connectors and tracking pages are removed; generic B2B carrier shipping stays.
 - **US retail-compliance / EDI B2B** (routing guides, ASN 856 per retailer, chargebacks). A
   per-retailer specification treadmill. Refusal #20.
 - **UDI / medical device and pharma serialisation regimes.** Each is a certification programme, not a
@@ -137,7 +151,9 @@ Blunt, because an unstated absence reads as an oversight:
 
 **The Softeon/Tecsys shape, not the Manhattan shape** (R2 §5.1): narrow scope, completely finished,
 deployable in weeks, sold to a buyer who has already decided they cannot afford tier 1 — and, in our
-case, to a buyer whose *parts catalogue* and *Indian statutory shape* no generic WMS models at all.
+case (`D-16`), to a **manufacturing plant's stores** — gate entry, GRN with bill, QC with sampling, MRN,
+requisition and issue to a cost object, production issue and FG receipt — with the *Indian statutory
+shape* (job work, ITC-04, e-way bill) that no generic WMS models at all.
 
 ---
 
@@ -191,7 +207,7 @@ product, so their DMS cell is `–`. Each names its R25 row and finding.
 | Backward traceability — "what did this part replace" | ○ | ◐ | ○ | ◐ | ● | ○ | **v1** (`E-055`) |
 | Supersession that **merges stock and demand history** | ○ | ○ | ○ | ○ | ● | ○ | **v1.1** (`E-056`) |
 | Interchange / alternate / non-OEM equivalent, bidirectional | ◐ | ◐ | ○ | ◐ | ● | ○ | **v1.1** (`E-057`) |
-| **Vehicle fitment** — make × model × variant × year × engine × position | ○ *(all six)* | ○ (Epicor ●) | ○ | ◐ | ● | ○ | **v1** in `warehouse-adapter-dealer` (`E-058`, `T-023`) |
+| **Vehicle fitment** — make × model × variant × year × engine × position | ○ *(all six)* | ○ (Epicor ●) | ○ | ◐ | ● | ○ | **NO** — withdrawn by `D-16` (`FR-074`) |
 | Core / exchange part linked to its serviceable parent | ○ | ○ | ○ | ○ | ● | ○ | **v1.1** (`E-063`) |
 | Kit / BOM / service-package definition | ◐ (Körber ●) | ● | ● | ● | ● | ● | **v1.1** (`E-044`, `F-057`) |
 | Industry catalogue-standard ingest (ACES/PIES; `?` for India) | – | ◐ (Epicor ●) | ○ | ○ | ● | – | **v3** (`E-059`) |
@@ -499,7 +515,7 @@ product, so their DMS cell is `–`. Each names its R25 row and finding.
 | **Opening-stock import** carrying position, value, layers, lot, serial, owner and duty status, with a reconciliation certificate | ● | ● | ● | ● | ● | ● | **v1** (`S-079`) — designed for 200k–1M rows |
 | **Migration in from Tally / Busy / Marg / Excel** with saveable mapping profiles | ● (they migrate *from* us) | ◐ | ◐ | ● *(they are the incumbent)* | ◐ | ◐ | **v1** (`S-080`) — a database-per-customer install means the second customer is a different database |
 | Restore / PITR / a **verified** restore path | – | – | – | – | – | – | **v1 platform work** (`S-082`). `grep -n "restore" …/DatabaseBackupService.java` → **0 hits** today |
-| Adapter contract proved by a **build-time** test, not by intent | – | – | – | – | – | – | **v1** (D-11, `T-079`) — `warehouse-adapter-dealer` ships with zero commits to `warehouse-base` |
+| Adapter contract proved by a **build-time** test, not by intent | – | – | – | – | – | – | **v1** (D-11, `T-079`) — every sibling (`warehouse-trade`, `warehouse-manufacturing`, `-3pl`, `-india`) ships with zero commits to `warehouse-base` |
 | Open catalogue vocabularies — no CHECK, no Java enum, no re-closing TS union | ● | ● | ◐ | ◐ | ◐ | ● | **v1** (D-10; OD-5 open on the frontend half) |
 
 ---
@@ -510,6 +526,9 @@ Five wins that the design earns, and one that it only *enables*. Each carries it
 win claimed without its caveat is the thing a customer discovers in week three.
 
 ### W1 — The automotive-parts surface, on a real ledger
+
+> **Withdrawn by `D-16`.** Not a target segment. Supersession survives as engineering change; the rest of
+> this win (fitment, counter sale, OEM interfaces) is not built. Kept as the historical record.
 
 **The claim.** Supersession chains resolved forward, backward "what did this replace", vehicle
 fitment, interchange, cores and a core bank, OEM obsolescence returns with an allowance window,
@@ -535,6 +554,10 @@ R3 §6.3 is explicit: `E-066` and `E-067` are *"precisely the two that separate 
 parts screen' from 'a parts system'"*, and both sit outside v1.
 
 ### W2 — One stock ledger across four verticals, with the adapter proved at build time
+
+> **Amended by `D-16`.** The consumers are now `warehouse-trade`, `warehouse-manufacturing`,
+> `warehouse-3pl` and `warehouse-india`; the dealer/services adapters are removed and the accessories
+> mitigations are withdrawn. The build-time proof stands (`warehouse-adapter-example`).
 
 **The claim.** Dealer parts, workshop job cards, field-service van stock and asset spares all post
 through one port to one ledger, and each adapter is a sibling package (`ai.warehouseadapter<vertical>`,
@@ -643,7 +666,7 @@ what.
 |---|---|---|---|
 | **Products with a full reverse-logistics suite** — Unicommerce, EasyEcom, Cin7, ShipHero, the tier-1 WMSs | **Full reverse logistics** — RMA portal, grading and refurbishment, credit interface, NDR/RTO/COD. *(Resolved by `A-1`: sales-return receipt, purchase return / RTV and disposition to a stock status — restock · quarantine · scrap — are **v1/P2**.)* ‡ | v2 / P5 | **No longer the most damaging line in this table.** `A-1` moved the return *path* into v1; what stays out is the return *programme*, which is a correct v2 loss |
 | **Every product with a managed print fleet** | **Print server, printer routing and device management.** *(Resolved by `A-2`: templated document and label printing, **including a ZPL path**, is **v1/P2** — the codebase rendered no label when R5 ran `grep -rli "zpl\|escpos\|dymo"` → 0, and the amendment is what closes that.)* | v1.1 / P3 | A real but much narrower loss than R5's **ship-blocker #2** framing, and not to a spreadsheet with a Dymo |
-| **CDK · Reynolds · Tekion · Karmak · Autologue** | Computed best stocking level (`E-066`, v2) · lost-sale capture (`E-067`, v1.1) · OEM order/ack/invoice/claim interfaces (`E-062`, v1.1) · price-file load and escalation (`E-068`, v1.1/v2) | v1.1 → v2 | **The dangerous one.** We keep supersession, fitment, counter sale and workshop issue-and-return — enough to be recognised as a parts system. But `E-066` and `E-067` are what a parts manager tests us on. Every quarter they slip costs us the segment we are best positioned to win |
+| **CDK · Reynolds · Tekion · Karmak · Autologue** *(segment not entered — `D-16`)* | Computed best stocking level (`E-066`, v2) · lost-sale capture (`E-067`, v1.1) · OEM order/ack/invoice/claim interfaces (`E-062`, v1.1) · price-file load and escalation (`E-068`, v1.1/v2) | v1.1 → v2 | **The dangerous one.** We keep supersession, fitment, counter sale and workshop issue-and-return — enough to be recognised as a parts system. But `E-066` and `E-067` are what a parts manager tests us on. Every quarter they slip costs us the segment we are best positioned to win |
 | **Marg · GoFrugal · Busy** | Schemes and free quantity (10+1, `E-080`) · van sales · expiry/breakage claim automation (`E-081`) · decades of Indian distribution muscle memory · a price point we cannot match | v2 (schemes, claims); van sales unplaced | **Partly acceptable.** We must not lose them on batch, expiry, MRP, godown statement, challan or as-at-date — all of which are in the v1 cut for exactly this reason |
 | **Tally Prime** | Ten valuation methods · instant back-dated everything · universal accountant familiarity · the accountant already owns it | never | **Unavoidable, and not the fight.** We win by being the *operational* system the workshop and parts counter live in, feeding one GL. As-at-date reporting (`E-053`) is the minimum needed to stop losing on Tally's home ground |
 | **Oracle WMS Cloud** | Configurable RF flows the customer edits themselves; LPN-native receiving | v1.1 (LPN handling) / v3 (RF config) | We lose. Their RF configurability and LPN-native model are a decade ahead. Do not bid |
@@ -651,7 +674,7 @@ what.
 | **Körber** | Configure the system without the vendor's consultants (Architect) | v2 rules tables (never a scripting layer) | We lose on configurability; we may win on price and time-to-value |
 | **Infor WMS** | 3PL billing and multi-client out of the box | v2 | We lose in v1 and should be competitive in v2 **if and only if** `owner_id` and the billable-event emission are in v1 (`T-002`, `T-071`, `F-012`) |
 | **SkuVault · Increff · Cin7 · NetSuite WMS · D365 Advanced WMS** | Wave/cluster picking · putaway optimisation · handling units · cartonisation · offline RF | v1.1–v2 | **Right loss.** A 400–5,000 SKU parts store does not pick in waves |
-| **Unicommerce · EasyEcom · Vinculum · Shiprocket · WareIQ · Ordoro · Cin7 Omni** | The entire Indian D2C surface: marketplace connectors, AWB pools, pincode serviceability, NDR, COD remittance, RTO | v2 | **Right loss for our buyer**, and a total loss for the D2C buyer. We should not bid the segment at v1 |
+| **Unicommerce · EasyEcom · Vinculum · Shiprocket · WareIQ · Ordoro · Cin7 Omni** | The entire Indian D2C surface: marketplace connectors, AWB pools, pincode serviceability, NDR, COD remittance, RTO | never (`D-16`) | **Right loss — segment not entered** (`RN-050`) |
 | **Extensiv · Camelot · Infoplus · Logiwa · CartonCloud** | Rate cards, storage and handling billing, billing runs, client portal | v2 | We cannot bill for stored goods at all in v1. We can *hold* them correctly, which is the part that cannot be added later |
 | **Zoho Inventory · Unleashed · Katana · inFlow · Fishbowl · Finale · Sortly** | Polish · onboarding speed · price | never | **Right loss, and it does not matter** — none of them can issue a part to a job card, model a core or a supersession, or produce a godown-wise stock statement |
 
@@ -715,15 +738,16 @@ cloud-native competitor for as long as the platform is single-tenant.
 
 | Segment | v1 | v1.1 | v2 | v3 | The gating item |
 |---|---|---|---|---|---|
-| **Multi-branch dealership group parts store** (3–8 branches, 1–2 states) | **YES** | YES+ | YES | YES | `E-066` computed stocking is the credibility gap until v2 |
-| **Independent workshop / multi-brand service chain** | **YES — greenfield** | YES+ | YES | YES | Nothing competes; `services.parts_used` is `TEXT` today |
-| **Field-service / asset spares operator** | partial | **YES** | YES | YES | Van-as-a-location adapter is v1.1 (`S-060`) |
+| **Manufacturing plant stores** (SME / mid-market, 1–5 plants) *(D-16 target)* | **YES** (ledger, GRN, QC, issue) | YES+ | YES | YES | P8 stores additions; `warehouse-trade` (P9) for PR→PO; `warehouse-manufacturing` (P10) for BOM/production/MRP |
+| ~~Multi-branch dealership group parts store~~ | NO | NO | NO | NO | Withdrawn by `D-16` |
+| ~~Independent workshop / multi-brand service chain~~ | NO | NO | NO | NO | Withdrawn by `D-16` |
+| **Field-service / asset spares operator** | partial | partial | partial | partial | Adapters removed; not scheduled (`D-16`) |
 | **General SME multi-godown inventory** | **YES on operations** | YES | YES | YES | Never the GL — Tally keeps that |
-| **Auto-parts distributor / wholesaler** | partial | partial | **YES** | YES | Schemes (`E-080`), van sales, expiry claims (`E-081`) |
+| ~~Auto-parts distributor / wholesaler~~ *(D-16: not entered)* | partial | partial | **YES** | YES | Schemes (`E-080`), van sales, expiry claims (`E-081`) |
 | **FMCG / food distributor** | partial (columns) | partial | **YES** | YES | Min-remaining-shelf-life v1.1; FSSAI gating and recall v1.1–v2 |
 | **Bonded / MOOWR / SEZ / FTWZ operator** | column only | column only | **YES** | YES | `duty_status` in v1 or never (`S-044`) |
 | **Pharmaceutical distributor** | **NO** | NO | contested ‡ | contested | Three v1 columns (`S-004`, `S-007`, `S-008`) — then refusal #13 has to be revisited |
-| **D2C brand / marketplace seller** | NO | NO | **YES, not on breadth** | YES | AWB pool, serviceability, NDR, COD, RTO — all v2 (`F-042`…`F-046`) |
+| ~~D2C brand / marketplace seller~~ | NO | NO | NO | NO | Withdrawn by `D-16` (`RN-050`). Was: AWB pool, serviceability, NDR, COD, RTO — all v2 (`F-042`…`F-046`) |
 | **3PL / contract logistics operator** | NO | NO | **YES** | YES | `owner_party_id` in v1 or never (`S-064`) |
 | **Apparel / footwear retailer or brand** | **NO** | NO | NO | NO | A v1 style×variant schema decision that has not been taken (`S-056`) ‡ |
 
@@ -736,7 +760,7 @@ cloud-native competitor for as long as the platform is single-tenant.
 - **Tally's inventory module as an operational system.** Not Tally as the GL — we feed that. But the
   godown-wise statement (`E-052`), the as-at-date stock (`E-053`) and batch/expiry/MRP (`E-014`,
   `E-016`) are in v1 *specifically* so we stop losing on Tally's home ground.
-- **The OEM DMS parts module, partially** — on catalogue depth and workshop issue-and-return, not on
+- ~~**The OEM DMS parts module, partially**~~ *(withdrawn by `D-16`)* — on catalogue depth and workshop issue-and-return, not on
   stocking policy or OEM interfaces.
 
 **Displaced at v1.1** — paper pick lists, the clipboard operating model, and the second data-entry

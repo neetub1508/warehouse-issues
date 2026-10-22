@@ -3,6 +3,8 @@ LABELS: epic,warehouse,phase-p5
 issue: 10
 <!-- check-design-set: issue-citations file #791 — `#790` and `#791` are issues in **`neetub1508/classic`**, cited as `classic#790, #791` with the second elided in the ordinary English way. The first resolves; the elided continuation reads to the checker as a bare `#NN`. It is a cross-repo citation, never a warehouse issue — declared in the front matter, above the `---`, so the declaration never enters the issue body and cannot drift against the filed issue -->
 ---
+> **Re-target — [`DECISIONS.md` `D-16`](../docs/DECISIONS.md) (2026-10-22).** **VOID:** `P5-12` (#67, NDR + COD), `P5-15` (#81, cores + warranty holds). **Partially VOID** (each header names the void part): `P5-08` (#48, trade-customer persona), `P5-09` (#52, channels + tracking links; cross-dock stands), `P5-11` (#62, rate quotes, serviceability, AWB pools; tracking events and status mappings stand), `P5-13` (#72, OEM obsolescence + marketplace claims; grading stands), `P5-23` (#123, the `OBSOLESCENCE` claim type). The dealer/services adapter modules in this epic's header are removed. The channel-order exit clause is withdrawn.
+
 Part of __MASTER__ · Modules `warehouse-3pl` (new) · `warehouse` · `warehouse-adapter-dealer` · `warehouse-adapter-services` · Migrations — **four blocks, enumerated below** · Ships in **v2**
 
 ## Overview

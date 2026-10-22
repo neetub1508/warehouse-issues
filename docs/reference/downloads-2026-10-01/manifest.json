@@ -1,0 +1,186 @@
+{
+  "import_date": "2026-10-01",
+  "source": "Downloads",
+  "files": [
+    {
+      "path": "Warehouse_Only_Readiness_Audit_2026-10-01/01-Warehouse-Only-Gap-Register.md",
+      "bytes": 65911,
+      "sha256": "dcfab074dc41c7b646aad7f9832960d39c316a232a0313ff992cdd2b92299960"
+    },
+    {
+      "path": "Warehouse_Only_Readiness_Audit_2026-10-01/02-Execution-Flow-Acceptance.md",
+      "bytes": 4404,
+      "sha256": "b0e5cbf7ebd427b9fd0c726bd0d35f7b71e0d7b184bb2170e6cc47babe41f738"
+    },
+    {
+      "path": "Warehouse_Only_Readiness_Audit_2026-10-01/03-Issue-Disposition.md",
+      "bytes": 56284,
+      "sha256": "8ad9907742a3c5dda9fbc277c71bfb7cdc6cd83c54062c600bbe7470fc42d7ea"
+    },
+    {
+      "path": "Warehouse_Only_Readiness_Audit_2026-10-01/04-Verification-Evidence.md",
+      "bytes": 4050,
+      "sha256": "fbbfbf7c286b9accbb99648616d0a0598ebed2221a21a55c27fc1500739504c7"
+    },
+    {
+      "path": "Warehouse_Only_Readiness_Audit_2026-10-01/05-Scenario-Traceability.md",
+      "bytes": 342809,
+      "sha256": "4f4e38808aa4e3c6f51dbce3b8aa1e7c7706e9861a9f4954cc73e9e243ed9b4e"
+    },
+    {
+      "path": "Warehouse_Only_Readiness_Audit_2026-10-01/README.md",
+      "bytes": 5506,
+      "sha256": "df42c395a3e6d9858f30f9c402865d4326c6e6c99bb16af82af64d896e0695c8"
+    },
+    {
+      "path": "Warehouse_Only_Readiness_Audit_2026-10-01/evidence/frontend-summary.md",
+      "bytes": 153,
+      "sha256": "466f3e710154a208cacaddf49e3b89867981f580e3c712aeb65f6b5a90844f00"
+    },
+    {
+      "path": "Warehouse_Only_Readiness_Audit_2026-10-01/evidence/warehouse-frontend-gate.txt",
+      "bytes": 53869,
+      "sha256": "9733a703997ac5186da1c4a755820aa05ad901b5989a6fe0f3afa8bd4c8ba84f"
+    },
+    {
+      "path": "Warehouse_Only_Readiness_Audit_2026-10-01/evidence/warehouse-ratchets-summary.md",
+      "bytes": 164,
+      "sha256": "27d3d72cab6d559e030009f34b1178ef1f54954006d0e3c15f371462d108eded"
+    },
+    {
+      "path": "Warehouse_Service_Parts_Deep_Audit_2026-09-30/01-Competitor-Reference.md",
+      "bytes": 35922,
+      "sha256": "bca2177942a1da7cfb3eef3d80aa1c4c1fa5cb381509ebb647dd1b42f1f8d1af"
+    },
+    {
+      "path": "Warehouse_Service_Parts_Deep_Audit_2026-09-30/02-Warehouse-Gaps.md",
+      "bytes": 43788,
+      "sha256": "9b896c984fd7b061f5422614becf9eeee21256dfdc05adde724f03391f60288b"
+    },
+    {
+      "path": "Warehouse_Service_Parts_Deep_Audit_2026-09-30/03-Planning-Architecture-and-Contracts.md",
+      "bytes": 24426,
+      "sha256": "8e7a5b6d591b3a3e230f921c29f5770ff5ed4cfa6a65c63629829c007eb70dab"
+    },
+    {
+      "path": "Warehouse_Service_Parts_Deep_Audit_2026-09-30/04-Acceptance-Checklist.md",
+      "bytes": 19615,
+      "sha256": "605fa1baaf5fc8e99e7ae1d3bd5e023d5906d7b8ac2e593862977662537ea71a"
+    },
+    {
+      "path": "Warehouse_Service_Parts_Deep_Audit_2026-09-30/05-Sources-and-Issue-Coverage.md",
+      "bytes": 26878,
+      "sha256": "b26f6cb979499228992d727e3914277a94fb449718024f0e515f39bdfa793789"
+    },
+    {
+      "path": "Warehouse_Service_Parts_Deep_Audit_2026-09-30/README.md",
+      "bytes": 8021,
+      "sha256": "580bee1e6fec4104b9eef36f7e37c4240eb01adf74cbd3086b200778fe0e3337"
+    },
+    {
+      "path": "SPM-Planning-Research-2026-09-30/00-README-Synthesis.md",
+      "bytes": 23353,
+      "sha256": "41b478f5b3e69b99b068468b0b6eba19753416199c8ac1af74839bce576d2a00"
+    },
+    {
+      "path": "SPM-Planning-Research-2026-09-30/01-PTC-Servigistics-Functional.md",
+      "bytes": 38157,
+      "sha256": "c8c4102244ef956666bd407c0bf1d26f05dec4577aa3f793c95dd7f269e54ec2"
+    },
+    {
+      "path": "SPM-Planning-Research-2026-09-30/02-PTC-Servigistics-Architecture.md",
+      "bytes": 37992,
+      "sha256": "a502763046b8cc9feeb70ae1855ae7601522c6a37d796933a5184bf264b9ef48"
+    },
+    {
+      "path": "SPM-Planning-Research-2026-09-30/03-Competitors-Feature-Sweep.md",
+      "bytes": 68254,
+      "sha256": "4b515b95023bed5377a5c9334f640b54f322e7c0ef243bfb7d0b8713167d9eae"
+    },
+    {
+      "path": "SPM-Planning-Research-2026-09-30/04-Planning-Methods-and-Algorithms.md",
+      "bytes": 83523,
+      "sha256": "16194e0cbc7d3d61f54a6c45bc1dd0974b1dd50028c8c5dcc8d09611801a84c3"
+    },
+    {
+      "path": "SPM-Planning-Research-2026-09-30/05-Warehouse-Code-Gaps.md",
+      "bytes": 39226,
+      "sha256": "38108e4803457d697eaa587609b020b932fa7f9201b8fb94d8f9af27b8b0535b"
+    },
+    {
+      "path": "SPM-Planning-Research-2026-09-30/06-Warehouse-Design-Decision-Gaps.md",
+      "bytes": 55253,
+      "sha256": "9bd7c935041bf5f83b42e21cecfc009b64cda7ef66c7015d79f4f2e938e6401d"
+    },
+    {
+      "path": "SPM-Planning-Research-2026-09-30/appendix/PTC-A-Forecasting.md",
+      "bytes": 58764,
+      "sha256": "b07bfad88e0c86bdcd5c539742cfec1b291533a5125392da6cec4b222216fe72"
+    },
+    {
+      "path": "SPM-Planning-Research-2026-09-30/appendix/PTC-B-Inventory-Optimization.md",
+      "bytes": 76714,
+      "sha256": "47390f565b69dcc685c0fb8f5d1ab8fa465890043a1283899aa4186aefb38214"
+    },
+    {
+      "path": "SPM-Planning-Research-2026-09-30/appendix/PTC-C-Supply-Planning-Workbench.md",
+      "bytes": 90147,
+      "sha256": "0584223de85818179ec282d978afeeb1d9f69fa41ec5858ca2beb9a5334f6bd5"
+    },
+    {
+      "path": "SPM-Planning-Research-2026-09-30/appendix/PTC-D-Release-Notes-13x.md",
+      "bytes": 67112,
+      "sha256": "4fc653091271f1165ee7061785d3d7800e7fb250ce8909df46135a819ae64654"
+    },
+    {
+      "path": "SPM-Planning-Research-2026-09-30/appendix/PTC-E-PAI-AI-ML.md",
+      "bytes": 52544,
+      "sha256": "832218c8a93dfd9f4cab8f12726b7fe3f2dc31a138a058cc68a2227259501323"
+    },
+    {
+      "path": "SPM-Planning-Research-2026-09-30/appendix/PTC-F-Dealer-Security-Segments-AutoPilot.md",
+      "bytes": 42552,
+      "sha256": "d0ebf6c2b588704b450568ae6314430d9233d19e8d450729e36278d051eda944"
+    },
+    {
+      "path": "SPM-Planning-Research-2026-09-30/appendix/PTC-G-External-Sources-Licensing-CaseStudies.md",
+      "bytes": 42868,
+      "sha256": "7f9bfcb5834a679ba77b723a7acbc3b3f2fa3ec04b548746dacb73348b12e823"
+    },
+    {
+      "path": "SPM-Planning-Research-2026-09-30/appendix/PTC-H-Pricing-Settings-Corpus-Gaps.md",
+      "bytes": 107722,
+      "sha256": "b95d6d417c562d4790fce1795a1185034da22a8342e7ecf1bdcf8f800ac8f431"
+    },
+    {
+      "path": "SPM-Planning-Research-2026-09-30/appendix/PTC-I-Data-Pricing-Gap-Fill.md",
+      "bytes": 32188,
+      "sha256": "66180f56c9805dc142cc86f13b273c2e7a63bfdcd32f7680bfc0feb95a8606f6"
+    },
+    {
+      "path": "SPM-Planning-Research-2026-09-30/appendix/PTC-J-Inventory-Optimization-Gap-Fill.md",
+      "bytes": 32267,
+      "sha256": "7f5d45bd63b149abdcbf93b0de4c659c72156a05c9a390ab2e6c9e3c302e65fb"
+    },
+    {
+      "path": "SPM-Planning-Research-2026-09-30/appendix/PTC-K-Forecasting-Gap-Fill.md",
+      "bytes": 29849,
+      "sha256": "4337622fee3b0ef643d8f227ed3e4f9e2ce75975e7b9dd46f89db02d1da13f21"
+    },
+    {
+      "path": "SPM-Planning-Research-2026-09-30/appendix/PTC-L-Supply-Planning-Gap-Fill.md",
+      "bytes": 37607,
+      "sha256": "dddc2af7d0d2568c06716fc62272d7e53a8a646ac4561330d8ca8b8c09ddc21f"
+    },
+    {
+      "path": "Warehouse_vs_PTC_Servigistics_SMB_Comparison_2026-09-30.md",
+      "bytes": 46302,
+      "sha256": "683cc64cedc22184752bc79bc17f79601372efa70a45e5e4e2f06f01bb7ebbf6"
+    },
+    {
+      "path": "Warehouse-vs-PTC-Servigistics-Comparison.md",
+      "bytes": 23423,
+      "sha256": "4596b1cd6342e4ce54386960dafc551da264b5401bbee2aeaaeaa6da9bd464d8"
+    }
+  ]
+}

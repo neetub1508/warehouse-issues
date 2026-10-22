@@ -1,0 +1,168 @@
+# Functional Contract — Inspection sampling (bands, fixed, percentage, AQL), plan assignment, polymorphic QC source, raise supplier return
+
+> **What this is.** The functional truth for *how much* is inspected and *against what*: sampling schemes
+> with band tables, the fixed and percentage formulas, the kept Z1.4 table, the plan-assignment
+> precedence, the lot verdict from Ac/Re, destructive test quantity, the polymorphic inspection source,
+> and the manual **Raise supplier return** action. It **extends** `RQP-T1-16`…`-23`, `-36`
+> ([`receipt-qc-putaway.contract.md`](receipt-qc-putaway.contract.md)); the inspection's derived state
+> (in progress / completed), its disposition and scrap approval are unchanged.
+>
+> **Status.** Derived 2026-10-22 (v0) from [`frd/FRD-STORES.md`](../frd/FRD-STORES.md) §6.5–6.6
+> (`FR-521`…`FR-526`). Not ratified.
+
+---
+
+## 0. Identity
+
+| | |
+|---|---|
+| **Workflow** | Scheme maintain → plan configure → assignment resolve → inspection start (source-polymorphic) → sample proposed → results → complete with lot verdict → disposition (whole-lot or per line) → destructive qty consumed → **Raise supplier return** (manual) |
+| **Module** | `warehouse`; code lists `QC_SOURCE_TYPE`, `INSPECTION_STAGE` in `warehouse-base` (`V500301`, owned by `P8-06`) |
+| **Domain baseline** | `FR-127`, `FR-133`, `FR-139` (amended by `FR-526`), `FR-041` (no expressions), `FR-383` (no JSONB) · `STO-D6`, `STO-D7` · IS 2500 (Part 1) ≡ ISO 2859-1 ≡ ANSI/ASQ Z1.4 single sampling, normal, level II |
+| **Owning tasks** | `issues/p8-05.md` (schemes, plan columns, assignments, formulas, verdict, destructive qty) · `issues/p8-06.md` (polymorphic source) · `issues/p8-07.md` (raise supplier return) |
+| **Primary tables** | new `wh_sampling_schemes`, `wh_sampling_scheme_bands`, `wh_inspection_plan_assignments` (`V510404`); ALTER `wh_inspection_plans` (`V510404`): `sampling_scheme_id`, `fixed_sample_quantity`, `sample_percent`, `min_sample_quantity`, `inspection_level`; formula CHECK widened with `BAND_TABLE`; ALTER `wh_quality_inspections` / `_lines` (`V510405`): `source_type(_list)`, `source_document_id`, `source_line_id`, `source_document_ref`, `inspection_stage(_list)`, `grn_id`/`grn_line_id` nullable, `item_id`, `lot_id`, `warehouse_id`, `held_location_id`, `sampling_scheme_version_id`, `sample_size_proposed`, `defective_count`, `lot_verdict_proposed`, `lot_verdict`, `lot_verdict_override_reason`, `destructive_quantity`, `destructive_movement_id`; ALTER `wh_supplier_returns` / `_lines` (`V510406`): `origin_inspection_id`, `origin_inspection_line_id` |
+| **Permission resources** | `wh_sampling_schemes:{view,create,edit,export}` · `wh_inspection_plan_assignments:{view,create,edit,export}` · new verb `wh_quality_inspections:raise_supplier_return` (`V511404`, `V511406`) |
+| **Routes** | WS-264 `/warehouse/quality/sampling-schemes` · WS-265 `/warehouse/quality/plan-assignments` · WS-079, WS-080 (changed) |
+| **Contract version** | `v0 — 2026-10-22` |
+
+### Acceptance checks
+
+| # | Expects | Delivered by |
+|---|---|---|
+| A1 | The client's own bands configurable and contiguous (`WH-SC-442`, `-443`, `-475`) | `IIS-T1-01`…`-03`, `IIS-GRD-01`…`-03` |
+| A2 | FIXED and PERCENTAGE really compute (`WH-SC-444`…`-446`) | `IIS-GRD-04`, `IIS-T1-06` |
+| A3 | Z1.4 kept as one option, unchanged | `IIS-T1-06` row `AQL_TABLE` |
+| A4 | Plan chosen per item / category / supplier (`WH-SC-447`, `-448`) | `IIS-T1-05` |
+| A5 | Ac/Re proposes a lot verdict; destructive qty balances (`WH-SC-449`, `-450`) | `IIS-T1-08`, `IIS-T4-02` |
+| A6 | Production and store-return sources work without a GRN (`WH-SC-451`, `-469`) | `IIS-T1-07`, `IIS-GRD-07` |
+| A7 | Reject → supplier return is one press, manual, never automatic (`WH-SC-452`, `-453`) | `IIS-T1-10`, `IIS-UNR-01` |
+
+---
+
+## 1. T1 — State machine
+
+### 1.1 Status inventory (additions)
+
+| Entity | Status | Represented by | Kind |
+|---|---|---|---|
+| Sampling scheme | `ACTIVE` / `INACTIVE` + `version_no` | registry convention; copy-on-write versions (`supersedes_id`) | registry |
+| Plan assignment | current / ended | `effective_from` / `effective_to` (half-open) | dated fact |
+| Inspection | *in progress* / *completed* | unchanged (`RQP` §1.1) | — |
+| Lot verdict | *proposed* → *confirmed* | `lot_verdict_proposed`, `lot_verdict` (`ACCEPT_LOT` / `REJECT_LOT` / null = per-line) | fact set at Complete |
+
+### 1.2 Transitions
+
+| ID | From | Event | To | Guard | Actor | Side effects | Reason? | UI |
+|---|---|---|---|---|---|---|---|---|
+| IIS-T1-01 | — | Create scheme with bands | `ACTIVE` v1 | `IIS-GRD-01`…`-03` | `wh_sampling_schemes:create` | band rows | no | WS-264 **Add** |
+| IIS-T1-02 | v*n* unused by any completed inspection | Edit bands | v*n* updated in place | same | `:edit` | — | no | WS-264 **Edit** |
+| IIS-T1-03 | v*n* used by a completed inspection | Edit bands | v*n*+1 `ACTIVE`, v*n* `INACTIVE` | same | `:edit` | plans pointing at the scheme follow the new version; inspections keep `sampling_scheme_version_id` | no | WS-264 **Edit** (banner *creates version n+1*) |
+| IIS-T1-04 | — | Create / end an assignment (scope `ITEM_SUPPLIER`, `ITEM`, `CATEGORY_SUPPLIER`, `SUPPLIER`, `CATEGORY`; plan **or** `NO_INSPECTION`; `effective_from`) | current | `IIS-GRD-05` | `wh_inspection_plan_assignments:create`/`:edit` | ending sets `effective_to`; never deleted once used | no | WS-265 |
+| IIS-T1-05 | — | **Resolve plan** for a source line at start (and at GRN post to decide QC hold) | — | precedence: item+supplier → item → category+supplier → supplier → category → `whb_item_categories.default_inspection_plan_id` (via `whb_item_category_assignments`, today's query `WhQualityInspectionRepositoryCustomImpl.java:342-354`) → none; within a scope the latest `effective_from ≤ receipt date` wins | system | `plan_assignment_id` recorded on the inspection; `NO_INSPECTION` recorded on the GRN line audit and the line is received into the resolved status without QC hold | — | none (effect) |
+| IIS-T1-06 | — | **Propose sample size** per inspection line from the still-held quantity *L* | — | `ALL`/no plan → *L*; `NONE` → 0; `SQUARE_ROOT_PLUS_ONE` → ⌈√L⌉+1; `AQL_TABLE` → Z1.4 GII table (unchanged constants `WhQualityInspectionSampleSize.java:35-38`); **`FIXED_QUANTITY` → `fixed_sample_quantity`**; **`PERCENTAGE` → ⌈L × `sample_percent`/100⌉, raised to `min_sample_quantity`**; **`BAND_TABLE` → the band containing ⌈L⌉: its `sample_size`, or ⌈L × `sample_percent`/100⌉**; every result capped at *L* (`RQP-GRD-20`) | system at `RQP-T1-16` | `sample_size_proposed` stored; Ac/Re copied from the band (or the AQL master table when `aql` is set — `IIS-OPEN-01`) | — | WS-080 **Start** |
+| IIS-T1-07 | — | **Start** an inspection of a non-GRN source (`source_type` ≠ `GOODS_RECEIPT`) | *in progress* | `IIS-GRD-07`, `-08` | `wh_quality_inspections:create` | the resolver returns item, lot, quantity held, location, warehouse, owner; one series per `(source_type, source_document_id)` | no | WS-080 **Start** (from the source screen) |
+| IIS-T1-08 | *in progress* | **Complete** with `defective_count` per line | *completed* | `RQP-GRD-15`, `-17` | `wh_quality_inspections:edit` | when Ac/Re present: `lot_verdict_proposed` = `ACCEPT_LOT` if defectives ≤ Ac, `REJECT_LOT` if ≥ Re; inspector confirms (`lot_verdict`) or overrides with a reason | override only | WS-080 **Complete** |
+| IIS-T1-09 | *completed*, `lot_verdict` set | **Disposition whole lot** | stock released / rejected | `RQP-GRD-18`, `-29` | `wh_quality_inspections:disposition` | one disposition per line for *(held − destructive)*: `ACCEPT_LOT` → `RESTOCK_SELLABLE` (or `MRN_PENDING`, `MRA-T4-01`), `REJECT_LOT` → `REJECT`; `destructive_quantity` posted by `IIS-T4-02` first | yes (`FR-103`) | WS-080 **Disposition** (pre-filled from the verdict) |
+| IIS-T1-10 | *completed*; GOODS_RECEIPT source; Σ dispositioned `REJECT`/`RTV` not on a live (non-`CANCELLED`) supplier return > 0 | **Raise supplier return** | supplier return `DRAFT` | `IIS-GRD-09` | `wh_quality_inspections:raise_supplier_return` **and** `wh_supplier_returns:create` | `WhSupplierReturnService.create` with supplier, `origin_grn_id`, `origin_inspection_id`, reason `QUALITY_REJECTED`, one line per inspection line (qty = rejected not yet returned, lot, serials, `stock_status_code` = the target status, `origin_grn_line_id`, `origin_inspection_line_id`); **nothing approved, picked, dispatched or posted** | no | WS-080 row action **Raise supplier return** → opens WS-084 on the new return |
+
+### 1.3 Guards
+
+| ID | Predicate | Refusal | Backstop | Source |
+|---|---|---|---|---|
+| IIS-GRD-01 | bands start at 1, are contiguous (`lot_to + 1 = next lot_from`), no overlap, last band `lot_to IS NULL` | `422 SAMPLING_BANDS_NOT_CONTIGUOUS` · `bands[i].lotFrom` naming the first uncovered size | uk `(scheme_id, lot_from)`; CHECK `lot_to IS NULL OR lot_to >= lot_from` | FR-521 |
+| IIS-GRD-02 | each band has exactly one of `sample_size` (>0, integer) or `sample_percent` (0 < p ≤ 100) | `422 SAMPLING_BAND_SIZE_REQUIRED` | CHECK `num_nonnulls(sample_size, sample_percent) = 1` | FR-521 |
+| IIS-GRD-03 | Ac < Re when both set; Ac ≥ 0; sample size ≥ Re | `422 SAMPLING_BAND_ACCEPT_REJECT_INVALID` | CHECK | FR-521 |
+| IIS-GRD-04 | `FIXED_QUANTITY` ⇒ `fixed_sample_quantity > 0`; `PERCENTAGE` ⇒ `0 < sample_percent ≤ 100`; `BAND_TABLE` ⇒ `sampling_scheme_id` of an active scheme | `422 SAMPLE_PARAMETER_REQUIRED` · the missing field | CHECK per formula | FR-522 |
+| IIS-GRD-05 | no two **current** assignments with the same scope key and overlapping ranges | `409 PLAN_ASSIGNMENT_OVERLAP` | `EXCLUDE USING gist` on `(scope_type, item_id, category_id, supplier_counterparty_id, daterange)` (`btree_gist` already required by `V500012`) | FR-523 |
+| IIS-GRD-06 | the sample proposal never exceeds the held quantity | — (capped) | — | RQP-GRD-20 |
+| IIS-GRD-07 | a `QualityInspectionSourceResolver` is registered for `source_type` | `422 QC_SOURCE_TYPE_UNSUPPORTED` · `sourceType` | composite FK to `QC_SOURCE_TYPE` code list | FR-525 |
+| IIS-GRD-07a | **non-stock-bearing source** (`InspectableSource.stockBearing = false`, SEAM-M4, MFG `IN_PROCESS`): no held quantity, location or status; lines carry `outcome_code` (`INSPECTION_OUTCOME`: `ACCEPT`/`REJECT`/`REWORK`) and never `disposition_code`; Disposition is not offered; **no movement**; the outcome goes to the resolver's `onDisposition` | `409 INSPECTION_SOURCE_NOT_STOCK_BEARING` on a disposition attempt | CHECK `outcome_code IS NULL OR disposition_code IS NULL`; `item_id` nullable only when `stock_bearing = false` | FR-525 |
+| IIS-GRD-08 | `GOODS_RECEIPT` ⇔ `grn_id`/`grn_line_id` set; the resolver confirms the source is inspectable (GRN `POSTED`, store return `POSTED` with a `NEEDS_INSPECTION` line, MFG's own rule) and no inspection of that source is *in progress* | `409 INSPECTION_SOURCE_NOT_INSPECTABLE` / `409 INSPECTION_IN_PROGRESS` | CHECK `(source_type <> 'GOODS_RECEIPT') OR (grn_id IS NOT NULL)` on header and `grn_line_id` on lines; uk lines `(inspection_id, source_line_id)` replaces `(inspection_id, grn_line_id)` | FR-525 |
+| IIS-GRD-09 | Raise supplier return: inspection completed, source `GOODS_RECEIPT`, the rejected quantity not yet on a live return > 0 | `409 SUPPLIER_RETURN_ALREADY_RAISED` / `409 NOTHING_TO_RETURN` | — | FR-526 |
+| IIS-GRD-10 | `destructive_quantity ≤ inspected_quantity` and ≤ held | `422 DESTRUCTIVE_QUANTITY_EXCEEDS_SAMPLE` | CHECK | FR-524 |
+
+### 1.4 Unreachable
+
+| ID | Must never happen |
+|---|---|
+| IIS-UNR-01 | a supplier return created by Complete, Disposition, a job or any path other than `IIS-T1-10` (`FR-139` amended — no silent auto-return) |
+| IIS-UNR-02 | `FIXED_QUANTITY` or `PERCENTAGE` proposing the whole lot because a parameter is missing (refused at plan save instead) |
+| IIS-UNR-03 | a free expression, script or JSONB in a plan or scheme (`FR-041`, `FR-383`) |
+| IIS-UNR-04 | a completed inspection's verdict, scheme version or sample changed (`RQP-UNR-04`) |
+| IIS-UNR-05 | an FK from `wh_quality_inspections` to a `whm_` table |
+
+## 2. T2 — Action × role × state
+
+| ID | Action | Permission | Allowed from | Extra |
+|---|---|---|---|---|
+| IIS-T2-01 | Maintain schemes | `wh_sampling_schemes:create/edit` | — | QA manager |
+| IIS-T2-02 | Maintain assignments | `wh_inspection_plan_assignments:create/edit` | — | QA manager |
+| IIS-T2-03 | Start / record / complete | `wh_quality_inspections:create/edit` | per `RQP` | inspector |
+| IIS-T2-04 | Confirm / override verdict | `wh_quality_inspections:edit` | at Complete | override reason |
+| IIS-T2-05 | Disposition | `wh_quality_inspections:disposition` | *completed* | QA role |
+| IIS-T2-06 | Raise supplier return | `:raise_supplier_return` + `wh_supplier_returns:create` | *completed* + rejected qty unreturned | the return's approver must differ (`P2-13`) |
+
+## 3. T3 — Time-driven rules
+
+| ID | Rule | Trigger | Changes | Notified | Job | Once? |
+|---|---|---|---|---|---|---|
+| IIS-T3-01 | QC-held ageing | stock in `QC_HOLD` from a source with no inspection started > `warehouse.quality.inspection_due_hours` (default 24) | nothing — tile *Awaiting inspection > SLA* | QA in-charge | daily alert job (`p2-23` family) | once per source |
+| IIS-T3-02 | Rejected stock not returned | rejected qty with no supplier return after `warehouse.quality.reject_return_alert_days` (default 7) | nothing | inspector, buyer | same | once per inspection |
+
+## 4. T4 — Cross-entity effects
+
+| ID | When | Then | Enforced in |
+|---|---|---|---|
+| IIS-T4-01 | GRN post with a resolved plan (not `NO_INSPECTION`) whose item requires QC | line received into `QC_HOLD` (today's `received_status_code` resolution, unchanged) | GRN post |
+| IIS-T4-02 | disposition with `destructive_quantity > 0` | one `ISSUE` movement −destructive at the held location in `QC_HOLD`, +destructive at `VIRT-CONSUMED-<site>`, `source_document_type = QUALITY_INSPECTION`; cost object recorded on the inspection line = `DEPARTMENT` from `warehouse.quality.qc_department_id` (resolver-validated, `SIR` §1) | inspection service → writer, same transaction as the disposition |
+| IIS-T4-03 | `IIS-T1-10` | supplier return `DRAFT` with origin columns; supplier claim **not** created (a user may create `QUALITY_REJECT` from the return through `getPrefill` `:345`) | supplier-return service |
+| IIS-T4-04 | completed `STORE_RETURN`-source inspection disposition release | the released quantity goes `AVAILABLE` with a putaway task (store returns never need an MRN) | disposition service |
+| IIS-T4-05 | `PRODUCTION_RECEIPT`/`IN_PROCESS` source | effects owned by MFG's resolver callback `onDisposition` (MFG contract) | resolver bean |
+
+## 5. T5 — Screen contract
+
+### 5.1 WS-264 Sampling Schemes (reference: **Department**)
+
+| | |
+|---|---|
+| **Grid** | `wh_sampling_schemes` · scope `WAREHOUSE_SAMPLING_SCHEME` · sort `e.code ASC` |
+| **Columns** | `code`, `name`, `standardReference` (free text: *IS 2500-1*, *client*), `versionNo`, `bandCount`, `planCount`, `isActive`, audit |
+| **Filters** | `search` (code/name), `isActive` |
+| **Modal** | header + editable band grid (`lotFrom`, `lotTo` (blank = and above), `sampleSize` **or** `samplePercent`, `acceptNumber`, `rejectNumber`); live *coverage check* message; in-modal refusal |
+| **View** | `ViewModalBase` with *Bands* table and *Used by plans* |
+| **Export** | header + bands sheet + audit |
+
+### 5.2 WS-265 Inspection Plan Assignments (reference: **Customer** — cascading filters)
+
+| | |
+|---|---|
+| **Grid** | `wh_inspection_plan_assignments` · scope `WAREHOUSE_PLAN_ASSIGNMENT` · sort `e.scope_rank ASC, e.effective_from DESC` |
+| **Columns** | `scopeType`, `itemCode`, `itemName`, `categoryName`, `supplierName`, `planCode` (or *No inspection*), `effectiveFrom`, `effectiveTo` (date-only, `formatDateSync`), `isCurrent`, audit |
+| **Filters** | `scopeType`; `categoryId` → `itemId` (cascade); `supplierCounterpartyId`; `planId`; `currentOnly` |
+| **Toolbar** | Add · **Test resolution** (item + supplier + date → winning assignment, writes nothing) · Export |
+
+### 5.3 WS-079 / WS-080 changes
+
+- WS-079 plan modal: formula select drives required fields (`fixedSampleQuantity`, `samplePercent` + `minSampleQuantity`, `samplingSchemeId`); `aql` and `inspectionLevel` shown for `AQL_TABLE`.
+- WS-080 grid gains `sourceType`, `inspectionStage`, `sourceDocumentRef`, `sampleSizeProposed`, `defectiveCount`, `lotVerdict`; filters `sourceType`, `inspectionStage`; row action **Raise supplier return** (visible per `IIS-T2-06`); complete modal shows proposed verdict with confirm/override.
+
+## 6. Out of scope
+
+Switching rules, skip-lot dynamics, variables sampling, SPC (FRD §12 row 4); auto supplier return; mobile.
+
+## 7. Amendments
+
+| Date | Change |
+|---|---|
+| 2026-10-22 | v0 derived. Settles `RQP-T1-16`'s open note *"FIXED_QUANTITY / PERCENTAGE propose the whole lot until `wh_inspection_plans` gains a parameter column"* |
+
+## 8. Invariants and scenarios
+
+`L-1` (destructive qty posts); `FR-041`; `FR-139` amended; scenarios `WH-SC-442`…`-453`, `-469`, `-475`.
+
+## 9. Open rows
+
+| ID | Question | Default |
+|---|---|---|
+| IIS-OPEN-01 | For `AQL_TABLE` with an `aql` value, seed the full Z1.4/IS 2500 single-sampling master table (Ac/Re by code letter × AQL) as data? | **Yes, as a seeded `is_system` scheme family** `Z14-GII-AQL-<aql>` for the eleven common AQLs (0.065…6.5), generated in `V510404`; `AQL_TABLE` without `aql` stays sample-size only |
+| IIS-OPEN-02 | OD-25 band reading | contiguous |

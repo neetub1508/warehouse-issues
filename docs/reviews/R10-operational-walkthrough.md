@@ -1,5 +1,7 @@
 # R10 — The end-to-end operational walkthrough: does a whole day's work actually complete?
 
+> **Superseded in scope (2026-10-22):** historical record, not edited — where it assumes a dealer or retail target, [`DECISIONS.md` `D-16`](../DECISIONS.md) and [R28](R28-manufacturing-storage-retarget-impact.md) win (manufacturing + storage).
+
 <!-- FR-447 was a proposal when this file was written; it is now a real row in WAREHOUSE-FUNCTIONAL-REQUIREMENTS.md §6.27, so the fr-citations exemption that stood here has been removed rather than left stale -->
 <!-- check-design-set: scenario-citations file WH-SC-306 — the SCENARIO-CATALOGUE.md §5 rule 3 allocation marker, the next free scenario id. Same allocation DESIGN-SET-DEFECTS.md and GAP-REGISTER.md already declare. Round 2 took WH-SC-301-WH-SC-305 for SCENARIO-CATALOGUE.md 3.21, so the marker — and this declaration with it — moved to WH-SC-306 -->
 

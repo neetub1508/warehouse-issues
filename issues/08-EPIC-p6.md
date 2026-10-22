@@ -2,6 +2,8 @@ TITLE: [Warehouse] EPIC: P6 — Optimisation, planning and the logistics seam
 LABELS: epic,warehouse,phase-p6
 issue: 11
 ---
+> **Re-target — [`DECISIONS.md` `D-16`](../docs/DECISIONS.md) (2026-10-22).** **VOID:** `P6-09` (#134, dealer vehicle-inventory test; `OD-2` is moot). **Superseded:** `P6-12` (#144, BOM refusal) — multi-level BOM is now owned by `warehouse-manufacturing` (`RN-032`, `docs/frd/FRD-MFG.md`, phase `P10`).
+
 Part of __MASTER__ · Modules `warehouse-base` · `warehouse` · `warehouse-3pl` · **`logistics` (new)** · Migrations — **four blocks, enumerated below** · Ships in **v3**
 
 ## Overview

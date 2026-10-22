@@ -1,0 +1,3292 @@
+# Scenario traceability appendix
+
+All 411 catalogue rows are retained as source references. **This is not a pass report or a mandatory release scope.** Apply adopted exclusions, removed-adapter decisions and package scope before execution. Java links are lexical matches, not coverage or freshness proof. Planning references remain outside this audit.
+
+## WH-SC-001
+
+Catalogue source row:
+
+`| **WH-SC-001** | SITE-A with virtual locations seeded; OF-1120 base UoM EA, CASE = 12; nothing on hand | stores1 receives 10 CASE of OF-1120 lot L-2609 into SITE-A/RECV-01 | **Two** ledger lines are written, not one: −120 EA at VIRT-SUPPLIER and +120 EA at SITE-A/RECV-01, same owner, lot, stock status and duty status; the lines sum to **exactly zero** in base UoM; VIRT-SUPPLIER has counts_as_on_hand = false, so the stock-on-hand report shows 120 EA and not 0. The movement posts against the **seeded HOUSE owner**, because there is no single-owner mode and owner_id is NOT NULL on every line in every install — so the owner code path is exercised from day one rather than from the day the first 3PL client arrives | FR-001 FR-002 FR-084 FR-109 FR-107 | L-1 · I-1 | base | v1·P0 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-002
+
+Catalogue source row:
+
+`| **WH-SC-002** | The same receipt, submitted through the port as a **single** line with no counter side | An integration posts it | Rejected **before any row is written**, 422 MOVEMENT_UNBALANCED, details.errors["lines"] reading *"movement does not conserve for owner HOUSE / item OF-1120: net +120.0000 EA. A receipt must balance against a virtual location, never against nothing."* The deferred trigger trg_whb_movement_lines_conserve **does not fire**, because the service rejected first | FR-001 FR-029 FR-039 | L-1 · I-1 | base | v1·P0 | error |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-003
+
+Catalogue source row:
+
+`| **WH-SC-003** | A two-line movement: −120 EA of OF-1120 **lot L-2609** and +120 EA of OF-1120 **lot L-2610**, both at SITE-A/A-01-01-01-01 | Post it as a TRANSFER_INTERNAL whose balance_rule is MUST_BALANCE_PER_OWNER_ITEM | Rejected 422 MOVEMENT_UNBALANCED naming lines[0].lot_id and lines[1].lot_id: conservation is per (company, owner, item, lot, serial, duty_status), so a movement that nets zero **across two lots** does not conserve. A lot change is a LOT_SPLIT/LOT_MERGE with genealogy, not a transfer | FR-001 FR-105 | L-1 · I-1 | base | v1·P0 | edge |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-004
+
+Catalogue source row:
+
+`| **WH-SC-004** | BRG-0007: transacted in EA, base UoM KG, conversion factor 0.000045, quantity precision DECIMAL(18,4) | Issue **1 EA** from SITE-A/A-04-02-01 to VIRT-CUSTOMER | The base quantity is **±0.0001 KG**, not 0.0000 — rounded **away from zero** to the smallest representable base quantity, with the sign of the transaction quantity. **If it rounded to zero, L-1 would pass** (0 − 0 = 0) while the bearing left the shelf and the ledger recorded nothing; on-hand would be permanently wrong by one unit with no exception raised anywhere. The service never offers the database a zero base quantity for a non-zero transaction quantity | FR-009 FR-030 | L-1 L-7 · I-1 I-8 | base | v1·P0 | edge |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-005
+
+Catalogue source row:
+
+`| **WH-SC-005** | A receipt line entered in CASE (factor 12) whose counter side is expressed in EA | Post it | The counter line's base_quantity is the **negation of the primary line's computed base_quantity**, never a second independent conversion, and is_counter_side = true marks which line was generated. Two independent conversions would each round and the movement would be out of balance by up to 0.0002 on every receipt | FR-009 FR-002 | L-1 L-7 · I-1 | base | v1·P0 | edge |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-006
+
+Catalogue source row:
+
+`| **WH-SC-006** | Movement m-A1 is POSTED with two lines | A support engineer runs UPDATE whb_stock_movement_lines SET quantity = 5 WHERE id = … directly in psql, bypassing the application entirely | The statement **fails**: I-2 violated: column whb_stock_movement_lines.quantity is immutable on a posted row (10 -> 5). This is the one place a raw trigger message is the correct outcome, because there is no service in the call path to translate it — and a trigger firing here is evidence the backstop works, not an incident | FR-004 FR-436 | L-2 · I-2 | base | v1·P0 | error |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/controller/WhbStockMovementControllerEnumerationTest.java`
+
+## WH-SC-007
+
+Catalogue source row:
+
+`| **WH-SC-007** | The same posted movement | DELETE FROM whb_stock_movement_lines WHERE movement_id = 'm-A1' in psql | Fails: I-2 violated: … is a posted ledger row and cannot be deleted by any actor. Zero rows are removed; the transaction aborts | FR-004 | L-2 · I-2 | base | v1·P0 | error |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-008
+
+Catalogue source row:
+
+`| **WH-SC-008** | A JPA entity Movement whose lines collection is mapped, and posted movement m-A1 loaded into a session | Application code calls movement.getLines().clear() and the session flushes — the classic cascade = ALL + orphanRemoval path | The flush **fails** on the I-2 trigger. Two further assertions, and they are the point of the scenario: (a) the mapping is cascade = {PERSIST, MERGE} with **no** orphanRemoval, verified by an architecture test, so this path does not exist in shipped code; (b) the same clear() against a **PENDING** movement (approval_status = PENDING; there is no DRAFT status, MPR-OPEN-05) fails too, because I-2 refuses a DELETE on every ledger row and freezes a line from its insert (MPR-UNR-01) — so the trigger is only the backstop, firing at flush inside a transaction the service cannot translate, and the mapping test is what keeps the path out of shipped code. A pending movement is corrected by withdrawing it and posting a new one (MPR-GRD-28) | FR-004 FR-436 | L-2 · I-2 | base | v1·P0 | error |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-009
+
+Catalogue source row:
+
+`| **WH-SC-009** | Posted movement m-A1 with lines 1 and 2 | An INSERT adds a third line to m-A1 | Rejected: I-2 violated: cannot INSERT a line into posted movement m-A1. A movement is closed at posting; a further line is a **new movement** | FR-004 | L-2 · I-2 | base | v1·P0 | error |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/ledger/WhbLedgerInvariantsIntegrationTest.java`
+
+## WH-SC-010
+
+Catalogue source row:
+
+`| **WH-SC-010** | The shipped product, all screens and all endpoints | Search the whole warehouse surface for a way to change a posted movement | There is **no** edit control on any screen, **no** PUT/PATCH on any movement path, and **no** update method on the writer service — asserted by a test that enumerates the controller methods under ai.warehousebase.controller and fails on any mutating verb against /movements/{id} other than /reverse. "Edit is never offered anywhere in the product" is a testable claim, not a slogan | FR-004 FR-005 FR-436 | L-2 L-3 · I-2 | base | v1·P0 | happy |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/controller/WhbStockMovementControllerEnumerationTest.java`
+
+## WH-SC-011
+
+Catalogue source row:
+
+`| **WH-SC-011** | Receipt m-A1 posted against the **wrong lot** (L-2610 instead of L-2609), 10 CASE = 120 EA | sup1 calls POST /movements/m-A1/reverse with a **new** idempotency key and reason_code_id = WRONG_LOT | A mirror movement m-A2 is written: same lot, serial, LPN, stock status, owner, duty status and **the same frozen conversion factor**, with every quantity negated (−10 CASE / −120 EA off RECV-01, +120 EA back to VIRT-SUPPLIER); movement_type_code is the original type's reversal_type_code; m-A1.is_reversed = true and reversed_by_movement_id = m-A2. Re-posting the receipt correctly under a **new** key produces a third movement. The audit trail reads: received wrongly, reversed with a reason, received correctly — three movements, all visible, none hidden | FR-005 FR-035 | L-3 · I-3 | base | v1·P0 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-012
+
+Catalogue source row:
+
+`| **WH-SC-012** | Reversal m-A2 from WH-SC-011 | Attempt POST /movements/m-A2/reverse | 409 CANNOT_REVERSE_A_REVERSAL, details.errors["movement_id"] = *"m-A2 is a reversal of m-A1"*. Redoing is a **new forward movement**, which is the honest record of what happened. A second attempt to reverse m-A1 returns 409 ALREADY_REVERSED | FR-005 FR-035 | L-3 · I-3 | base | v1·P0 | error |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-013
+
+Catalogue source row:
+
+`| **WH-SC-013** | Movement m-A1, and a reverse request with reason_code_id omitted | Submit it | 422 REASON_CODE_REQUIRED, details.errors["reason_code_id"] = *"a reason code from the REVERSAL context is mandatory on every reversal"*. A free-text reason field does not exist on the request at all — the column is an FK to the closed catalogue | FR-005 FR-019 | L-3 · I-3 | base | v1·P0 | error |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-014
+
+Catalogue source row:
+
+`| **WH-SC-014** | An install with 400,000 posted movement lines across six months and 38,000 live whb_stock_positions rows | Run the full position rebuild from whb_stock_movements into a scratch table and diff | **Every** position row reproduces **exactly** — same nine-member key, same on_hand, same secondary_quantity, row for row, with **zero** differences in either direction (no missing row, no extra row, no quantity delta). The rebuild is run by the nightly job and its result written to the reconciliation-exception table even when it is clean, so "the check ran" is distinguishable from "the check was skipped" | FR-012 FR-013 | L-4 · I-7 | base | v1·P0 | happy |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/ledger/writer/WhbStockLedgerWriterIntegrationTest.java`
+
+## WH-SC-015
+
+Catalogue source row:
+
+`| **WH-SC-015** | The same install, with one whb_stock_positions row deliberately corrupted from 144.0000 to 140.0000 | The nightly rebuild-and-drift job runs | It **fails loudly**: the exception row names the position key, the cached value 140.0000, the rebuilt value 144.0000 and the delta; a notification is raised to the named owner; the row appears on the reconciliation-exception grid with an action. A job that cannot fail is not a control — so the corrupted-cache case is itself a test that must be run, not only the clean one | FR-012 FR-163 FR-398 | L-4 · I-7 | app | v1·P2 | conc |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-016
+
+Catalogue source row:
+
+`| **WH-SC-016** | OF-1120 at SITE-A/A-01-01-01-01: 60 EA of lot L-2609 DOMESTIC AVAILABLE, 40 EA of lot L-2610 DOMESTIC AVAILABLE, 25 EA of lot L-2609 **BONDED** AVAILABLE, 10 EA of lot L-2609 DOMESTIC **QUARANTINE** | Query the position table for that item and location | **Four** rows, not one and not two. The unique key is (company, owner, item, location, lot, serial, lpn, stock_status, duty_status) and every member is present in v1 even where its feature ships later; the unique index is NULLS NOT DISTINCT with no nil-UUID sentinel, so it actually fires where a member is null (MPR-OPEN-10). A total of 135 EA is a **sum over four rows**, never a merged balance — because bonded and duty-paid stock of one SKU commingled cannot be separated by any algorithm afterwards | FR-011 FR-104 FR-102 | L-5 · I-5 | base | v1·P0 | happy |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/ledger/WhbLedgerInvariantsIntegrationTest.java`
+
+## WH-SC-017
+
+Catalogue source row:
+
+`| **WH-SC-017** | BRK-8840 at SITE-A/PICK-FACE-03: on hand 20 EA, open reservations 18 EA (available 2) | An adapter posts an issue of 5 EA | 409 INSUFFICIENT_STOCK, details.errors["lines[0].quantity"] = *"available 2.0000 EA at SITE-A/PICK-FACE-03 (on hand 20.0000 less 18.0000 reserved); requested 5.0000"*. Computed authority, stored projection: available is **computed** at post time (on hand less open reservations), and whb_stock_positions.quantity_available is a writer-maintained projection the rebuild verifies, never the value this check trusts (MPR-OPEN-12). The message shows the arithmetic so the caller can act. Nothing is written | FR-014 FR-168 | L-6 · I-6 | base | v1·P0 | error |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-018
+
+Catalogue source row:
+
+`| **WH-SC-018** | No negative-on-hand policy row for WSH-0031; the default is BLOCK. Then a policy row is added at (warehouse = SITE-A, item_group = FASTENERS) with mode = WARN | Issue 600 EA when 500 EA are on hand — first with no policy, then with the WARN policy | First: 409 NEGATIVE_STOCK_NOT_ALLOWED on lines[0].quantity, nothing written. After the policy row: the movement **posts**, on hand goes to −100 EA, **and** an insufficient-stock log row is written carrying item, warehouse, requested, available, source, user and time, which appears on the shipped insufficient-stock report. *(Split delivery: base posts and hands the breach to the WhbInsufficientStockRecorder port; the log row (V510034) and the report wait on P2-01, warehouse-issues#18. The WARN acknowledgement rides on the post and on /reverse — MPR-GRD-16.)* Policy resolution is most-specific-first, so a later (warehouse = SITE-A, item = WSH-0031, mode = BLOCK) row wins over the group row | FR-014 FR-015 FR-391 | L-6 · I-6 | base·app | v1·P0 | edge |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/ledger/writer/WhbStockLedgerWriterIntegrationTest.java`
+
+## WH-SC-019
+
+Catalogue source row:
+
+`| **WH-SC-019** | A receipt of 10 CASE of OF-1120 posted on 2026-06-14 with conversion_factor = 12 frozen on the line. On 2026-09-01 the supplier changes the case to 10 and whb_item_uom_conversions is updated | Re-run the stock movement register and the valuation for June 2026 | June still reads 120 EA — the historical line's frozen factor, not today's. A ledger that re-derives from the current factor silently restates last year, and this scenario is the one that catches it. The September receipt of 10 CASE correctly reads 100 EA | FR-009 FR-055 | L-7 · I-8 | base | v1·P0 | edge |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-020
+
+Catalogue source row:
+
+`| **WH-SC-020** | OF-1120 has posted ledger rows | An administrator attempts to change the item's base stocking UoM from EA to CASE | Refused. The service returns 422 on base_uom_code = *"base UoM cannot change once stock ledger rows exist for this item"*, **and** a database trigger refuses the same UPDATE executed directly in psql — the guard is not trusted to the service layer alone. Changing an item with **no** ledger rows succeeds | FR-054 | L-7 · I-9 | base | v1·P1 | error |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/whbitem/WhbItemBaseUomImmutableTest.java`
+
+## WH-SC-021
+
+Catalogue source row:
+
+`| **WH-SC-021** | Stock period 2026-08 is CLOSED; an over-receipt found on 2026-09-03 relates to an August GRN | (a) Post a movement with posting_date = 2026-08-28; (b) attempt to **reverse** an August movement with an August-dated reversal | Both refused, 409 PERIOD_CLOSED, details.errors["posting_date"] = *"stock period 2026-08 is CLOSED and admits nothing, including a reversal"*. The correct act is a **current-dated** reversal in 2026-09, which posts. The trigger with session-GUC gating is the backstop and does not fire, because the service rejected first | FR-020 FR-021 | L-8 · I-10 | base | v1·P0 | error |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/period/WhbPeriodOverrideRecorderTest.java`
+
+## WH-SC-022
+
+Catalogue source row:
+
+`| **WH-SC-022** | Stock period 2026-08 is SOFT_CLOSED. stores1 has no backdating permission; mgr1 holds whb_stock_movements:post_backdated together with whb_stock_periods:override (RA-007) | Each posts a movement dated 2026-08-28 | stores1: 403 naming the missing permission on posting_date. mgr1: the movement **posts**, and the override is **recorded on the movement** with the overriding user and the time, and appears on the period-override report. An override nobody can find afterwards is not an override | FR-020 | L-8 · I-10 | base | v1·P0 | edge |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/ledger/writer/WhbStockLedgerWriterIntegrationTest.java`; `warehouse-base/backend/src/test/java/ai/warehousebase/service/period/WhbPeriodOverrideRecorderTest.java`
+
+## WH-SC-023
+
+Catalogue source row:
+
+`| **WH-SC-023** | An adapter posts a receipt with source_system = ADAPTER_DEALER, idempotency_key = ADAPTER_DEALER:PI-2026-0441:1:ISSUE; the network times out after the server committed | The adapter retries the **byte-identical** request | 200 OK — not 201, not an error — returning the **original** movement_id and the **original** sequence_no, from the stored inbound-message result rather than recomputed. **Nothing is posted a second time**; the ledger has exactly one movement and one set of lines. The key is caller-supplied and the server never generates one | FR-017 FR-033 FR-044 | L-9 · I-11 | base | v1·P0 | happy |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/port/WhbInterfaceErrorQueueReprocessTest.java`
+
+## WH-SC-024
+
+Catalogue source row:
+
+`| **WH-SC-024** | The same request with idempotency_key omitted, and again with "" | Post each | 422 IDEMPOTENCY_KEY_REQUIRED, details.errors["idempotency_key"] = *"an idempotency key is required and is never generated by the server"*. A server-generated key would make a retried network timeout post twice, which is the exact failure the key exists to prevent | FR-017 FR-032 | L-9 · I-11 | base | v1·P0 | error |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-025
+
+Catalogue source row:
+
+`| **WH-SC-025** | Trip TRIP-8842 holds three reservations across two items, taken with holder_system = LOGISTICS, holder_document_type = TRIP, holder_document_id = TRIP-8842, line numbers 1–3; the trip is cancelled | DELETE /api/warehouse/reservations?holder_system=LOGISTICS&holder_document_type=TRIP&holder_document_id=TRIP-8842 | All three release in one call; each row gets released_at and a release reason code and **is not deleted**; availability for both items returns to exactly its pre-reservation value; a stock.reservation.released event is emitted per row. A counter could not have answered this question at all — the only repair would have been to zero it, releasing everyone's stock at once | FR-166 FR-167 FR-171 | L-10 · I-12 | base | v1·P0 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-026
+
+Catalogue source row:
+
+`| **WH-SC-026** | SUP-CONSIGN-01 owns 48 EA of BRK-8840 at SITE-A/A-03-04-02, AVAILABLE, DOMESTIC; the consignment converts to a purchase on 2026-10-31 | mgr1 posts an OWNER_CHANGE for 48 EA with reason_code_id = CONSIGNMENT_CONVERTED | Two lines at the **same location**: −48 EA owner SUP-CONSIGN-01, +48 EA owner HOUSE; same item, lot, serial, LPN, status and duty status; **no physical movement of any kind**. Positions afterwards show zero for the consignor and 48 for HOUSE. The stock becomes valued from this movement forward and was **not** valued before it (L-14), and the movement type is allows_mixed_owner = true with balance_rule = MUST_BALANCE_PER_ITEM because it cannot balance per owner | FR-111 FR-110 FR-042 | L-11 L-14 · I-14 | base | v1·P0 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-027
+
+Catalogue source row:
+
+`| **WH-SC-027** | The same position row | Attempt to change its owner by any route — an UPDATE in psql, a repository save(), an admin screen | There is no screen; there is no repository method; and the direct UPDATE is refused. Ownership changes **only** by a movement, so the ledger always explains the balance. Had an update been possible, the storage biller would bill the wrong client for the period before the change with nothing in the ledger to show why | FR-111 FR-436 | L-11 · I-14 | base | v1·P0 | error |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/ledger/WhbLedgerInvariantsIntegrationTest.java`
+
+## WH-SC-028
+
+Catalogue source row:
+
+`| **WH-SC-028** | A movement submitted with source_document_type and source_document_id present but source_system blank | Post it | 422 UNKNOWN_SOURCE_SYSTEM on source_system. Posted with all four present, the movement is retrievable by GET /movements?source_system=&source_document_type=&source_document_id= as a **single indexed lineage query**, and each line's source_line_ref resolves to the originating document line. A free-text reference cannot be joined, and there is no free-text reference column to fall back on | FR-018 FR-036 | L-12 · I-15 | base | v1·P0 | error |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-029
+
+Catalogue source row:
+
+`| **WH-SC-029** | Lot L-2609 of OF-1120 was received 2026-06-14, split across four locations, issued to nine customer shipments and consumed into two work orders | Ask both directions | **Forward:** lot → every shipment and consignee that received it, every work order that consumed it, and the output lots those produced. **Backward:** from one shipped unit → the supplier lot, the receipt movement, the GRN, the counterparty and the receipt date. Both are queries over whb_stock_movement_lines plus the genealogy table, answerable for the full retention period, and both cross the work-order boundary | FR-105 FR-396 | L-12 · I-15 | base·app | v1·P1 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-030
+
+Catalogue source row:
+
+`| **WH-SC-030** | A handheld records a pick at 22:05 IST on 2026-09-30; the device is out of coverage and syncs at 06:12 IST on 2026-10-01; the finance calendar puts the event in September | The movement posts | Three distinct values are stored and all three are NOT NULL: occurred_at = 2026-09-30T16:35:00Z (producer-supplied), recorded_at = 2026-10-01T00:42:00Z (server clock), effective_date = 2026-09-30 (the accounting date). September's movement register includes it; the October register does not; dock-to-stock is measured from occurred_at, not from recorded_at. Collapsing them into one column would break offline replay, degraded-mode catch-up, cut-off and site-local-day bucketing simultaneously | FR-007 FR-439 | L-13 · I-13 | base | v1·P0 | edge |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-031
+
+Catalogue source row:
+
+`| **WH-SC-031** | A device whose clock is 26 hours fast | It posts a movement with occurred_at 26 hours in the future | 422 OCCURRED_AT_IN_FUTURE, details.errors["occurred_at"] = *"business time is in the future; the producer's clock is wrong"*. Nothing is written. A future business time breaks every ageing calculation **silently**, which is why this is a refusal and not a warning | FR-008 | L-13 · I-13 | base | v1·P0 | error |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-032
+
+Catalogue source row:
+
+`| **WH-SC-032** | CL-NOVA (owner_type = CLIENT_3PL) holds 900 EA of its own SKU at SITE-A; HOUSE holds 120 EA of OF-1120 | Run the inventory valuation report, and inspect the accounting envelopes emitted for both owners' movements | The valuation report values **only** HOUSE stock. CL-NOVA's movements carry cost_basis = ZERO_BAILMENT and produce no valued envelope; its quantity and custody appear on the custody report with an insured value, which is a **different number on a different report**. A 3PL posting its clients' stock to its own balance sheet is a catastrophe in both directions, so the assertion is *the number is absent*, not *the number is zero* | FR-112 FR-115 FR-230 | L-14 · I-16 | base | v1·P0 | happy |`
+
+Explicit Java references: `warehouse-3pl/backend/src/test/java/ai/warehouse3pl/service/wh3plcustodyvalue/Wh3plCustodyValueQueryServiceTest.java`; `warehouse/backend/src/test/java/ai/warehouse/repository/WhValuationOmitsNonOwnStockTest.java`
+
+## WH-SC-033
+
+Catalogue source row:
+
+`| **WH-SC-033** | An empty SITE-A ledger | Post four movements, then inspect sequence_no and the hash chain | sequence_no is 1, 2, 3, 4 **per warehouse**, gapless, assigned in **server acceptance order** and not in occurred_at order; each row's prev_payload_hash chains to its predecessor; recomputing the chain over the four rows verifies. Posting a movement at SITE-B starts that warehouse's sequence at 1 independently. A sequence cannot be started retroactively over rows that already exist, so an install that skipped this at migration one has no repair | FR-006 | L-2 · I-4 | base | v1·P0 | happy |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/ledger/WhbLedgerInvariantsIntegrationTest.java`
+
+## WH-SC-034
+
+Catalogue source row:
+
+`| **WH-SC-034** | A LANDED_COST_APPLY movement carrying quantity = 0 on both lines and extended_cost of +4,500.00 / −4,500.00 | Post it | It **posts**. There is no CHECK (quantity <> 0) anywhere on the ledger. Quantity conservation holds trivially (0 − 0 = 0), value conservation holds (+4,500 − 4,500 = 0) against the VALUE_OFFSET location (OD-13), on hand is unchanged, and the cost layer for lot L-2609 rises by ₹4,500 across 120 EA — ₹37.50 per each. A ledger that forbids zero quantity cannot capture freight, duty, clearing or write-downs that arrive after the goods | FR-010 FR-046 FR-345 | L-1 · I-1 | base | v1·P0 | edge |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/ledger/WhbLedgerInvariantsIntegrationTest.java`; `warehouse-base/backend/src/test/java/ai/warehousebase/service/ledger/writer/WhbStockLedgerWriterIntegrationTest.java`
+
+## WH-SC-035
+
+Catalogue source row:
+
+`| **WH-SC-035** | A movement type with requires_reason = true | Post it (a) with no reason code, (b) with a free-text reason string in any field, (c) with a reason code from the wrong context | (a) 422 REASON_CODE_REQUIRED on reason_code_id; (b) impossible — the request has no free-text reason field and reason_code_id is an FK; (c) 422 UNKNOWN_REASON_CODE naming the context the code belongs to. Free text cannot be grouped, trended, approved against, mapped to an account or reclassified into the six statutory categories a year later, which is why the column is an FK from day one | FR-019 FR-315 | — · I-1 | base | v1·P0 | error |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/ledger/writer/WhbMovementPostReasonRuleTest.java`; `warehouse-base/backend/src/test/java/ai/warehousebase/service/whbmovementtype/WhbMovementTypeValidationServiceTest.java`
+
+## WH-SC-036
+
+Catalogue source row:
+
+`| **WH-SC-036** | An install where stock periods were created on 2026-04-01 and the first movement posted 2026-04-02 | Query period_id on every movement | Every movement carries a non-null period_id. A movement posted before any period row existed would belong to no period and the first close would have an un-closeable opening set — so period creation is a **prerequisite migration** of the first ledger migration, asserted by the migration-order check rather than left to install order | FR-021 FR-251 | L-8 · I-10 | base | v1·P0 | edge |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-037
+
+Catalogue source row:
+
+`| **WH-SC-037** | Handheld RF-0117 bound to stores1, and a scheduled expiry job | A pick posts from the device, and the expiry job posts a status change the same night | The pick carries actor_type = DEVICE, actor_user_id = stores1, device_id = RF-0117. The job's movement carries actor_type = SCHEDULED_JOB with a null user and a null device — **not** an ADMIN user id. "Who moved this" is answerable for both, and a mis-scanning gun is diagnosable retroactively because the device id is on the row | FR-024 | — | base | v1·P0 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-038
+
+Catalogue source row:
+
+`| **WH-SC-038** | Two companies in one install; a movement header naming company_id = MER with a line whose location belongs to a different company | Post it | 422 COMPANY_MISMATCH on lines[0].location_id. Posted correctly, company_id is on the movement header and on every downstream report. A statutory return computed from guessed entities is a filing error, and the axis cannot be added after the ledger has rows | FR-025 | L-5 | base | v1·P0 | error |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-039
+
+Catalogue source row:
+
+`| **WH-SC-039** | A SCRAP movement type with requires_approval = true, for 12 EA of ECU-5501 at ₹48,000 each | stores1 submits it; mgr1 approves it | On submit the movement is created with approval_status = PENDING and **no ledger effect** — on hand is unchanged and no position row moves. On approval it posts, stamping approved_by = mgr1 and approved_at. stores1 attempting to approve their own submission is refused 403 naming the maker-checker rule | FR-027 FR-408 FR-164 | — | base·app | v1·P0 | happy |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/whstockadjustment/WhStockAdjustmentTwoUserApprovalTest.java`
+
+## WH-SC-040
+
+Catalogue source row:
+
+`| **WH-SC-040** | Six months of movements including two backdated arrivals posted after the fact | GET /stock/as-at?at=2026-09-30T23:59:59Z for OF-1120 at SITE-A, run on 1 October and again on 30 November | Both answers are computed **from the ledger**, not from a balance table. The November run legitimately **differs** from the October run by exactly the backdated arrivals posted in between, and the response carries the sequence_no at which it was computed so a consumer that cached the earlier figure can tell why. Re-running the November query a year later reproduces the November answer exactly | FR-013 FR-328 FR-387 | L-4 | base | v1·P0 | edge |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/ledger/writer/WhbStockLedgerWriterIntegrationTest.java`; `warehouse/backend/src/test/java/ai/warehouse/architecture/WhReportsComputeFromLedgerTest.java`; `warehouse/backend/src/test/java/ai/warehouse/service/whstockasat/WhStockAsAtLedgerRecomputeTest.java`
+
+## WH-SC-041
+
+Catalogue source row:
+
+`| **WH-SC-041** | Any refusal path in the ledger — all 43 codes of PORT-AND-ADAPTER-CONTRACT.md §3.9 | Trigger each and inspect the response | Every one returns a **stable machine-readable code** in the platform envelope with at least one populated details.errors field path; none returns 200 with an empty body, a null movement id, or a generic message. Every success returns a movement_id the caller can store. A contract test enumerates the vocabulary and fails if a code is renamed or repurposed — additions are permitted, renames are a breaking change to five callers | FR-029 FR-039 | — | base | v1·P0 | happy |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/ledger/WhbLedgerErrorCodesTest.java`
+
+## WH-SC-042
+
+Catalogue source row:
+
+`| **WH-SC-042** | A producer sending a movement with a producer-specific attribute carrier_seal_no | Post it (a) with the key unregistered, (b) after registering it in the attribute-definition table | (a) 422 naming the unregistered key on lines[0].attributes.carrier_seal_no; (b) accepted and stored in the typed attribute side table, filterable and exportable. **No JSONB column exists on any warehouse business table** to fall back to — asserted by a migration scan, because an unregistered key is a column nobody can filter, export or index. The **same rule and the same shape apply to variable item attributes** — a typed attribute-definition / attribute-value pair, registered keys only — so the two are one mechanism and not two | FR-026 FR-076 FR-078 FR-383 | — | base | v1·P0 | error |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/ledger/WhbLedgerInvariantsIntegrationTest.java`
+
+## WH-SC-043
+
+Catalogue source row:
+
+`| **WH-SC-043** | whb_stock_movements declared PARTITION BY RANGE (occurred_at) with monthly partitions from migration one; the partition-creation job scheduled | Advance the clock to the first day of a month for which no partition was pre-created | The job has already created it — partitions exist ahead of need, and a movement dated into the new month posts without error. The scenario is run **at migration one**, because converting a large heap table to partitioned later requires downtime this deployment model does not have | FR-022 FR-423 | — | base | v1·P0 | edge |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/ledger/WhbLedgerInvariantsIntegrationTest.java`
+
+## WH-SC-044
+
+Catalogue source row:
+
+`| **WH-SC-044** | A clean database with **only** the platform and the two warehouse modules migrated — no dealer, no automotive, no accounting, no adapter jar on the classpath | Start the application and open the warehouse menu | It starts, migrates cleanly and every v1 menu entry is reachable and functional. No v1 capability anywhere in the product requires a vertical or an accounting module to be installed. The coupling test asserting no forbidden import and no cross-module foreign key out of warehouse-base passes in this build, and a **warehouse-base-only** build (Mode F) also installs | FR-371 FR-354 FR-373 | — | base·app | v1·P0 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-045
+
+Catalogue source row:
+
+`| **WH-SC-045** | An empty install; branches DEL-01 and DEL-02 exist, both under GSTIN 07AABCM1234F1Z5 | mgr1 creates warehouse SITE-A with a structured address (line 1/2, city, state_code = DL, pincode 110044, country IN, lat/long) and no link; then, from the *Change registration* row action, registers it under DEL-01 (sup1 approves), and later changes the registration to DEL-02 the same way; mgr1 also tries to add a REGISTERED link from the **Branches** row action | The warehouse saves with **no** whb_warehouse_branches row — *Add Warehouse* has no branch or company field — and while it has none, using it (opening a number series, posting a document) is refused with a field-level 422 on warehouseId (D-14 item 8g). The first approved *Change registration* opens one current REGISTERED row — REGISTERED is set and changed **only** there, under D-14 item 4's maker–checker rules; the **Branches** popup does not offer the role, and the attempt is refused with a field-level 422 (D-14 item 8g). Its GSTIN is **read through that link** and is not a column on the warehouse: the row has no branch_id, legal_entity_id or tax_registration_id. The approved change to DEL-02 **ends** the DEL-01 row at that instant, never deletes it, and opens the next, so there is **exactly one current REGISTERED row**; both branches share one GSTIN, so D-14 item 4's stock refusal does not arise. **Registered under** is one at a time; **associated with** is many. gln and is_physical are present on the row; timezone is set to Asia/Kolkata and drives local-day bucketing | FR-079 FR-080 FR-081 FR-439 FR-460 | — | base | v1·P1 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-046
+
+Catalogue source row:
+
+`| **WH-SC-046** | SITE-A with zone A defined | mgr1 runs the location generator: aisles 01–12, racks 01–06, levels 01–04, positions 01–04, mask A-{aisle}-{rack}-{level}-{position}, type BIN, default capacity 250 kg / 0.6 m³ | The preview states **1,152** locations and shows the first (A-01-01-01-01) and last (A-12-06-04-04) codes **before** committing; on commit all 1,152 exist as rows in the self-referencing hierarchy with location_level and a materialised path, so "count zone A" is a subtree query against one row and not a LIKE over four VARCHARs. Barcodes are generated to match the codes, so the labels printed later agree with the racking | FR-089 FR-082 | — | app | v1·P1 | happy |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/whblocation/WhbLocationGenerateImportHandlerContractTest.java`; `warehouse-base/backend/src/test/java/ai/warehousebase/service/whblocation/WhbLocationGeneratorIntegrationTest.java`; `warehouse-base/backend/src/test/java/ai/warehousebase/service/whblocation/WhbLocationGeneratorServiceTest.java`
+
+## WH-SC-047
+
+Catalogue source row:
+
+`| **WH-SC-047** | A CSV of 3,400 items with codes, descriptions, base UoM, pack quantities, lot/serial/expiry policies, HSN and hazmat block | mgr1 uploads it through the six-stage import wizard and runs **dry-run** first | The dry run reports per-row, per-cell errors — 11 rows with an unconvertible UoM, 2 with a duplicate (owner_id, sku), 1 with an unknown item type — and **writes nothing**. After correction, apply creates 3,400 whb_items rows. There is exactly **one** item master; whb_item_external_refs is available for any consumer's own codes | FR-418 FR-416 FR-048 FR-060 | — | app·base | v1·P1 | happy |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/whbimport/WhbImportFrameworkTest.java`
+
+## WH-SC-048
+
+Catalogue source row:
+
+`| **WH-SC-048** | The same file, and the validate endpoint | Call validate twice, then apply once | validate persists **nothing** on either call — asserted by row counts on whb_items and on the import-batch row tables before and after. apply then creates 3,400 rows, not 6,800 and not 10,200. This codebase has met the opposite defect, where a validate endpoint persisted and the subsequent real import produced duplicate rows, so the obligation is asserted on the **backend handler**, not on a frontend dry-run flag | FR-417 | — | base | v1·P1 | error |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/whbimport/WhbImportPersistsNothingIntegrationTest.java`
+
+## WH-SC-049
+
+Catalogue source row:
+
+`| **WH-SC-049** | A go-live file of 38,000 opening positions carrying quantity, unit cost, lot, expiry, MRP, serial, bin, owner and duty status, as at 2026-03-31 | mgr1 stages it, validates, dry-runs, and applies | Opening stock posts as **OPENING_BALANCE movements** from the VIRT-OPENING virtual location — never as a direct write to the position table. Each creates the item's **first cost layer** with its unit cost, so the first issue has a cost. Positions afterwards equal the file exactly, and the rebuild invariant holds on day one because the ledger explains every row. A failed attempt is re-runnable, and the whole batch is **reversible** through the import framework's reversal path | FR-411 FR-249 FR-416 FR-234 | L-4 L-1 | app·base | v1·P2 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-050
+
+Catalogue source row:
+
+`| **WH-SC-050** | The opening-stock batch applied; the source system's closing valuation is ₹4,21,86,340.00 | Run the go-live tie-out | The closing-value tie-out compares warehouse's computed opening valuation to the typed source figure and produces a **reconciliation certificate** naming both numbers and the variance. The cut-over checklist screen shows masters loaded ✔, mappings resolved ✔, opening posted ✔, value matched ✔, period opened ✔; the period cannot be opened while the value differs | FR-412 FR-413 | — | app | v1·P2 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-051
+
+Catalogue source row:
+
+`| **WH-SC-051** | Purchase document PO-2026-00317 for 240 EA of OF-1120; a truck arrives at SITE-A on 2026-06-14 | stores1 opens a receiving session against the PO and receives 20 CASE = 240 EA, lot L-2609, into RECV-01 | GRN GRN-2026-000841 is created with a **gapless** number from the locked counter row; the PO line's received quantity becomes 240 and the GRN's match_status is MATCHED; the ledger records −240 EA at VIRT-SUPPLIER and +240 EA at SITE-A/RECV-01; the receipt lands in the status defaulted item → supplier → AVAILABLE; the counterparty is named on the receipt, so the lot has a backward traceability end | FR-122 FR-123 FR-129 FR-120 FR-426 | L-1 L-12 | app | v1·P1 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-052
+
+Catalogue source row:
+
+`| **WH-SC-052** | The 240 EA at RECV-01; one putaway rule seeded (*the item's fixed location, else any location with capacity in the default zone*) | stores1 runs putaway; the rule suggests A-04-02-01; the operator puts it in A-04-02-03 instead | The suggested location is shown, the **override is accepted with a captured reason**, and the movement posts −240 EA at RECV-01 / +240 EA at A-04-02-03, same status, same owner, same lot. One putaway **task** exists and is completed in the same request, carrying assigned_at, started_at, completed_at — so dock-to-stock is computable for this receipt from day one and the v1.1 RF screens are a new consumer of an existing table, not a rewrite | FR-135 FR-212 FR-213 FR-392 | L-1 | app·base | v1·P1 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-053
+
+Catalogue source row:
+
+`| **WH-SC-053** | Demand document SO-2026-01188 for 144 EA of OF-1120; strategy FIFO-BY-RECEIPT seeded as the default | stores1 allocates the line | 144 EA are reserved as **rows** carrying the holder quad (WAREHOUSE, SALES_ORDER, SO-2026-01188, line 1) and an expires_at; the demand line's allocated column reads 144 while ordered stays 144 and picked stays 0 — six independent quantity columns, none derived. The reservation row records the **rule and strategy that chose the stock**, and its detail view answers *"why this lot"*. Availability drops by exactly 144 and on hand does not move | FR-166 FR-167 FR-172 FR-173 FR-178 | L-10 L-6 | base·app | v1·P2 | happy |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/allocation/WhbAllocationIntegrationTest.java`
+
+## WH-SC-054
+
+Catalogue source row:
+
+`| **WH-SC-054** | The allocated order | stores1 picks all 144 EA | Stock moves −144 EA at A-04-02-03 / +144 EA at **STAGE-OUT-01, a real countable location** — not to a virtual location and not off the books. On hand is unchanged in total; a count of the staging lane at this moment finds 144 and agrees with the position table. The pick task completes; the reservation remains open and is now attached to the staged stock. The method is **discrete pick**, which is v1's only picking method and is stated as such — batch pick is v1.1, and cluster, zone, pick-and-pass, pick-to-carton and put-wall are v2/v3. The pick task carries **owner_id from v1**, so cross-client waving is possible later without a re-key | FR-188 FR-212 FR-186 | L-1 | app | v1·P2 | happy |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/whdemandorder/WhDemandOrderQuantityRulesTest.java`; `warehouse/backend/src/test/java/ai/warehouse/service/whpicktask/WhPickTaskWriterTest.java`
+
+## WH-SC-055
+
+Catalogue source row:
+
+`| **WH-SC-055** | The picked order, and a PICK_LIST print template with a PDF body | stores1 prints the pick list, then reprints it | Both renders are produced by the shipped template renderer and logged in the print-job log; the **second is flagged as a reprint**. The same renderer produces the GRN document for WH-SC-051 and a **ZPL** pallet label for the LPN — ZPL first, because there is no label or document rendering anywhere in this codebase today and it is net-new infrastructure. A warehouse that cannot print a pick list loses to a spreadsheet and a desktop label printer | FR-224 FR-225 | — | app | v1·P2 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-056
+
+Catalogue source row:
+
+`| **WH-SC-056** | The staged and printed order | stores1 confirms despatch | In **one transaction**: −144 EA from STAGE-OUT-01 and +144 EA to VIRT-CUSTOMER; the reservation closes; the demand line's shipped becomes 144. **Despatch is the inventory-relief event and it is the only one** — nothing was relieved at pick. A delivery document prints from the template renderer. On hand at SITE-A falls by 144 exactly now, and not a moment earlier | FR-188 FR-189 FR-225 | L-1 L-10 | app | v1·P2 | happy |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/whdemandorder/WhDemandOrderQuantityRulesTest.java`; `warehouse/backend/src/test/java/ai/warehouse/service/whpicktask/WhDespatchServiceTest.java`
+
+## WH-SC-057
+
+Catalogue source row:
+
+`| **WH-SC-057** | The customer returns 24 EA of the shipped OF-1120 on 2026-07-02 with no RMA raised | stores1 creates a **return receipt** directly and dispositions it RESTOCK after inspection | The return receipt is the primary object and the RMA is optional and matchable later on a screen. The stock lands in the dedicated RETURNED stock status — **never straight to AVAILABLE** — and the RESTOCK disposition posts a second, balanced status-change movement to AVAILABLE at the same location. return_type = CUSTOMER is recorded — a row of the RETURN_TYPE code list, which is seeded from FR-270's ten values. The cost layer the original issue consumed is **restored**, in reverse order, at the original cost. **No refund amount, no refund screen and no payment path exists anywhere in the product** | FR-269 FR-271 FR-273 FR-270 FR-274 FR-234 | L-1 | app | v1·P2 | happy |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/ledger/writer/WhbLineStatusRulesTest.java`; `warehouse-base/backend/src/test/java/ai/warehousebase/service/ledger/writer/WhbStockLedgerWriterIntegrationTest.java`
+
+## WH-SC-058
+
+Catalogue source row:
+
+`| **WH-SC-058** | SITE-A holds 72 EA of OF-1120 lot L-2609; SITE-B needs 72 | mgr1 raises transfer TR-2026-00042; it reserves, picks and stages through its TRANSFER demand order, is despatched on 2026-07-10, and a storekeeper scoped to SITE-B only receives it on 2026-07-13 | **Two movements, not one.** The transfer runs the **one demand path** — reservation, pick to STAGE-OUT-01, and wh_shipments:dispatch — never a pick of its own. Depart: −72 EA at SITE-A/STAGE-OUT-01 / +72 EA at SITE-A/IN_TRANSIT-TR-2026-00042 — a transit location **per transfer**, not one global bucket, and a child of the **source** site with location type IN_TRANSIT. Arrive: −72 EA from that transit location / +72 EA at SITE-B/RECV-01. The SITE-B storekeeper may post a line at SITE-A only because wh_transfer_orders:receive authorises **that transfer's** transit location regardless of site scope, and nothing else at SITE-A. Between 10 and 13 July the stock is at a location that is countable, adjustable, ageable and attributable, and the sender holds it and bears the risk per the stated in-transit ownership policy. Transfer is at the **sending site's cost**, so no profit sits in stock | FR-147 FR-085 FR-148 FR-236 FR-335 FR-177 | L-1 | app | v1·P2 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-059
+
+Catalogue source row:
+
+`| **WH-SC-059** | Zone A at SITE-A; a cycle-count programme scoped to zone A, blind, tolerance 2% by quantity and ₹5,000 by value | inv1 starts the count, stores1 counts, sup1 approves | The book quantity is **frozen at count start and stored on the line**, and the counter never sees it. Two lines vary: OF-1120 by −3 EA (inside tolerance; routing is whole-count, so it posts with the count once the count is approved) and ECU-5501 by −1 EA at ₹48,000 (outside the **value** tolerance, so the count moves to pending approval). **The count never writes on-hand.** On approval, posting emits **one COUNT_ADJ movement per non-zero variance line**, each balanced against VIRT-COUNT-VAR and carrying its line's COUNT_VARIANCE reason — indistinguishable from any other ledger event to every downstream consumer. sup1 is not stores1, and an attempt by stores1 to approve their own count is refused | FR-153 FR-154 FR-155 FR-159 FR-156 FR-408 | L-1 | app | v1·P2 | happy |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/approval/WhbMakerCheckerTest.java`; `warehouse/backend/src/test/java/ai/warehouse/service/whstockadjustment/WhStockAdjustmentMakerCheckerTest.java`
+
+## WH-SC-060
+
+Catalogue source row:
+
+`| **WH-SC-060** | Everything above, on one install, for period 2026-07 | fin1 runs the **stock movement register**, the **stock-on-hand position report** and the **stock valuation report**, all for SITE-A as at 2026-07-31 | All three reconcile to each other **to the unit and to the paisa**: the movement register's opening + in − out = closing per item equals the position report's closing quantity for that item, and the valuation report's closing value equals Σ (closing quantity × layer cost) from the same layers. Each report footer states the reconciliation, and a divergence is a visible defect rather than something a reader has to compute | FR-385 FR-384 FR-387 FR-386 | L-4 | app | v1·P2 | happy |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/WhReportPackReconciliationTest.java`
+
+## WH-SC-061
+
+Catalogue source row:
+
+`| **WH-SC-061** | The same install and the same as-at date | Run a **full position rebuild from whb_stock_movements** and diff it against all three reports | The rebuild reproduces the position report **exactly**, row for row; the movement register is by construction a projection of the same lines; the valuation report's quantities equal the rebuilt quantities. **This is the scenario the whole ledger design exists to pass** — three reports that agree with each other are not evidence, because they could all read the same broken cache. Agreeing with a rebuild from the movements is | FR-012 FR-387 FR-013 | L-4 · I-7 | base·app | v1·P0 | happy |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/ledger/writer/WhbStockLedgerWriterIntegrationTest.java`; `warehouse/backend/src/test/java/ai/warehouse/architecture/WhReportsComputeFromLedgerTest.java`; `warehouse/backend/src/test/java/ai/warehouse/service/WhReportPackReconciliationTest.java`; `warehouse/backend/src/test/java/ai/warehouse/service/whstockonhand/WhStockPositionLedgerRebuildTest.java`
+
+## WH-SC-062
+
+Catalogue source row:
+
+`| **WH-SC-062** | The **same install, still with no accounting module** | Run the inventory valuation report and reconcile it to the ledger and to the rebuild | It produces a real, defensible valuation number with no accounting module present, because warehouse holds the cost layers and runs the costing engine. This is **falsifier 1** of the costing-authority rule: if the costing engine lived in a module that may not be installed, this scenario cannot pass, and D-6 would be wrong. Falsifier 2 is WH-SC-141 | FR-446 FR-230 FR-235 | L-14 | base | v1·P2 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-063
+
+Catalogue source row:
+
+`| **WH-SC-063** | A pallet arrives at SITE-A with **no purchase document** — a customer's goods left for repair | stores1 performs a blind receipt: item, quantity, UoM, owner, status, location, and nothing else | It receives. No PO is required, no fake PO number is keyed, and no field is filled with a placeholder. Three of the product's own scenarios have no PO at the moment of receipt — a 3PL client's goods, a customer return, an over-the-counter purchase — and if v1 only received against a PO the first pilot would key fake POs and fake POs become permanent | FR-128 FR-120 | L-1 | app | v1·P1 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-064
+
+Catalogue source row:
+
+`| **WH-SC-064** | One consolidator's truck carrying goods against PO-2026-00317, PO-2026-00322 and PO-2026-00341, from three different suppliers | stores1 opens **one receiving session** and books three GRNs against it | The session has a **nullable supplier** and holds all three GRNs; in this fixture each GRN is booked against one PO (a GRN may span POs — its lines' po_line_id is the association, RG-019); the rollup iterates GRNs **by session**, not by PO, so the arrival is one physical event with three legal receipts. A one-PO-per-receipt model would have forced the operator to lie about which truck arrived | FR-124 FR-127 | — | app | v1·P1 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-065
+
+Catalogue source row:
+
+`| **WH-SC-065** | PO-2026-00317 ordered 100 EA; the ASN declares 95; the physical count is 92; the supplier invoices 100; 3 EA are later scrapped | Query each document | **All five numbers are simultaneously correct and all five are stored:** PO ordered 100 (commitment), ASN shipped 95 (declaration), receiving session = the physical inbound shipment, GRN received 92 (the single receipt truth), invoice billed 100 (finance), on hand 89 (inventory). No screen shows one of them as "the" quantity, and the PO detail page rolls all of them up | FR-123 FR-122 FR-125 | — | app | v1·P1 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-066
+
+Catalogue source row:
+
+`| **WH-SC-066** | PO-2026-00322 line for 500 EA of WSH-0031; item over-receipt tolerance 5%, warehouse default 2% | stores1 receives 515 EA (3% over) | It receives; match_status = QTY_OVER; the item tolerance (5%) wins over the warehouse default; the PO line becomes RECEIVED (fully received, still non-terminal — it becomes CLOSED only by Close or Close short). The over-quantity is stock like any other, in the ledger, and not a suspense figure | FR-130 | L-1 | app | v1·P1 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-067
+
+Catalogue source row:
+
+`| **WH-SC-067** | The same line, tolerance 5% | stores1 attempts to receive 560 EA (12% over) | Rejected 422 on lines[0].quantity = *"received 560 exceeds ordered 500 by 12.00%, over which the tolerance is 5.00%"*. The offered resolutions are: raise the PO quantity, or receive to tolerance and raise an **inbound reconciliation case** of type OVER_RECEIPT. Nothing posts until one is chosen | FR-130 FR-138 | — | app | v1·P1 | error |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-068
+
+Catalogue source row:
+
+`| **WH-SC-068** | PO-2026-00341 ordered 200 EA of BRK-8840; 160 received across two GRNs; the supplier confirms the balance will never ship | mgr1 runs **close short** with reason SUPPLIER_CANCELLED | The PO line becomes CLOSED at 160 received with a recorded reason (the shortfall shows as match_status = QTY_UNDER on its GRNs — match_status is a GRN header column); it leaves the open-PO report; **no backorder is created automatically**. Without an explicit close-short action, PO lines accumulate forever, the open-PO report is meaningless within a quarter, and reorder — which reads on-order — breaks | FR-130 FR-132 | — | app | v1·P1 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-069
+
+Catalogue source row:
+
+`| **WH-SC-069** | A GRN for 240 EA of which 12 EA arrive crushed | stores1 books received 240: one GRN line of 228 in AVAILABLE and a second line of **12 in DAMAGED** with its condition_code and damage_notes | The GRN carries the damage as its own line, not as a fourth quantity column. The 228 land AVAILABLE; the 12 land in the DAMAGED stock status at the same location **on the receipt movement itself** (FR-129), not by a second movement and not by a quantity reduction — a status-change movement is only for damage found after post. On-hand is 240 and the damaged 12 are visible, countable and not allocatable — because the DAMAGED status row has is_allocatable = false | FR-122 FR-102 FR-103 | L-1 | app | v1·P1 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-070
+
+Catalogue source row:
+
+`| **WH-SC-070** | A GRN with **fourteen** lines requiring inspection; 9 pass, 3 fail, 2 partial | inv1 submits one inspection | **One** inspection document per GRN, header over lines — not fourteen QC documents. The rollup is PARTIAL (all pass → PASS, all fail → FAIL, anything mixed or partial → PARTIAL); started_at is the minimum of line starts and completed_at the maximum, set when all lines complete. Per-line endpoints remain available for incremental capture as the inspector works | FR-133 FR-127 | — | app | v1·P1 | happy |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/whqualityinspection/WhQualityInspectionRollupTest.java`
+
+## WH-SC-071
+
+Catalogue source row:
+
+`| **WH-SC-071** | 240 EA received into QUARANTINE status at QC-01 pending inspection | inv1 (holding the QA role) releases 228 and rejects 12 | Release posts a balanced **status-change movement at the same location** — QUARANTINE → AVAILABLE — with a mandatory reason code and **no physical move**. The 12 rejected move to REJECTED. Only a user with the QA-role gate can disposition; stores1 attempting it is refused 403. Between receipt and release the stock was never allocatable, so a release wave could not have picked it | FR-134 FR-103 FR-129 FR-102 | L-1 | app | v1·P2 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-072
+
+Catalogue source row:
+
+`| **WH-SC-072** | The 12 REJECTED units, and a supplier who accepts the return | mgr1 raises a **supplier return** document and despatches it | The supplier return is **its own document with its own state ladder** — it is not an RMA, and the supplier's name never lands in a customer field. **Inventory is reduced only at despatch**, not at document creation: on hand stays 12 until the truck leaves, then posts −12 EA to VIRT-SUPPLIER with a vendor party and a reference back to the originating receipt and lot. The debit-note proposal and the credit interface are v2 | FR-139 FR-275 | L-1 L-12 | app | v1·P2 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-073
+
+Catalogue source row:
+
+`| **WH-SC-073** | VAC-2210 is in a regulated item class configured to quarantine by default | A receipt of 20 CARTON = 1,000 EA posts | The stock lands in QUARANTINE **on the first transaction**, defaulted item → supplier → AVAILABLE, and is never briefly AVAILABLE. Had v1 hardcoded AVAILABLE, every quarantine flow would be a second transaction, and a wave released inside that window would pick quarantined pharmaceutical goods | FR-129 FR-134 | L-1 | app | v1·P1 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-074
+
+Catalogue source row:
+
+`| **WH-SC-074** | OF-1120 has a fixed location A-04-02-01 with 180 EA of free capacity; a receipt of 120 EA | Run putaway | The single seeded v1 rule evaluates in sequence and returns A-04-02-01 (the item's fixed location). With the fixed location full, it returns *any location with capacity in the default zone*. The rule is **data, evaluated by a harness** — not a dropdown and not an if — so the v1.1 rule editor and strategy set are new rows, not a rewrite of the receiving service | FR-135 | — | app | v1·P1 | happy |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/whputawayrule/WhPutawayRuleEngineTest.java`
+
+## WH-SC-075
+
+Catalogue source row:
+
+`| **WH-SC-075** | VAC-2210 carries temperature class 2-8C; A-04-02-01 has no temperature zone | An operator puts VAC-2210 away into A-04-02-01 | 422 TEMPERATURE_ZONE_MISMATCH, details.errors["lines[1].location_id"] naming the item's class and the location's zone. The columns are v1 and the enforcement is v1.1 for the general capacity set, but the temperature rejection code is in the v1 vocabulary so producers can branch on it from day one | FR-068 FR-086 FR-039 | — | base | v1·P1 | error |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/ledger/writer/WhbMovementPostPlacementGuardTest.java`
+
+## WH-SC-076
+
+Catalogue source row:
+
+`| **WH-SC-076** | A-06-01-02 has commingle_policy = SINGLE_LOT and already holds lot L-2609 | Put lot L-2610 of the same item away into it | 409 LOCATION_POLICY_VIOLATED, details.errors["lines[1].location_id"] = *"location A-06-01-02 has commingle_policy SINGLE_LOT and already holds lot L-2609"* — the message names **the policy and the conflicting stock**, because "rejected" alone sends the operator to a phone call. The port evaluates the policy against the incoming line and the existing position **before** it posts | FR-087 FR-039 | — | base | v1·P1 | error |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/ledger/writer/WhbMovementPostPlacementGuardTest.java`
+
+## WH-SC-077
+
+Catalogue source row:
+
+`| **WH-SC-077** | A receipt line whose goods go straight to an outbound order without being put away | Receive it in v1, where cross-dock as a flow ships in v2 | The receipt line carries a **nullable cross-dock reference column** in v1, populated by hand or left null. "Which receipts were cross-docked" is a KPI from day one, and retrofitting the flag in v2 would leave every prior month blank | FR-137 | — | app | v1·P1 | edge |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/whcrossdockplan/WhCrossDockPlanLadderTest.java`
+
+## WH-SC-078
+
+Catalogue source row:
+
+`| **WH-SC-078** | OF-1120 has conversions EA (base) and CASE = 12 only | A GRN line is keyed in LITRE | 422 UOM_NOT_CONVERTIBLE, details.errors["lines[0].uom_code"] = *"LITRE is not convertible to base UoM EA for item OF-1120"*. The receiving path enforces the item's convertibility guard, so the GRN modal cannot offer the full UoM master — the prior system's PO and SO screens had the guard while its GRN modal did not, and a receipt could post the wrong base quantity silently | FR-143 | L-7 | app | v1·P1 | error |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-079
+
+Catalogue source row:
+
+`| **WH-SC-079** | ECU-5501 has serial_control = FULL and lot_control = NONE | Receive 3 EA with no serial numbers supplied | 422 SERIAL_REQUIRED on lines[0].serials. Tracking is decided by the **item's lot and serial control policy**, evaluated as the four-mode enum, never by a single mode string read in isolation — the prior system read a tracking_mode string and ignored the booleans, so an item could be silently received untracked and the fact was unrecoverable | FR-144 FR-098 | L-12 | app | v1·P1 | error |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-080
+
+Catalogue source row:
+
+`| **WH-SC-080** | Serial ECU55010000771 already exists for ECU-5501 under owner HOUSE | A receipt supplies it again | Detected **at receipt** and reported, 409 SERIAL_ALREADY_ISSUED / duplicate on lines[0].serials[0]. Where the uniqueness scope legitimately permits the duplicate — the same serial number under a **different owner**, which a second manufacturer's identical serial makes legal — it is accepted with a site-level duplicate **warning**, because uk(owner, item, serial_number) is deliberately not global. Duplicate LPN codes and duplicate lot codes are detected the same way | FR-106 FR-097 | — | base | v1·P1 | error |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-081
+
+Catalogue source row:
+
+`| **WH-SC-081** | GRN-2026-000841 posted an hour ago against the wrong lot; the stock is still at RECV-01 | sup1 runs **reverse receipt** | It is an **action, not a data fix**: a REVERSAL movement linked to the original posts, the PO line's received quantity decrements by 240, and the GRN is marked reversed. The correct receipt is then posted afresh under a new idempotency key | FR-131 FR-005 | L-3 | app | v1·P1 | happy |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/whreceiptreversal/WhReceiptReversalMovedOnIntegrationTest.java`
+
+## WH-SC-082
+
+Catalogue source row:
+
+`| **WH-SC-082** | The same GRN, but the stock has since been put away, partly picked and 24 EA shipped | Attempt reverse receipt | Refused, naming what moved: *"144 EA of this receipt have moved on (144 relocated by putaway); reverse receipt is unavailable"*. The offered path is an **adjustment**, which is the correct instrument once the stock has moved — a reversal at this point would have to un-ship goods that are physically gone | FR-131 | L-3 | app | v1·P1 | error |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/whreceiptreversal/WhReceiptReversalMovedOnAttributionTest.java`; `warehouse/backend/src/test/java/ai/warehouse/service/whreceiptreversal/WhReceiptReversalMovedOnIntegrationTest.java`; `warehouse/backend/src/test/java/ai/warehouse/service/whreceiptreversal/WhReceiptReversalMovedOnMessageTest.java`
+
+## WH-SC-083
+
+Catalogue source row:
+
+`| **WH-SC-083** | PO-2026-00341 with one GRN that has received stock, and PO-2026-00355 with a receiving session whose arrived_at is set — the truck is at the dock — but no stock posted | Attempt to cancel each | Both refused, naming the blocker: the first because a GRN line has received stock, the second because a receiving session against it has arrived. **In v1 the guard reads receiving-session arrival**, because wh_asns is v1.1; the *"ARRIVED ASN"* clause activates with P3-05. A third PO with neither cancels, and the cancellation **cascades** to its lines and every DRAFT GRN against it; no receiving session is transitioned (one that has arrived blocks the cancel, RJ-018). A partially received PO stays open and resolves to fully-received or a manual short-close — never an automatic backorder | FR-132 | — | app | v1·P1 | error |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-084
+
+Catalogue source row:
+
+`| **WH-SC-084** | Four variances from the day: a quantity short, an over-receipt, an ASN mismatch and a receipt reversal | Each auto-creates an inbound reconciliation case | Each case carries a type, a severity, a status, nullable document links, a root cause and — the load-bearing column — a **resolution-document pointer**. The **case itself never moves stock**; each of the five resolutions creates a document that does. A case with no resolution document is visibly unresolved rather than quietly closed | FR-138 | — | app | v1·P2 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-085
+
+Catalogue source row:
+
+`| **WH-SC-085** | A receipt of 100 EA billed plus 10 EA free under scheme MONSOON-26, invoice value ₹41,250 | Post the receipt | The receipt line carries **free quantity 10** and the scheme reference in v1; on hand rises by 110; the landed value spreads across billed **plus** free, so the unit cost falls from ₹412.50 to ₹375.00 and the cost layer holds 110 units at ₹375.00. The over-receipt tolerance check knows about the free quantity and does not flag 110 against 100 as an over-receipt | FR-141 FR-234 FR-130 | — | app | v1·P1 | edge |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-086
+
+Catalogue source row:
+
+`| **WH-SC-086** | An install where receiving mode, GRN timing relative to the physical count, QC policy and putaway automation are configured per warehouse: SITE-A dock-managed, SITE-C a two-person store | Receive at each | Both work through **one** code path with different configuration rows — not two parallel workflows. SITE-C's defaults preserve the simple behaviour (GRN at count, QC off, putaway direct), SITE-A's do not. One product serves a dock-managed DC and a two-person store, and neither is a special build | FR-126 | — | app | v1·P1 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-087
+
+Catalogue source row:
+
+`| **WH-SC-087** | Five demands of different kinds on one day: a sales order, an inter-site transfer, a work-order issue, a replenishment, and a scrap request | Allocate, pick and ship each | All five run through **one** demand model, one allocator, one pick path and one despatch path; only the document-specific extras differ, and those live in adapter tables keyed to the demand header. The KPIs add up because there is one set of them. Three parallel implementations would mean three places to fix every allocation defect | FR-177 | — | app | v1·P2 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-088
+
+Catalogue source row:
+
+`| **WH-SC-088** | A demand line: ordered 100, allocated 100, picked 60, shipped 60 | The customer cancels 25 of the unpicked balance | The six columns read ordered 100, allocated 75, picked 60, shipped 60, **cancelled 25**, backordered 15 — six independent stored values. Deriving backorder from ordered minus shipped would read 40 and be wrong the moment a partial cancel lands, which is exactly this moment | FR-178 | — | app | v1·P2 | happy |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/whdemandorder/WhDemandOrderQuantityRulesTest.java`
+
+## WH-SC-089
+
+Catalogue source row:
+
+`| **WH-SC-089** | Strategies seeded as **rows** — FIFO-BY-RECEIPT and FIXED-LOCATION-FIRST — each carrying a whitelisted ordering key; rules resolve most-specific-first by site, item, owner, customer and demand type | Allocate a line with no specific rule, then add a rule at (site = SITE-A, item = VAC-2210, strategy = FEFO) and allocate again | The first allocation uses the seeded default; the second uses FEFO **without a code change and without a deployment**. Allocation strategy is a configured value, not an if — hard-coding FIFO would make FEFO a branch and the allocator untestable | FR-172 | — | base | v1·P2 | happy |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/allocation/WhbAllocationIntegrationTest.java`
+
+## WH-SC-090
+
+Catalogue source row:
+
+`| **WH-SC-090** | VAC-2210 at SITE-A: lot VB-4401 (expiry 2027-02-28) 400 EA in A-02-01-01, lot VB-4402 (expiry 2026-11-30) 150 EA in A-09-05-03; the FEFO rule from WH-SC-089; today is 2026-09-15 | Allocate 200 EA | 150 EA come from VB-4402 (earliest expiry) and 50 EA from VB-4401 — **not** the nearest location and **not** the largest bin, even though VB-4401 is closer and would pick in one visit. Two reservation rows are created, one per lot, each naming its lot | FR-172 FR-161 | L-10 | base | v1·P2 | happy |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/allocation/WhbAllocationCandidateOrderingTest.java`; `warehouse-base/backend/src/test/java/ai/warehousebase/service/allocation/WhbAllocationIntegrationTest.java`; `warehouse-base/backend/src/test/java/ai/warehousebase/service/shelflife/WhbShelfLifePolicyServiceTest.java`
+
+## WH-SC-091
+
+Catalogue source row:
+
+`| **WH-SC-091** | A customer contract requiring lot VB-4401 specifically | Allocate 50 EA with a lot-specific strategy | The reservation is taken **against VB-4401**, not merely against the item, and the picker is directed to A-02-01-01. A reservation model that is a counter cannot express this at all — which is the whole argument of L-10 | FR-172 FR-166 | L-10 | base | v1·P2 | happy |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/allocation/WhbAllocationIntegrationTest.java`
+
+## WH-SC-092
+
+Catalogue source row:
+
+`| **WH-SC-092** | The FEFO allocation of WH-SC-090, and a storeman who asks *"why did it pick VB-4402 when VB-4401 is nearer?"* | Open the reservation detail view | The row records **the rule and the strategy that chose the stock** — rule SITE-A/VAC-2210, strategy FEFO, ordering key expiry_date ASC — and the detail view renders it. This question is asked weekly, and without the columns the only answer is to read the allocator's source | FR-173 | L-10 | base | v1·P2 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-093
+
+Catalogue source row:
+
+`| **WH-SC-093** | A pick task for 144 EA of OF-1120 from A-04-02-03 where only 131 EA are physically present; the site switch *auto-count on short pick* is on | stores1 confirms 131 and reports the shortfall | The short is a **first-class outcome**, not a silently reduced quantity: the shortfall of 13 is recorded against an exception code; the unmet reservation of 13 is **released**; the operator is offered re-allocate / emergency replenish / short the line; and a **cycle-count task is auto-created for A-04-02-03**, because a short pick is the highest-quality signal of an inventory error a warehouse ever gets. The demand line's picked reads 131 and backordered 13 | FR-185 FR-178 | L-10 | app | v1·P2 | happy |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/whpicktask/WhPickTaskWriterTest.java`
+
+## WH-SC-094
+
+Catalogue source row:
+
+`| **WH-SC-094** | SO-2026-01188 for 144 EA; 131 available now, 13 arriving in two days | stores1 ships 131 today and 13 on Thursday | **Two shipments** against one order, each with its own carton and its own despatch movement; the order → shipment → carton chain is three tables even though v1 ships one carton per shipment in practice. A tracking-number column on the order would have been wrong within a month, and retrofitting it changes every screen, export, tracking webhook and channel confirmation | FR-179 FR-193 | L-1 | app | v1·P2 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-095
+
+Catalogue source row:
+
+`| **WH-SC-095** | SO-2026-01188 allocated for 144 and released, with pick tasks created and a pick list printed | The customer reduces the line to 96 | The seeded **rule matrix** (from-status × edit type) resolves: allowed, requires wh_orders:edit_after_release, and the compensating actions are *release 48 of the reservation*, *cancel the un-started pick task*, *reprint the pick list*. Each compensating action executes and is recorded in the **append-only amendment log**. After ship there is no edit at all and the rule table says so, rather than the UI silently disabling a button | FR-183 FR-171 | L-10 | app | v1.1·P3 | happy |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/WhDemandOrderAmendTest.java`; `warehouse/backend/src/test/java/ai/warehouse/service/whdemandorder/WhDemandOrderQuantityRulesTest.java`
+
+## WH-SC-096
+
+Catalogue source row:
+
+`| **WH-SC-096** | SO-2026-01188 allocated for exactly 10 EA; availability for OF-1120 at SITE-A before allocation was 96 EA | Cancel the order | De-allocation is **deterministic and reason-coded**, cancels the un-started tasks, and availability returns to **exactly 96 EA** — not 95, not 97, not "about 96". This is the stated acceptance test of FR-171 and it is run as written | FR-171 FR-168 | L-10 L-6 | app | v1·P2 | happy |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/allocation/WhbAllocationIntegrationTest.java`
+
+## WH-SC-097
+
+Catalogue source row:
+
+`| **WH-SC-097** | A demand line for 200 EA where 120 are available | Allocate under a *ship partial and backorder* policy | 120 allocate, 80 land in the backordered column, and the backorder is a **quantity on the line**, not a second order document. The fulfilment policy that decided this — ship complete / ship partial and backorder / ship partial and cancel, with a minimum fill percentage — is set per owner and per channel in v1.1; v1 behaviour is the configured default and is stated rather than assumed | FR-178 FR-184 | — | app | v1·P2 | edge |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/whdemandorder/WhDemandOrderQuantityRulesTest.java`
+
+## WH-SC-098
+
+Catalogue source row:
+
+`| **WH-SC-098** | SO-2026-01201 under **two** simultaneous holds: CREDIT_REVIEW (blocks_allocation = true) and AWAITING_ARTWORK (blocks_pick = true, allocation permitted) | Release the credit hold only, then attempt to allocate and then to pick | After releasing one hold the order still has one open hold. Allocation now succeeds (no open hold blocks it); picking is still refused, naming AWAITING_ARTWORK. **A status = ON_HOLD column could not have represented two holds**, and releasing one would have wrongly released the whole thing. Each release is audited with its actor and reason; the check is a query over open holds, not a status read | FR-182 FR-151 | — | app | v1·P2 | edge |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-099
+
+Catalogue source row:
+
+`| **WH-SC-099** | v1, which has **no wave object** | Open the demand header | A **Release** action exists on the header in v1 and is the moment soft reservations become hard and tasks are created. Without it every order would hard-allocate at creation, a cancelled order's stock would stay locked, and one shortage would block another. v1.1 groups releases into waves and the **same action** operates on N orders — the wave is a stated deferral, not silence | FR-169 FR-187 | L-10 | app | v1·P2 | happy |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/allocation/WhbAllocationIntegrationTest.java`
+
+## WH-SC-100
+
+Catalogue source row:
+
+`| **WH-SC-100** | A quotation screen needing availability for **40 items at once**, across SITE-A, SITE-B and SITE-C | Call the bulk availability API | One call returns, per item and site: on hand, hard-allocated, soft-allocated, **available**, in-transit, on-order and earliest expiry, scoped by owner and as-of date. It is not 40 calls and it is not a grid query. Before any vertical wants waves, it wants *"can I promise this part today"* | FR-174 FR-168 | L-6 | base | v1·P2 | happy |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/allocation/WhbAllocationIntegrationTest.java`
+
+## WH-SC-101
+
+Catalogue source row:
+
+`| **WH-SC-101** | OF-1120 is out of stock; OF-1120A supersedes it with quantity ratio 1:1 and treatment MERGE_DEMAND; the allocation rule has the supersession flag on | Allocate 20 EA of OF-1120 | Allocation consults the **supersession chain** under the explicit rule flag and reserves OF-1120A; the reservation names the substituted item, and the pick task tells the picker what to actually take. Reporting distinguishes *"stock of OF-1120"* from *"stock of OF-1120 including superseded equivalents"* — the two numbers are never conflated into one | FR-176 FR-071 FR-072 | L-10 | app | v1·P2 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-102
+
+Catalogue source row:
+
+`| **WH-SC-102** | BRK-8840 shows zero at SITE-A; a bidirectional interchange row links it to BRK-8841, of which SITE-B holds 6 and SITE-C holds 2 | A counter user at DEL-02 searches BRK-8840 | The enquiry answers *"not in stock — 8 available as BRK-8841"* with the availability **grouped by each site's REGISTERED branch**. SITE-A appears **once**, under DEL-01, tagged with its serving branches DEL-02 and MUM-01 — never once per link, which would double-count a shared site. A sister is a site with a **different** REGISTERED branch, so a site is never its own sister. The answer is resolved through the supersession resolver that every lookup path uses — counter enquiry, workshop request, reorder, receipt matching and barcode scan all walk the same chain to the terminal item, and a cycle in the chain is detected rather than looping | FR-073 FR-071 | — | app | v1·P2 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-103
+
+Catalogue source row:
+
+`| **WH-SC-103** | A shipment leaving on the house account, and a second leaving on client CL-NOVA's own carrier account | Despatch both | The carrier account master carries a **nullable owner_id**: null is the house account, CL-NOVA is the client's. That one nullable column is the whole of *"ship on the client's account"*, which is a standard contract clause and would otherwise be a v2 schema change | FR-196 | — | app | v1·P2 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-104
+
+Catalogue source row:
+
+`| **WH-SC-104** | An order created 2026-09-10 with priority 2, promised_ship_at = 2026-09-12T18:00Z and an SLA reference | Ship it 2026-09-12T21:40Z and run the on-time-ship KPI for September | The KPI is a difference between two **stored** timestamps and reports this order as late by 3h40m. None of the four columns is derivable after the fact from a status and an updated_at, because updated_at is overwritten by the next status change — which is why they are v1 columns even though the KPI screen is a later concern | FR-180 FR-392 | — | app | v1·P2 | edge |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/whdemandorder/WhDemandOrderQuantityRulesTest.java`
+
+## WH-SC-105
+
+Catalogue source row:
+
+`| **WH-SC-105** | A shipment despatched 2026-09-12 and refused at the door on 2026-09-15 | Record the RTO initiation | The shipment's **v1 RTO columns** populate — initiated at, reason, the return leg's own AWB, received at, status. RTO is an **inbound stock stream, not an order status**, so when the goods physically return in v2 they are received as a return receipt against those columns rather than adjusted in as mysterious stock. A lost RTO becomes a claim, not a silent shrinkage adjustment | FR-205 FR-269 | — | app | v1·P2 | edge |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-106
+
+Catalogue source row:
+
+`| **WH-SC-106** | A carton packed on 2026-09-12; the carrier later bills for 18 kg against our declared 11.4 kg | Inspect what was captured **at pack time** | The scale weight 11.400 kg and the pack photograph are on the carton row, captured at pack time in v1, and are the evidence for the weight-discrepancy dispute. The dispute object, its due date and the carrier-invoice reconciliation are v2 — but the evidence **cannot be created retroactively**, which is why the capture is v1 | FR-206 FR-191 | — | app | v1·P2 | edge |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-107
+
+Catalogue source row:
+
+`| **WH-SC-107** | A demand line for 12 EA of ECU-5501, each serial-controlled, allocated and picked | Confirm despatch | Each of the 12 serials is recorded as issued on the despatch movement line; each serial entity's current location becomes VIRT-CUSTOMER, its status ISSUED, its sold-to party the customer, and its warranty start the despatch date. Asking a serial *where is it now, who did we sell it to, is it in warranty* is answerable immediately, and the shipment that carried it is on the row | FR-099 FR-097 FR-189 | L-12 | base·app | v1·P2 | happy |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/whpicktask/WhDespatchServiceTest.java`
+
+## WH-SC-108
+
+Catalogue source row:
+
+`| **WH-SC-108** | A cycle-count programme over zone A, tolerance 2% by quantity **and** ₹5,000 by value; WSH-0031 book 500 EA at ₹1.20 | stores1 counts 496 (−0.8%, ₹4.80) | Inside **both** tolerances, so the line posts automatically on submission: one COUNT_ADJ movement of −4 EA against VIRT-COUNT-VAR with the count's reason code. A one-unit variance on a washer line is noise and does not consume a manager's attention | FR-155 FR-159 FR-145 | L-1 | app | v1·P2 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-109
+
+Catalogue source row:
+
+`| **WH-SC-109** | The same programme; ECU-5501 book 14 EA at ₹48,000 | stores1 counts 13 (−7.1%, ₹48,000) | Outside **both** tolerances. The count moves to **pending approval**, a recount task is generated, and nothing posts. mgr1 approves after the recount confirms 13, and only then does the COUNT_ADJ post. The threshold is expressed **by value as well as by quantity**, because a one-unit variance on an engine control unit is an investigation and the quantity percentage alone would not have caught it | FR-155 FR-145 FR-156 | — | app | v1·P2 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-110
+
+Catalogue source row:
+
+`| **WH-SC-110** | A programme with blind = true | stores1 opens the count sheet for A-04-02-03 | The book quantity is **not displayed** anywhere on the screen, in the export, or in the API response the screen consumes — **and is stored on the line** at count start regardless. A blind count that does not store the book quantity cannot compute a variance afterwards; a blind count that ships the figure to the browser and hides it with CSS is not blind | FR-154 FR-153 | — | app | v1·P2 | edge |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/whcount/WhCountPostingAndBlindTest.java`
+
+## WH-SC-111
+
+Catalogue source row:
+
+`| **WH-SC-111** | A count of A-04-02-03 starts at 09:00 with book 240 EA frozen on the line. At 09:20 a picker takes 24 EA from the same location under a live order. The counter submits 216 at 09:40 | Post the count, first with freeze_locations = false, then with the programme's freeze_locations = true | **With freeze off:** the variance is computed against the **frozen book of 240 minus the 24 that moved during the count**, so the computed variance is **zero** and no adjustment posts. The naive implementation — comparing 216 to the live on-hand of 216, or to the stale 240 — either finds nothing to explain or silently reverses the picker's movement by adjusting +24 back in. **With freeze on:** A-04-02-03 is frozen for the count window and the pick task against it is refused, naming the count document and its expected completion time; the picker is re-allocated elsewhere. freeze_locations and the recount attempt are what distinguish a counting programme from a spreadsheet | FR-153 FR-156 FR-158 | L-1 L-4 | app | v1·P2 | conc |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/whcount/WhCountServiceBehaviourTest.java`; `warehouse/backend/src/test/java/ai/warehouse/service/whcount/WhEmptyBinVerificationServiceTest.java`
+
+## WH-SC-112
+
+Catalogue source row:
+
+`| **WH-SC-112** | Year-end. A full physical stocktake at SITE-A covering 1,152 locations, six counters over four zones | inv1 opens the stocktake with a freeze window 2027-03-31 18:00 → 2027-04-01 06:00 | A snapshot of book quantity is taken at start for every in-scope position; the freeze window is an object with a start and an end and blocks movement in scope; counters work their assigned zones concurrently; approval happens before posting **with the variance value shown**, not only the variance quantity. Every auditor attends one of these and every customer does at least one a year | FR-157 FR-155 | L-1 | app | v1·P2 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-113
+
+Catalogue source row:
+
+`| **WH-SC-113** | A programme with recount_threshold = 5%; a first count of A-06-01-02 at 91 against book 100 | Submit it | The line exceeds the recount threshold, so a **recount task** is created with recount_sequence = 2 and the original count is retained rather than overwritten. The second count of 100 resolves it; the count history shows both attempts, by counter, with the variance of each. A design that overwrites the first count loses the evidence that the counter was wrong the first time | FR-154 FR-390 | — | app | v1·P2 | happy |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/whcount/WhCountServiceBehaviourTest.java`
+
+## WH-SC-114
+
+Catalogue source row:
+
+`| **WH-SC-114** | stores1 counted zone A; stores1 also holds the count-approval permission by an administrative error | stores1 attempts to approve their own count | Refused 403, naming the maker-checker rule: **approval permissions are distinct from execution permissions and the approver may not be the actor**. The rule is enforced in the service, because the database sees two user ids and cannot know which was the session. sup1 approves and the count posts | FR-408 FR-155 | — | app | v1·P2 | error |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/approval/WhbMakerCheckerTest.java`
+
+## WH-SC-115
+
+Catalogue source row:
+
+`| **WH-SC-115** | An approved count with 3 variance lines and 47 zero-variance lines | Post it | **Three** movements are emitted — one per non-zero variance line — each carrying the count's reason code, movement_type = COUNT_ADJ, and balanced against VIRT-COUNT-VAR. The 47 zero lines emit nothing. To the movement register, the valuation, the accounting envelope and every other downstream consumer, a count adjustment is **indistinguishable from any other ledger event** | FR-159 FR-153 | L-1 | app | v1·P2 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-116
+
+Catalogue source row:
+
+`| **WH-SC-116** | Any count, at any stage | Watch whb_stock_positions from count creation through counting to just before approval | On-hand **never changes** — a count is a document that *proposes* an adjustment. It changes only when the variance movements post at approval. If a count wrote the balance directly, the ledger would no longer explain it, there would be no adjustment document to post, the variance would be unrecoverable, and the rebuild of WH-SC-014 would fail from that day forward | FR-153 FR-012 | L-4 L-1 | app | v1·P2 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-117
+
+Catalogue source row:
+
+`| **WH-SC-117** | A pick that empties A-04-02-03 completely | The last unit is picked | A **zero-stock / empty-bin verification task** is triggered on the last pick — the operator confirms the bin is physically empty before walking away. It is the highest-yield count type per hour and is nearly free once tasks exist, which is why it lands with the RF task screens in v1.1 rather than being invented later | FR-158 FR-212 | — | app | v1.1·P3 | happy |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/whcount/WhEmptyBinVerificationServiceTest.java`
+
+## WH-SC-118
+
+Catalogue source row:
+
+`| **WH-SC-118** | A zone with no network coverage at the back of the racking | inv1 prints count sheets, the counters write on them, and a clerk keys the results back | The printed sheet is produced by the shipped template renderer, carries the location and item identity but **not** the book quantity (blind), and the keyed-back results enter the same count lines the handheld would have written. Multi-counter assignment by zone means the four sheets do not overlap | FR-154 FR-224 | — | app | v1·P2 | edge |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-119
+
+Catalogue source row:
+
+`| **WH-SC-119** | A quarter of counts including recounts and rejected counts | aud1 runs the count history and variance register | Every count appears **by counter**, including recounts, with the variance quantity and the **variance value**; inventory record accuracy is computed from it. This plus the adjustment register is what an internal auditor asks for first, and aud1 can read both without holding any write permission | FR-390 FR-389 FR-427 | — | app | v1·P2 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-120
+
+Catalogue source row:
+
+`| **WH-SC-120** | Transfer TR-2026-00051: **15 CASE** (180 EA) of OF-1120 lot L-2609 from SITE-A/PICK-FACE-03 to SITE-B, gate-out 2026-09-01T22:05Z | Despatch, then receive **12 CASE** on 2026-09-02 — three cases are missing | The 180 EA are reserved and picked to SITE-A/STAGE-OUT-01 through the transfer's TRANSFER demand order. **Leg 1** posts −180 EA at SITE-A/STAGE-OUT-01 / +180 EA at SITE-A/IN_TRANSIT-TR-2026-00051, the per-transfer IN_TRANSIT child of the source site. **Leg 2** is posted by a SITE-B-scoped storekeeper under wh_transfer_orders:receive: −144 EA from that transit location / +144 EA at SITE-B/RECV-01. Afterwards the transit location holds **+36 EA (3 cases)** — a real, visible, owner-attributed balance, in SITE-A's valuation grain and under SITE-A's REGISTERED branch, because the sender holds in-transit stock. **Nobody had to decide whether SITE-B "received fifteen".** occurred_at on leg 1 is the gate-out time, not the sync time | FR-147 FR-085 FR-335 | L-1 L-13 | app | v1·P2 | happy |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/whtransferorder/WhTransferOrderTransitBehaviourTest.java`
+
+## WH-SC-121
+
+Catalogue source row:
+
+`| **WH-SC-121** | The 36 EA still in transit on 2026-09-14, thirteen days after despatch; the ageing threshold is 7 days | Run the in-transit ageing report | The transfer appears in the >7-day bucket with quantity, value, the despatching site, the receiving site, the transfer reference and the days elapsed. The residue is **found**, not discovered at year end — which is the whole point of ageing the column rather than merely having it | FR-149 FR-165 | — | app | v1·P2 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-122
+
+Catalogue source row:
+
+`| **WH-SC-122** | The carrier confirms the three cases were destroyed in a road accident | mgr1 posts a **transit loss** for 36 EA with reason_code_id = CARRIER_DAMAGE (mandatory, the type carries requires_reason) | −36 EA at SITE-A/IN_TRANSIT-TR-2026-00051 / +36 EA at VIRT-ADJUSTMENT. A manager scoped to SITE-B only may post it: the transit-loss adjustment authorises **that transfer's** transit location regardless of site scope, and nothing else at SITE-A. It is a **reason-coded loss against a named transit location with a named owner**, which is exactly what makes it claimable against the carrier — and what stops it appearing as mysterious shrinkage at SITE-B weeks later. The transit location's balance returns to zero and the transfer closes | FR-147 FR-335 FR-019 FR-164 | L-1 | app | v1·P2 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-123
+
+Catalogue source row:
+
+`| **WH-SC-123** | The same transfer, but the receiving storekeeper at SITE-B is asked to sign for 15 cases when 12 arrived | stores2 receives what physically arrived | The arrival document accepts **12**; there is no field in which to record "received 15 of which 3 are missing", because the missing three are represented by the transit balance and not by a note. SITE-B's on-hand is 144 EA and is correct; SITE-A has already relieved 180; the difference is a countable balance at a third location and is nobody's shrinkage until somebody codes a reason for it | FR-147 FR-342 | L-1 | app | v1·P2 | edge |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-124
+
+Catalogue source row:
+
+`| **WH-SC-124** | A transfer from SITE-A (DEL-01, GSTIN 07AABCM1234F1Z5) to SITE-C (BLR-01, GSTIN 29AABCM1234F1Z8), created 2026-09-20 | Create the transfer | The two branch references and the **taxable-supply flag are derived at creation from the two sites' REGISTERED links and frozen on the document** — never chosen by a user, never re-derived later. The document also freezes source_warehouse_branch_id and destination_warehouse_branch_id, the two link rows the derivation read, so the derivation is auditable. The document kind is derived to the deemed-supply variant. A transfer between two warehouses under the **same** GSTIN derives the non-supply variant. Because it is frozen, a later change to a branch's registration cannot silently restate a document already filed | FR-305 FR-306 FR-025 | — | base·india | v1·P1 | edge |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/architecture/WhTransferOrderSchemaContractTest.java`; `warehouse/backend/src/test/java/ai/warehouse/service/whtransferorder/WhTransferOrderCreationRulesTest.java`
+
+## WH-SC-125
+
+Catalogue source row:
+
+`| **WH-SC-125** | Two consignments on the road at once: TR-2026-00051 (36 EA residue) and TR-2026-00052 (200 EA in flight) | Query in-transit stock | **Two distinct transit locations**, SITE-A/IN_TRANSIT-TR-2026-00051 and SITE-A/IN_TRANSIT-TR-2026-00052, each separately countable, separately ageable and separately attributable. Each is a child of the **source** site with the seeded location type IN_TRANSIT, created at dispatch; no transit warehouse exists, so in-transit stock stays in the sender's site grain. One global IN_TRANSIT bucket would have made both consignments one number that neither ages nor reconciles | FR-085 | L-5 | base | v1·P1 | edge |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-126
+
+Catalogue source row:
+
+`| **WH-SC-126** | Stock sitting in IN_TRANSIT-TR-2026-00052 | (a) Count it; (b) adjust it; (c) report on it; (d) attribute it to an owner | All four work. In-transit stock is countable, adjustable, ageable and attributable **because a transfer posts two movements through a location rather than one movement that teleports**. A single-movement transfer model makes all four impossible and makes a partial arrival unrepresentable | FR-335 FR-147 | L-1 L-5 | base·app | v1·P2 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-127
+
+Catalogue source row:
+
+`| **WH-SC-127** | OF-1120 weighted-average cost at SITE-A is ₹408.20; at SITE-B it is ₹431.00; the valuation grain is (company, owner, item, site) | Transfer 144 EA from SITE-A to SITE-B | The transfer moves at the **sending site's cost** of ₹408.20, so no profit sits in stock and nothing needs eliminating. SITE-B's weighted average recomputes from its own prior layers plus the 144 units received at ₹408.20. Because the grain is site-level, the transfer **is** a valuation event and shows on both sites' valuation reports — a company-level grain would have hidden branch performance entirely | FR-236 FR-235 | — | base | v1·P2 | happy |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/architecture/WhbWarehouseScopeContractTest.java`
+
+## WH-SC-128
+
+Catalogue source row:
+
+`| **WH-SC-128** | A purchase from an overseas supplier under an Incoterm where title passes at the supplier's dock on 2026-09-25; the goods arrive 2026-10-18; the period-end is 2026-09-30 | Record the purchase and run the 30 September goods-in-transit figure | ownership_transfer_point is a **v1 column on the purchase document** and says *when title passed*; the in-transit location says *where*; owner_id says *whose*. All three are needed and none substitutes for another. The 30 September figure includes the goods, because they were ours, and it is a computed figure rather than a guess | FR-344 FR-242 | L-11 | app | v1·P1 | edge |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-129
+
+Catalogue source row:
+
+`| **WH-SC-129** | Two deliveries on the same truck: one to a customer, one to our own SITE-B | Both are delivered | The customer delivery posts **nothing** — the stock left at despatch and despatch is the only relief event. The SITE-B delivery posts an **arrival** from the transit location. *"Delivery is not a movement"* is true for the first and false for the second, and an implementer who reads only the first rule builds inter-branch transfers that never arrive. A delivery to a 3PL client's own site is an owner change or an arrival depending on the contract, and the contract is data | FR-342 FR-189 | L-1 L-11 | app | v1·P2 | edge |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-130
+
+Catalogue source row:
+
+`| **WH-SC-130** | VAC-2210 with shelf_life_days = 540, min_shelf_life_receipt_pct = 75, min_shelf_life_ship_pct = 40, near-expiry 45 days | Exercise all four shelf-life enforcement points in turn | They are **four separately named behaviours, not the single word FEFO**: (1) receipt below 75% remaining is refused; (2) allocation is earliest-expiry-first; (3) shipment below 40% remaining to a customer whose contract requires it is refused; (4) the scheduled job auto-expires on the date. A design that says FEFO and implements only (2) fails a food or pharma demo on (1) and (3) and fails an audit on (4) | FR-161 FR-069 | — | app | v1·P2 | happy |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/shelflife/WhbShelfLifePolicyServiceTest.java`
+
+## WH-SC-131
+
+Catalogue source row:
+
+`| **WH-SC-131** | A delivery of VAC-2210 lot VB-4405, manufactured 2025-04-01, expiry 2026-09-22, received 2026-09-15 — 7 of 540 days remaining, 1.3% | stores1 receives it | 422 SHELF_LIFE_RULE_VIOLATED, details.errors["lines[0].lot_id"] = *"lot VB-4405 has 7 days of 540 remaining (1.30%); the minimum on receipt is 75.00%"*. Nothing posts. The supplier's short-dated delivery is refused at the dock rather than discovered at the next count | FR-161 FR-069 FR-039 | — | app | v1·P2 | error |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/shelflife/WhbShelfLifePolicyServiceTest.java`
+
+## WH-SC-132
+
+Catalogue source row:
+
+`| **WH-SC-132** | Lot VB-4402 expired 2026-11-30; today is 2026-12-02; the expiry job has moved it to the EXPIRED stock status, whose registry row has is_allocatable = false and is_shippable = false | Attempt to allocate 20 EA from it, and separately attempt to force a despatch | Allocation returns 422 EXPIRED_LOT_NOT_ISSUABLE on lines[0].lot_id; the allocator does not consider the lot at all, so a FEFO run that would otherwise have chosen it picks the next-earliest instead. The forced despatch is refused by blocks_shipment on the status row. The stock is still **on hand and countable** — expired stock does not vanish from the balance sheet, it becomes unissuable | FR-160 FR-102 FR-161 | L-5 | app·base | v1·P2 | error |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/shelflife/WhbShelfLifePolicyServiceTest.java`
+
+## WH-SC-133
+
+Catalogue source row:
+
+`| **WH-SC-133** | Lots crossing their expiry and near-expiry dates overnight | The scheduled expiry job runs | Lots past expiry are moved into EXPIRED by a **balanced status-change movement with a reason code** — expiry is a state, not an alert. Lots at expiry − 45 days raise a notification to the configured recipients, and a near-expiry report with configurable buckets is shipped **with the job**. The job, its recipients and its report ship in the same task or the threshold column is a defect at the moment it is merged | FR-160 FR-165 FR-103 | L-1 | app | v1·P2 | happy |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/shelflife/WhbShelfLifePolicyServiceTest.java`
+
+## WH-SC-134
+
+Catalogue source row:
+
+`| **WH-SC-134** | Lot VB-4401 has 33% of shelf life remaining on the despatch date; VAC-2210 carries min_shelf_life_ship_pct = 40. Customer one's counterparty row carries 40; customer two's carries none, but its channel carries 30 | Confirm despatch of the lot to each | Customer one is refused 422 SHELF_LIFE_RULE_VIOLATED on lines[0].lot_id, naming the lot, the percentage remaining, the required minimum and **the level that supplied it** (*counterparty*). Customer two's despatch succeeds, because the minimum resolves **counterparty → channel → item** and the first non-null value wins: the channel's 30 is read before the item's 40. The rule is per customer or channel, and is data — two nullable columns, on whb_counterparties and whb_channels | FR-161 | — | app | v1·P2 | error |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/shelflife/WhbShelfLifePolicyServiceTest.java`
+
+## WH-SC-135
+
+Catalogue source row:
+
+`| **WH-SC-135** | Lot L-2609 of OF-1120 was received 2026-06-14, split across four locations and issued to nine shipments | Ask **forward**: where did this lot go? | One query returns every shipment and consignee that received it, with tracking, and the current on-hand remaining by location and status. **This row is the v1 half of a split** (RJ-013). The trace across a kit boundary — the work orders that consumed the lot and the output lots they produced — needs v1.1 work orders and FR-266's v2 genealogy. It is not asserted here, and it is authored by P3-11/P5-19 from the §5 rule 3 marker | FR-105 FR-396 | L-12 · I-15 | base·app | v1·P1 | happy |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/repository/WhTraceabilityGenealogyWalkTest.java`
+
+## WH-SC-136
+
+Catalogue source row:
+
+`| **WH-SC-136** | One unit of ECU-5501, serial ECU55010000771, sold on 2026-08-04 | Ask **backward**: what went into this unit, and where did it come from? | The serial resolves to its receipt movement, the GRN, the supplier lot, the counterparty and the receipt date; the shipment that carried it, the sold-to party, and its warranty window. Both directions are answerable **for the full retention period**, which is a property of the query surface plus the schema shape, and is asserted by a contract test rather than by a constraint | FR-105 FR-099 FR-396 | L-12 · I-15 | base·app | v1·P1 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-137
+
+Catalogue source row:
+
+`| **WH-SC-137** | The manufacturer recalls lot VB-4401; 260 EA on hand across three sites, 190 EA shipped to 14 consignees, 50 EA reserved against two open orders | inv1 runs the recall | Four things happen and **all four are single queries because lot landed on the ledger line in v1**: every matching on-hand unit is quarantined **in place** by a status-change movement (no physical move, no re-warehousing); every shipment that carried the lot is listed with its consignee and tracking; every reservation allocated to it is released; and the affected-customer list exports. Under a recall, **no disposition restocks** — return_type = RECALL blocks it | FR-280 FR-103 FR-270 FR-152 | L-1 L-12 | app | v2·P5 | happy |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/whrecall/WhRecallPostGuardTest.java`
+
+## WH-SC-138
+
+Catalogue source row:
+
+`| **WH-SC-138** | 24 EA of OF-1120 arrive water-damaged inside an otherwise good pallet at A-04-02-03; the pallet is not to be moved | stores1 records the damage | A **balanced two-line movement at the same location** posts AVAILABLE → DAMAGED for 24 EA with a mandatory reason code. Nothing physically moves. The position table now shows two rows at one location differing only in stock_status_code; the damaged 24 are countable and visible but not allocatable. Segregation without a physical move is only possible because status is in the position key and a status change is a movement | FR-103 FR-102 FR-011 | L-1 L-5 | base | v1·P0 | happy |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/statuschange/StockStatusChangePlannerTest.java`
+
+## WH-SC-139
+
+Catalogue source row:
+
+`| **WH-SC-139** | Lot L-2610 of OF-1120 is spread across 11 locations at 3 sites, and a supplier quality notice arrives | inv1 places a hold on the **lot** | **One wh_holds row** is written, subject_type = LOT, with a reason code, and the allocator reads open holds. So the whole lot is held **everywhere at once without moving anything, without touching 11 position rows individually, and without writing the lot row**: whb_lots.status_code carries lifecycle states set by jobs (such as EXPIRED) and is never a hold. Releasing the hold row releases it everywhere, with its release audit. A status-change movement is for physical segregation only. A hold expressed as a location block or an item block could not have done this | FR-096 FR-151 FR-152 | — | base·app | v1·P2 | happy |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/whhold/WhLotRetestHoldPlacerTest.java`
+
+## WH-SC-140
+
+Catalogue source row:
+
+`| **WH-SC-140** | SITE-A holds stock for CL-NOVA and for CL-ORION; a CL-NOVA portal user calls every warehouse read endpoint in turn — grids, exports, statistics maps, dropdowns, the availability API and the movement lineage query | Each call | Every one is filtered by the **single server-side owner resolver** in the WHERE clause, not by a UI filter. A request naming CL-ORION explicitly is rejected **403**, never returned empty — an empty grid is indistinguishable from *"no stock"* and would be read as a data problem rather than as a permission boundary. A contract test fails the build if any repository method touching an owner-scoped table takes no owner-set parameter. For a 3PL this is a contract breach, not a bug | FR-114 FR-300 FR-406 | L-5 | base·3pl | v1·P0 | error |`
+
+Explicit Java references: `warehouse-3pl/backend/src/test/java/ai/warehouse3pl/architecture/Wh3plOwnerScopeContractTest.java`; `warehouse-3pl/backend/src/test/java/ai/warehouse3pl/controller/Wh3plPortalControllerTest.java`; `warehouse-3pl/backend/src/test/java/ai/warehouse3pl/service/wh3plcustodyvalue/Wh3plCustodyValueQueryServiceTest.java`; `warehouse-base/backend/src/test/java/ai/warehousebase/service/whbitem/WhbItemOnHandScopeTest.java`; `warehouse-base/backend/src/test/java/ai/warehousebase/service/whbtask/WhbTaskScopeCompositionTest.java`; `warehouse/backend/src/test/java/ai/warehouse/architecture/WhOwnerScopeContractTest.java`
+
+## WH-SC-141
+
+Catalogue source row:
+
+`| **WH-SC-141** | SITE-A holds 600 EA of OF-1120 DOMESTIC and 250 EA of the **same SKU, same lot** BONDED under a warehousing bond | (a) Query the position; (b) attempt a movement whose two lines carry different duty_status values with a type that does not permit it; (c) allocate 700 EA | (a) **Two rows, never one** — duty_status is in the position key and on every movement line from v1. (b) 422 MOVEMENT_UNBALANCED naming lines[n].duty_status, because conservation is per duty status. (c) Only the 600 domestic are allocatable to a domestic order; the allocator does not merge the balances to reach 700. Once bonded and duty-paid stock of one SKU commingle, **no algorithm separates them**, and clearing the wrong one is a customs offence rather than a data-quality issue | FR-104 FR-011 FR-001 | L-1 L-5 · I-1 I-5 | base | v1·P0 | edge |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-142
+
+Catalogue source row:
+
+`| **WH-SC-142** | Two goods receipts keying the same physical lot as l2609 and L-2609  (trailing space) | Post both | Codes are **normalised on write**, so both resolve to the one whb_lots row keyed uk(owner, item, lot_code). FEFO computes without parsing a string, the certificate attaches to one entity, and the recall of WH-SC-137 finds all of it. On a VARCHAR column these would have been two lots and the recall would have missed half the stock | FR-094 FR-106 | L-12 | base | v1·P1 | edge |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-143
+
+Catalogue source row:
+
+`| **WH-SC-143** | Owner HOUSE holds ECU-5501 serial SN-0001; owner CL-NOVA legitimately holds a **different** manufacturer's part with the identical serial string SN-0001 | Receive both | Both are accepted: serial uniqueness is uk(owner, item, serial_number) and is **never global**. A global unique key would have rejected the second forever — and the rejected rows would never have been recorded at all, so the mistake would be invisible rather than repairable | FR-097 | — | base | v1·P1 | edge |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-144
+
+Catalogue source row:
+
+`| **WH-SC-144** | Two batches of VAC-2210 after a price revision: VB-4401 at MRP ₹640 and VB-4406 at MRP ₹720, both AVAILABLE, both at A-02-01-01 | Query the position, and query stock by MRP | MRP lives **on the lot**, with an item-level default — **not** in the position unique key (OD-10). The two batches are already separate position rows because their **lots** differ, so MRP segregation works without a tenth key member; the stock-by-MRP report reads through the lot. The key stays at nine members, and every index and every rebuild is cheaper for it | FR-320 FR-095 FR-011 FR-321 | L-5 · I-5 | base | v1·P1 | edge |`
+
+Explicit Java references: `warehouse-india/backend/src/test/java/ai/warehouseindia/service/whinstockbymrp/WhinStockByMrpQueryServiceTest.java`
+
+## WH-SC-145
+
+Catalogue source row:
+
+`| **WH-SC-145** | Pallet LPN SSCC-0000012345678905 at SITE-A/A-08-03-01 holding 6 items across 9 lots | Move the LPN to A-11-02-02 in one scan | **One movement** is written, whose lines the service **expands from the LPN's current contents and stores** — 18 lines, not an implicit reference to "whatever was on the pallet". The ledger remains self-explaining: reading the movement a year later shows exactly what moved without re-deriving it from a pallet whose contents have since changed. received_at on the LPN is untouched, because it is the storage-anniversary anchor | FR-101 FR-100 | L-1 L-12 | base | v1.1·P3 | happy |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/scan/WhbGs1ElementStringParserTest.java`; `warehouse-base/backend/src/test/java/ai/warehousebase/service/whblpn/WhbLpnMovementPlannerTest.java`
+
+## WH-SC-146
+
+Catalogue source row:
+
+`| **WH-SC-146** | OF-1120 with is_catch_weight = false; a future meat or produce client with is_catch_weight = true | Post a movement for each in v1 | For OF-1120 the line's secondary_quantity and secondary_uom_id are **null** and the columns exist. v1 writes null and that is the whole v1 behaviour. The columns are on the movement line **and on the position** from v1 because the weights were never captured on historical rows and there is nothing to backfill from — a catch-weight product added in v2 to a schema without them restates nothing and reports nothing for the past | FR-065 | L-5 | base | v1·P1 | edge |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-147
+
+Catalogue source row:
+
+`| **WH-SC-147** | An install that registers a **new** stock status CUSTOMS_HOLD by migration, with is_on_hand = true, is_allocatable = false, is_countable = true, badge_variant = warning, and **no** i18n key added | Post stock into it and open the stock grid and the filter dropdown — **no mobile screen: warehouse ships none (decision of 2026-09-11), and a step nobody can perform is not a test** | The status appears everywhere with **no code change**: the badge takes its variant from the registry row's column, the label falls back to the registry row's name where the translation key misses, the filter dropdown fetches its values from the catalogue, and the allocator excludes it because is_allocatable = false. There is **no CHECK (status IN (…))**, no Java enum and no TypeScript string union re-closing on the frontend what the backend opened — asserted by the coupling test over all fourteen registry columns | FR-102 FR-375 FR-380 FR-381 FR-382 | L-5 | base·app | v1·P0 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-148
+
+Catalogue source row:
+
+`| **WH-SC-148** | OF-1120 at SITE-A valued **weighted average**: 100 EA at ₹400.00 on hand | Receive 100 EA at ₹420.00, then issue 60 EA | The average after the receipt is (100×400 + 100×420) / 200 = ₹410.00, and it is **snapshotted on the movement row** as moving_average_after. The issue of 60 relieves at ₹410.00 = ₹24,600.00. On hand 140 EA at ₹57,400.00. The method is configurable per item category × site, so BRK-8840 at the same site can be FIFO. Every figure here is computed **on the backend in BigDecimal** and the frontend renders formatted strings — there is no per-module npm manifest and no decimal library, so any frontend arithmetic would be IEEE-754 double arithmetic on money | FR-235 FR-237 FR-234 FR-031 | — | base | v1·P2 | happy |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/costing/WhbCostLayerMathTest.java`
+
+## WH-SC-149
+
+Catalogue source row:
+
+`| **WH-SC-149** | BRK-8840 at SITE-A valued **FIFO**, with three layers: L1 60 EA @ ₹1,800 (recd 2026-05-02), L2 40 EA @ ₹1,850 (2026-06-11), L3 50 EA @ ₹1,910 (2026-07-30) | Issue 85 EA | It consumes **L1 in full (60) and L2 in part (25)** — in receipt order, never in expiry order and never proportionally. Cost of the issue is 60×1800 + 25×1850 = ₹1,54,250. The **consumption table** records two rows linking this issue to L1 and L2 with the quantity taken from each; L1's remaining goes to 0 and L2's to 15. Without the consumption table, "what did the stock we shipped last March cost" has no answer | FR-234 FR-235 | — | base | v1·P2 | happy |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/costing/WhbCostLayerMathTest.java`; `warehouse-base/backend/src/test/java/ai/warehousebase/service/costing/WhbCostingEngineIntegrationTest.java`
+
+## WH-SC-150
+
+Catalogue source row:
+
+`| **WH-SC-150** | ECU-5501, serial-controlled, three units on hand received at ₹47,200, ₹48,000 and ₹49,600 | Issue serial ECU55010000771, which was the ₹49,600 unit | It relieves at **₹49,600** — specific identification, not the average and not FIFO. This is required here even though the accounting set defers it, because a serialised part is non-interchangeable by definition, and because specific identification and FEFO are **not expressible at accounting's item × godown × batch × serial grain**. That grain argument is half of why the costing engine is in warehouse | FR-235 FR-230 | L-12 | base | v1·P2 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-151
+
+Catalogue source row:
+
+`| **WH-SC-151** | The weighted-average history of WH-SC-148, and a receipt dated 2026-08-20 that arrives in the system on 2026-09-04 | Post the backdated receipt, then reproduce the 31 August valuation | The backdated receipt inserts a cost layer dated 20 August, and **no already-posted line's moving_average_after is restated** (RF-001): re-reading a following movement line returns a byte-identical moving_average_after, and the current average is computed on read from the open layers. The 31 August figure is reproducible **because every movement row carries its own moving_average_after snapshot** — the evidence of what the cost was on that date exists on the rows themselves and is not re-derived from today's state. Without the snapshot the year-end valuation cannot be reproduced at all | FR-237 FR-013 | L-4 | base | v1·P2 | edge |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-152
+
+Catalogue source row:
+
+`| **WH-SC-152** | The issue of WH-SC-149 consumed 60 from L1 @ ₹1,800 and 25 from L2 @ ₹1,850; the customer returns 30 EA | Receive the return and disposition it RESTOCK | Consumption runs **in reverse and restores the original layers**: 25 back to L2 @ ₹1,850 and 5 back to L1 @ ₹1,800 — total ₹55,250 — not 30 units at today's average and not 30 at the latest cost. L1's remaining becomes 5 and L2's becomes 40. A cost column on a balance could not have produced this | FR-234 FR-273 | L-1 | base | v1·P2 | happy |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/costing/WhbCostLayerMathTest.java`; `warehouse-base/backend/src/test/java/ai/warehousebase/service/costing/WhbCostingEngineIntegrationTest.java`
+
+## WH-SC-153
+
+Catalogue source row:
+
+`| **WH-SC-153** | Receipt layer for lot L-2609, 120 EA @ ₹412.50; freight of **₹4,500** arrives a week later, by which time **48 EA have already shipped** | Post LANDED_COST_APPLY against the receipt | It posts as a **zero-quantity, non-zero-value movement** of three lines: +2,700.00 at the receipt location, +1,800.00 at VIRT-COST_OF_SALES-<SITE CODE> and −4,500.00 at VIRT-LANDED-COST-OFFSET, quantity 0 on every line (RF-003). Quantity conservation is trivially satisfied; **value conservation** is asserted separately for lines where quantity = 0 AND unit_cost IS NOT NULL. The ₹4,500 spreads at ₹37.50/EA and **splits**: ₹2,700 revalues the 72 EA remaining in the layer, and ₹1,800 posts as a **COGS adjustment for the 48 that already shipped**, with a link from the charge document back to the receipt movements it loads. A port whose unit_cost is write-once cannot carry any of this | FR-238 FR-010 FR-046 FR-345 | L-1 | base·app | v1·P2 | happy |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/ledger/writer/WhbStockLedgerWriterIntegrationTest.java`; `warehouse/backend/src/test/java/ai/warehouse/service/whlandedcost/WhLandedCostPostingServiceTest.java`
+
+## WH-SC-154
+
+Catalogue source row:
+
+`| **WH-SC-154** | The same freight charge, apportionable by value, quantity, weight, volume or manually | Ask where the basis is stored | The apportionment basis is on the **receipt**, not on the freight charge. The charge is a transport fact; the effect on stock value is a warehouse fact. Two receipts loaded by one freight charge may apportion on different bases, which a basis stored on the charge could not express | FR-239 FR-238 | — | app | v1·P2 | edge |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-155
+
+Catalogue source row:
+
+`| **WH-SC-155** | A year-end write-down of ₹2,80,000 across slow-moving BRK-8840 stock | fin1 posts the revaluation | It is a **document — a movement type with zero quantity and a non-zero value — not an UPDATE to a cost column**. The stock ledger and the ledger of record stay in step; the movement register shows it; the stock-to-GL reconciliation's *revaluations* line carries it. **Warehouse posts the movement; accounting approves the revaluation**, because approval is a downstream act on the ledger of record | FR-240 FR-046 | L-2 | base·app | v1·P2 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-156
+
+Catalogue source row:
+
+`| **WH-SC-156** | Mode C: the same install **with** the accounting module present. A despatch of 144 EA relieving ₹59,040.00 of cost | Confirm despatch | **One envelope** is handed over through accounting's existing source-document port, carrying the idempotency key, company, branch — SITE-A's REGISTERED branch at the movement's occurred_at, frozen in the hashed payload — document kind, posting date, reason code, and per line: owner_type, duty_status, lot and serial identity, quantity, base UoM, **the unit cost and extended value warehouse computed**, and cost_basis. The movement's handover_id is set and posting_status moves PENDING → POSTED. Warehouse writes **no journal**. The envelope carries the **classification quad** — movement type, reason code, item group and owner type — and **accounting resolves it to an account**: there is no chart of accounts and no posting-rule table anywhere in warehouse, because account determination is a ledger concern and the ledger is accounting's | FR-233 FR-232 FR-248 FR-246 | L-14 | base·app | v1·P2 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-157
+
+Catalogue source row:
+
+`| **WH-SC-157** | The same envelope, and accounting's posting rules | Accounting posts it | The value accounting posts is **the value warehouse computed**, to the paisa. There is **no re-costing step on the receiving side** — and a test asserts its absence, because a re-costing step would reintroduce the two-truths failure the authority rule exists to prevent. This is **falsifier 2** of the costing-authority rule; falsifier 1 is WH-SC-062. Together they make D-6's one-sentence rule testable rather than a preference | FR-446 FR-233 FR-230 | — | base | v1·P2 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-158
+
+Catalogue source row:
+
+`| **WH-SC-158** | An envelope accounting rejects — the period is closed on its side, or account determination cannot resolve the classification quad | The rejection returns | The movement's posting_status becomes **REJECTED** and the row lands in a **rejected-handover queue that has a named owner and raises an alert**. The stock movement itself is **untouched and stays posted** — the physical truth is not reversed because a downstream ledger declined it. *"Does the stock ledger tie to the GL"* is answerable at any moment as the count of movements not in POSTED. Failures land in a retryable queue, never in a swallowed exception | FR-232 FR-248 FR-045 | — | base | v1·P0 | error |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/whbaccountinghandover/WhbAccountingHandoverAgeTest.java`
+
+## WH-SC-159
+
+Catalogue source row:
+
+`| **WH-SC-159** | A month of movements at SITE-A for owner HOUSE, item group FILTERS | fin1 runs the stock-to-GL reconciliation | The report shows opening value + receipts + adjustments + revaluations − issues = closing value, per site, owner and item group, alongside the GL control-account balance, with a **variance column that drills to the offending movements**. A variance of ₹0.00 is stated explicitly rather than shown as a blank. It is the report that makes a finance director trust the system and the report that finds every integration defect | FR-247 FR-385 | — | app | v1·P2 | happy |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/accounting/WhbGlBalanceReaderTest.java`; `warehouse/backend/src/test/java/ai/warehouse/service/whstocktogl/WhStockToGlQueryServiceTest.java`
+
+## WH-SC-160
+
+Catalogue source row:
+
+`| **WH-SC-160** | Imported spares bought at USD 42.00 with an exchange rate of 88.4150 on the receipt date | Post the receipt | The cost layer carries currency_code = USD and exchange_rate = 88.4150 **from v1**, defaulted to INR for domestic layers. The layer records what was actually paid; a layer without those two columns can never recover it, and the exchange gain or loss is accounting's to compute from a number warehouse can show it | FR-245 | — | base | v1·P2 | happy |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/costing/WhbCostingEngineIntegrationTest.java`
+
+## WH-SC-161
+
+Catalogue source row:
+
+`| **WH-SC-161** | A customer migrating from a system that valued on LIFO, asking for LIFO | Look for it | It is **not offered, anywhere, in any version**, and the product says why: prohibited under Ind AS 2 / IAS 2 and ICDS II. The available methods are weighted average and FIFO in v1, standard cost with purchase-price and usage variances in v1.1, and specific identification for serial- and lot-tracked items. A migrating customer asks this question, so the answer is written down rather than improvised | FR-235 | — | base | v1·P2 | edge |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/costing/WhbCostLayerMathTest.java`
+
+## WH-SC-162
+
+Catalogue source row:
+
+`| **WH-SC-162** | The full warehouse source tree, in a build where the accounting module **is** present | Run the architecture test | It **fails the build** if any class under ai.warehouse* references an acc_* table name or imports an ai.accounting* type. The accounting ledger is hash-chained and append-only, and a foreign writer breaks the chain that is its whole claim. The seam is the source-document port and nothing else | FR-231 FR-248 | — | base | v1·P0 | happy |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/architecture/WhbAccountingSeamContractTest.java`
+
+## WH-SC-163
+
+Catalogue source row:
+
+`| **WH-SC-163** | Stock period 2026-09 and accounting period 2026-09, with the stock period configured to close on the 3rd and the accounting period on the 7th | Close the stock period, then attempt to close the accounting period while a warehouse handover is still PENDING | The stock period closes first and **refuses further movements** dated into September. The accounting close sees the pending handover and blocks, naming it. The two locks are synchronised so the ledgers **cannot be closed at different moments and disagree at the boundary** — which is the failure the separate-but-synchronised design exists to prevent | FR-251 FR-020 FR-232 | L-8 · I-10 | base | v1·P0 | edge |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-164
+
+Catalogue source row:
+
+`| **WH-SC-164** | warehouse-adapter-dealer registered with source_system = ADAPTER_DEALER; a parts invoice issues 2 EA of OF-1120 to a walk-in customer | The adapter posts POST /api/warehouse/movements with the full envelope and idempotency_key = ADAPTER_DEALER:PI-2026-0441:1:ISSUE | 201 Created with the movement id and its assigned sequence_no. Two ledger lines: −2 EA at SITE-A/PICK-FACE-03, +2 EA at VIRT-CUSTOMER. **Zero commits to warehouse-base were required** for the adapter to exist: it registered its own movement type, document type, source system and reason codes by its own migration in its own Flyway sub-band | FR-032 FR-349 FR-358 | L-1 | base·adapter | v1·P0 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-165
+
+Catalogue source row:
+
+`| **WH-SC-165** | The key ADAPTER_DEALER:PI-2026-0441:1:ISSUE has already posted a movement for **2 EA** | The adapter reuses the same key for a payload of **3 EA** — a genuine bug on the producer's side | 409 Conflict IDEMPOTENCY_KEY_REUSED, and the body **names the original movement id** so the caller can diff the two payloads. **Nothing is posted and nothing is overwritten.** A silent overwrite would make the ledger disagree with the producer with no record that it ever did; a silent accept would double the issue | FR-017 FR-033 | L-9 · I-11 | base | v1·P0 | error |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-166
+
+Catalogue source row:
+
+`| **WH-SC-166** | Two producers computing the payload hash, and a server that enriches the request (resolving sku to item_id, defaulting the stock status) before storing it | Post the same logical movement from each | The hash is computed over the **canonical caller-supplied envelope**, on the documented field set, **before** any server-side enrichment — so an enrichment change in a later release does not make every retry a 409, and two producers sending identical bytes agree. Neither R4 nor R7 nor the FRD stated what was hashed; the contract closes the gap and this scenario is what keeps it closed | FR-017 FR-033 | L-9 | base | v1·P0 | edge |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-167
+
+Catalogue source row:
+
+`| **WH-SC-167** | A handheld syncing a shift: POST /movements/batch with **40** movements, each carrying its own idempotency key. Movement 17 names an item code that does not exist | Post the batch | 200 with a **per-movement result array of 40 entries**: 39 succeed with their movement ids and sequence numbers, entry 17 carries 422 UNKNOWN_ITEM with lines[0].sku. **Each movement is its own transaction** — it is never all-or-nothing. A scan gun that has to re-send 400 movements because one was bad will simply be turned off by the operator | FR-034 FR-040 | L-9 | base | v1·P0 | error |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-168
+
+Catalogue source row:
+
+`| **WH-SC-168** | A batch whose movements are causally dependent: a TRANSFER_DEPART at index 3 and its TRANSFER_ARRIVE at index 1 | Post the batch | Movements are processed **in array order**, and a failure does not stop the batch. The arrive at index 1 fails INSUFFICIENT_STOCK because the transit location is empty; the depart at index 3 succeeds. **Base does not reorder and does not infer dependency** — ordering causally dependent movements is the producer's responsibility, and the contract says so rather than leaving the producer to discover it | FR-034 | — | base | v1·P0 | error |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-169
+
+Catalogue source row:
+
+`| **WH-SC-169** | A device out of coverage for six hours posts movement M-B (occurred_at 14:10) **after** movement M-A (occurred_at 16:30) has already been accepted | Post M-B | It is **accepted**. A movement is never refused for arriving after a movement with a later occurred_at; late arrival is not an error condition. sequence_no is assigned in **server acceptance order**, so M-A has the lower sequence and M-B the higher, while occurred_at orders them the other way. Nothing in the product may assume the two agree | FR-034 FR-007 FR-047 | L-13 | base | v1·P0 | edge |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-170
+
+Catalogue source row:
+
+`| **WH-SC-170** | PICK-FACE-03 held 5 EA at 14:10 and holds 0 now, because a counter sale at 16:30 took them. A device now syncs a genuinely valid 14:10 issue of 5 EA | Post it | 409 INSUFFICIENT_STOCK on lines[0].quantity. **Stock sufficiency is evaluated against the balance as it stands at post time, not as at occurred_at** — evaluating as-at would require replaying the ledger forward on every post and would let a late arrival retro-invalidate movements already accepted. The consequence is deliberate: this refusal is a **real stock discrepancy** and belongs in the blocked-move queue (WH-SC-249), not silently accepted | FR-028 FR-014 | L-6 | base·app | v1·P0 | edge |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-171
+
+Catalogue source row:
+
+`| **WH-SC-171** | Movement m-A1 posted by ADAPTER_DEALER | The adapter calls POST /movements/m-A1/reverse with **its own new idempotency key** and a mandatory reason code | The mirror posts and is returned with its own id and sequence. Retrying the reverse with the **same** key returns 200 and the same reversal — the reversal endpoint is idempotent on its own key, not on the original movement's, so a network timeout on a reversal does not produce two reversals | FR-035 FR-005 FR-017 | L-3 L-9 | base | v1·P0 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-172
+
+Catalogue source row:
+
+`| **WH-SC-172** | A channel adapter about to promise stock to a customer | It calls POST /movements/simulate with the intended movement | The **whole** validation chain runs and returns the resulting balance deltas and the **complete** error list — not the first error. **Nothing is written**: no movement, no inbound-message row, no outbox event, and **no idempotency-key claim**, so the real post can use the same key afterwards. Row counts on all four tables are asserted unchanged. It is also what support calls when a client says *"it says insufficient stock and there are 40 on the shelf"* — which is exactly what an orphaned reservation produces | FR-037 | — | base | v1·P0 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-173
+
+Catalogue source row:
+
+`| **WH-SC-173** | A new adapter posting movement_type_code = PDI_CONSUME, which no migration has registered | Post it | 422 UNKNOWN_MOVEMENT_TYPE on movement_type_code = *"the movement type must be registered by a migration before it can be posted"*. After the adapter's own migration inserts the catalogue row with its behaviour flags, the identical request posts — **without a warehouse-base release**, because the type is a row and not an enum, a CHECK or a TypeScript union | FR-003 FR-375 FR-349 | — | base | v1·P0 | error |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-174
+
+Catalogue source row:
+
+`| **WH-SC-174** | An adapter that has posted 4,200 movements over six months and needs to find the ones belonging to JOB_CARD JC-2026-0881 | GET /movements?source_system=ADAPTER_SERVICES&source_document_type=JOB_CARD&source_document_id=JC-2026-0881 | A **single indexed lineage query** returns them. This is how a future logistics module finds its own postings without warehouse-base ever knowing what a trip is, and it is why the quad is four indexed columns rather than a free-text reference nobody can join | FR-036 FR-018 | L-12 · I-15 | base | v1·P0 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-175
+
+Catalogue source row:
+
+`| **WH-SC-175** | A job card naming a part by the services module's own material code SVC-MAT-4471, mapped in whb_item_external_refs to OF-1120 with source_module = SERVICES | The adapter posts a line identifying the item by (source_module, external_id) | It resolves. A line may identify its item by **id, or sku, or barcode, or (source_module, external_id)** — a dealer's own part number, a job card's material code and an OEM's number are none of the first three, and without the fourth every adapter would either store warehouse UUIDs in its own tables or force the port to grow a per-vertical identification mode | FR-038 FR-061 | — | base | v1·P1 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-176
+
+Catalogue source row:
+
+`| **WH-SC-176** | A line supplying **both** sku = OF-1120 and barcode = 8901234567894, which resolves to a different item | Post it | 422 ITEM_IDENTIFIER_CONFLICT on lines[0], naming both identifiers and the two items they resolved to. The port does not pick one silently by precedence — a silent precedence rule is how a producer's mapping bug becomes a year of movements against the wrong item | FR-038 FR-039 | — | base | v1·P1 | error |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-177
+
+Catalogue source row:
+
+`| **WH-SC-177** | A 3PL's **own** carton (owner HOUSE) consumed against client CL-NOVA's outbound order, in one physical act | Post one movement carrying lines of two owners, with a movement type declaring is_ownership_transfer = true (set on WS-001) and balance_rule = MUST_BALANCE_PER_ITEM | It posts as **one atomic event**. owner_id is on the **line, not the header**, and the movement balances according to the type's declared rule — here per item, so a two-owner movement that does not net to zero per item is refused. With is_ownership_transfer at its default of false the same movement is refused 422 MIXED_OWNER_NOT_ALLOWED naming the two owners — so the permissive case is a deliberate configuration and not the default | FR-042 FR-110 FR-107 | L-1 L-11 | base | v1·P0 | edge |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/ledger/WhbLedgerInvariantsIntegrationTest.java`
+
+## WH-SC-178
+
+Catalogue source row:
+
+`| **WH-SC-178** | A producer attempting to send a carrier, an AWB, a trip id, a **sales price**, a customer, a tax amount, a billing charge code, a channel-specific field, a free-text reference and a JSONB blob on the movement | Post it | Every one is **rejected as an unknown field**; the envelope has no home for any of them and each has a stated home elsewhere — the lineage quad, the accounting envelope, the reservation holder quad, the outbox event, the adapter's own tables. A **unit cost** *does* ride the line, because warehouse owns cost; a *price* is a commercial fact about a sale and belongs to the document that sells. A producer-specific fact goes in the typed registered-key attribute table of WH-SC-042 | FR-041 FR-026 | — | base | v1·P0 | error |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-179
+
+Catalogue source row:
+
+`| **WH-SC-179** | whb_source_systems holds a reserved row for ACCESSORIES with is_claimable = false and a comment naming the decision, per D-9 | (a) An unregistered system SOMETHING posts; (b) something posts as ACCESSORIES | (a) 422 UNKNOWN_SOURCE_SYSTEM — the idempotency-key namespace is partitioned by source_system and an unregistered one cannot be partitioned. (b) 403 SOURCE_SYSTEM_NOT_CLAIMABLE. **accessories is never an adapter**: the row is reserved and unclaimable, its package is on the forbidden-import list, and no migration may flip the flag | FR-367 FR-350 | — | base | v1·P0 | error |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-180
+
+Catalogue source row:
+
+`| **WH-SC-180** | A movement whose processing throws after the request was received | Post it, then replay the identical request | The request was **persisted before it was processed**: an inbound-message row exists with the payload reference, status = FAILED, the error detail and a retry count, **whether or not** the movement was created. The replay returns the **stored** result rather than recomputing it — which is what makes the 200 branch of idempotency cheap and correct, and what makes the failure visible instead of lost | FR-044 FR-033 | L-9 | base | v1·P0 | edge |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/port/WhbInterfaceErrorQueueIntegrationTest.java`
+
+## WH-SC-181
+
+Catalogue source row:
+
+`| **WH-SC-181** | Eleven failed inbound messages accumulated overnight; the queue-depth alert threshold is 5 | Open the interface error queue and reprocess | A grid over failed inbound messages and failed posting events, with a **reprocess action that is idempotent by construction** (it replays the stored payload under the stored key). Nine reprocess cleanly; two fail again with a different error and stay in the queue. An **alert fired** when the queue exceeded 5, so the queue is not discovered by a customer | FR-045 FR-044 FR-165 | — | base | v1·P2 | error |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/port/WhbInterfaceErrorQueueIntegrationTest.java`; `warehouse-base/backend/src/test/java/ai/warehousebase/service/port/WhbInterfaceErrorQueueReprocessTest.java`
+
+## WH-SC-182
+
+Catalogue source row:
+
+`| **WH-SC-182** | A future logistics module planning trip TRIP-8842 before any wave exists | POST /api/warehouse/reservations with holder_system = LOGISTICS, holder_document_type = TRIP, holder_document_id = TRIP-8842, holder_line_no = 1, reservation_type = SOFT, expires_at = +48h | The hold is taken by a **module that is not warehouse**, with no internal allocation id and no new identifier for the holder to store — the quad is the lineage quad again, so a consumer that can post a movement can hold and release using the four values it already has. Availability drops; on hand does not | FR-167 FR-166 | L-10 · I-12 | base | v1·P0 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-183
+
+Catalogue source row:
+
+`| **WH-SC-183** | The same trip, now holding six reservations across three items | GET /api/warehouse/reservations?holder_system=LOGISTICS&holder_document_type=TRIP&holder_document_id=TRIP-8842 | *"What does trip X hold"* is answered in one call with all six rows, each showing item, lot, location, quantity, type, priority, strategy and expiry. With a counter this question has no answer at all | FR-167 | L-10 · I-12 | base | v1·P0 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-184
+
+Catalogue source row:
+
+`| **WH-SC-184** | A special-order part held against an estimate the customer never approved; expires_at passed 36 hours ago | The reservation-expiry job runs | It releases the reservation, **notifies the holder**, writes a **movement-free audit row** (no ledger event, because nothing physically moved), and the row feeds the reservation ageing report. A part held against an abandoned estimate is invisible dead stock, and the job, its recipients and its report shipped in the same task as the expires_at column | FR-170 FR-165 | L-10 | app | v1·P2 | happy |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/allocation/WhbAllocationIntegrationTest.java`
+
+## WH-SC-185
+
+Catalogue source row:
+
+`| **WH-SC-185** | A released reservation from WH-SC-184 | Inspect the row and attempt to take a conflicting exclusive hold on the same identity | The row still exists with released_at set — **released_at, never a DELETE** — so the history of who held what and when survives forever. Exclusivity is enforced by a **partial unique index** WHERE released_at IS NULL, not by application logic; because a partial unique index cannot be DEFERRABLE in PostgreSQL, the write path performs an explicit flush() before relying on it, and the conflicting hold is rejected at that point rather than at commit | FR-167 FR-093 | L-10 · I-12 | base | v1·P0 | edge |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-186
+
+Catalogue source row:
+
+`| **WH-SC-186** | 40 EA of BRK-8840 physically on the shelf; 40 EA held by reservations whose holder documents were all cancelled without releasing | A user reports *"it says insufficient stock and there are 40 on the shelf"* | POST /movements/simulate returns INSUFFICIENT_STOCK **with the reservation rows that caused it**, naming each holder quad. The same rows appear on the **reconciliation-exception grid** as position-versus-allocation drift and orphaned reservations, each with an owner and an action — not as an alert in a log. Orphaned reservations silently and permanently reduce availability, and this pair of surfaces is how they stop being silent | FR-037 FR-163 FR-167 | L-10 L-6 | base·app | v1·P2 | error |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-187
+
+Catalogue source row:
+
+`| **WH-SC-187** | A soft reservation of 60 EA on SO-2026-01188 | PATCH /api/warehouse/reservations/{id} promoting it to HARD at Release, and separately extending another row's expires_at | Promotion is the moment soft becomes hard and pick tasks are created; the row's type changes and its history is preserved. Extension moves expires_at without releasing and re-taking, which would have lost the row's place in the priority order | FR-169 FR-167 | L-10 | app·base | v1·P2 | happy |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/allocation/WhbAllocationIntegrationTest.java`
+
+## WH-SC-188
+
+Catalogue source row:
+
+`| **WH-SC-188** | On hand 200 EA across two statuses — 160 AVAILABLE (is_allocatable = true) and 40 QUARANTINE (is_allocatable = false) — and open reservations of 55 | Ask for availability | available = Σ on_hand where status.is_allocatable − Σ open reservations = 160 − 55 = 105, **computed at read time**. The denormalised allocated quantity on the position row exists **only as a cache** and is reconciled nightly; the answer served to a caller is never read from it. A stored availability column drifts, and its formula changes the day soft allocation arrives — which is this release | FR-168 FR-102 FR-163 | L-6 L-10 | base | v1·P0 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-189
+
+Catalogue source row:
+
+`| **WH-SC-189** | 100 EA available; a HARD reservation of 60 for a released order and a SOFT reservation of 50 for a quotation, priorities 1 and 5 | A third demand needs 60 | The soft reservation yields and the hard one does not: the allocator may downgrade or release soft holds by priority under an explicit rule, and never touches a hard hold. Both are the same table with a reservation_type and a priority — not two mechanisms — so the ageing report, the exception grid and the release-by-holder call cover both without a second code path | FR-169 FR-166 FR-172 | L-10 | base·app | v1·P2 | edge |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/allocation/WhbAllocationIntegrationTest.java`
+
+## WH-SC-190
+
+Catalogue source row:
+
+`| **WH-SC-190** | Exactly **1 EA** of ECU-5501 on hand at SITE-A/A-07-01-01, no reservations | Two issues for that unit are submitted **simultaneously** from two sessions | **Exactly one succeeds.** The other receives 409 NEGATIVE_STOCK_NOT_ALLOWED on lines[0].quantity: no reservation exists to be consumed, so the refusal is the default BLOCK negative-stock policy's (MPR-GRD-16), and INSUFFICIENT_STOCK is kept for an issue that would consume reserved stock (MPR-GRD-15, amended 2026-09-15). On hand ends at 0, never at −1, and no third state exists. This is a **correctness** problem and not a speed problem, and it is not caught by a generated available column, because on hand did not change until one of the two committed. The defence is all three of an optimistic @Version on the position, a database CHECK, and the stated lock-ordering discipline | FR-016 FR-175 FR-014 | L-6 · I-6 | base | v1·P0 | conc |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/allocation/WhbAllocationIntegrationTest.java`; `warehouse-base/backend/src/test/java/ai/warehousebase/service/ledger/writer/WhbStockLedgerWriterIntegrationTest.java`
+
+## WH-SC-191
+
+Catalogue source row:
+
+`| **WH-SC-191** | 12 EA at PICK-FACE-03; two pickers hold hard reservations of 8 and 6 taken a second apart | Both pick | The **allocation** step is where the conflict is resolved, not the pick: the second reservation could only have been taken for 4, because available was recomputed against the first. Both pickers pick what they hold, the location goes to 0, and neither is short. Had availability been a stored counter, both reservations would have been granted and the second picker would find an empty bin — which is the defect the open-item ledger exists to prevent | FR-175 FR-168 FR-166 | L-6 L-10 | base | v1·P0 | conc |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-192
+
+Catalogue source row:
+
+`| **WH-SC-192** | A count of A-04-02-03 in progress with book frozen at 240; an allocation run starting at the same instant that wants 240 EA of that item | Both run, first with freeze_locations = true, then with it false | **Frozen:** the allocator skips A-04-02-03 entirely — the location status is COUNTING and is_pickable is false for that state — and allocates elsewhere or short-picks with an exception rather than sending a picker into a counted aisle. **Not frozen:** the allocation succeeds, the pick moves stock, and the count's variance is computed against the frozen book **net of movements during the count window**, so the picker's movement is not silently reversed. Both outcomes are deterministic and neither corrupts the other | FR-153 FR-156 FR-091 FR-175 | L-1 L-4 | app | v1·P2 | conc |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-193
+
+Catalogue source row:
+
+`| **WH-SC-193** | Go-live: an opening-stock import of **50,000 position rows** posted as **one movement** with 100,000 lines (each position plus its VIRT-OPENING counter side) | Post it | It commits in one transaction and within the stated performance envelope. Two implementation properties are asserted, because a naive design fails here and nowhere else: the deferred conservation trigger uses the **transaction-scoped memoisation** (current_setting(key, true) for missing_ok, set_config(key, value, true) for is_local) so the per-row check runs **once per movement**, not 100,000 times; and the LIMIT 1 inside its subquery means it finds *whether* a group is unbalanced and one example, not all of them. With is_local = false the memo would leak across transactions and the **second** movement in the batch would never be validated at all | FR-411 FR-001 FR-422 | L-1 · I-1 | base·app | v1·P2 | conc |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-194
+
+Catalogue source row:
+
+`| **WH-SC-194** | Eight concurrent GRN submissions at SITE-A | All eight commit | Eight GRN numbers are issued from the **pessimistically locked counter row**, gapless and with no duplicate: GRN-2026-000842 … GRN-2026-000849. A missing GRN number is an audit question, so the generator is a locked counter and **not** the platform's existing scan-based code generator, which is explicitly not gapless and is racy. The same generator serves pick, ship, adjustment, QC, challan and gate-pass numbers, module-scoped | FR-426 FR-437 | L-6 · I-20 | base | v1·P1 | conc |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-195
+
+Catalogue source row:
+
+`| **WH-SC-195** | A handheld that has been out of coverage for a full shift, holding 400 queued movements each with a per-scan client-generated idempotency key | It syncs | All 400 post through POST /movements/batch in per-movement transactions; the 6 that duplicate movements already posted from another device return their originals rather than posting again; conflicts are **surfaced to the operator, never swallowed**. v1 is online-only and says so — but the client transaction id, the device-supplied occurred_at and duplicate rejection on the client id are v1 hooks, because adding them later means re-versioning every RF endpoint | FR-047 FR-034 FR-221 | L-9 L-13 | base·mobile | v1·P0 | conc |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-196
+
+Catalogue source row:
+
+`| **WH-SC-196** | Two movements touching the **same** position row in overlapping transactions | Both commit-attempt | One succeeds; the other fails its optimistic @Version check and is **retried by the service**, not surfaced to the user as an error. The database CHECK on the position is the second layer and the lock-ordering discipline — always acquire position locks in a stated deterministic order — is the third, which is what prevents a deadlock rather than merely detecting one | FR-016 FR-437 | L-6 · I-6 | base | v1·P0 | conc |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-197
+
+Catalogue source row:
+
+`| **WH-SC-197** | A wave of 200 order lines allocating against a shared pool | Run the allocation | It completes at the stated target of 200 order lines a second **with no oversell** — the assertion is the absence of oversell, and it is checked by summing reservations against on-hand per position afterwards, not by the run finishing quickly. A run that is fast and oversells has failed this scenario | FR-422 FR-175 | L-6 | base | v1·P0 | conc |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/nonfunctional/NonFunctionalFoundationsTest.java`; `warehouse-base/backend/src/test/java/ai/warehousebase/service/allocation/WhbAllocationIntegrationTest.java`; `warehouse-base/backend/src/test/java/ai/warehousebase/service/ledger/writer/WhbStockLedgerWriterIntegrationTest.java`
+
+## WH-SC-198
+
+Catalogue source row:
+
+`| **WH-SC-198** | Two movements that must serialise on a key for which **no row exists yet** — the first two receipts creating the same position tuple | Both post | The writer service takes a PostgreSQL **advisory lock** on the position key, because there is no row to lock pessimistically. One creates the position row, the other updates it; neither raises a unique-key violation to the caller. Four of the five named concurrency mechanisms have exactly one precedent each in this repository and FOR UPDATE SKIP LOCKED has none, so all five are flagged as new work rather than assumed | FR-437 FR-016 FR-425 | L-5 L-6 | base | v1·P0 | conc |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/whbtask/WhbTaskClaimConcurrencyIntegrationTest.java`
+
+## WH-SC-199
+
+Catalogue source row:
+
+`| **WH-SC-199** | A carton arrives back from a customer with a scribbled note and no RMA — the majority case in India and in marketplace returns generally | stores1 creates a **return receipt** on the spot; a week later the customer service team raises RMA RMA-2026-0117 for the same goods | The return receipt is the **primary object** and it received without an RMA. The RMA is matched to it **later, on a screen** — not by re-receiving the goods and not by reversing and re-posting. Modelling returns as *"an RMA that is later received"* would have made the blind return unrepresentable | FR-269 | L-1 | app | v1·P2 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-200
+
+Catalogue source row:
+
+`| **WH-SC-200** | Three return receipts on one day: a customer return, an **RTO**, and a unit from a **recalled** lot | Disposition each | return_type is a **day-one column** and the disposition rules branch on it: the customer return may restock; the RTO has **no customer to refund** and its disposition path does not offer one; the recalled unit **cannot be restocked under any disposition**, and RESTOCK is not offered at all rather than being offered and rejected. A client withdrawal is a fourth type and is an outbound billed differently | FR-270 FR-273 FR-280 | — | base·app | v1·P0 | edge |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/whreturngrading/WhReturnGradingRulesTest.java`; `warehouse/backend/src/test/java/ai/warehouse/service/whreturnreceipt/WhReturnReceiptRecallGuardTest.java`
+
+## WH-SC-201
+
+Catalogue source row:
+
+`| **WH-SC-201** | A returned unit inspected as unsaleable, cost ₹1,850.00, above the approval threshold | stores1 dispositions it SCRAP; mgr1 approves | v1 ships exactly **three** dispositions — restock to available, quarantine for investigation, and scrap — so a return can always be put somewhere. Scrap posts an **explicit value-destroying movement** with a reason code and a named approver, to VIRT-SCRAP. **A disposition never silently discards stock**: there is no path from a return receipt to no ledger entry. The rest of the vocabulary (refurbish, repack, return to vendor as a shipment, return to client, hold for client decision, donate) is v2 | FR-273 FR-164 FR-027 | L-1 | app·base | v1·P2 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-202
+
+Catalogue source row:
+
+`| **WH-SC-202** | The customer expects a refund for the returned goods | Search every warehouse module, every version, for a refund | There is **no refund screen, no refund amount and no payment path in any warehouse module in any version**. The warehouse **emits the disposition** — restocked, quarantined, scrapped — and the receivable system decides the refund. A refund is a receivable event with tax consequences and belongs where the receivable lives; putting a refund amount here would have made the warehouse a party to a credit note it cannot compute | FR-274 | — | app | v1·P0 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-203
+
+Catalogue source row:
+
+`| **WH-SC-203** | GRN-2026-000841 posted, and a GRN template with a PDF body | stores1 prints the GRN, then a LOCATION_LABEL batch for the 1,152 generated bins, then an LPN_LABEL in **ZPL** | All three render from the shipped template object and renderer — the label path is ZPL first because there is **no label or document rendering anywhere in this codebase today** and it is net-new infrastructure. The location labels carry the same codes and check digits the generator produced, so the barcodes agree with the racking. The v1 LPN label carries internal **Code-128** and lpn_code, and scans back to that LPN. Optional GS1-128/SSCC requires the v1.1 allocator/parser capability; unavailable selection is refused | FR-224 FR-225 FR-089 FR-064 | — | app | v1·P2 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-204
+
+Catalogue source row:
+
+`| **WH-SC-204** | The same LPN label, printed once to a 203 dpi printer and once to a 300 dpi printer | Print both | Both render correctly. In v1 the operator selects the template and the browser downloads it; **v1.1 adds the print server and the printer registry** holding printer per zone and dock, default label size, DPI and media — because 203 against 300 dots per inch changes every barcode's width, and a design that ignores it produces unscannable labels on half the estate. The deferral is stated here so it is not discovered on a dock | FR-224 | — | app | v1.1·P3 | edge |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-205
+
+Catalogue source row:
+
+`| **WH-SC-205** | The v1 template catalogue | Enumerate what can be printed | **Eleven kinds ship in v1**: item and shelf label, LPN/pallet label with GS1-128, carton label, shipping label, location label, goods-receipt note, pick list, packing slip, delivery document, movement-document print and hazard class label. Every print is written to the print-job log and a **reprint is flagged** — a reprinted pallet label is a duplicate licence plate in the wild | FR-225 FR-224 | — | app | v1·P2 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-206
+
+Catalogue source row:
+
+`| **WH-SC-206** | Transfer TR-2026-00042 from SITE-A (DEL-01) to SITE-B (MUM-01), different GSTINs, goods worth ₹2,64,000, road distance 1,415 km, on 2026-07-10 | mgr1 generates the movement documents | A **delivery challan** is issued from the **per-branch series of SITE-A's REGISTERED branch at the challan date**, DEL-01 — a numbered document, not a print template — covering the branch transfer. Its GSTIN is resolved through that link. A site re-registered later switches series from that instant and renumbers nothing. It carries the derived deemed-supply flag from WH-SC-124, the transfer price, the valuation method, the HSN, the statutory unit-quantity code and the package count. The challan number is gapless. The transfer carries **two numbers, not one**: the **transfer price** that the tax document declares, and the **cost** that follows the goods (WH-SC-127's ₹408.20) — plus the data to eliminate unrealised profit. A single unit cost either overstates inventory or files a wrong invoice | FR-307 FR-305 FR-306 FR-426 FR-319 FR-244 | — | india | v1·P2-IN | happy |`
+
+Explicit Java references: `warehouse-india/backend/src/test/java/ai/warehouseindia/service/whindeliverychallan/WhinDeliveryChallanServiceTest.java`
+
+## WH-SC-207
+
+Catalogue source row:
+
+`| **WH-SC-207** | Four movements otherwise than by way of supply: a branch transfer, goods to a job worker, goods on approval, and goods out for repair | Issue a document for each | All four use **one challan table** with different challan purposes — warehouse's delivery challan **is** the challan. The accounting set's parallel job-work challan is reduced to a view over it or deleted, and the rule lands **with** the challan in v1 so a second one is never built. Movements that need a challan have **no invoice** to hang attributes on, which is why it cannot borrow another document's block | FR-307 FR-313 FR-312 | — | india | v1·P2-IN | happy |`
+
+Explicit Java references: `warehouse-india/backend/src/test/java/ai/warehouseindia/service/whindeliverychallan/WhinDeliveryChallanServiceTest.java`
+
+## WH-SC-208
+
+Catalogue source row:
+
+`| **WH-SC-208** | The same transfer, before an e-way bill exists | Attach transport details | They attach **polymorphically** to the transfer, the challan or the issue, and carry every field an e-way bill needs: dispatch-from and deliver-to blocks with pincode and state, transport mode, transporter party and registration, vehicle number and type, consignment-note number and date, and approximate distance. **All columns are v1/P1**, optional at the core and made mandatory by the localisation rule; the generation path is v1/P2-IN. The compliance-reference store holds **a number, not a vehicle** | FR-308 FR-310 | — | base·india | v1·P1 | happy |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/architecture/WhbLogisticsSeamContractTest.java`
+
+## WH-SC-209
+
+Catalogue source row:
+
+`| **WH-SC-209** | Consignment value ₹2,64,000, above the threshold at which an e-way bill is legally required | Generate the e-way bill | **Part-A** is generated by the consignor through the transplanted compliance-provider abstraction; **Part-B** (vehicle) is fillable later and is **required before movement**; validity is derived from the 1,415 km distance; extension in transit and cancellation within the permitted window are both implemented, as is the consolidated bill for multiple consignments in one vehicle and the blocked-registration case. The prior product's **known null-Part-B defect is fixed, not reproduced** — a bill with Part-A only cannot be treated as complete | FR-309 FR-326 | — | india | v1·P2-IN | happy |`
+
+Explicit Java references: `warehouse-india/backend/src/test/java/ai/warehouseindia/service/whinewaybill/WhinEwayBillServiceTest.java`
+
+## WH-SC-210
+
+Catalogue source row:
+
+`| **WH-SC-210** | The same consignment with Part-A generated and **Part-B empty** | Attempt to issue the gate pass and move the vehicle | Refused, naming the missing Part-B on the e-way reference. The **gate pass is e-way-bill-conditional**: it blocks only where a bill is **legally required and not yet generated**. Full decoupling would let e-way-mandatory goods leave the yard without one, which is a seizure at the first checkpoint | FR-195 FR-309 | — | india·app | v1·P2-IN | error |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-211
+
+Catalogue source row:
+
+`| **WH-SC-211** | A second transfer of goods worth ₹18,400 — **below** the threshold — moving 22 km within Delhi | Issue the gate pass | It issues **freely**, with no e-way bill and no blocking prompt, because none is legally required. The same code path produced both outcomes from the localisation rule and the consignment facts, not from an operator's judgement | FR-195 | — | india·app | v1·P2-IN | happy |`
+
+Explicit Java references: `warehouse-india/backend/src/test/java/ai/warehouseindia/service/whinewaybill/WhinEwayBillServiceTest.java`
+
+## WH-SC-212
+
+Catalogue source row:
+
+`| **WH-SC-212** | OF-1120 carries tax_classification_code = 84212300; the challan and the movement lines were created 2026-07-10. On 2027-01-15 the classification is corrected on the item master to 84212900 | Re-run the July documents and the July stock account | July's documents and movement lines still read 84212300 — the code is **snapshotted onto every document and movement line** and is a string on the item, **never an FK into a tax master**. Reading the item master would have given the new code for old documents, and the filed return would no longer reconcile. Movements posted after 15 January carry the new code | FR-066 FR-318 | — | base | v1·P1 | edge |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-213
+
+Catalogue source row:
+
+`| **WH-SC-213** | An install **without** warehouse-india — a customer outside India | Run the whole v1 transfer flow of WH-SC-058 | It works end to end. No GST rule, HSN semantic, e-way rule or MRP rule is hardcoded in warehouse-base or warehouse; tax identity, document types, statutory registers and print layouts are **data**. The v1 core carries only the hooks India needs — company_id on the movement, reason_code_id from a tax-mapped catalogue, the classification code on the item, duty_status in the position key — and those are in v1 because they cannot be added afterwards | FR-304 FR-025 FR-019 FR-066 FR-104 | L-5 | base·app | v1·P0 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-214
+
+Catalogue source row:
+
+`| **WH-SC-214** | An install **above** the e-invoicing reporting threshold, using the v1 India wave | Attempt to ship an inter-state stock transfer that legally needs an invoice reference number | It is **stated, not discovered at go-live**: the inter-state stock-transfer invoice needs an IRN and routes through the same e-invoicing adapter as a sales invoice, and **that adapter is v2/P4**. So this install cannot ship the v1 transfer document unaided, and the product says so up front rather than producing a legally invalid document. An install below the threshold is unaffected | FR-311 FR-309 | — | india | v2·P4 | edge |`
+
+Explicit Java references: `warehouse-india/backend/src/test/java/ai/warehouseindia/service/whincompliance/WhinComplianceGatewayIrnTest.java`; `warehouse-india/backend/src/test/java/ai/warehouseindia/service/whintransferirn/WhinTransferIrnDispatchGuardTest.java`
+
+## WH-SC-215
+
+Catalogue source row:
+
+`| **WH-SC-215** | A write-off of 12 EA of OF-1120 from lot L-2609, whose receipt carried input tax | Post it with reason_code_id = STOCK_DAMAGED_WRITE_OFF | The reason code carries an **ITC treatment and a statutory category**, so the input-tax reversal is computable and the six statutory categories are reportable — and the write-off movement can **reach the receipt that brought the lot in**, through the lot-to-layer linkage, which is what the reversal amount needs. A year of free-text reasons cannot be reclassified, so that year's reversal could never be computed. The v1 obligation is the **classification on the reason code**; the reversal computation and the statutory stock account are v2 | FR-315 FR-316 FR-019 FR-314 | L-12 | base·india | v1·P0 | edge |`
+
+Explicit Java references: `warehouse-india/backend/src/test/java/ai/warehouseindia/service/whinitcreversal/WhinItcReversalQueryServiceTest.java`; `warehouse-india/backend/src/test/java/ai/warehouseindia/service/whinitcreversal/WhinItcReversalReachBackIntegrationTest.java`; `warehouse-india/backend/src/test/java/ai/warehouseindia/service/whinstockaccount/WhinStockAccountPeriodQueryServiceTest.java`
+
+## WH-SC-216
+
+Catalogue source row:
+
+`| **WH-SC-216** | A counter customer at the parts desk; warehouse-adapter-dealer installed | The counter hand scans a barcode, types a quantity, takes the trade price level, prints, and starts the next line | The whole bill is **keyboard-first and under ten seconds** — scan or part number, quantity, price level, print, next — with trade price levels and a cash ticket. The stock effect is a SALE_ISSUE posted through the port: −2 EA at PICK-FACE-03, +2 EA at VIRT-CUSTOMER, source_document_type = PARTS_INVOICE. **The price is on the adapter's document; it never enters the port** | FR-359 FR-358 FR-041 | L-1 | adapter | v1·P2 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-217
+
+Catalogue source row:
+
+`| **WH-SC-217** | Workshop request WR-2026-1188 needs 4 EA of BRK-8840 for a job | The adapter reserves, then issues | The reservation is taken through the public reservation API with holder_system = ADAPTER_DEALER, holder_document_type = WORKSHOP_REQUEST; the issue posts through the port. The adapter's own whad_part_issues table holds the workshop-specific facts; **vehicle fitment lives in the adapter**, referencing the automotive model master, and never in warehouse-base — if base learned about vehicles it could not serve assets, field-service or logistics | FR-358 FR-074 FR-349 | L-10 | adapter | v1·P2 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-218
+
+Catalogue source row:
+
+`| **WH-SC-218** | Job card JC-2026-0881 in the services module, whose parts_used today is free TEXT and holds no stock truth at all; warehouse-adapter-services installed | The service advisor raises a **material request** for 6 EA of OF-1120 while the vehicle is still on the ramp | A **reservation is taken before it is an order** — the parts are held against the job with the holder quad (ADAPTER_SERVICES, JOB_CARD, JC-2026-0881, 1) and a TTL, so availability drops and nobody else allocates them. The availability API answers *"can I promise this part today"* before the promise is made. Nothing has been issued and nothing has moved | FR-360 FR-167 FR-174 | L-10 | adapter | v1·P2 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-219
+
+Catalogue source row:
+
+`| **WH-SC-219** | The same job card; the technician needs 4 of the 6 now and 2 tomorrow | Issue in parts as the job progresses | Two ISSUE_TO_JOB movements post through the port against the same job card, each consuming part of the reservation rather than releasing and re-taking it. The job card accumulates its parts over three days and the ledger shows two movements, both traceable to JC-2026-0881 through the lineage query | FR-360 FR-018 | L-1 L-12 | adapter | v1·P2 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-220
+
+Catalogue source row:
+
+`| **WH-SC-220** | The job finishes having used only 5 of the 6 parts issued; 1 EA of OF-1120 comes back to the store, unused and unopened | The storekeeper **returns it to store, crediting the job** | A JOB_PART_RETURN posts −1 EA from the job's consumption side and +1 EA back to PICK-FACE-03 at the **layer cost it was issued at**, and the job card's parts cost falls by that amount. **The existing accessories issuance flow cannot do this at all** — which is precisely why the services adapter is the second v1 adapter and not a v1.1 one: it exercises a path no shipped module in this monorepo has, so it is a real test of the port's genericity rather than a second copy of the first adapter | FR-360 FR-234 FR-352 | L-1 L-3 | adapter | v1·P2 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-221
+
+Catalogue source row:
+
+`| **WH-SC-221** | 14 open job cards at month end holding ₹3,86,400 of issued parts, of which 9 jobs are unclosed | Run the month-end reporting | **Parts issued to open jobs are neither stock nor cost of sale** and are reported as **work in progress** at every month end, with the value attributed per job card. Without the distinction the same rupees are either double-counted in stock or recognised as cost before the job is invoiced, and neither is recoverable afterwards | FR-361 | L-14 | adapter·app | v1·P2 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-222
+
+Catalogue source row:
+
+`| **WH-SC-222** | ECU-5501 serial ECU55010000771 fitted to vehicle registration DL-3C-AB-4471 under job card JC-2026-0881 | Issue it | The **vehicle it was fitted to is recorded at issue time** on the adapter's row, alongside the serial. Retro-linking a year of parts issues to vehicle identities is impossible — the association exists only in the technician's memory once the job closes — so the capture is at the moment of issue or never | FR-362 FR-099 | L-12 | adapter | v1·P2 | edge |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-223
+
+Catalogue source row:
+
+`| **WH-SC-223** | Both v1 adapters built, plus a build with **neither** on the classpath | Inspect the build and run it three ways | warehouse-adapter-dealer and warehouse-adapter-services each ship with **zero commits to warehouse-base**. Each package is a **sibling** — ai.warehouseadapterdealer, never ai.warehouse.adapter.dealer — so @ComponentScan("ai.warehouse") cannot load an adapter unconditionally in an install where its vertical is not built; a build with only the dealer adapter does not load services beans, and a build with neither starts clean. The port is accepted only if **neither adapter required a base-schema change the other did not want** | FR-351 FR-352 FR-350 FR-355 | — | adapter·base | v1·P0 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-224
+
+Catalogue source row:
+
+`| **WH-SC-224** | warehouse-adapter-example, a fixture adapter in the repository that CI builds | Run its integration test | Zero screens, one movement type, one document type, one item cross-reference, one reservation, one subscriber — and a test that **posts, reserves, consumes, reverses and reads back using only the public API**. If the fixture compiles, the contract is expressible; if a real adapter later needs something the fixture cannot express, that is a **base gap found before base ships** rather than after | FR-353 FR-349 | — | adapter | v1·P0 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-225
+
+Catalogue source row:
+
+`| **WH-SC-225** | An adapter branch that (a) writes a whb_ table directly, (b) adds a column to a base table, (c) creates an FK from a base table to a whad_ table, (d) is imported by base, (e) puts a CHECK on a registry column, (f) reuses another adapter's source-system code, (g) reads the accessories stock tables | Build it | The build **fails**, once per violation, with the offending file named. The coupling test in warehouse-base asserts six things including *no base-band migration referencing another module's prefix in a REFERENCES clause* and *no CHECK (… IN (…)) on any of the fourteen registry columns* — and it carries a **self-test that the scanners are not passing vacuously**, because a scanner that matches nothing passes everything | FR-350 FR-354 FR-375 | — | base | v1·P0 | error |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/architecture/WarehouseBaseCouplingTest.java`
+
+## WH-SC-226
+
+Catalogue source row:
+
+`| **WH-SC-226** | A movement whose source_document_type = JOB_CARD is displayed on the movement register, in an install where **warehouse-adapter-services has been removed** | Open the register | The document reference renders through the **bean-collection registry** of display resolvers; with the services resolver absent, **base's fallback** renders the document type and id — JOB_CARD JC-2026-0881 — rather than throwing, showing a UUID, or leaving the cell blank. A primary-bean override would have made the missing adapter a startup failure instead of a graceful degradation | FR-357 FR-336 | — | base | v1·P0 | edge |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/document/WarehouseDocumentDisplayRegistryTest.java`
+
+## WH-SC-227
+
+Catalogue source row:
+
+`| **WH-SC-227** | An operator with a handheld and no desk | Complete a full **receive → putaway → move → pick → pack → ship** cycle **entirely on the handheld** | Every step is a mobile screen from the named family — Receive, Putaway, Move, Pick, Pack, Ship, Cycle Count, Stock Enquiry, Task List — and no step requires a browser. This is the **v1.1 exit criterion**. The prior product shipped ~65 web operations screens and **zero** mobile ones; a WMS without a handheld is a stock ledger with a web form | FR-217 FR-212 | — | mobile | v1.1·P3 | happy |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/whcount/WhCountPostingAndBlindTest.java`; `warehouse/backend/src/test/java/ai/warehouse/service/whgoodsreceipt/WhGoodsReceiptLpnCounterLegTest.java`; `warehouse/backend/src/test/java/ai/warehouse/service/whpicktask/WhDespatchServiceTest.java`; `warehouse/backend/src/test/java/ai/warehouse/service/whqualityinspection/WhQualityInspectionScrapLpnCounterLegTest.java`; `warehouse/backend/src/test/java/ai/warehouse/service/whstockadjustment/WhStockAdjustmentPostApprovalTest.java`; `warehouse/backend/src/test/java/ai/warehouse/service/whworkorder/WhWorkOrderPostingLpnCounterLegTest.java`
+
+## WH-SC-228
+
+Catalogue source row:
+
+`| **WH-SC-228** | A wave of **200 order lines** across 6 zones, released at 08:00 | Release, pick and ship the wave | It releases, picks and ships **with task interleaving** — the same operator's next task may be a replenishment or a count in the aisle they are already in — and the wave generates in under five seconds. This is the second half of the **v1.1 exit criterion**. Waving operates on the **same Release action** v1 shipped on the demand header, over N orders | FR-187 FR-214 FR-422 | L-10 | app | v1.1·P3 | happy |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/allocation/WhbAllocationReleaseAllTest.java`; `warehouse-base/backend/src/test/java/ai/warehousebase/service/whbnumberseries/WhbDocumentNumberIssuerBlockTest.java`; `warehouse-base/backend/src/test/java/ai/warehousebase/service/whbtask/WhbTaskBatchCreateTest.java`; `warehouse/backend/src/test/java/ai/warehouse/architecture/WhWaveLadderAndRollUpContractTest.java`; `warehouse/backend/src/test/java/ai/warehouse/service/WhDemandOrderWaveReleaseTest.java`; `warehouse/backend/src/test/java/ai/warehouse/service/whpicktask/WhPickTaskWriterWaveReleaseTest.java`
+
+## WH-SC-229
+
+Catalogue source row:
+
+`| **WH-SC-229** | An RF pick screen on a gloved, one-handed operator, and a dropped connection mid-task | Work the screen and then reconnect | One active input; **scan advances** with no confirm tap; no free text where a scan exists; no mouse; no scrolling; a persistent current-task banner; an always-available report-exception action; and the screen is **resumable** after the dropped connection at the exact scan it reached. RF screens are a **separate screen family** from the generic list screen — text filters are supported on the shared list header but **date filters still are not**, and that constraint is recorded here rather than discovered on a dock | FR-219 FR-220 FR-221 | — | mobile | v1.1·P3 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-230
+
+Catalogue source row:
+
+`| **WH-SC-230** | A pool of open tasks and two ways of getting work | (a) An operator asks for the next task; (b) a supervisor pushes a queue to a named operator | **Both work from one table.** The pull honours zone, task type and equipment capability and does not send a trolley picker to a high rack, because the task carries a required resource type and users carry qualifications. Claiming uses FOR UPDATE SKIP LOCKED, which has **zero precedent in this codebase** and is flagged as new work rather than assumed. Building one mode and adding the other later would change the task lifecycle | FR-214 FR-215 FR-425 | — | app | v1.1·P3 | conc |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/whbtask/WhbTaskClaimConcurrencyIntegrationTest.java`
+
+## WH-SC-231
+
+Catalogue source row:
+
+`| **WH-SC-231** | Twelve handhelds on a two-shift site; one is left in a taxi | Register the fleet, hand over at shift change, and kill the lost gun's session | The **device registry** holds device inventory and assignment; sessions are device-bound and long-lived; shared-device sign-in is fast; **session handover at shift change** transfers the open tasks rather than orphaning them; and the lost gun's session is **killed remotely**. The platform's existing device registration is a push-notification token, not a device, so this is net-new | FR-222 FR-024 | — | base·mobile | v1.1·P3 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-232
+
+Catalogue source row:
+
+`| **WH-SC-232** | A pack station and an order of 37 units across 3 cartons | Run the pack session | One active carton; the first carton auto-created on session start; the next auto-created **on seal, only while units remain**; a quantity field on scan; repeat scans of one SKU **merged into the existing pack line** rather than producing N rows of one; the change-package control directly above the scanner; and **no loose packing option** — loading consumes only sealed cartons. The result is *scan × N, seal × cartons, complete × 1* | FR-190 FR-191 | — | app | v1.1·P3 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-233
+
+Catalogue source row:
+
+`| **WH-SC-233** | A new 3PL client CL-ORION signing on 2026-11-01 | Onboard it | Onboarding is a **task set instantiated from a template**, so every client is onboarded the same way and a missed step is visible as an open task rather than as a surprise in month two. A **per-client document number series** is created, so CL-ORION sees *their* order numbers and not ours | FR-283 FR-282 FR-426 | — | 3pl | v2·P5 | happy |`
+
+Explicit Java references: `warehouse-3pl/backend/src/test/java/ai/warehouse3pl/service/Wh3plClientOnboardingScenarioTest.java`
+
+## WH-SC-234
+
+Catalogue source row:
+
+`| **WH-SC-234** | CL-NOVA's November: 412 receipt lines, 1,809 pick lines, 96 shipments, 240 pallet-days of storage, 11 accessorials | Run the billing run for November and produce the client's charges | Every charge traces to a **billable event on the append-only, reversible meter**, keyed by its own idempotency key on (source_system, source_event_key); the run is an object with a period, a status ladder, rated/approved/invoiced timestamps, totals and an **unrated-event count that must be zero before approval**. A cancelled shipment **reverses** its event rather than deleting it, exactly as the stock ledger does. This is half the **v2 exit criterion** | FR-285 FR-292 FR-287 | L-2 | 3pl | v2·P5 | happy |`
+
+Explicit Java references: `warehouse-3pl/backend/src/test/java/ai/warehouse3pl/service/Wh3plBillableEventServiceTest.java`
+
+## WH-SC-235
+
+Catalogue source row:
+
+`| **WH-SC-235** | Storage billed on the **anniversary** method: each pallet billed for a storage month starting on its own receipt date | Run November's storage charge | It reads the **persisted daily storage snapshots** — one row per date, client, owner, warehouse, basis and identity, carrying the oldest receipt date — not a recomputation from the current ledger. Recomputing would give a different answer every time the ledger changed, and the three other methods (period-end snapshot, period-start snapshot, and the fourth per contract) read the same table. The snapshot table is a **v1/P2 obligation** even though 3PL billing is v2, because a past that was never snapshotted cannot be billed | FR-288 FR-289 FR-100 | — | base·3pl | v1·P2 | happy |`
+
+Explicit Java references: `warehouse-3pl/backend/src/test/java/ai/warehouse3pl/service/wh3plstoragebilling/Wh3plStorageBillingCalculatorTest.java`
+
+## WH-SC-236
+
+Catalogue source row:
+
+`| **WH-SC-236** | CL-NOVA on rate card **v3**, effective from 2026-10-01; card **v4** takes effect 2026-12-01; a handling event dated 2026-11-14 | Run the December billing | The event is rated against **the version live at the event's date** — v3 — not against the card current at run time. An escalation generates a **new version for review** and never mutates an active card. A dispute three months later re-rates to the same number | FR-287 FR-296 | — | 3pl | v2·P5 | edge |`
+
+Explicit Java references: `warehouse-3pl/backend/src/test/java/ai/warehouse3pl/service/Wh3plRateCardScenarioTest.java`
+
+## WH-SC-237
+
+Catalogue source row:
+
+`| **WH-SC-237** | CL-ORION's contract carries a minimum monthly charge of ₹1,20,000; November's metered charges total ₹94,300 | Run the billing | The shortfall of ₹25,700 posts as a **metered true-up event on a seeded charge code, with the arithmetic shown** — not as a hidden invoice line appearing only on the invoice. It is visible in the meter, in the run and in the client portal, and a dispute against it has something to point at | FR-290 FR-291 | — | 3pl | v2·P5 | edge |`
+
+Explicit Java references: `warehouse-3pl/backend/src/test/java/ai/warehouse3pl/service/wh3plstoragebilling/Wh3plMinimumTrueUpServiceTest.java`
+
+## WH-SC-238
+
+Catalogue source row:
+
+`| **WH-SC-238** | The approved November run for CL-NOVA, totalling ₹6,84,220 plus tax | Approve it | **One AR document envelope** is emitted to accounting carrying the charges and the classification; warehouse-3pl contains **no invoice, no numbering sequence and no tax engine, in any version**. Warehouse **captures** the tax-relevant facts — SAC/HSN, taxable value, place of supply — and hands them over; accounting or the compliance provider computes the tax. A wh3_ invoice table appearing in any migration fails the module's own coupling test | FR-294 FR-286 FR-281 | — | 3pl | v2·P5 | happy |`
+
+Explicit Java references: `warehouse-3pl/backend/src/test/java/ai/warehouse3pl/architecture/Wh3plCouplingTest.java`
+
+## WH-SC-239
+
+Catalogue source row:
+
+`| **WH-SC-239** | Goods sent to job worker JW-0044 under a job-work challan on 2026-08-12, owner unchanged, expected return 2026-11-10; the statutory clock runs from the **challan date** | The ageing job runs on 2026-10-27 and the customer files ITC-04 for the quarter | Open challan lines are aged against the statutory clock and the obligation is raised **before** it becomes a deemed supply; the ITC-04 return is filed **from warehouse data**, because the goods sat at a location at the job worker's premises with owner_id unchanged and every movement is in the ledger. This is one half of the second part of the **v2 exit criterion**. A movement recorded before the challan object existed could never acquire one, which is why the challan is v1 and the return is v2 | FR-312 FR-165 FR-307 | L-11 | india·app | v2·P4 | happy |`
+
+Explicit Java references: `warehouse-india/backend/src/test/java/ai/warehouseindia/scheduler/WhinJobWorkAgeingSchedulerTest.java`; `warehouse-india/backend/src/test/java/ai/warehouseindia/service/whinjobwork/WhinJobWorkAgeingServiceTest.java`
+
+## WH-SC-240
+
+Catalogue source row:
+
+`| **WH-SC-240** | A registration's quarter of warehouse movements, with reason codes carrying statutory categories | File the **Rule 56 statutory stock account** | It is a **shipped report, per registration and per period, in the mandated categories** — opening, receipts, supplies, goods lost, stolen, destroyed, written off, disposed of by gift or free sample, closing — separately for raw material, finished goods, scrap and wastage, **plus goods lying with a job worker**. It is not a generic movement grid with a date filter, and it reconciles to the movement register. This completes the **v2 exit criterion** | FR-314 FR-315 FR-385 | — | india | v2·P4 | happy |`
+
+Explicit Java references: `warehouse-india/backend/src/test/java/ai/warehouseindia/service/whinepr/WhinEprReturnServiceTest.java`; `warehouse-india/backend/src/test/java/ai/warehouseindia/service/whinstockaccount/WhinStockAccountPeriodQueryServiceTest.java`; `warehouse-india/backend/src/test/java/ai/warehouseindia/service/whinstockaccount/WhinStockAccountPeriodServiceTest.java`; `warehouse-india/backend/src/test/java/ai/warehouseindia/service/whinstockaccount/WhinStockAccountRegistrationSplitIntegrationTest.java`
+
+## WH-SC-241
+
+Catalogue source row:
+
+`| **WH-SC-241** | A user holding warehouse:stock:view but **not** warehouse:movements:post | They call the port, and separately open the adjustment screen | The port returns 403; the screen's post control is **not rendered**, because permission gating is useMemo-computed and status-gated on a menu-reachable page. Every controller method carries @PreAuthorize in resource:action form — there are no exceptions and a test enumerates the methods to prove it. The resource prefix is this product's own and is **never named after the deleted prior module**, whose name a live platform migration excludes from a bulk role grant | FR-401 FR-043 FR-435 | — | all | v1·P0 | error |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-242
+
+Catalogue source row:
+
+`| **WH-SC-242** | Three users: one holding :view:all, one holding :view:branch with MUM-01 in branch_staff, one with no view permission | Each opens the movement register, the position grid, the export and the statistics strip | View-all sees all three sites. The MUM-01 user sees SITE-B **and SITE-A**, because the user's branches resolve through BranchScopeService to allowedWarehouseIds — every site with a **current** link to MUM-01 whose role grants visibility, here REGISTERED and SERVING — **in every one of the four surfaces**, because the scope is a **record-level guard in the WHERE clause and not a UI filter**; the third sees no menu entry and gets 403 on the direct URL. The export and the statistics map are checked explicitly, because each grid identifier has both and every one of them is a leak site. A branch admin holds the **branch tier only** | FR-404 FR-405 FR-406 | — | app | v1·P0 | error |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/ledger/WhbLedgerOptionsBranchScopeTest.java`; `warehouse-base/backend/src/test/java/ai/warehousebase/service/ledger/WhbStockAsAtBranchScopeTest.java`; `warehouse-base/backend/src/test/java/ai/warehousebase/service/outbox/WhbOutboxIntegrationTest.java`; `warehouse-base/backend/src/test/java/ai/warehousebase/service/scan/WhbScanBranchScopeTest.java`; `warehouse-base/backend/src/test/java/ai/warehousebase/service/scope/WhbWarehouseScopeServiceTest.java`; `warehouse-base/backend/src/test/java/ai/warehousebase/service/stockobject/WhbLedgerReaderBranchScopeTest.java`; `warehouse-base/backend/src/test/java/ai/warehousebase/service/stockobject/WhbStockObjectOptionsBranchScopeTest.java`; `warehouse-base/backend/src/test/java/ai/warehousebase/service/whbaccountinghandover/WhbAccountingHandoverBranchScopeTest.java`; `warehouse-base/backend/src/test/java/ai/warehousebase/service/whbglpostingrule/WhbGlPostingRuleBranchScopeTest.java`; `warehouse-base/backend/src/test/java/ai/warehousebase/service/whbitemsitesetting/WhbItemSiteSettingBranchScopeTest.java`; `warehouse-base/backend/src/test/java/ai/warehousebase/service/whblocation/WhbLocationBranchScopeTest.java`; `warehouse-base/backend/src/test/java/ai/warehousebase/service/whblot/WhbLotBranchScopeTest.java`; `warehouse-base/backend/src/test/java/ai/warehousebase/service/whblpn/WhbLpnBranchScopeTest.java`; `warehouse-base/backend/src/test/java/ai/warehousebase/service/whbnumberseries/WhbNumberSeriesBranchScopeTest.java`; `warehouse-base/backend/src/test/java/ai/warehousebase/service/whbnumberseriesissued/WhbNumberSeriesIssuedBranchScopeTest.java`; `warehouse-base/backend/src/test/java/ai/warehousebase/service/whboutbox/WhbOutboxBranchScopeTest.java`; `warehouse-base/backend/src/test/java/ai/warehousebase/service/whboutbox/WhbOutboxDeliveryBranchScopeTest.java`; `warehouse-base/backend/src/test/java/ai/warehousebase/service/whbpositiondriftfinding/WhbPositionDriftFindingBranchScopeTest.java`; `warehouse-base/backend/src/test/java/ai/warehousebase/service/whbreservation/WhbReservationBranchScopeTest.java`; `warehouse-base/backend/src/test/java/ai/warehousebase/service/whbserial/WhbSerialBranchScopeTest.java`; `warehouse-base/backend/src/test/java/ai/warehousebase/service/whbstockmovement/WhbStockMovementBranchScopeTest.java`; `warehouse-base/backend/src/test/java/ai/warehousebase/service/whbstockperiod/WhbStockPeriodBranchScopeTest.java`; `warehouse-base/backend/src/test/java/ai/warehousebase/service/whbstockperiodoverride/WhbStockPeriodOverrideBranchScopeTest.java`; `warehouse-base/backend/src/test/java/ai/warehousebase/service/whbstockposition/WhbStockPositionBranchScopeTest.java`; `warehouse-base/backend/src/test/java/ai/warehousebase/service/whbstockpositionsnapshot/WhbStockPositionSnapshotBranchScopeTest.java`; `warehouse-base/backend/src/test/java/ai/warehousebase/service/whbtask/WhbTaskBranchScopeTest.java`; `warehouse-base/backend/src/test/java/ai/warehousebase/service/whbtransformation/WhbGenealogyBranchScopeTest.java`; `warehouse-base/backend/src/test/java/ai/warehousebase/service/whbtransformation/WhbTransformationBranchScopeTest.java`; `warehouse-base/backend/src/test/java/ai/warehousebase/service/whbwarehouse/WhbWarehouseBranchScopeTest.java`; `warehouse/backend/src/test/java/ai/warehouse/service/whasn/WhAsnBranchScopeTest.java`; `warehouse/backend/src/test/java/ai/warehouse/service/whdockappointment/WhDockAppointmentBranchScopeTest.java`; `warehouse/backend/src/test/java/ai/warehouse/service/whdockdoor/WhDockDoorBranchScopeTest.java`; `warehouse/backend/src/test/java/ai/warehouse/service/whgoodsreceipt/WhGoodsReceiptBranchScopeTest.java`; `warehouse/backend/src/test/java/ai/warehouse/service/whpurchaseorder/WhPurchaseOrderBranchScopeTest.java`; `warehouse/backend/src/test/java/ai/warehouse/service/whreceiptreversal/WhReceiptReversalBranchScopeTest.java`; `warehouse/backend/src/test/java/ai/warehouse/service/whreceivingsession/WhReceivingSessionBranchScopeTest.java`; `warehouse/backend/src/test/java/ai/warehouse/service/whstocktogl/WhStockToGlQueryServiceTest.java`
+
+## WH-SC-243
+
+Catalogue source row:
+
+`| **WH-SC-243** | stores1 is granted warehouse access to SITE-A only; SITE-B holds OF-1120 | stores1 attempts an adjustment at SITE-B, and separately opens the stock grid | The adjustment is refused; the grid shows SITE-A only. **Warehouse-scoped user access participates in every management query's predicate**, composed as owner ∩ (branch → warehouse through current visibility links) ∩ warehouse grant. The grant narrows within the branch-derived set and never widens it. A storekeeper at one branch must not adjust another's stock, and hiding the menu entry is not a guard. The one exception is a transfer's own :receive verb and transit-loss adjustment, which authorise **that transfer's** transit location at the source site and nothing else (WH-SC-058) | FR-405 FR-404 | — | base·app | v1·P1 | error |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/architecture/WhbWarehouseScopeContractTest.java`; `warehouse-base/backend/src/test/java/ai/warehousebase/service/WhbItemExportServiceOnHandScopeTest.java`; `warehouse-base/backend/src/test/java/ai/warehousebase/service/port/WhbMovementBatchPosterTest.java`; `warehouse-base/backend/src/test/java/ai/warehousebase/service/port/WhbPortReferenceResolverSiteScopeTest.java`; `warehouse-base/backend/src/test/java/ai/warehousebase/service/whbitem/WhbItemOnHandScopeTest.java`; `warehouse-base/backend/src/test/java/ai/warehousebase/service/whblocation/WhbLocationBranchScopeTest.java`; `warehouse-base/backend/src/test/java/ai/warehousebase/service/whbstockmovement/WhbStockMovementScopeCompositionTest.java`; `warehouse-base/backend/src/test/java/ai/warehousebase/service/whbstockposition/WhbStockPositionScopeCompositionTest.java`; `warehouse-base/backend/src/test/java/ai/warehousebase/service/whbtask/WhbTaskScopeCompositionTest.java`; `warehouse-base/backend/src/test/java/ai/warehousebase/service/whbwarehousegrant/WhbWarehouseGrantBranchScopeTest.java`; `warehouse/backend/src/test/java/ai/warehouse/architecture/WhWarehouseScopeContractTest.java`
+
+## WH-SC-244
+
+Catalogue source row:
+
+`| **WH-SC-244** | A CL-NOVA portal user with a PORTAL grant only | They browse stock, create an inbound ASN, upload an outbound order CSV, track a shipment, view returns and view billing | Each screen is **the existing screen with a permission surface over it**, not a second application with its own authentication. Everything is owner-filtered by the server-side resolver of WH-SC-140; a request naming CL-ORION is 403, never empty. Nothing in the portal writes stock outside the port | FR-284 FR-300 FR-114 | L-5 | 3pl | v2·P5 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-245
+
+Catalogue source row:
+
+`| **WH-SC-245** | aud1, an auditor | They open the ledger, the movement register, the adjustment register, the count history, the valuation and the immutability evidence; then attempt to post, adjust, approve or reverse anything | All six reads succeed — the auditor is **read-only across everything, including the ledger, and is never a writer**. Every write attempt is 403, and so is every export attempt: AUDITOR holds :view and :view:all and no :export (user decision 2026-09-15, platform V698 policy). The prior module's auditor exclusion is **not inherited** (both migrations are one-shot and have already run, so they grant a new module nothing); the decision is **re-taken explicitly** in this product's permission migration, which grants the rows itself | FR-403 FR-427 FR-401 | — | base·app | v1·P0 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-246
+
+Catalogue source row:
+
+`| **WH-SC-246** | The warehouse permission migration, granting warehouse:movements:reverse which requires warehouse:movements:view | Run it on a fresh install and again on an install where another module already created the dependency table | It **inserts rows into permission_dependencies and never creates the table** — it is a platform table, and the defensive re-creation found in another module is a documented false premise that must not be copied. The migration is individually idempotent, so a Flyway retry after a later step fails does not duplicate. logistics:* and its dependency rows are **reserved in the same migration**, because retro-granting a permission invented in v2 to every existing role is hand work | FR-402 FR-407 FR-374 FR-346 | — | base·app | v1·P0 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-247
+
+Catalogue source row:
+
+`| **WH-SC-247** | A new warehouse grid — the movement register — with 14 columns and 9 filters, three of them date filters | Ship it and open it in a fresh install | The migration writes column definitions, filter definitions **and both default_columns and default_filters** on the grid-preference row — setting a filter definition visible alone does **not** build the default strip. The filter scope is registered in the platform allowlist (a field absent from it is **silently dropped** before the API call, and the filter appears to do nothing) and the cache names in the platform cache registry. Expiry, count and manufacture filters use the **date-only** filter type, because the timestamp type moves the lower bound back a day east of UTC. Menu inserts are guarded by an **existence check**, not conflict handling, and seed translations for **all three shipped locales** — with **identical key sets** in en, fr and hi, asserted by the namespace key-diff suite (P1-19; a key present in en and absent from hi renders a **blank** label, not English, because the safe-translation resolver returns '' on a miss). The suite diffs the whole namespace file, so it covers every key a later phase adds without being extended (Q-005, P2-29) | FR-433 FR-432 FR-410 FR-431 FR-327 | — | app·platform | v1·P1 | happy |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/architecture/WhbGridConfigContractTest.java`; `warehouse/backend/src/test/java/ai/warehouse/architecture/WhGridConfigContractTest.java`
+
+## WH-SC-248
+
+Catalogue source row:
+
+`| **WH-SC-248** | Any completed warehouse task claiming to be done | Audit it against the seven layers | A tick requires **all seven**: the database column or seed, the service method, the endpoint with its authorisation, the frontend API method, the UI control rendered and permission-gated and status-gated on a **menu-reachable** page, an **access path clickable from a top-level menu**, and a **runtime effect observable after rebuild** — plus the mobile counterpart as the eighth where the change is user-facing. There is **no aggregate "all done"**. This is the scenario that catches the highest-frequency defect class in this repository's history: a fully built backend with no reachable UI | FR-435 FR-434 FR-218 | — | all | v1·P0 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-249
+
+Catalogue source row:
+
+`| **WH-SC-249** | The late-arriving valid issue of WH-SC-170, refused INSUFFICIENT_STOCK — **the goods are physically off the shelf and the system says they are not there** | The refusal happens | The rejected move is a **first-class object**, not a log line: the discrepancy / blocked-move queue records the attempted movement, the rejection reason, the operator and the physical reality, holds the goods in a PENDING_RESOLUTION disposition, and routes to a supervisor who can **force it with a reason and an approval**. Refusing a movement the operator has already physically performed, with nowhere for it to go, is how a warehouse learns to work around the system — so the queue is the difference between a guard and an obstacle | FR-028 FR-216 | L-6 | app | v1·P2 | error |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-250
+
+Catalogue source row:
+
+`| **WH-SC-250** | The network is down for four hours; picking continues on printed sheets under the documented paper fallback | Service returns; the supervisor enters the shift's work | **Catch-up entry mode** accepts the backdated movements carrying the **true event time** — occurred_at in the outage window, recorded_at now, effective_date the operational date — so dock-to-stock and the day's KPIs are computed from when things happened, not from when they were keyed. This is possible **only** because the three timestamps are separate columns; a single-timestamp ledger would record four hours of work as having happened in one minute | FR-430 FR-007 | L-13 · I-13 | app·mobile | v1.1·P3 | edge |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/ledger/writer/WhbStockLedgerWriterIntegrationTest.java`
+
+## WH-SC-251
+
+Catalogue source row:
+
+`| **WH-SC-251** | A running install on an ordinary Tuesday | The health-signal watcher runs | It reports **movements posted today against a baseline**, handovers stuck PENDING, counts overdue, negative positions, orphaned reservations and unreconciled positions. All six are already-modelled data that today has **no watcher at all**; a silence that means *nothing has been posted since 06:00 because the integration is down* is otherwise indistinguishable from a quiet day | FR-398 FR-232 FR-163 | L-4 | app | v1.1·P3 | edge |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-252
+
+Catalogue source row:
+
+`| **WH-SC-252** | An outbox subscriber whose HTTP endpoint has been down for six hours, and 1,400 undelivered events | Delivery retries, then the operator replays | Delivery is **at-least-once with backoff**, each attempt recorded; events that exhaust retries land in the **dead-letter grid** with their payload and error; POST /outbox/replay?from_cursor= re-delivers from a chosen point and consumers **deduplicate on (consumer, sequence)** because the cursor is gapless and monotonic. warehouse-base does not know who its consumers are — they read by cursor. **There is no outbox anywhere in this repository today**, so this is budgeted as net-new: a table, a cursor, a publisher job, retry, the dead-letter grid and the replay endpoint — an async annotation is not sufficient | FR-330 FR-332 FR-333 | — | base | v1·P0 | error |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/outbox/WhbOutboxIntegrationTest.java`
+
+## WH-SC-253
+
+Catalogue source row:
+
+`| **WH-SC-253** | An install with write-ahead archiving on; the position report and the stock valuation as at 14:32:10 on 2026-11-09 are known from a report run that afternoon | Restore the install to that chosen second into a throwaway database | The restored **position report and valuation equal the known figures exactly**, the full ledger rebuild of WH-SC-061 still reproduces the positions, and the hash chain of WH-SC-033 still verifies. The achieved RPO and RTO are recorded against the commitment. **The platform backup service today has no restore path at all** — no write-ahead archiving, no point-in-time recovery, no restore-verification job, no stated recovery objectives — and for a statutory stock ledger that is a records risk, not an availability risk. A deliberately corrupted backup artefact must make the verification job **fail loudly** and name the artefact; a job that cannot fail is not a control | FR-429 FR-012 FR-006 | L-4 | platform | v1·P0 | conc |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/nonfunctional/NonFunctionalFoundationsTest.java`
+
+## WH-SC-254
+
+Catalogue source row:
+
+`| **WH-SC-254** | A new intake of six pickers to train, and a live warehouse holding ₹4 crore of stock | Train them | They work in a **sandbox / practice warehouse with disposable data**, with in-product help per screen on the platform's existing help affordance. **You cannot train pickers on live stock** — every training pick is a real movement in an append-only ledger that has no delete, so the alternative is a month of reversals with training reason codes polluting the adjustment register | FR-442 FR-005 | L-2 | app | v1.1·P3 | edge |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/architecture/WhbSandboxPurgeContractTest.java`; `warehouse-base/backend/src/test/java/ai/warehousebase/service/accounting/WhbAccountingEnvelopeFactoryTest.java`; `warehouse/backend/src/test/java/ai/warehouse/architecture/WhSandboxExclusionContractTest.java`
+
+## WH-SC-255
+
+Catalogue source row:
+
+`| **WH-SC-255** | A native query in the movement register returning occurred_at, recorded_at and effective_date from timestamp with time zone columns, on a driver configuration that returns OffsetDateTime in one environment and Timestamp in another | Run the grid in both | Both render the values. The Object → OffsetDateTime mapping handles **all four** types a driver may return — OffsetDateTime, Instant, Timestamp, LocalDateTime — and **logs a warning on an unknown one** so the runtime type is discoverable from logs. Returning null for an unhandled type is silent data loss: cells render blank while the database holds the data, and nothing anywhere reports it | FR-438 | L-13 | base·app | v1·P1 | error |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/repository/WhbNativeRowValuesTest.java`
+
+## WH-SC-256
+
+Catalogue source row:
+
+`| **WH-SC-256** | A movement register export of **100,000 rows** for an audit, from a grid whose visible columns include createdByName and updatedByName | Run the export | The export **follows the visible columns and is a superset of them**, carrying created-by and updated-by because the grid shows them, and it **does not hold a transaction open** for the duration. The file opens correctly with the text-typed columns intact. An export that silently drops the audit columns the grid displays is the known regression this scenario exists to catch | FR-400 FR-422 | — | app | v1·P2 | edge |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/nonfunctional/NonFunctionalFoundationsTest.java`; `warehouse-base/backend/src/test/java/ai/warehousebase/service/ExportServiceContractTest.java`; `warehouse/backend/src/test/java/ai/warehouse/service/ExportServiceContractTest.java`
+
+## WH-SC-257
+
+Catalogue source row:
+
+`| **WH-SC-257** | An install needing TYRE, FUEL, RETURNABLE_EQUIPMENT and CORE item types, none of which the seeded set anticipated at that site | Register them | item_type is a **registry row**, so a migration inserts four rows and the item master, the grids, the filters and the reports all accept them **with no warehouse-base release and no code change**. The four fleet types are exactly what stops a future logistics module building private ledgers for tyres and diesel | FR-049 FR-375 FR-376 | — | base | v1·P1 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-258
+
+Catalogue source row:
+
+`| **WH-SC-258** | OF-1119, superseded by OF-1120 two months ago, with 43 EA still on hand | Set it to *no longer orderable, still stocked* | Item status is **four independent facts** — receivable, issuable, orderable, countable — set independently, plus a lifecycle_status of PHASE_OUT for reporting. Reorder stops proposing it; picking still allows it; counting still includes it. A single is_active boolean cannot express this state, which is where a superseded part lives for two years | FR-050 FR-071 | — | base | v1·P1 | edge |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-259
+
+Catalogue source row:
+
+`| **WH-SC-259** | OF-1119 still has 43 EA on hand at SITE-C, in a DAMAGED status, under owner HOUSE | An administrator attempts to deactivate the item | **Blocked**, naming the site, the status, the owner and the quantity — the check is *"across any site, status **or** owner"*, so hiding behind a non-AVAILABLE status or a non-house owner does not get past it. The **offered alternative** is stated in the same message: block it for receipt or issue instead. The rule is a service guard rather than a trigger, because as a trigger it would fire on every item update | FR-051 FR-050 | — | base | v1·P1 | error |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/WhbRegistryToggleStatusTest.java`
+
+## WH-SC-260
+
+Catalogue source row:
+
+`| **WH-SC-260** | The item master screen and the whb_items table | Look for a cost | There is **no cost column on the item master** — cost is a property of a receipt layer. The only item-level cost is a **standard cost**, and that is a separate effective-dated table with different semantics and its own history. A cost on the item would be a second valuation truth that no rebuild could reconcile | FR-052 FR-234 | — | base | v1·P1 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-261
+
+Catalogue source row:
+
+`| **WH-SC-261** | The UoM master with EA, CASE, KG, LITRE | Inspect each row and generate a compliance payload | Every UoM carries unece_rec20_code and gst_uqc_code. Without them every compliance payload and every EDI mapping is hand-mapped per install, and the invoice registration portal rejects the document. The **statutory unit-quantity code is copied onto every line**, because a return carries the government's unit code and not our UoM name, and a line with no unit cannot be summarised | FR-056 FR-319 | — | base | v1·P1 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-262
+
+Catalogue source row:
+
+`| **WH-SC-262** | Barcode 18901234567891 registered against the **CASE packaging level** of OF-1120 (12 EA), and 8901234567894 against the EA level | Scan each at receipt | The CASE scan yields **12 EA**, derived from the packaging row; the EA scan yields 1. **Quantity is never stored on the barcode** — a quantity on the barcode, or a UoM on the barcode, is the same dual truth in a different column. The registry carries the normalised GTIN-14, the packaging reference, a barcode **type** (purpose) distinct from its **format** (symbology), and a status that **retires a code without deleting scan history** | FR-057 FR-063 | L-7 | base | v1·P1 | happy |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/scan/WhbGs1ElementStringParserTest.java`
+
+## WH-SC-263
+
+Catalogue source row:
+
+`| **WH-SC-263** | OF-1120 bought from two suppliers: SUP-A ships cases of 12, SUP-B ships cases of 6; a supplier-agnostic default of 12 also exists | Receive from SUP-B, then from an unknown supplier, then loose | Resolution is deterministic and in this order: **supplier-specific → supplier-agnostic default → loose/each**, with priority breaking ties inside a tier. SUP-B's case yields 6; the unknown supplier's yields 12; loose yields 1. The same part bought from two vendors ships in different pack quantities on day one, so this is not an edge case | FR-058 FR-057 | L-7 | base | v1·P1 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-264
+
+Catalogue source row:
+
+`| **WH-SC-264** | Owner CL-NOVA and owner CL-ORION both stock a product carrying the **same EAN** 8901234567894, from the same manufacturer, under their own SKUs | Register both aliases | Both are accepted. The alias table — owner SKU, GTIN-13/14, UPC/EAN, marketplace codes, OEM part number, supplier code, customer part number, legacy code, each with pack_qty — is **deliberately not globally unique**, because two owners legitimately carry the same EAN. Item uniqueness is (owner_id, sku) plus a globally unique internal item_code that every foreign key points at and that appears on a bin label | FR-059 FR-060 | — | base | v1·P1 | edge |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-265
+
+Catalogue source row:
+
+`| **WH-SC-265** | Six scan surfaces — receive, putaway, move, pick, pack, count — and a keyboard-wedge scanner with no vendor SDK | Scan a barcode, a location code, a lot code, a serial, and an unrecognised string at each surface | Every surface calls **one scan-resolution service** which returns a **typed object** saying what the string was; nothing parses barcodes inline anywhere. The unrecognised string returns an unresolved result and is **still logged** — every scan is logged, resolved or not, which is how a mis-scanning gun or a mislabelled pallet is found. **No scanner SDK ever enters the codebase**: the engine consumes a plain string, so any keyboard-wedge device works | FR-062 | — | base | v1·P1 | happy |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/scan/WhbGs1ElementStringParserTest.java`
+
+## WH-SC-266
+
+Catalogue source row:
+
+`| **WH-SC-266** | A GS1-128 element string 010890123456789410L26091724022821SN0771 | Scan it | One scan returns a **composite** {gtin, lot, expiry, serial} — AI 01, 10, 17, 21 parsed with their fixed and variable lengths and the FNC1 separator honoured. The **resolver's return shape admits a composite result from v1**, even though the parser lands in v1.1, so this is a new parser behind an existing contract and not a rewrite of every scan surface | FR-063 FR-062 | — | base | v1.1·P3 | happy |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/scan/WhbGs1ElementStringParserTest.java`
+
+## WH-SC-267
+
+Catalogue source row:
+
+`| **WH-SC-267** | BAT-4402, a lithium battery: UN number UN3480, class 9, packing group II, proper shipping name recorded | Receive it and ship it | The hazmat block is on the item **in v1**, and the **hazard class label** is one of the eleven v1 print kinds, so the block is *read by something* rather than stored and forgotten. The prior art's block is kept verbatim; what was missing there was everything that used it | FR-067 FR-225 | — | base·app | v1·P1 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-268
+
+Catalogue source row:
+
+`| **WH-SC-268** | ABC class, velocity/movement class and count-frequency class as **v1 columns on item × site**, populated by the go-live import; the recomputation job ships in v3 | Ask what reads them in v1 | The **cycle-count programme scopes by ABC class in v1** — so the columns are consumed from day one even though nothing recomputes them yet, and the v3 job replaces a manual value rather than filling an empty column. *A classification stored and never consumed is a defect the prior product shipped*, and this scenario is what stops it recurring | FR-070 FR-156 | — | base·app | v1·P1 | edge |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-269
+
+Catalogue source row:
+
+`| **WH-SC-269** | A GRN arrival photograph and a damage certificate attached to OF-1120, stored in the platform documents table | An administrator deletes the underlying platform document row | The delete is **refused** by ON DELETE NO ACTION on the warehouse-owned link table, naming the warehouse references. A cascading link would have made a GRN photograph or a damage certificate vanish with **no referential trace** — and the certificate is the evidence in a carrier claim | FR-077 | — | base | v1·P1 | error |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-270
+
+Catalogue source row:
+
+`| **WH-SC-270** | An apparel client's style SHIRT-OXF with axes **size** (S, M, L, XL, XXL — in that order) and **colour** (white, blue), i.e. 10 stocked variants | Load the style and transact against a variant | The **v1 schema** holds a parent style item, the ordered set of variant axes and their values, and each stocked variant as an item row carrying its style and its value on each axis. **Plan at the style, transact at the variant.** The axis carries an **explicit ordering integer**, so a size run renders and reports S→XXL rather than L, M, S, XL, XXL, and *"S through XL"* is expressible as a range. The matrix screens, grids and style-level reports are v2 — but converting a year of flat SKUs into a matrix is a **re-keying of the item master and every movement that references it**, with human judgement in it, so the schema cannot wait | FR-443 FR-444 FR-060 | L-5 | base | v1·P1 | edge |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-271
+
+Catalogue source row:
+
+`| **WH-SC-271** | An install needing location types IN_TRANSIT, MOBILE, VEHICLE and TRAILER, plus a new CROSS_DOCK_LANE two years later | Register them by migration | location_type is a **registry with behaviour flags** — is_physical, is_stock_holding, is_virtual_counterparty, is_mobile, is_transit, allows_mixed_owner, requires_assigned_user, is_pickable, is_receivable, counts_as_on_hand, is_staging, is_dock — and the new type is a row. **The prior product broke exactly this**: its location_type and zone_type CHECKs were dropped and recreated with different value sets 36 versions after creation, so the coupling test asserts no CHECK (… IN (…)) on this column specifically | FR-083 FR-375 FR-354 | — | base | v1·P1 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-272
+
+Catalogue source row:
+
+`| **WH-SC-272** | Technician tech7's van, modelled as a whb_locations row with location_type = MOBILE and tech7 as its current CUSTODIAN row in whb_location_user_assignments | Replenish the van by transfer, consume a part at a customer site, and cycle-count the van | All three are ordinary warehouse operations against an ordinary location: a transfer in, an issue out, a count. Van stock **is the same object as a delivery vehicle's load**. Both are **v1** even though the field-service adapter is v1.1 — without them van stock becomes a separate table and a separate reconciliation problem, and last-mile is unbuildable on the ledger | FR-088 FR-083 FR-363 | L-5 | base | v1·P1 | edge |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-273
+
+Catalogue source row:
+
+`| **WH-SC-273** | Vehicle MH-12-XY-4471, which is a whb_locations row of type VEHICLE **and** an asset in a future logistics module with a registration, an insurance expiry and an odometer | Join the two, then **delete the logistics module** | They are joined through whb_location_external_refs (location_id, source_module, external_id) — **never by a foreign key**. After deleting logistics, warehouse still works: the location remains, the external reference resolves to null, and the display resolver falls back. Deleting warehouse leaves logistics working, because its vehicles have no foreign key into ours. **Both deletion tests are the seam's acceptance criterion**, and any design where either answer is no has a foreign key pointing the wrong way | FR-090 FR-339 FR-336 | — | base | v1·P1 | edge |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-274
+
+Catalogue source row:
+
+`| **WH-SC-274** | A truck booked for a 10:00 slot at dock door DOCK-03, arriving 09:41, docked 10:12, departed 13:05 | Record the appointment in v1, where the **screens** ship in v1.1 | The dock and dock-appointment **schema lands in v1** with arrived_at, docked_at, departed_at, no_show and detention_minutes, and the values are captured. **Dock-to-stock is measured from arrived_at** and detention is metered from the same row — so a v1 install has the history the v1.1 screens will display, and month two of the first client can answer for month one | FR-092 FR-392 FR-213 | — | app | v1·P1 | edge |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/whdockappointment/WhDockAppointmentDetentionTest.java`
+
+## WH-SC-275
+
+Catalogue source row:
+
+`| **WH-SC-275** | A fresh install, immediately after the first migration runs | Query whb_owners and whb_owner_types | **Exactly one house owner is seeded by the first migration**, and the owner-type registry holds HOUSE, CLIENT_3PL, CONSIGNOR/SUPPLIER_CONSIGNED, CUSTOMER_OWNED, JOB_WORK and TRANSIT, each with is_house, posts_to_our_gl and default_cost_basis. warehouse v1 posts against the house owner on **every** movement, so the owner code path is live from the first receipt and not from the day a 3PL client arrives | FR-108 FR-109 FR-107 | L-5 L-14 | base | v1·P0 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-276
+
+Catalogue source row:
+
+`| **WH-SC-276** | Six commercial arrangements: consignment in, consignment out, VMI, customer-owned goods under repair, goods on approval, and job-work material at a job worker | Model all six | They are **one model in three configurations**, distinguished by owner type — not six features and not three tables. Each is stock at a location with an owner whose type says whether it is valued, whether it posts to our GL, and what its default cost basis is. Stating this explicitly is what stops it being built three times, and the fourth arrangement a customer asks for is a configuration rather than a project | FR-113 FR-108 FR-112 | L-11 L-14 | base | v1·P0 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-277
+
+Catalogue source row:
+
+`| **WH-SC-277** | SUP-A, who is a **supplier** from 2024, became a **customer** in 2026, and acts as a **transporter** on its own deliveries | Model it | One counterparty with a **thin identity** — code, name, legal name, national tax id, active flag — and **three role rows in a many-to-many link table with validity dates**, not a partner_type enum. A party is routinely two roles at once, and a carrier is a counterparty with a role rather than a different kind of object. warehouse-base owns this because nothing else in the repo does — the assets vendor master is assets-owned, automotive's customers and companies model buyers and OEMs, and accessories receiving has no supplier field at all | FR-116 FR-117 FR-120 | — | base | v1·P1 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-278
+
+Catalogue source row:
+
+`| **WH-SC-278** | The same counterparty, also present as an automotive company row and an assets vendor row | Link them, then run the identical flow on a **standalone** install | whb_counterparty_external_refs (counterparty_id, source_module, external_id) links them with uk(source_module, external_id) and **source_module as an opaque string, never a foreign key**. The party is *linked*, never copied. On the standalone install **the table is empty and everything works** — which is the assertion that matters, because a design that needs the xref populated has an implicit dependency on a module that may not exist | FR-118 FR-061 FR-371 | — | base | v1·P1 | edge |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-279
+
+Catalogue source row:
+
+`| **WH-SC-279** | The counterparty master screen, and the carrier master | Look for payment terms, a credit limit, bank details, contacts or a scorecard on the counterparty; then ask how carriers, tracking events, NDR, RTO receipts and COD remittances are referenced | **None of the five commercial fields exists** on the counterparty — they belong to whichever module owns the commercial relationship, and adding them here is how the seam leaks. The **five relocatable objects** are referenced by a **stable code resolved through a service, never by a foreign key from the referencing table**, so moving them into a logistics module later is a refactor and not a data migration | FR-119 FR-199 | — | base·app | v1·P1 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-280
+
+Catalogue source row:
+
+`| **WH-SC-280** | OF-1120 with an item-level default reorder point of 40; the flagship SITE-A needs 120 and the satellite SITE-C needs 15 | Set them | Reorder point, safety stock, min, max, reorder quantity and lead time live on **item × site** in v1; the item-level values are **defaults that seed the row and are never the operative numbers**. A ten-branch dealer does not want one reorder point across the group. In v1.1 the same six move to item × location for pick-face replenishment, and the item × site row stays as the site's total | FR-053 FR-252 | — | base | v1·P1 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-281
+
+Catalogue source row:
+
+`| **WH-SC-281** | A replenishment run over 3,400 items at SITE-A | mgr1 runs it | It produces a **document, not a grid**: suggestions carrying item, site, on-hand, allocated, on-order, reorder point, suggested quantity, a source (PURCHASE or TRANSFER), a source warehouse, a supplier and a reason, which the buyer edits and converts **in one action**. The **warehouse never becomes a purchase-order engine** — it produces the suggestion and the purchasing system places the order | FR-253 FR-391 | — | app | v1·P2 | happy |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/whreplenishment/WhReplenishmentEngineProposeTest.java`
+
+## WH-SC-282
+
+Catalogue source row:
+
+`| **WH-SC-282** | A month at SITE-A for OF-1120: 46 sales issues totalling 210 EA, 3 warranty issues totalling 6 EA, 1 write-off of 12 EA, and 2 internal consumptions of 4 EA | Run the demand-history maintenance | Demand history records **hits and quantity per item, site and month** — and the warranty issues, the write-off and the internal consumptions are **excluded**, because their reason codes carry affects_demand_history = false. The month reads 46 hits / 210 EA, not 52 hits / 232 EA. **Hits matter more than quantity**: two hits of one unit is a stocking case, one hit of two units is not. Without the flag, a write-off inflates the reorder point | FR-256 FR-146 FR-019 | — | app·base | v1·P2 | happy |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/whdemandhistory/WhDemandHistoryRecorderTest.java`
+
+## WH-SC-283
+
+Catalogue source row:
+
+`| **WH-SC-283** | A counter customer asks for BRK-8840 and there is none; separately, a job needs a part the catalogue does not carry at all | The counter and the job-issue screen both hit the insufficient-stock guard | **Lost sales are captured**: automatically by the guard at both screens, with the item, site, requested quantity and time; and manually, with a type, for the *"not catalogued"* case. The demand you refused is still demand — without it the stocking level converges on the stock you happen to have, and the fill rate has **no honest denominator** | FR-257 FR-015 FR-393 | — | app | v1·P2 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-284
+
+Catalogue source row:
+
+`| **WH-SC-284** | Four purchase documents in a month: two STOCK orders, one VOR (vehicle off road) and one EMERGENCY, with the VOR carrying a customer-waiting flag and a linked job reference | Compute the supplier lead-time statistics and the monthly order mix | The **VOR and emergency orders are excluded from lead-time statistics** — including them poisons the reorder mathematics, because an emergency order's lead time is not the supplier's normal one. Both still appear in the **order-mix** report, which is a monthly management question in its own right | FR-260 FR-252 | — | app | v1·P2 | edge |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/whreplenishment/WhSupplierLeadTimeQueryServiceTest.java`
+
+## WH-SC-285
+
+Catalogue source row:
+
+`| **WH-SC-285** | 60 EA of OF-1120 at A-04-02-03, AVAILABLE, owner HOUSE, needing to move to the pick face | stores1 performs a bin-to-bin move | An **ordinary two-line movement with the same status and owner at both ends** — no special document, no adjustment, no reason code required beyond the movement type's own rules. Total on hand at the site is unchanged; two position rows change. A design that treats an internal move as anything more than this has invented a second movement model | FR-150 FR-001 | L-1 | app | v1·P2 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-286
+
+Catalogue source row:
+
+`| **WH-SC-286** | Two lots of BRK-8840 at SITE-A: lot X received 2026-01-10 with its **last outward movement** 2026-08-20; lot Y received 2026-07-01 with **no outward movement ever** | Run stock ageing | Buckets are measured from the **last outward movement, not from receipt**: lot X falls in the 0–90-day bucket despite being eight months old, and lot Y falls in the 90+ bucket despite being two months old. Value is shown **per bucket**, split by branch and warehouse. This is the raw material for the obsolescence percentage and for the OEM obsolescence return, and measuring from receipt would make both wrong in opposite directions | FR-162 FR-388 | — | app | v1·P2 | edge |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/shelflife/WhbStockAgeingRuleTest.java`; `warehouse/backend/src/test/java/ai/warehouse/service/whstockageing/WhStockAgeingLastOutwardBucketTest.java`
+
+## WH-SC-287
+
+Catalogue source row:
+
+`| **WH-SC-287** | A stocked kit KIT-SVC-A with a BOM of 1 × OF-1120, 1 × BRK-8840 and 4 × WSH-0031; 30 kits to be assembled | Complete the assembly work order | It posts as a **balanced ledger transaction**, never as an update to a parent quantity: components out, kits in, one movement. The **stocked** kit now has its own on-hand and its own cost; a **phantom** kit with the same BOM never holds stock and its availability is MIN(component available ÷ required). They are **different objects with the same BOM**, and a design supporting only one is rebuilt when the second client arrives | FR-261 FR-075 | L-1 | app | v1.1·P3 | happy |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/whbkitdefinition/WhbKitAvailabilityCalculatorTest.java`
+
+## WH-SC-288
+
+Catalogue source row:
+
+`| **WH-SC-288** | The same assembly, where component cost totals ₹2,320.80 per kit but 2 units of WSH-0031 are scrapped in the process | Complete it | The completion movement **balances by value, not by quantity** — components in at ₹2,320.80 × 30 plus the scrapped ₹2.40, kits out at the resulting cost — and carries a **variance reason** where it does not balance. A quantity-balanced assembly is arithmetically impossible: three inputs do not equal one output in units, and only value conserves | FR-263 FR-262 | L-1 | base·app | v1.1·P3 | edge |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-289
+
+Catalogue source row:
+
+`| **WH-SC-289** | A break-case operation converting 1 CASE of OF-1120 into 12 loose EA at the pick face, and a pack operation consuming 1 carton and 2 m of tape | Perform both | Both are **two-sided ledger events**, never an UPDATE to a quantity in a different unit: the break-case posts −1 CASE / +12 EA (the same 12 base EA on both sides, so L-1 holds exactly), and the pack consumes the carton and the tape **by lines on the same movement as the pack**, because packaging and consumables are ordinary stock items. The packaging master carries a **nullable owner** — house-owned unless the client supplies them | FR-264 FR-265 FR-009 | L-1 L-7 | app | v1.1·P3 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-290
+
+Catalogue source row:
+
+`| **WH-SC-290** | All **fourteen** registry tables — movement type, document/reference type, source system, stock status, location type, item type, reason code, UoM class, task type, owner type, hold type, charge code, condition code and disposition | Inspect each | Every one has the **same shape**: code, name, owning_module as an **opaque string and not a foreign key**, is_system marking undeletable rows, a sort order, typed behaviour columns describing how the row behaves, and the standard audit set. Deleting an is_system row is refused. A consumer adding a value writes one insert in its own migration and nothing in base changes | FR-376 FR-375 FR-354 | — | base | v1·P0 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-291
+
+Catalogue source row:
+
+`| **WH-SC-291** | The platform widget_definitions module CHECK, which has already been widened by drop-and-add **three times** and admits neither warehouse nor logistics | The warehouse migration widens it, and separately the global-settings module constraint | The migration **reads the existing constraint definition, unions the new value and rebuilds** — never a hardcoded drop-and-add, which silently discards a value another module added between releases. The widget constraint admits warehouse **before the first warehouse widget insert**, or that insert fails at runtime rather than at migration time. The global-settings constraint already admits WAREHOUSE and is used free, but a **defensive merge migration ships anyway**, in case a later module's hardcoded rebuild omits it | FR-377 FR-378 FR-379 | — | base·platform | v1·P0 | error |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-292
+
+Catalogue source row:
+
+`| **WH-SC-292** | Both v1 adapters' reference-data migrations, run on a fresh install and then re-run after a Flyway retry caused by a later step failing | Run them twice | Adapters **register reference data by migration, in their own Flyway sub-band, idempotently** — no duplicate movement types, no duplicate source-system rows, no duplicate menus. Any Flyway failure in this codebase triggers a blind repair, so a non-idempotent seed is a production incident rather than an inconvenience. Controllers live under ai.<module>.controller, or the platform's activity-tracking aspect cannot see them and the recorded module names are wrong from the first request | FR-356 FR-372 FR-374 FR-410 | — | adapter·base | v1·P0 | edge |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-293
+
+Catalogue source row:
+
+`| **WH-SC-293** | An install running **both** inventories: accessories keeps its own 17 tables and its own item master (D-9), and warehouse stocks overlapping SKUs | Register the dual-stocked SKUs and run the reconciliation | whb_item_external_refs carries an **ACCESSORIES source-module row for every dual-stocked SKU**, so counting the same physical unit in two systems is at least **detectable**. A **category-ownership rule recorded as data** names exactly one stocking system of record per item category, and a scheduled reconciliation report names every violation. The counted cost of the separation — 17 duplicated tables, 71 backend files, 11 reports, 33 mobile screens, a second item master, two stock truths — is carried in the product, not only in a design document | FR-368 FR-369 FR-370 FR-367 | — | base·app | v1·P1 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-294
+
+Catalogue source row:
+
+`| **WH-SC-294** | The v1 event vocabulary, and a 3PL that in v2 will bill per handling unit for a period that has already passed | Emit and inspect events for a day of operations | Events emit **at billable granularity** — receipt line confirmed, putaway task completed, pick line confirmed, carton packed, shipment confirmed, task completed, movement posted and reversed, count variance posted, return line dispositioned, work order completed, owner changed — and **every event carries owner, lot, LPN, warehouse and the three timestamps from day one, even where v1 has no consumer for them**. Adding an event code later is cheap; **adding a dimension to an existing code is not**, and a design that emitted only *"order shipped"* would make per-line handling billing permanently unavailable for the past | FR-331 FR-330 FR-289 | L-13 | base | v1·P0 | edge |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/outbox/WhbOutboxIntegrationTest.java`
+
+## WH-SC-295
+
+Catalogue source row:
+
+`| **WH-SC-295** | A depot holding serialised tarpaulins with a condition, tyres moving in-stock → fitted → retread → scrapped, 4,000 litres of diesel in a tank, and fleet spare parts | Model and transact all four | All four are **warehouse stock with warehouse item types** — RETURNABLE_EQUIPMENT, TYRE, FUEL, STOCK — and not private ledgers inside a transport module. Each has a quantity and a condition; each is received, issued and counted through the ordinary paths; the tyre's lifecycle is a sequence of status-change movements. **Every one of them was reinvented as a private table in the transport prior art**, which is why the item types are in the v1 registry | FR-337 FR-049 FR-102 | L-1 | base | v1·P1 | happy |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/architecture/WhbLogisticsSeamContractTest.java`
+
+## WH-SC-296
+
+Catalogue source row:
+
+`| **WH-SC-296** | A trailer parked in the SITE-A yard for eleven days, still loaded with 400 EA of OF-1120; the weighbridge records tare 6,240 kg, gross 9,180 kg, net 2,940 kg on arrival | Model it | **The trailer is a warehouse location** (type TRAILER), or that stock is off the books for eleven days while it sits there — it is countable, ageable and attributable exactly like any other location. Yard **slot** management is a logistics concern; a yard slot holding a **stock-bearing** trailer is not. And **the weighbridge measures the stock, not the yard**: its tare, gross and net readings belong to the receipt | FR-341 FR-083 FR-340 | L-5 | base·app | v1·P1 | edge |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/architecture/WhbLogisticsSeamContractTest.java`; `warehouse/backend/src/test/java/ai/warehouse/service/whdockappointment/WhDockAppointmentGateHandlerTest.java`
+
+## WH-SC-297
+
+Catalogue source row:
+
+`| **WH-SC-297** | A parts manager who computes fill rate by hand from the month's demand history and disagrees with the dashboard | Open the metric explainer on each of the four parts KPIs | Each carries a **frozen definition rendered in the explainer**: fill rate as *filled demand hits ÷ (filled + no-stock lost-sale hits)*; inventory turns as *annualised issue value at cost ÷ average inventory value*, with a **true-turns variant** excluding non-stocked and special-order lines; obsolescence as *value with no outward movement in twelve months ÷ total inventory value*; days supply as *on-hand ÷ average daily demand over the policy window*. The manager's hand calculation matches. **Each has three plausible definitions, and a KPI a manager cannot reproduce by hand is one they will not trust** | FR-393 FR-257 FR-256 | — | app | v1·P2 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-298
+
+Catalogue source row:
+
+`| **WH-SC-298** | The twenty-nine-metric warehouse KPI list, and statistics strips above six warehouse grids that respond to the grid's active filters | Run them, then measure | Every metric is **computed from the ledger**, and a pre-aggregated snapshot table is added **only for what is provably too slow, only after measuring** — the repo's own best precedent is a derived-at-read-time model that deliberately does not cache. **Filter-aware statistics strips carry no cache name at all**: the platform's cache registry records that exact mistake with its issue numbers — those names cached nothing while reading as though they did, so a reviewer saw a cache where there was none. Most warehouse strips are filter-aware | FR-394 FR-395 FR-392 | — | app | v1·P2 | edge |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-299
+
+Catalogue source row:
+
+`| **WH-SC-299** | The **first** warehouse audit migration, and a support engineer who later needs to act inside a customer's install | Inspect the migration; then run a consented, time-boxed impersonated session | The **on-behalf-of actor column lands in the first audit migration**, not a later one — support sessions recorded before the column exists are indistinguishable from the customer's own actions, which **voids the audit claim retrospectively for that whole period**. The session itself requires the customer administrator's consent, is time-boxed, is audited with **both** identities, and its grant, consent and expiry are themselves audited. There is **no impersonation capability anywhere in this platform today**, and a standing vendor administrator account is not the mechanism | FR-409 FR-427 FR-024 | L-2 | platform | v1·P0 | edge |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-300
+
+Catalogue source row:
+
+`| **WH-SC-300** | An install where the dealer module is **not** present, and a prospect asking whether one install can serve two unrelated companies as tenants | Open the warehouse activity history; then answer the tenancy question | Warehouse owns **its own activity-history view** and does not join or redefine the dealer-owned cross-module view — doing so would make warehouse depend on dealer, and another vertical already declined it for the same reason. On tenancy: **multi-tenant SaaS is not built**; the platform is single-tenant per install by existing decision, and the **owner dimension gives multi-*client* separation inside one install**, which is what a third-party operator needs and is **not the same thing**. Both answers are written down rather than improvised in a sales call | FR-428 FR-440 FR-114 | L-5 | base·app | v1·P1 | happy |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/architecture/WhbLogisticsSeamContractTest.java`
+
+## WH-SC-301
+
+Catalogue source row:
+
+`| **WH-SC-301** | GRN-2026-00412 with fourteen lines under **one** inspection number; the plan's *visual damage* criterion is marked mandatory and three lines carry no result | inv1 submits the inspection for completion, and then submits the completed inspection a second time | The first submit is refused 422 INSPECTION_INCOMPLETE, details.errors["lines[3].results"] naming **each unrecorded mandatory criterion by line number and criterion code**. The rollup is never computed from a partial set — otherwise the mixed-result verdict can silently mean *"we did not look"*, which is the one reading a receiving supervisor must never get. The second submit returns 409 INSPECTION_ALREADY_COMPLETED and is **not** a silent re-open: a corrected result is a **re-inspection** against the same GRN that takes **its own number from the GRN's one inspection series**, so the first verdict stays on the record | FR-133 | — | app | v1·P1 | error |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/whqualityinspection/WhQualityInspectionCompletionGuardTest.java`
+
+## WH-SC-302
+
+Catalogue source row:
+
+`| **WH-SC-302** | Interchange rows are bidirectional, so BRK-8840 ↔ BRK-8841 already exists; a parts manager adds BRK-8841 → BRK-8840 as a supersession with treatment MERGE_STOCK. Separately, a chain A → B → C → A seeded by import before the guard existed | Save the new row; then allocate a demand line for A with the supersession-aware rule flag on | The save is refused 422 SUPERSESSION_CYCLE, details.errors["successor_item_id"] printing **the path it would close**. MERGE_STOCK on a cycle is refused for a second, independent reason: the movement it would emit has **no defined direction**, so it would consume and create the same layers. Meeting the pre-existing imported cycle, the allocator **stops at the declared maximum chain depth of 10**, allocates from the parts it did reach, and raises the cycle as a **data-quality row on the item** — it never loops, never times out, and never silently returns *"not in stock"* | FR-072 FR-073 | — | app | v1·P2 | error |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-303
+
+Catalogue source row:
+
+`| **WH-SC-303** | Two installs: one where the accessories module is **not deployed at all**, and one where it is, but three item categories have no whb_category_stocking_ownership row and one ACCESSORIES external ref points at an accessory item that has since been deleted | mgr1 opens **WS-225** on each | The first renders and **says so** — *"the accessories module is not installed; there is nothing to reconcile"* — rather than an empty grid a reader mistakes for *clean*. On the second the three categories appear as **category undeclared**, which COEXISTENCE.md §6.3 step 1 makes a **go-live blocker, not a warning**, and the dangling ref appears as **unmapped** with its external id preserved rather than being dropped from the result set. A report that cannot distinguish *"nothing is wrong"* from *"the control is not armed"* reproduces exactly the undetectable hole D-9 accepted | FR-369 FR-370 | — | app·base | v1·P2 | edge |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-304
+
+Catalogue source row:
+
+`| **WH-SC-304** | A whin_gstin_profiles row being created for GSTIN 27AABCU9603R1ZM; the provider's taxpayer-verification endpoint returns a gateway 502, and on retry does not respond within the environment's timeout_ms | fin1 saves the profile, then retries verification twice | **The profile saves.** Master-data entry is never blocked by a portal being down. It saves with verification UNVERIFIED, and each attempt writes a whin_compliance_api_logs row carrying http_status, duration_ms and correlation_id. The screen reads *"GSTIN not verified — the portal did not respond; saved and queued"* — never *"verified"*, and never a bare 500 with the profile lost. Retries are idempotent on the correlation id, and **the row never flips to verified without a portal response**: an expired token_expires_at on the registration produces the same shape, not a false pass | FR-304 | — | india | v1·P2-IN | error |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-305
+
+Catalogue source row:
+
+`| **WH-SC-305** | Two e-way bill filings: one the provider **accepts and then rejects on business grounds** — NIC error 325, *"GSTIN of the recipient is cancelled"* — and one that fails in **transport**, the connection reset after the request was sent, so the outcome is unknown | Both return | They are **two different states, never one FAILED**. The business rejection lands REJECTED on whin_compliance_documents with the provider's raw code and message stored **verbatim** (encrypted with the rest of the payload, per this task's first constraint) and is **not auto-retried** — a re-filed rejection returns the same rejection and burns the rate limit. The transport failure lands UNKNOWN and is resolved by a **status query keyed on the correlation id, never by re-filing**: re-filing after a successful-but-unheard call creates **a second real e-way bill for one consignment**, which is a statutory defect that cannot be withdrawn quietly. Both write an api-log row with request and response **encrypted at rest**, and neither log stores the credential that obtained the session | FR-326 FR-310 | — | india | v1·P2-IN | error |`
+
+Explicit Java references: `warehouse-india/backend/src/test/java/ai/warehouseindia/service/whincompliance/WhinComplianceGatewayTest.java`; `warehouse-india/backend/src/test/java/ai/warehouseindia/service/whincompliance/adapter/WhinGatewayJsonAdapterTest.java`
+
+## WH-SC-306
+
+Catalogue source row:
+
+`| **WH-SC-306** | SITE-A is REGISTERED to DEL-01 and holds 240 EA of OF-1120. mgr1 has requested a change of its REGISTERED branch to DEL-03 (a different GSTIN) from 2026-10-01 | sup1 approves the change. Then the site is emptied by transfer to SITE-B, and the change is requested and approved again | The first approval is refused 422 on effective_from = *"SITE-A holds 240.0000 EA on hand and the new branch is under a different GSTIN; empty the site by transfer before changing its registration"*. Goods at a place of business that changes registration would change registration with no movement saying so, and the statutory treatment is open (OD-19). After the transfer the change is accepted. The DEL-01 row's effective_to and the DEL-03 row's effective_from are **the same instant**, so the history has no gap and no overlap. The verb is warehouse:warehouses:change_registration and is maker–checker: mgr1 cannot approve their own request. A whb_audit_events row is written | FR-460 FR-408 | I-23 | base | v1·P1 | error |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-307
+
+Catalogue source row:
+
+`| **WH-SC-307** | SITE-A was re-registered from DEL-01 to DEL-03 at 2026-11-15T00:00 (Asia/Kolkata), empty at that instant. It had receipts and issues on both sides of the switch in Q3 of FY 2026-27 | fin1 runs the Rule 56 statutory stock account for the quarter, once per GSTIN | Each GSTIN's account covers **only its own range**. 07AABCM1234F1Z5 runs from 1 October to the switch instant, and 07AABCM1234F2Z4 from the switch instant to 31 December. Each movement is classified by the REGISTERED link **at its occurred_at**, never by today's link. The split needs no synthetic line, because the change was refused while the site held stock (WH-SC-306) | FR-314 FR-460 | — | india | v2·P4 | edge |`
+
+Explicit Java references: `warehouse-india/backend/src/test/java/ai/warehouseindia/service/whinstockaccount/WhinStockAccountPeriodServiceTest.java`; `warehouse-india/backend/src/test/java/ai/warehouseindia/service/whinstockaccount/WhinStockAccountRegistrationSplitIntegrationTest.java`
+
+## WH-SC-308
+
+Catalogue source row:
+
+`| **WH-SC-308** | SITE-A is REGISTERED to DEL-01 (GSTIN 07AABCM1234F1Z5) and holds BRK-8840. MUM-01 (GSTIN 27AABCM1234F1Z2) holds a SERVING link to it, and SITE-B is REGISTERED to MUM-01 | MUM-01 draws 10 EA of BRK-8840 from SITE-A | The draw is a **transfer, never a plain issue**. Its source branch is DEL-01 and its destination is SITE-B. is_taxable_supply = true is derived at creation and frozen, and the transfer carries a tax invoice or challan from DEL-01's series. Below the threshold it carries no e-way bill; the same draw above the threshold generates one. The GSTINs are compared on branches.gst_number. A SERVING link grants visibility and lets the branch draw stock. It never turns a cross-GSTIN draw into a same-registration issue | FR-461 FR-305 FR-306 | — | app·india | v1·P2 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-309
+
+Catalogue source row:
+
+`| **WH-SC-309** | DEL-02 and MUM-01 both hold a SERVING link to SITE-A. DEL-02 shares SITE-A's GSTIN and MUM-01 does not | A counter clerk at DEL-02 sells 2 EA of BRK-8840 from SITE-A; a counter clerk at MUM-01 attempts the same | DEL-02's sale posts directly from SITE-A, billed under the site's REGISTERED GSTIN 07AABCM1234F1Z5. MUM-01's is refused 422 CROSS_GSTIN_COUNTER_SALE on warehouse_id = *"SITE-A is registered under 07AABCM1234F1Z5 and MUM-01 under 27AABCM1234F1Z2; a counter sale may not become a cross-GSTIN supply"*. The screen offers *Raise request* instead, and nothing posts. The adapter compares branches.gst_number, because it cannot read whin_ tables | FR-461 FR-359 | — | adapter | v1·P2 | error |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-310
+
+Catalogue source row:
+
+`| **WH-SC-310** | stores1 has DEL-01 in branch_staff and stores2 has DEL-02. A third user holds :view:branch with only HYD-01, a branch opened that morning with no site link | Each opens the position grid, its export and its statistics strip | stores1 and stores2 **both** see SITE-A, through its REGISTERED and SERVING links: one site, two branch-scoped users. The third user gets **zero rows** on every surface, not every row. A non-empty branch set that resolves to no warehouse short-circuits to empty; passing the empty allowedWarehouseIds through as '' would read as *no filter*. The negative test asserts both empty cases: an empty branch set, and a branch set with no site link | FR-405 FR-404 FR-460 | — | base·app | v1·P1 | edge |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-311
+
+Catalogue source row:
+
+`| **WH-SC-311** | SITE-C has state_code = KA. DEL-01's GSTIN begins 07 (Delhi) | mgr1 requests a change of SITE-C's REGISTERED branch to DEL-01, then adds a SERVING link from SITE-C to DEL-01 instead | The change is refused by the India validator 422 on branch_id = *"the REGISTERED branch's GSTIN state 07 differs from the site's state KA; an additional place of business is always in its registration's own state"*. The SERVING link saves, because a serving link may cross a state line: that is an inter-state supply, and recording it is the point. The rule is a WarehouseBranchLinkValidator contributed by warehouse-india, not a rule in base | FR-460 FR-304 | — | india | v1·P2-IN | error |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-312
+
+Catalogue source row:
+
+`| **WH-SC-312** | SITE-C's first REGISTERED link runs from 2026-04-01T00:00 (Asia/Kolkata) | An integration posts a receipt at SITE-C with occurred_at = 2026-03-28T10:00+05:30 | Refused 422 UNREGISTERED_INSTANT on occurred_at = *"SITE-C has no REGISTERED link at 2026-03-28T10:00+05:30; its first registration starts 2026-04-01"*. The service pre-check rejects it before any row is written, so the I-22 trigger on whb_stock_movements does not fire. A movement at an unregistered instant could be filed under no GSTIN | FR-460 | I-22 | base | v1·P0 | error |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/ledger/WhbLedgerInvariantsIntegrationTest.java`
+
+## WH-SC-313
+
+Catalogue source row:
+
+`| **WH-SC-313** | 07AABCM1234F1Z5's GSTIN profile records DEL-01 as PRINCIPAL and DEL-02 as ADDITIONAL. SITE-A is REGISTERED to DEL-01 and SERVING to DEL-02 | SITE-A issues 12 EA of OF-1120 to the DEL-02 showroom | DEL-02 **resolves the GSTIN profile** through whin_gstin_profile_branches. The issue is a **non-supply delivery challan** under the one Delhi registration — same GSTIN, different branch — not a transfer invoice. It is numbered from DEL-01's series, the site's REGISTERED branch at the challan date. With one branch per profile, the second Delhi branch found no profile and no challan could be issued | FR-307 FR-460 FR-304 | — | india | v1·P2-IN | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-314
+
+Catalogue source row:
+
+`| **WH-SC-314** | A storekeeper scoped to SITE-B requests 5 EA of ECU-5501 from SITE-A, where 3 are available | sup1, holding wh_transfer_orders:approve scoped to the source, approves 3 | The request was created in REQUESTED by a user scoped to the **destination**. Approval sets line approved_quantity = 3 on an APPROVED header, because part-approval is a quantity, not a state. It creates the TRANSFER demand order, which reserves the 3 EA. The refused 2 EA are written to the insufficient-stock log as TRANSFER_REQUEST demand. The requester cannot approve (FR-408), and a rejection requires a reason | FR-462 FR-408 | L-10 | app | v1·P2 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-315
+
+Catalogue source row:
+
+`| **WH-SC-315** | 14 items at SITE-A are below reorder point, with a suggested value of ₹3,12,400.00. The replenishment run is scheduled nightly at 02:00 | The scheduled run fires | Suggestions are created as a document, each line sourced PURCHASE or TRANSFER. A whb_job_runs row records start, end, outcome and count. **One** notification goes to the buyer role, carrying the count (14), the value and a link to the suggestion document — not fourteen notifications. A run that finds nothing still writes its job-run row, so *"ran clean"* is distinguishable from *"did not run"* | FR-253 | — | app | v1·P2 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-316
+
+Catalogue source row:
+
+`| **WH-SC-316** | Transfer TR-2026-00060, 48 EA of OF-1120 from SITE-A to SITE-B, is IN_TRANSIT; the stock sits at SITE-A/IN_TRANSIT-TR-2026-00060 | The truck turns back, and mgr1 cancels the transfer with a reason code | A TRANSFER_RETURN movement posts −48 EA from that transit location / +48 EA back at SITE-A/RECV-01, carrying the mandatory reason. The transfer moves IN_TRANSIT → CANCELLED, and the transit location's balance is zero. Without it, IN_TRANSIT would have no exit but receipt, and a cancelled consignment would sit on the road forever | FR-147 | L-1 | app | v1·P2 | edge |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-317
+
+Catalogue source row:
+
+`| **WH-SC-317** | SO-2026-01240's reservation for 24 EA of OF-1120 became HARD at release but still carries the expires_at from its soft phase, which passed at 09:00. A pick is in progress against it. A separate SOFT reservation for 10 EA expired at 08:00 | The reservation-expiry job runs at 09:05 | The HARD row **survives**: expires_at applies to SOFT rows only, and a HARD row ends only by consume, cancel or explicit release, so the pick completes against it. The SOFT row is released, its holder notified, and a movement-free audit row written; availability rises by exactly 10. Stale HARD rows appear separately on the ageing report | FR-170 FR-168 | L-10 | base·app | v1·P2 | conc |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/allocation/WhbAllocationIntegrationTest.java`
+
+## WH-SC-318
+
+Catalogue source row:
+
+`| **WH-SC-318** | A customer brings back 6 EA of BRK-8840 with no RMA and no traceable original shipment. SITE-A's weighted-average cost for the item is ₹1,812.40 | stores1 creates a blind return receipt and restocks it | The return is costed at the site's current method cost, ₹1,812.40, with cost_basis = RETURN_UNMATCHED. There is no consumption to reverse, so no layer is restored. The receipt is listed on the unmatched-returns report for finance to review. A matched return instead reverses its consumption (WH-SC-057). A blind return never takes a zero cost or a typed-in one | FR-234 | — | app | v1·P2 | edge |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-319
+
+Catalogue source row:
+
+`| **WH-SC-319** | A second company MER-LOG in the install, whose site SITE-L is REGISTERED to its own branch | mgr1 opens the destination picker for a transfer from SITE-A, then posts a transfer to SITE-L directly through the API | The picker **never offers** SITE-L, because it is filtered to the source's company. The direct post is refused 422 CROSS_COMPANY_TRANSFER on destination_warehouse_id = *"SITE-A belongs to MER and SITE-L to MER-LOG; goods between two companies move as a demand order and a purchase order, never a transfer"*. A transfer's two sites belong to one company | FR-305 | — | app | v1·P1 | error |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/whtransferorder/WhTransferOrderCreationRulesTest.java`
+
+## WH-SC-320
+
+Catalogue source row:
+
+`| **WH-SC-320** | SITE-A holds two Pareto cut-offs, A at 80% and B at 95% of cumulative issue value. Twelve months of demand history exist | The monthly ABC run executes | Each item × site is classed by its issue value against the site's cut-offs. The previous class is kept in previous_abc_class for one cycle and abc_computed_at is stamped, so an item that moved from B to A shows both. A whb_job_runs row records the run. Before v1.1 the ABC count-programme type is labelled manual | FR-463 | — | base·app | v1.1·P3 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-321
+
+Catalogue source row:
+
+`| **WH-SC-321** | A trade customer's portal user; SITE-A holds stock on lines of that customer and of another | The user logs in, opens availability, creates an order and downloads a challan | The user sees **in-stock and on-order flags, never quantities**, for its own lines only, scoped by customer counterparty through the single resolver. A request naming another customer's order is refused 403, never returned empty. The order is created as a DRAFT sales demand order, and the challan downloads. No price is shown and no payment path exists | FR-464 | — | app | v2·P5 | happy |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/WhTradePortalDraftOrderTest.java`
+
+## WH-SC-322
+
+Catalogue source row:
+
+`| **WH-SC-322** | Company MER moves 20 EA of ECU-5501 from SITE-A to company MER-LOG in the same install | mgr1 runs the inter-company move | One action creates a demand order in MER and a purchase order in MER-LOG, each carrying the other in its source quad and priced from the transfer-price columns. **No transfer exists**; each company's stock moves through its own despatch and its own receipt | FR-465 | — | app | v2·P5 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-323
+
+Catalogue source row:
+
+`| **WH-SC-323** | Approval levels for purchase orders: up to ₹5,00,000 needs the parts manager; above it, the parts manager at sequence 1 and then the general manager at sequence 2, each level naming its permission | A PO for ₹7,20,000 is submitted. The parts manager approves level 1, then attempts level 2 | The PO needs **both** levels, in sequence. The parts manager's second approval is refused 403, naming the rule that **no user approves one document twice**. The general manager approves level 2 and the PO is released. FR-408 applies at every level, so the requester approves at none | FR-466 FR-408 | — | app | v2·P5 | error |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-324
+
+Catalogue source row:
+
+`| **WH-SC-324** | BRK-8840 prefers supplier SUP-X at SITE-A and supplier SUP-Y at SITE-B, each a dated row in the site-scoped supplier-preference junction | Both sites' replenishment runs execute | SITE-A's suggestions propose SUP-X and SITE-B's propose SUP-Y. The preference is a dated row per item × site × supplier, not one supplier on the item, and a change closes one row and opens the next | FR-468 FR-253 | — | base·app | v2·P5 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-325
+
+Catalogue source row:
+
+`| **WH-SC-325** | An install-created reason code WATER-DMG, named *Water damage*, with a Hindi translation in whb_registry_translations. A user whose locale is hi | The user opens the adjustment screen, then prints a challan carrying the reason | Both show the Hindi name, read from the translation row before the registry row's own name. An en user sees *Water damage*. A row with no translation for the user's locale falls back to its own name, never to a blank | FR-469 | — | base | v2·P5 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-326
+
+Catalogue source row:
+
+`| **WH-SC-326** | An OEM ships ECU-5501 serial ECU55010000912 straight to a fleet customer; no site handles it | mgr1 records the drop-shipment | One movement posts −1 EA at VIRT-SUPPLIER / +1 EA at VIRT-CUSTOMER. The purchase and sales documents are both in the source quad, and the serial is captured — mandatory, because the item is serial-controlled. On-hand at every site is unchanged. When the customer later returns the unit, the return receipt finds its origin rather than receiving an orphan. The posting shape is OD-18's to decide; this row walks the recommended one | FR-467 | L-12 | app | v2·P5 | happy |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/whdropship/WhDropShipConfigCaseTest.java`
+
+## WH-SC-327
+
+Catalogue source row:
+
+`| **WH-SC-327** | whb_duty_statuses (registry 15), seeded by base with DOMESTIC only | An integration posts a movement line with duty_status = 'Bonded', which is not a registry code | Refused 422 on lines[0].duty_status = *"'Bonded' is not a duty status code"*: the service pre-check rejects it, and the FK is the backstop. No new balance grain appears in whb_stock_positions. A free-text value would create a duty-status grain no one can reconcile. A consumer that needs a new code adds one registry row in its own migration | FR-104 | L-5 · I-5 | base | v1·P0 | error |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/ledger/WhbLedgerInvariantsIntegrationTest.java`
+
+## WH-SC-328
+
+Catalogue source row:
+
+`| **WH-SC-328** | OF-1120A is a duplicate of OF-1120: same owner, both EA, neither lot- nor serial-controlled. OF-1120A holds 30 EA available and 6 EA in quarantine at SITE-A, and 12 EA at SITE-B. Its barcode is already on the shelf | mgr1, holding whb_master_merges:create, opens *Merge* on OF-1120A, chooses OF-1120 as the survivor, reads the pre-check and merges with the reason *"Imported twice under two SKUs"* | The pre-check lists the three positions as *moved* and the barcode as *re-parented*. One MASTER_MERGE movement posts per site through the ledger writer, carrying reason DUPLICATE_MASTER and the merge row as its source document. SITE-A's movement has two balanced line pairs (the quarantined 6 EA move in their own status) and SITE-B's has one, so the signed quantities sum to zero. No position of OF-1120A remains. The receipt that brought its stock in is returned unchanged, because nothing already posted is updated. OF-1120A is inactive, its barcode scans to OF-1120, and whb_master_merges holds one ITEM row with moved_stock_movement_id set. A second merge of OF-1120A is refused 409 MASTER_ALREADY_MERGED and writes no second row | FR-451 | L-1 · L-2 | base | v1·P1 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-329
+
+Catalogue source row:
+
+`| **WH-SC-329** | BRK-8840 is lot-controlled. BRK-8840-X, a duplicate with the same owner and base unit, is not | mgr1 opens *Merge* on BRK-8840-X and chooses BRK-8840 as the survivor, then posts the same merge directly to the API | The pre-check shows the refusal and *Merge* stays disabled. The direct post is refused 409 MERGE_COLUMN_DIFFERS on lot_control_mode, naming the column. Merging an uncontrolled item into a lot-controlled one would destroy the lot dimension of every future balance, and no transfer can reconcile it. Nothing posts, no whb_master_merges row is written, and both items stay active. A difference in base_uom_code or serial_control_mode is refused the same way | FR-451 | — | base | v1·P1 | error |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-330
+
+Catalogue source row:
+
+`| **WH-SC-330** | SUP-X2 is a duplicate of supplier SUP-X. PO-2026-00410 from SUP-X2 for SITE-A is open, and SUP-X2 has a counterparty-scoped identifier | mgr1 opens *Merge* on SUP-X2, chooses SUP-X as the survivor and merges; later the order is closed and the merge is tried again | The pre-check lists PO-2026-00410 under *open documents* as refusing the merge, and the merge is refused 409 MERGE_OPEN_DOCUMENTS naming the order. **An open document is never re-pointed**: the supplier on an order it has already acknowledged does not change behind its back. Once the order is closed, the merge succeeds. The scoped identifier is re-pointed to SUP-X and SUP-X2 is inactive. No movement posts, so moved_stock_movement_id stays null, and whb_master_merges records a COUNTERPARTY row. The closed order still names SUP-X2, because that is history | FR-451 | — | base·app | v1·P1 | error |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/whbmastermerge/WhbMasterMergeValidationServiceTest.java`
+
+## WH-SC-331
+
+Catalogue source row:
+
+`| **WH-SC-331** | warehouse-adapter-dealer installed. Price level TRADE is active. whad_item_prices holds OF-1120 at TRADE = 420.000000 INR effective from 2026-04-01 with no end date, and **no** TRADE row for BRK-8840. An OPEN counter sale at SITE-A, priced at TRADE, dated 2026-09-18 | The counter hand scans OF-1120's barcode, types quantity 2 and presses Enter; then scans BRK-8840 | The first line resolves its price from the price book, not from the keyboard: unit_price 420.000000, the line records the whad_item_prices row it used in whad_counter_sale_lines.item_price_id, line_total 840.0000, and the sale's subtotal is 840.0000. The second scan is refused 422 WHAD_PRICE_NOT_FOUND on itemId (the ITEM is unpriced, not the level): no line is added, no stock is reserved, and **a line is never priced at zero**. At Complete, the SALE_ISSUE envelope carries quantities only. **The price is on the adapter's document; it never enters the port** | FR-359 FR-358 | — | adapter | v1·P2 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-333
+
+Catalogue source row:
+
+`| **WH-SC-333** | SLA definition SLA-OTS-99 — metric ON_TIME_SHIP, target 99, comparison GTE, window MONTHLY, calendar IN-MH-3PL — applied to CL-ORION; Diwali (2026-11-08) is a holiday on the REGISTERED branch's platform holiday calendar that IN-MH-3PL reads; four orders released on 2026-11-07 carry a promised_ship_at of 2026-11-09 computed by the working calendar and ship on 2026-11-09 | The daily WH3_SLA_MEASUREMENT job measures November for CL-ORION | The four orders are **on time** — the promise and the measurement read the **same calendar code through one code path**, so the holiday the contract excludes is never shown to the customer as a breach. The measurement row stores numerator, denominator and sample_count; the percentage is derived from them; is_breach is false. A second definition SLA-OCT-24 (ORDER_CYCLE_TIME, 24 working hours, same calendar) counts the same four orders as within 24 hours. Until P5-10 ships the calendar, a definition naming a calendar code is refused on save (calendarCode field error) rather than measured on wall-clock time | FR-297 FR-181 | — | 3pl | v2·P5 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-334
+
+Catalogue source row:
+
+`| **WH-SC-334** | CL-ORION's November measurement on SLA-OTS-99: numerator 382, denominator 393, sample_count 405 (12 orders shipped without a promise are outside the denominator) — **97.2 %**, a breach against 99; a portal user whose owner grant covers only CL-ORION's owner | (a) Drill from the 97.2 % figure; (b) repeat the request naming CL-VEGA's client id; (c) open the Measurements grid | (a) Returns **exactly the 11 failing orders** (denominator − numerator), every one of them CL-ORION's owner, each with its promise and its ship time. (b) Is **403 OWNER_NOT_PERMITTED — never an empty list**: drill-through is an owner-scoped query, not a UI filter. (c) Shows only CL-ORION's rows, and the filter-aware strip counts only them | FR-298 | — | 3pl | v2·P5 | error |`
+
+Explicit Java references: `warehouse-3pl/backend/src/test/java/ai/warehouse3pl/service/wh3plsladefinition/Wh3plSlaDefinitionValidationServiceTest.java`; `warehouse-3pl/backend/src/test/java/ai/warehouse3pl/service/wh3plslameasurement/Wh3plSlaMeasurementJobTest.java`; `warehouse-3pl/backend/src/test/java/ai/warehouse3pl/service/wh3plslameasurement/Wh3plSlaMeasurementQueryServiceTest.java`
+
+## WH-SC-335
+
+Catalogue source row:
+
+`| **WH-SC-335** | SLA-OTS-99 applied to two clients, CL-ORION and CL-VEGA, through two wh3_sla_definition_clients rows from 2026-10-01; wh3_sla_definitions has no client_id | (a) Add a third row for CL-ORION effective 2026-10-15; (b) run the measurement job for October, twice; (c) the job's order query fails mid-run | (a) Is refused — the service first, with a field-level error on the row's effectiveFrom, and the EXCLUDE constraint behind it (RG-017). (b) The first run writes one measurement per client for October; the second writes **nothing** — a measured window is frozen, so the denominator a customer was shown is the one on file three months later. (c) The whb_job_runs row is still written and closed FAILED with the error, visible on WS-064 — a dated obligation with no visible actor is a defect | FR-297 FR-165 | — | 3pl | v2·P5 | edge |`
+
+Explicit Java references: `warehouse-3pl/backend/src/test/java/ai/warehouse3pl/service/wh3plsladefinition/Wh3plSlaDefinitionValidationServiceTest.java`; `warehouse-3pl/backend/src/test/java/ai/warehouse3pl/service/wh3plslameasurement/Wh3plSlaMeasurementJobTest.java`
+
+## WH-SC-336
+
+Catalogue source row:
+
+`| **WH-SC-336** | CL-VEGA's November measurement on SLA-OTS-99 is a breach (96.1 % against 99); the definition names the SLA_CREDIT penalty charge code; the waiver-separation threshold is ₹10,000 | (a) Supervisor A confirms the breach with a penalty of ₹25,000; (b) A waives it; (c) B waives it with no reason; (d) B waives it with a reason | (a) A breach row records A and the time, copies the penalty charge code, and leaves billable_event_id **null — nothing posts a penalty in v2** (FR-299 is P6-07's). (b) Is refused: above the threshold the waiver author may not be the confirmer. (c) Is refused with a field-level error on waiverReason. (d) The breach is WAIVED, recording B, the time and the reason; a second waive is refused | FR-297 FR-299 | — | 3pl | v2·P5 | error |`
+
+Explicit Java references: `warehouse-3pl/backend/src/test/java/ai/warehouse3pl/service/Wh3plSlaBreachServiceTest.java`
+
+## WH-SC-337
+
+Catalogue source row:
+
+`| **WH-SC-337** | API client ERP-1 is active and holds no key | An administrator issues a key on WS-247, then reads the key again | A key is issued, the plaintext is shown once, and a second read returns only hasValue. Only key_hash (SHA-256) and key_prefix are stored | FR-458 | — | base | v2·P5 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-338
+
+Catalogue source row:
+
+`| **WH-SC-338** | ERP-1 holds an ACTIVE key in use | An administrator rotates it with a 60-minute overlap | A key is rotated: the old key keeps working until its overlap expires, then stops — with no failed request in between. The old key reads SUPERSEDED, then EXPIRED | FR-458 | — | base | v2·P5 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-339
+
+Catalogue source row:
+
+`| **WH-SC-339** | ERP-1 is revoked; ERP-2 has a limit of N requests a minute | ERP-1 posts a movement with its key; ERP-2 sends N+1 requests in one minute | A revoked client's request is refused immediately, and the refusal names neither the key nor the hash (403 API_CLIENT_REFUSED). A client over its rate limit receives a refusal with a retry hint (429 RETRY_AFTER, retry_after_seconds); a client under it is unaffected | FR-458 | — | base | v2·P5 | error |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-340
+
+Catalogue source row:
+
+`| **WH-SC-340** | A subscriber delivering 300 events a minute against 900 a minute of production; another subscription disabled and forgotten | The WS-223 health job runs | A subscriber delivering 300 events a minute against 900 a minute of production shows a rising lag on WS-057 and crosses the health threshold (OUTBOX_LAG_OVER_THRESHOLD FAILING) — **with zero RETRY and zero DEAD rows**. A subscription is disabled and forgotten; the "no attempt in N minutes" signal (OUTBOX_SUBSCRIPTION_SILENT) names it | FR-458 | — | base | v2·P5 | error |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-345
+
+Catalogue source row:
+
+`| **WH-SC-345** | Lot L-2611 of item OF-1120 at site SITE-A, owner HOUSE, 100 units on an open layer at 10.00 a unit; the lot is near expiry and appears on the NRV candidates report as EXPIRED | Assessor A raises an NRV write-down to 6.00 a unit, basis EXPIRED; A tries to approve it; approver B approves it | The write-down is DRAFT with one line (100 × 10.00 → 6.00, −400.00) computed by the server; A's approval is refused (403, maker-checker); B's approval posts ONE WRITE_DOWN value-only movement (quantity 0, −400.00, VALUE_OFFSET counter side, reason NRV_WRITE_DOWN) and the layer carries 600.00. No journal is written by warehouse | FR-241 | L-15 | app | v2·P5 | happy |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/whnrvassessment/WhNrvAssessmentRulesTest.java`
+
+## WH-SC-346
+
+Catalogue source row:
+
+`| **WH-SC-346** | WH-SC-345's write-down is POSTED; 40 of the 100 units have since been sold (60 held at 6.00) | The cause ceases: assessor C raises its reversal with a revised NRV of 12.00, basis MARKET_PRICE; D approves it; C tries to reverse the same write-down again | The reversal is a NEW row linked to the original (neither edits the other) with its own assessor and date; it gives back +240.00 — capped at the original's write-down pro rata to the 60 units still held and at the pre-write-down 10.00 a unit, never 12.00. The register shows both rows, each naming the other. A second reversal is refused (409) | FR-241 | — | app | v2·P5 | happy |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/whnrvassessment/WhNrvAssessmentRulesTest.java`
+
+## WH-SC-347
+
+Catalogue source row:
+
+`| **WH-SC-347** | Owner SUP-CONSIGN-01 (CONSIGNOR, non-house) holds stock of OF-1120 at SITE-A | An assessor raises an NRV write-down against SUP-CONSIGN-01's stock (through the API, since the Add modal offers owner HOUSEs only); a direct INSERT names the same owner | The service refuses it first with a field-level error on ownerId (422 NRV_OWNER_NOT_OWN) — non-own stock is never valued, so never written down; the INSERT is refused by the database trigger. No row, no movement | FR-241 | L-14 | app | v2·P5 | error |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/whnrvassessment/WhNrvAssessmentRulesTest.java`
+
+## WH-SC-348
+
+Catalogue source row:
+
+`| **WH-SC-348** | One SALES shipment worth 1,234.56 of own stock is despatched three times over three installs, with warehouse.cogs.recognition_point set to DISPATCH, DELIVERY and INVOICE in turn | Each shipment is dispatched, then delivered, then invoiced; after the DELIVERY-point despatch the setting is changed to DISPATCH | DISPATCH: the row is SOLD / cost of sales and recognised at dispatch. DELIVERY: IN_TRANSIT / goods-in-transit at dispatch, recognised at delivery. INVOICE: in transit through delivery, recognised by the invoice event with its reference. Three hand-over moments, one identical total. The setting change does not restate the row already written (point snapshotted with its source level). With no ledger owner installed the rows queue (QUEUED) and export from the configured grid | FR-243 | L-14 | app | v2·P5 | happy |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/whcogsrecognition/WhCogsRecognitionServiceTest.java`
+
+## WH-SC-349
+
+Catalogue source row:
+
+`| **WH-SC-349** | Weighbridge WB-01 at SITE-A holds certificate LM/2025/0917 valid 2025-10-01 to 2026-09-30 | A storekeeper records a weighing of GRN GRN-A-0412 on 2026-10-02 (site day) without acknowledging | Refused 422 OUT_OF_VERIFICATION_NOT_ACKNOWLEDGED on acknowledgeOutOfVerification, naming the instrument and certificate. With the acknowledgement and a note, the weighing records FLAGGED (is_out_of_verification = true) with the certificate snapshot, and is acknowledged by that person at that time — never silently accepted | FR-223 | — | app | v2·P5 | error |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/whweighinginstrument/WhWeighingInstrumentVerificationTest.java`; `warehouse/backend/src/test/java/ai/warehouse/service/whweighingrecord/WhWeighingRecordRulesTest.java`
+
+## WH-SC-350
+
+Catalogue source row:
+
+`| **WH-SC-350** | A DEVICE posts a weighing on WB-01 after its certificate lapsed; GRN GRN-A-0412 has 3 weighings | A goods-receipt viewer opens the receipt; a supervisor with wh_weighing_records:acknowledge acknowledges with a note | The receipt shows "1 of 3 weighings ... not valid on the weighing day" with 1 awaiting acknowledgement, readable through wh_goods_receipts:view alone. After acknowledgement the weighing stays flagged, now carrying who acknowledged it and when; a second acknowledgement is refused 409 | FR-223 | — | app | v2·P5 | happy |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/whweighingrecord/WhWeighingRecordRulesTest.java`
+
+## WH-SC-351
+
+Catalogue source row:
+
+`| **WH-SC-351** | WB-01 certificate ends 2026-10-20; alert lead is 30 days; two holders of wh_weighing_instruments:edit scoped to SITE-A, one to SITE-B | WHB_WEIGHING_CERTIFICATE_EXPIRY runs daily from 2026-09-20 | On the first run inside the window the two SITE-A holders are notified once, the certificate is stamped expiry_alert_sent_for = 2026-10-20, and a whb_job_runs row records read/written. Later runs do not re-notify; renewing the certificate (new verified_to) re-arms it. The SITE-B holder is never told | FR-223 FR-165 | — | base·app | v2·P5 | happy |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/jobs/WhbWeighingCertificateExpiryJobTest.java`; `warehouse/backend/src/test/java/ai/warehouse/service/whweighinginstrument/WhWeighingInstrumentVerificationTest.java`
+
+## WH-SC-352
+
+Catalogue source row:
+
+`| **WH-SC-352** | Picker P holds a RUNNING labour task on putaway PT-0091 | P pauses 4 min, resumes, ends with 12 units; P tries to start a second task while one is open; another user tries to pause P's task | Duration = elapsed − 240 s paused, shown only once ENDED; the ENDED row is final (trigger). The second open task is refused (one open task per user), and pausing another's timer is refused 403. No standard, target, rate or pay exists anywhere on the record or screen | FR-227 FR-228 | — | app | v2·P5 | edge |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/whlabourtask/WhLabourTaskRulesTest.java`; `warehouse/backend/src/test/java/ai/warehouse/service/whlabourtask/WhLabourTaskTimingTest.java`
+
+## WH-SC-341
+
+Catalogue source row:
+
+`| **WH-SC-341** | Return RR-000310 (CUSTOMER) is POSTED at SITE-A; line 1 is undispositioned | stores1, holding wh_return_gradings:grade, uses Grade on the Return Receipts grid, grades line 1 USED_FAIR (grade B) with a photograph, packaging not intact, recommended QUARANTINE | One wh_return_gradings row with the photo in documents (ON DELETE NO ACTION); no stock moves and no owner changes; the Return Gradings grid shows it; Disposition is still required to move the unit to QUARANTINE, a non-available status. Re-grading replaces the row; grading after the disposition movement is refused | FR-272 | L-11 | app | v2·P5 | happy |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/whreturngrading/WhReturnGradingRulesTest.java`
+
+## WH-SC-342
+
+Catalogue source row:
+
+`| **WH-SC-342** | Return RR-000311 has return_type RECALL, and line 1 of a CUSTOMER return RR-000312 is lot VB-4401 of VAC-2210, under open recall RCL-000007 | stores1 opens Grade on each | Neither line is offered a restocking disposition. A forced RESTOCK_SELLABLE is refused 422 on dispositionCode (GRADING_DISPOSITION_NOT_OFFERED, or GRADING_LOT_RECALLED naming RCL-000007) before trg_wh_return_gradings_assert_window | FR-272 | — | app | v2·P5 | error |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-343
+
+Catalogue source row:
+
+`| **WH-SC-343** | OEM return OBR-000042 at SITE-A: window 2026-08-27 to 2026-10-10, allowance 5000.00, fee 10%; eligible lines total 1005.00; lead 14 days | WH_OBSOLESCENCE_WINDOW_WARNING and WH_OBSOLESCENCE_CANDIDATES run on 2026-09-26 | Claimed shows 1005.00 − 100.50 = 904.50 (≤ allowance). Holders of wh_obsolescence_returns:submit at SITE-A are warned once ("14 day(s) left", stamp window_warning_sent_for = 2026-10-10), and the candidates report names the items idle ≥ 12 months with the remaining allowance. Submit on 2026-10-11 is refused 409 OBSOLESCENCE_WINDOW_CLOSED | FR-276 FR-165 | — | app | v2·P5 | happy |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/whmarketplaceclaim/WhMarketplaceClaimWindowTest.java`
+
+## WH-SC-344
+
+Catalogue source row:
+
+`| **WH-SC-344** | Window setting is 30 days; MARKETPLACE return RR-000313 whose demand order names channel AMZ-IN is received 2026-09-25 20:00 UTC at SITE-A (Asia/Kolkata) | The return is POSTED; the setting is later changed to 45; nothing is submitted | An OPEN claim is created with due_date 2026-10-26 (site day 26th + 30), unchanged by the new setting. It ages onto the queue (sorted by due date) and alerts wh_marketplace_claims:submit holders 3 days before. Submit on 2026-10-27 is refused MARKETPLACE_CLAIM_PAST_DUE, and WH_MARKETPLACE_CLAIM_WINDOW expires it that morning | FR-279 FR-165 | — | app | v2·P5 | happy |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/whmarketplaceclaim/WhMarketplaceClaimWindowTest.java`
+
+## WH-SC-353
+
+Catalogue source row:
+
+`| **WH-SC-353** | DEL-01 ROP 15, max 50, position 10; sister BLR-02 (different REGISTERED branch, same operating company, same sandbox side) holds 60 allocatable against its own minimum 20; supplier multiple 25 | The replenishment run executes at DEL-01 | Suggestion line 1 is TRANSFER from BLR-02 for 40, with source_warehouse_id set and a basis note: "BLR-02 holds 60 available against its own minimum 20, a surplus of 40 - transferring 40 … The purchase it was ranked ahead of: 50". Purchase suggestions follow it. A sister at or below its own minimum, or with no stated minimum, is never proposed; a site sharing DEL-01's REGISTERED branch is never a sister. Accept raises one transfer in REQUESTED (never pushed); the source approves or part-approves it, and it ships as two movements through IN_TRANSIT | FR-254 RK-001 RG-001 | — | app | v2·P5 | happy |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/whreplenishment/WhReplenishmentEngineSisterTransferTest.java`
+
+## WH-SC-354
+
+Catalogue source row:
+
+`| **WH-SC-354** | Face A-01-03 at SITE-A has a policy; CREATED tasks at the site top out at priority 55; picker P's pick (priority 30) finds the face short | P short-picks | A SHORT_PICK replenishment task is raised in the same transaction at priority 56, from the same whb_tasks table (no new task type), and the next pull at the site hands it out first. If the face already had a CREATED replenishment for that owner, that task is raised to 56 instead and no second task is created | FR-259 FR-255 | — | app | v2·P5 | happy |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/WhbTaskEscalatePriorityTest.java`; `warehouse/backend/src/test/java/ai/warehouse/service/whreplenishmenttask/WhReplenishmentEmergencyEscalationTest.java`
+
+## WH-SC-355
+
+Catalogue source row:
+
+`| **WH-SC-355** | Operator O pulls at SITE-A zone Z1; nothing is claimable for O's zone and qualifications; O last completed a task in aisle Z1-A03, where face Z1-A03-02 is at 8 against max 20 with stock in reserve | O pulls | One OPPORTUNISTIC task at priority 0 for 12 into Z1-A03-02 is raised and assigned to O (outcome CLAIMED). When anything is claimable for O, or the result is ALL_CLAIMED, no top-off is raised; a supervisor push never raises one; a pull for another task type is not offered one | FR-259 | — | base·app | v2·P5 | edge |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/whbtask/WhbTaskClaimIdleWorkTest.java`; `warehouse/backend/src/test/java/ai/warehouse/service/whreplenishmenttask/WhReplenishmentOpportunisticTopOffTest.java`
+
+## WH-SC-356
+
+Catalogue source row:
+
+`| **WH-SC-356** | Item FILTER-01, base EA, default packaging level CASE with CASE→EA factor 12; each face at 5 against max 20; reserve holds cases | The pick-face tick runs, then the storekeeper completes the task; later the supplier changes the case to 10 | A BREAK_CASE task for 12 EA (one whole case, never past the max) is raised. Complete posts -1 CASE at reserve with conversion_factor_used 12 and +12 EA at the face, balanced in base. The later pack change does not restate that movement. A face that can take less than one whole case gets a loose MIN_MAX task instead | FR-259 L-7 | — | base·app | v2·P5 | happy |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/whreplenishmenttask/WhReplenishmentBreakCaseTest.java`
+
+## WH-SC-357
+
+Catalogue source row:
+
+`| **WH-SC-357** | Lot L-2609 of OF-1120 is received; 40 EA are consumed into two ASSEMBLY work orders producing kit lots KIT-01 and KIT-02, which ship to three consignees | Ask **forward** on WS-218: where did L-2609 go? | One query returns every shipment and consignee of L-2609, the two consuming work orders' movements, **the kit lots they produced**, and every shipment and consignee of those kits: the trace walks the genealogy recorded at completion (whb_transformation_inputs → outputs) rather than stopping at the work order. Asked **backward** from a kit serial, it returns the component lots and their receipts, each cut at the transformation's instant. Disassembly walks the same tables in the other direction. **The kit half of WH-SC-135** (RJ-013) | FR-266 FR-105 FR-396 | L-12 | base·app | v2·P5 | happy |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/repository/WhbGenealogyWalkSerialFirstTest.java`; `warehouse/backend/src/test/java/ai/warehouse/repository/WhTraceabilityGenealogyWalkTest.java`
+
+## WH-SC-358
+
+Catalogue source row:
+
+`| **WH-SC-358** | Client CL-NOVA has a VAS work order timed on two timers: 30 min with 4 min paused, then 21 min; its rate card prices charge code VAS_LABOUR_MIN per MIN at 2.500000 (prerequisite: a TIME unit coded MIN exists and the client's card carries a per-minute charge line for VAS_LABOUR_MIN — none is seeded) | The work order completes and is priced | Measured minutes = 26 + 21 = **47**, read from wh_labour_tasks (elapsed minus paused, whole seconds) through the one labour reader that P6-07's cost-to-serve also reads. Amount = 2.500000 × 2820 s ÷ 60 = **117.50**, rounded once (HALF_UP, DECIMAL(15,2)), rated on the **site** day of completion. It is never priced at standard_minutes; an untimed job, an open timer, a not-billable VAS service type or the operator's own stock is refused with a code; a timer keyed to the work order at another site or owner is refused when started (422 LABOUR_WORK_ORDER_SITE_OWNER_MISMATCH); and an unpriced charge raises WH3_UNRATED_EVENT naming the missing MIN unit / per-minute line setup step | FR-267 | — | app·3pl | v2·P5 | happy |`
+
+Explicit Java references: `warehouse-3pl/backend/src/test/java/ai/warehouse3pl/service/wh3plratecard/Wh3plVasLabourPricingServiceTest.java`; `warehouse/backend/src/test/java/ai/warehouse/service/whlabourtask/WhLabourTaskWorkOrderReferenceTest.java`; `warehouse/backend/src/test/java/ai/warehouse/service/whworkorder/WhWorkOrderLabourReaderTest.java`
+
+## WH-SC-359
+
+Catalogue source row:
+
+`| **WH-SC-359** | A REPACK takes 12 EA of lot A and puts back 12 EA of lot B of the same item | Complete it | Refused 422 WORK_ORDER_REPACK_UNBALANCED by the service, naming the line: a repack conserves quantity **per (item, lot, serial, duty status)** and a total that balances only across lots turns one lot into another. The ledger's trigger is never reached | FR-264 FR-266 | L-1 | app | v2·P5 | error |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/whworkorder/WhWorkOrderRepackGrainBalanceTest.java`
+
+## WH-SC-360
+
+Catalogue source row:
+
+`| **WH-SC-360** | A VAS labelling work order is performed on 500 EA of CL-NOVA's bailed stock | Complete it | **One** work_order.completed event is appended to the outbox in the completion's transaction (grain WORK_ORDER, owner CL-NOVA, subject the work order), and the serviced goods' bin receives **nothing**: a VAS is a billable fact and never a valuation change | FR-267 FR-265 | L-14 | app·3pl | v2·P5 | happy |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/whworkorder/WhWorkOrderCompletionEventTest.java`
+
+## WH-SC-361
+
+Catalogue source row:
+
+`| **WH-SC-361** | CL-NOVA has an active, published CARTON_LABEL template CL-NOVA-CARTON (owner CL-NOVA); the global CARTON_LABEL template is also published | A carton of a CL-NOVA shipment and a carton of a HOUSE shipment are printed with no template chosen (templateKind = CARTON_LABEL) | Both go through the same print code path: CL-NOVA's carton gets CL-NOVA-CARTON, the HOUSE carton gets the global layout, and each wh_print_jobs row records the template AND its active template_version | FR-226 | — | app | v2·P5 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-362
+
+Catalogue source row:
+
+`| **WH-SC-362** | Template NOVA-GROUP-CARTON has two open wh_print_template_scopes rows, owners CL-NOVA and CL-NOVA-EU; last month a CL-NOVA carton printed version 2; version 3 was published since | A CL-NOVA-EU carton, a CL-ORION carton and a reprint of last month's CL-NOVA job are printed | CL-NOVA-EU gets the group layout; CL-ORION gets the global one, and choosing the group template for it by hand is refused PRINT_TEMPLATE_SCOPE_MISMATCH; the reprint replays version 2's stored bytes, not version 3 | FR-226 FR-468 | — | app | v2·P5 | edge |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-363
+
+Catalogue source row:
+
+`| **WH-SC-363** | Tarpaulin EQ-TARP-12 (RETURNABLE_EQUIPMENT) held under holder quad (LOGISTICS, TRIP, TR-0917, 1) at SITE-A | Logistics posts EQUIPMENT_ISSUE to the vehicle location and, on return, EQUIPMENT_RETURN through POST /api/warehouse/movements as a user holding warehouse:movements:post, then releases by holder | Both are stock movements (INTERNAL, not financial); the reservation closes by holder quad; no fitment or trip table exists under warehouse | FR-338 | L-4 | base | v2·P5 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-364
+
+Catalogue source row:
+
+`| **WH-SC-364** | Counterparty CUST-DEPOT-7 holds +40 of our PALLET-EUR (PACKAGING) with a 4,000.00 INR deposit | At the stop 20 full pallets are issued and 32 empties collected (two port movements), recorded as one exchange | The balance moves +40 → +28 by exactly those movements (entries +20 and −32); the deposit stays 4,000.00; the balance equals the sum of its whb_packaging_balance_entries; naming either movement again is refused PACKAGING_MOVEMENT_ALREADY_APPLIED | FR-343 | — | base | v2·P5 | happy |`
+
+Explicit Java references: `warehouse-base/backend/src/test/java/ai/warehousebase/service/WhbPackagingBalanceValidationServiceTest.java`
+
+## WH-SC-365
+
+Catalogue source row:
+
+`| **WH-SC-365** | GRN GRN-A-0520 from supplier SUP-BOSCH at SITE-A is POSTED with line 1 of OF-1120 received 4 short of its ASN | buyer1 uses Raise Supplier Claim on the receipt, submits the claim; the supplier acknowledges; buyer1 decides and later settles | The claim opens pre-filled from the receipt: supplier, source document GRN-A-0520, one SHORT_SHIPMENT line of 4 traced to the receipt line, and no line can claim more than the shortfall (SUPPLIER_CLAIM_LINE_OVER_EVIDENCE). The decision approves 2 and rejects 2 with a reason, so the claim is PART_APPROVED and settled_value is the sum of the approved line values. Settle records mode CREDIT_NOTE with the credit note's reference, a settlement date inside the claim's life, and the unapproved balance written off explicitly; the claim is SETTLED and the WS-250 ageing report takes it out of the open bucket **on its settlement_date**, never its update date. Nothing is posted: the reference is for accounting to pick up (FR-274, OD-1) | FR-459 | — | app | v2·P5 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-366
+
+Catalogue source row:
+
+`| **WH-SC-366** | The same receipt line of GRN-A-0520 already carries WH-SC-365's short-shipment claim; QC then finds a damaged carton on it | qc1 raises a QUALITY_REJECT claim traced to that receipt line, and mgr1 opens WS-250 | Both claims are on one register and both trace to the same receipt line; the ageing report shows **one row for SUP-BOSCH** (per currency) that totals both open claims across its six fixed buckets, aged from each claim's claim_date on the site's day. A line with no receipt line, on a receipt that is not posted, or on another supplier's receipt is refused (SUPPLIER_CLAIM_LINE_NO_RECEIPT, SUPPLIER_CLAIM_LINE_RECEIPT_NOT_POSTED, SUPPLIER_CLAIM_LINE_OTHER_SUPPLIER) | FR-459 | — | app | v2·P5 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-367
+
+Catalogue source row:
+
+`| **WH-SC-367** | OEM obsolescence authorisation OBR-000042 (WH-SC-343) is SUBMITTED with 904.50 claimed | buyer1 raises the supplier claim from it; the claim is later settled | An OBSOLESCENCE claim is created carrying the authorisation as its source document, never over its claimed amount, and the authorisation points at it through supplier_claim_id. The authorisation cannot be cancelled while a live claim carries it, and it reaches SETTLED only when its claim settles. Its deprecated settlement columns are **never written** — the settled figure and reference are read from the claim — and there is no settle action on the authorisation | FR-459 FR-276 | — | app | v2·P5 | edge |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-368
+
+Catalogue source row:
+
+`| **WH-SC-368** | A SUBMITTED SHORT_SHIPMENT claim against SUP-BOSCH, not yet decided | buyer1 withdraws it, first with no note, then with a note; later tries to withdraw a decided claim | Withdrawal without a note is refused (SUPPLIER_CLAIM_WITHDRAW_NOTE_REQUIRED); with a note the claim is WITHDRAWN, **leaves the ageing report and stays in the register**, its number never reused. A decided claim cannot be withdrawn: the refusal names the transition it refused (SUPPLIER_CLAIM_TRANSITION_REFUSED, "cannot move from S to T") | FR-459 | — | app | v2·P5 | error |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-373
+
+Catalogue source row:
+
+`| **WH-SC-373** | Client CL-ORION is LIVE with go_live_date 2026-10-01; its pick line posts pick.line.confirmed on outbox cursor N | The WH3_BILLING_METER subscriber is delivered cursor N twice, or the subscription is replayed from 0 | Exactly **one** wh3_billable_events row exists, keyed (WHB_OUTBOX, "N") with outbox_cursor N, charge code OUT_PICK_UNIT. An event of the operator's own stock, of a SUSPENDED or PROSPECT client, or posted before go_live_date is never metered, and re-delivering it skips it again. A carton.packed event with no quantity meters 1 of its charge code's unit | FR-285 | — | 3pl | v2·P5 | edge |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-374
+
+Catalogue source row:
+
+`| **WH-SC-374** | A METERED, unbilled shipment event of CL-ORION | ops1 clicks **Reverse** on WS-160 | A new row appears with quantity negated, reversal_of_event_id = the original, key + #REVERSAL, occurred now and posting_date = the site's today. Both rows show REVERSED, and the original's other columns are unchanged. A second Reverse, a Reverse of the reversing row, and a Reverse of a BILLED or EXCLUDED event are each 409. Deleting a row, or an UPDATE of a column off the allowlist, is refused by the database trigger | FR-285 | — | 3pl | v2·P5 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-375
+
+Catalogue source row:
+
+`| **WH-SC-375** | A METERED event of CL-ORION | ops1 sends PATCH /{id}/exclude with a blank reason, then an unknown or inactive reason code, then GOODWILL | The blank reason is refused 422 EXCLUSION_REASON_REQUIRED on exclusionReasonCode; the unknown or inactive code 422 EXCLUSION_REASON_UNKNOWN. GOODWILL sets status EXCLUDED and stamps the reason and updated_by: the row stays, and EXCLUDED is terminal — an exclusion is a recorded credit decision, never a delete | FR-285 | — | 3pl | v2·P5 | error |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-376
+
+Catalogue source row:
+
+`| **WH-SC-376** | The meter's subscription is pinned to event_version 1; ops2 holds no owner grant on CL-ORION and a branch tier without SITE-B | An outbox event arrives with event_version 2; ops2 opens, reverses and excludes a CL-ORION event, filters WS-160 on CL-ORION, and opens an event at SITE-B | The subscriber throws on version 2, so the cursor stops and dead-letters visibly rather than metering a shape it does not know. Every one of ops2's calls is a coded 403 — never an empty page — and the SITE-B event is 403 BILLABLE_EVENT_SITE_NOT_PERMITTED. For a permitted user the grid, the statistics and the export return the same filtered set | FR-285 FR-406 | — | 3pl | v2·P5 | error |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-377
+
+Catalogue source row:
+
+`| **WH-SC-377** | Client CL-ORION, one shipment quoted ₹1,000.00 at 12.5 kg; one rule per run for each mode | The shipment is metered | AT_COST 1,000.00; COST_PLUS_PERCENT 12.5% → 1,125.00 (333.33 → 375.00, rounded once HALF_UP 2dp); COST_PLUS_FIXED ₹75 → 1,075.00; OWN_TARIFF card FRT-PUB SHP_FREIGHT ₹48/kg → 600.00 whatever the carrier cost; CLIENT_OWN_ACCOUNT → no charge | FR-295 | — | 3pl | v2·P5 | happy |`
+
+Explicit Java references: `warehouse-3pl/backend/src/test/java/ai/warehouse3pl/service/wh3plfreightbillingrule/Wh3plFreightBillingServiceTest.java`
+
+## WH-SC-378
+
+Catalogue source row:
+
+`| **WH-SC-378** | COST_PLUS_PERCENT 10% rule; shipment metered at quote ₹1,000 → 1,100.00, run closed | The carrier invoice lands at ₹1,340 (₹340 above quote) | A delta event of 374.00 (rule(1,340) − rule(1,000)) is posted into the current open run, priced under the rule the original was metered under (by its ruleId, never re-found by ship date); the original 1,100.00 event and the closed run are unchanged; original + delta = 1,474.00. **Unit (pricing only)** until P5-03 posts the event and P5-05's open run takes the delta | FR-295 | — | 3pl | v2·P5 | edge |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-379
+
+Catalogue source row:
+
+`| **WH-SC-379** | Client rule CLIENT_OWN_ACCOUNT with carrier account ORION-DEL-01 | The shipment is metered, then the carrier invoice lands | No billable event at all: the charge is absent, not zero, and reconciliation posts nothing; the rate resolver is never called. **Unit (pricing only)** until P5-03 posts freight events | FR-295 | — | 3pl | v2·P5 | edge |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-380
+
+Catalogue source row:
+
+`| **WH-SC-380** | Client has an AT_COST rule from 2026-10-01 with no end | A second rule for the same client starting 2026-10-25 is saved | 409 FREIGHT_RULE_OVERLAP on field effectiveFrom, naming "AT_COST rule from 2026-10-01 with no end"; if it bypasses the service, ex_wh3_freight_billing_rules_overlap refuses it and the error maps to the same field and code (409 FREIGHT_RULE_OVERLAP on effectiveFrom) with the generic "already has another rule" sentence — the overlapping rule is not re-queried in the rolled-back transaction | FR-295 | — | 3pl | v2·P5 | error |`
+
+Explicit Java references: `warehouse-3pl/backend/src/test/java/ai/warehouse3pl/service/wh3plfreightbillingrule/Wh3plFreightBillingRuleValidationServiceTest.java`
+
+## WH-SC-381
+
+Catalogue source row:
+
+`| **WH-SC-381** | Channel account AMZ-IN-01 (owner 1, FULFIL from site 1) and no import yet for external order 402-1187 | The integration posts 402-1187 version 3 twice — the second a network retry of the first | The first post logs CREATED and creates **one** demand order carrying channel_account_id and external_order_ref = 402-1187. The second returns the **same** import row unchanged — no second log row, no second demand order; wh_demand_orders' uk(channel_account_id, external_order_ref) is the database's last guard. WS-124 filtered on 402-1187 shows one row and names the order | FR-208 | L-10 | app | v2·P5 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-382
+
+Catalogue source row:
+
+`| **WH-SC-382** | 402-1187 version 5 has been applied (UPDATED, the ship-to changed) | The marketplace re-polls and sends version 4 | A new log row records IGNORED_STALE with applied_version = 5 and a reason naming both versions; the demand order keeps version 5's address and quantities. A version 6 then logs UPDATED against the same order. A version whose item code no longer resolves logs REJECTED with failed_field naming the line's item, is filterable on WS-124, and **Re-run** after the listing code is fixed turns the same row UPDATED (attempt_count = 2) | FR-208 | — | app | v2·P5 | edge |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-383
+
+Catalogue source row:
+
+`| **WH-SC-383** | Publish rule on AMZ-IN-01, item BRK-PAD-220, basis AVAILABLE_MINUS_BUFFER, buffer 2, maximum 50, floor 5; site 1 holds on-hand 9 with 3 in open reservations | sup1 runs **Publish** | Available is derived at read time as 9 − 3 = 6 (never a stored counter); computed 6 − 2 = 4 is below the floor 5, so the log row records computed 4, **published 0**, below_floor = true, ack_status = PENDING, and the push goes out through the outbox. When the channel answers, **Acknowledge** stamps ACKNOWLEDGED with the channel's quantity and reference; a channel that drops the push leaves the row PENDING — the oversell trail | FR-209 | L-6 | app | v2·P5 | edge |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/whchannelpublishrule/WhChannelPublishCalculatorTest.java`; `warehouse/backend/src/test/java/ai/warehouse/service/whchannelpublishrule/WhChannelPublishServiceTest.java`
+
+## WH-SC-384
+
+Catalogue source row:
+
+`| **WH-SC-384** | Shipment SHP-000412 is dispatched; a tracking link was issued with a 30-day expiry and the consignee received it by WhatsApp through the platform's existing provider | An anonymous visitor opens the link; later the same link after expiry; then the token with one character changed; then a revoked link | The live link shows status milestones, carrier and tracking number only — no owner, client, cost, address or other shipment. The expired, tampered and revoked tokens each return the **same neutral 404**. The DISPATCHED notification is logged once per shipment × event × channel, so a repeated dispatch hook never sends twice | FR-210 | — | app | v2·P5 | error |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/whtrackinglink/WhTrackingLinkNotifierTest.java`; `warehouse/backend/src/test/java/ai/warehouse/service/whtrackinglink/WhTrackingLinkPublicServiceTest.java`
+
+## WH-SC-385
+
+Catalogue source row:
+
+`| **WH-SC-385** | Ratio pack RP-2S4M4L over style TSHIRT-CREW declares pack_quantity 10 with lines S 2, M 4, L 4; SITE-A receiving location RECV-01; recv1 holds warehouse:movements:post | recv1 scans one carton: POST /warehouse/movements/ratio-pack, movement type RECEIPT, one pack line +1 at RECV-01 and its counter pack line −1 at SITE-A's SUPPLIER virtual location, both source_line_ref ASN-7-L1 | **One** RECEIPT movement carrying **six** signed variant grains — +2 S, +4 M, +4 L at RECV-01 and −2, −4, −4 at the virtual location (is_counter_side) — each in the variant's base unit and each carrying source_line_ref ASN-7-L1. The positive side sums to **10**, the pack's declared quantity; positions rise by 2 / 4 / 4. No line names the pack as an item and no second movement exists. The port persists the rewritten request on whb_inbound_messages before it posts, and a replay of the same idempotency key against the unchanged pack returns the same movement | FR-445 FR-044 | L-1 | base | v2·P5 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-386
+
+Catalogue source row:
+
+`| **WH-SC-386** | WH-SC-385's stock is staged at STG-01 against a customer order whose line 1 is one RP-2S4M4L carton | The despatch posts ISSUE through the same endpoint: one pack line −1 at STG-01 and its counter pack line +1 at the CUSTOMER virtual location, source_line_ref SO-9-L1. Then a second request whose pack line also names item_id, and a third naming a movement type that balances MUST_BALANCE_PER_MOVEMENT | The shipment explodes **identically**: one ISSUE movement, six signed variant grains −2/−4/−4 and +2/+4/+4, every one carrying SO-9-L1 — so the customer's document shows **one** line and the ledger six. The second request is refused 422 on lines[0].item_id — *"A pack line takes its items, quantities and units from the ratio pack - 'item_id' cannot be sent on it."* (RATIO_PACK_LINE_FIELD_NOT_ALLOWED) — and the third on movement_type_code — *"A ratio pack posts under a movement type that balances MUST_BALANCE_PER_OWNER_ITEM - each variant is a different item and must balance on its own; <code> balances MUST_BALANCE_PER_MOVEMENT."* (RATIO_PACK_MOVEMENT_TYPE_NOT_PER_OWNER_ITEM). Nothing is posted in either case, and nothing reaches whb_inbound_messages: a pack line is refused before the port records the request. V500090 raises if RECEIPT or ISSUE is ever re-seeded as anything but MUST_BALANCE_PER_OWNER_ITEM | FR-445 | L-1 | base | v2·P5 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-387
+
+Catalogue source row:
+
+`| **WH-SC-387** | cat1 holds whb_ratio_pack_templates:create for owner HOUSE only | cat1 saves a new pack on WS-033 for TSHIRT-CREW declaring 10 with cells S 2, M 4, L 3; then one naming a variant of the same style that belongs to another owner; then opens a style of an owner she holds no grant on; then imports a WS-033 transfer file carrying the same 2/4/3 pack through Import Batches | The first is refused 422 (RATIO_PACK_SUM_MISMATCH) with a field error on **the line** — lines[2].quantity: *"Line 3 (TSHIRT-CREW-L): the lines sum to 9 but the pack declares 10 - 1 unit short"* — and on packQuantity: *"Pack quantity 10 does not match its lines: the lines sum to 9 but the pack declares 10 - 1 unit short"*, and nothing is saved; had the service been bypassed, the deferred constraint trigger refuses the same at commit. The second is refused on lines[i].variantItemId: *"Variant <SKU> belongs to another owner than style TSHIRT-CREW - a ratio pack for two owners is two packs."* The third is a coded 403 OWNER_NOT_PERMITTED, never an empty matrix. The import row (WHB_RATIO_PACK_TEMPLATE) is refused on its Lines cell with *"the lines sum to 9 but the pack declares 10 - 1 unit short"* and nothing is created | FR-445 FR-406 FR-416 | — | base | v2·P5 | error |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-388
+
+Catalogue source row:
+
+`| **WH-SC-388** | SIZE is created on WS-032 as an ordered axis with its values keyed in the order XL (40), S (10), L (30), M (20) | cat1 opens WS-032 and WS-033 for TSHIRT-CREW in English, French and Hindi | WS-032's *Value Order* column and view modal, and WS-033's matrix columns, read **S, M, L, XL** — by sort_order, never alphabetically (L, M, S, XL) — in all three locales. The matrix reads the style's axes from whb_style_variant_axes in sequence order and each variant's value from whb_item_variant_values; no code path reads a variant_axis_N_value_id column (RG-009; V500090 raises if one exists). WS-032 ships columns, filter_definitions and grid_preferences with both defaults; WS-033 ships none (V500090 raises otherwise). A second value with the same sort_order on an ordered axis is refused on values[i].sortOrder: *"Sort order 10 is already taken by S - an ordered axis is a scale and needs a strict order."* | FR-443 FR-444 | — | base | v2·P5 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-389
+
+Catalogue source row:
+
+`| **WH-SC-389** | warehouse.regulated_profile holds a validated profile; item DRUG-AMOX-500 carries REGULATED_LICENCE_TYPE = DRUG_WHOLESALE and is lot-controlled; consignee CUST-MEDPLUS holds drug licence DL-20B-4471, valid to 2026-09-30; demand order DO-000912 is staged | picker1 despatches DO-000912 on 2026-10-02 (the site's day) | The despatch is **refused** before any movement posts, and the refusal names the consignee, licence DL-20B-4471 and its expiry 2026-09-30. After a renewed licence valid to 2027-09-30 is recorded on WS-253, the same despatch succeeds. Under regulated_profile = NONE the guard is inert and the first despatch would have succeeded. A SALES order with no consignee is refused; a TRANSFER, REPLENISHMENT, SCRAP, JOB_ISSUE, WORK_ORDER or VAS order with no consignee passes on our licence alone, and a VENDOR_RETURN to the supplier passes on our licence alone (no consignee-licence check) | FR-456 | — | india | v2·P4 | error |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-390
+
+Catalogue source row:
+
+`| **WH-SC-390** | Same profile; our own DRUG_WHOLESALE licence at WH-BLR-01 was retired, and the type gates despatch | picker1 despatches a regulated order from WH-BLR-01 | Refused: the site holds no live licence of the type on the site's day, and the refusal names the latest one it held and when that expired. An item whose REGULATED_LICENCE_TYPE names a type that has no registry row is refused **fail-closed**, and a regulated item with lot control NONE is refused, never despatched untraced | FR-456 | — | india | v2·P4 | error |`
+
+Explicit Java references: `warehouse-india/backend/src/test/java/ai/warehouseindia/service/whinregulated/WhinRegulatedGoodsDispatchGuardTest.java`
+
+## WH-SC-391
+
+Catalogue source row:
+
+`| **WH-SC-391** | CUST-MEDPLUS's narcotic licence carries a QUARTER ceiling of 500 on NARC-CODEINE-SYR; 460 was despatched to it this Indian-FY quarter and 10 of that was reversed | picker1 despatches 60 more | Consumption is read **from the ledger**: 460 − 10 = 450, so 450 + 60 > 500 and the despatch is refused, stating that 50 remain. WS-254 shows the same consumed (450) and remaining (50) figures. A despatch of 50 succeeds and leaves 0 remaining, and the ceiling counts as exhausted in the strip. A renewed licence still carries the FY ceiling recorded on its predecessor, and orders in one dispatch are measured together | FR-456 | — | india | v2·P4 | edge |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-392
+
+Catalogue source row:
+
+`| **WH-SC-392** | WH-BLR-01 despatched SCHEDULE_H1 items in August 2026; the site's day is 2026-09-03 | compliance1 builds the August Schedule H1 register, then a late reversal dated in August posts, and the register is rebuilt; compliance1 also tries to build September | August builds from the ledger (one line per despatch or reversal line, with the consignee's licence in force on the posting date). The rebuild keeps the first run as SUPERSEDED, lines intact and never deleted, and the new CURRENT run carries the reversal. Rebuilding again with no ledger change produces identical lines. September is refused because the month has not closed on the site's day | FR-457 | — | india | v2·P4 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-393
+
+Catalogue source row:
+
+`| **WH-SC-393** | CL-ORION bills PALLET storage on ANNIVERSARY with 7 free days; pallet LPN-A was received 2026-11-28 | bill1 computes 2026-11-01 to 2026-11-30 on WS-161 | LPN-A's first storage month starts 2026-12-05, outside the period, so it contributes **no** billable month and no line is charged for it. An older pallet whose anniversary falls inside the period is billed one full month. A snapshot row with no receipt date is refused on method, never billed from a guess | FR-288 | — | 3pl | v2·P5 | edge |`
+
+Explicit Java references: `warehouse-3pl/backend/src/test/java/ai/warehouse3pl/service/wh3plstoragebilling/Wh3plStorageBillingCalculatorTest.java`
+
+## WH-SC-394
+
+Catalogue source row:
+
+`| **WH-SC-394** | CL-ORION bills UNIT storage on SPLIT_MONTH, no free days; unit A was received on the 15th and unit B on the 16th | bill1 computes the month | A is billed for the full period and B for half. B's line stores is_prorated = true, days_charged = 16th..end and free_days_applied, and every line stores all three (RF-007) | FR-288 | — | 3pl | v2·P5 | happy |`
+
+Explicit Java references: `warehouse-3pl/backend/src/test/java/ai/warehouse3pl/service/wh3plstoragebilling/Wh3plStorageBillingCalculatorTest.java`
+
+## WH-SC-395
+
+Catalogue source row:
+
+`| **WH-SC-395** | CL-ORION's rate line has ageing bands [0,90) 0 % and [90,∞) 25 %; one unit is 120 days old | bill1 computes the period | The aged unit carries a 25 % surcharge on its line, and the total is rounded once HALF_UP to 2 dp. A basis outside P5-02's whitelist is 422 STORAGE_BASIS_INVALID, a square-feet basis 422 STORAGE_BASIS_NOT_MEASURABLE, and a period starting before the first snapshot is refused on periodFrom naming that date (PNR-3) | FR-288 | — | 3pl | v2·P5 | edge |`
+
+Explicit Java references: `warehouse-3pl/backend/src/test/java/ai/warehouse3pl/service/wh3plstoragebilling/Wh3plStorageBillingCalculatorTest.java`
+
+## WH-SC-396
+
+Catalogue source row:
+
+`| **WH-SC-396** | CL-ORION has a CLIENT-scope monthly minimum of ₹1,20,000; three of November's events are still METERED | bill1 approves November's storage period | The storage charge is metered RATED, but the true-up shows **PENDING_RATING** and no MINIMUM_TRUEUP event is posted, because the total is not guessed. Once everything is rated and the total is ₹94,300, the shortfall ₹25,700 posts as a RATED MIN_MONTHLY_TRUEUP event with computation_note "Minimum monthly charge 120000.00 - metered 94300.00 = shortfall 25700.00 INR (2026-11-01 to 2026-11-30)", visible on WS-160 | FR-290 | — | 3pl | v2·P5 | edge |`
+
+Explicit Java references: `warehouse-3pl/backend/src/test/java/ai/warehouse3pl/service/wh3plstoragebilling/Wh3plMinimumTrueUpServiceTest.java`
+
+## WH-SC-397
+
+Catalogue source row:
+
+`| **WH-SC-397** | Site MUM (REGISTERED branch BR-MUM) on calendar IN-STD (weekdays 09:00-18:00, cut-off 14:00, Asia/Kolkata); the branch's own platform holiday calendar holds Diwali on Thu 2026-11-05; 3PL SLA ORDER_CYCLE_TIME 8 working hours on IN-STD | A demand order arrives Wed 2026-11-04 15:00 IST (after the cut-off); the platform admin then moves Diwali to Fri 2026-11-06 and the same order is evaluated again | Before the move: promised ship-by Fri 18:00, SLA due Fri 14:00 (3 h Wed + 5 h Fri); after it: promised Thu 18:00, SLA due Thu 14:00 - **both move, through one resolver**; no warehouse table holds the holiday (RH-011) | FR-181 FR-165 | RH-011 | app | v2·P5 | happy |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/whworkingcalendar/WhWorkingCalendarServiceTest.java`
+
+## WH-SC-398
+
+Catalogue source row:
+
+`| **WH-SC-398** | Calendars DEF (default), SITE assigned to site MUM, CLI to client ACME, BOTH to MUM + ACME | The promise is resolved for (MUM, ACME), (MUM, OTHER), (PUN, ACME), (PUN, OTHER) | BOTH, SITE, CLI, DEF respectively - one rule, the more specific winning, the rule logged; an overlapping second assignment for the same target is refused 422 on warehouseId | FR-181 | RG-017 | app | v2·P5 | happy |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/whworkingcalendar/WhWorkingCalendarServiceTest.java`
+
+## WH-SC-399
+
+Catalogue source row:
+
+`| **WH-SC-399** | PO-1 line 1: 100 EA @ 10.00; GRN-A received 60, GRN-B 40; separately a scheme receipt of 100 billed + 10 free @ 10.00 | Invoice INV-9 bills 100 for 1,012.00 plus 15.00 freight (total 1,027.00), allocated 60 → GRN-A for 600.00 and 40 → GRN-B for 412.00; the match is run | Expected 1,000.00; price variance 12.00 (on GRN-B's allocation); unallocated 15.00; variance **27.00 = 12.00 + 15.00, named, never a rounding**; status VARIANCE. The scheme receipt invoiced 1,000.00 is within tolerance at expected 1,000.00 with landed unit cost 9.090909 | FR-140 FR-141 FR-172 | — | app | v2·P5 | happy |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/whthreewaymatch/WhThreeWayMatchArithmeticTest.java`
+
+## WH-SC-400
+
+Catalogue source row:
+
+`| **WH-SC-400** | GRN line L1 billed 100; a live match already allocates 70 of it | A second invoice allocates 30.0001 of L1 (or one match splits L1 into rows of 60 and 41) | Refused 422 on allocations[i].allocatedQuantity (THREE_WAY_MATCH_LINE_OVER_ALLOCATED) naming the quantities; exactly 30 is accepted; the ceiling trigger is the last guard; a blind receipt line (no order line) is refused ..._NO_ORDER | FR-172 | — | app | v2·P5 | error |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/whthreewaymatch/WhThreeWayMatchAllocationGuardTest.java`
+
+## WH-SC-401
+
+Catalogue source row:
+
+`| **WH-SC-401** | Carrier CAR-DLV sent raw OFD for 4 months while its mapping said IN_TRANSIT; 120 stored events carry IN_TRANSIT beside raw OFD | ops1 corrects the mapping to OUT_FOR_DELIVERY effective the first site day of the 4 months, then runs Re-derive History for the carrier over that range | Every event whose site day falls in the range is re-derived to OUT_FOR_DELIVERY with the new mapping's id; the answer counts examined and changed; **no raw column changes** (the guard refuses any write to raw_status, raw_payload, location_text, event_at); events outside the range or another carrier's stay untouched; no consignee is re-notified; an unmapped raw status is stored UNMAPPED, never refused | FR-198 | — | app | v2·P5 | happy |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/whshipmenttrackingevent/WhTrackingEventIngestServiceTest.java`
+
+## WH-SC-402
+
+Catalogue source row:
+
+`| **WH-SC-402** | Shipment SHP-000501 to pincode 799999; the quoted carriers' serviceability rows mark it not served (or carry no row) | ops1 runs a rate shop with three candidate quotes | Refused 422 on postalCode (WH_RATE_SHOP_PINCODE_UNSERVICEABLE) naming the pincode; **nothing is persisted**. When the shipment is COD and the only served carrier does not accept COD there the refusal is WH_RATE_SHOP_COD_NOT_SUPPORTED, and for a reverse shop WH_RATE_SHOP_REVERSE_NOT_SUPPORTED - distinct from plain non-serviceability | FR-201 | — | app | v2·P5 | error |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/whratequote/WhRateShopServiceTest.java`
+
+## WH-SC-403
+
+Catalogue source row:
+
+`| **WH-SC-403** | Shipment SHP-000502 to pincode 110001 whose ship-to state reads Haryana; two carriers serve it | ops1 runs a CHEAPEST rate shop with a maximum of 150 and one carrier blocked | The shop succeeds with a **warning** on state (address validation only warns); every quote considered is persisted under one rate_shop_id with shipped, volumetric and billable weight and the divisor; exactly one is was_selected with its reason, and each other quote states why not (blocked, above the maximum, costlier) | FR-200 FR-201 | — | app | v2·P5 | happy |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/whratequote/WhRateShopServiceTest.java`
+
+## WH-SC-404
+
+Catalogue source row:
+
+`| **WH-SC-404** | An AWB pool for ACC-01 / SURFACE / PREPAID holds 30 FREE numbers 1000000001-1000000030; 20 OPEN shipments on that account and service | Twenty threads claim at once, one per shipment | Twenty distinct numbers are CLAIMED, one per shipment, **none double-claimed**, **none skipped** (the FREE remainder is exactly 1000000021-1000000030), nobody waits on the pool row (FOR UPDATE SKIP LOCKED); a surplus claimer on an exhausted pool is refused NO_WORK (or ALL_CLAIMED while rows are locked), a repeated claim answers the number already held, and a number never returns to FREE | FR-202 | — | app | v2·P5 | conc |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/whawbpool/WhAwbClaimConcurrencyIntegrationTest.java`
+
+## WH-SC-405
+
+Catalogue source row:
+
+`| **WH-SC-405** | Site WH-BLR (Asia/Kolkata) works Mon-Fri 09:00-18:00; carrier CAR-DLV has ndr_response_hours = 4; shipment SHP-000601 DISPATCHED | The carrier reports an NDR at 18:40 on Saturday | NDR attempt 1 is OPEN with response_due_at = Monday 13:00 IST (4 WORKING hours on the site + client calendar, never Sunday) and calendar_code = IN-STD; the console queue sorts it by that time; an OFD on Monday then a second NDR on Tuesday raise attempt 2 and notify again (per-attempt keying, P5-09 F6) | FR-203 | — | app | v2·P5 | happy |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/whshipmentndr/WhNdrClockTest.java`
+
+## WH-SC-406
+
+Catalogue source row:
+
+`| **WH-SC-406** | NDR attempt 1 on SHP-000602 is OPEN; its auto_rto_at has passed; nobody responded | WH_NDR_ESCALATION then WH_NDR_AUTO_RTO run | The NDR is stamped breached and escalated (holders of wh_shipment_ndrs:action told once), then auto-RTO'd: an RTO consignment under NDR_UNANSWERED, rto_cost_bearer = CLIENT, outcome AUTO_RTO. The return comes back as a return receipt return_type = RTO - posting it RECEIVES the consignment; no refund path is offered; WH-SC-200's disposition rules apply unchanged. A shipment DELIVERED meanwhile closes its NDR DELIVERED and is never RTO'd | FR-203, FR-205 | WH-SC-200 | app | v2·P5 | edge |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/whshipmentndr/WhNdrAutoRtoJobTest.java`
+
+## WH-SC-407
+
+Catalogue source row:
+
+`| **WH-SC-407** | Carrier CAR-DLV remits UTR UTR0001 for WH-BLR: gross 1500.00, deductions 30.00, net 1480.00; two AWB lines 1000.00 + 500.00, both DELIVERED COD shipments owing exactly that | fin1 reconciles | Every line MATCHES but the remittance is held **UNMATCHED** with header variance -10.00 - no balancing line is created. Corrected to net 1470.00 and reconciled: MATCHED, hand-over QUEUED with WH-COD:{id}:RECEIPT and WH-COD:{id}:EXPENSE; reconciling again changes nothing and issues neither envelope twice; with accounting absent both stay QUEUED and ride the export (D-7) | FR-204 | — | app | v2·P5 | error |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/whcodremittance/WhCodRemittanceMatcherTest.java`
+
+## WH-SC-408
+
+Catalogue source row:
+
+`| **WH-SC-408** | 40 OPEN NDRs on the console; one of them was closed DELIVERED by the carrier feed a moment ago | cc1 selects all 40 and bulk-responds REATTEMPT | 40 row results: 39 committed (each in its own transaction, each ACTIONED with a REATTEMPT action) and one refused 409 WH_NDR_CLOSED on its own row - the refusal costs no other row its commit | FR-203 | — | app | v2·P5 | edge |`
+
+Explicit Java references: `warehouse/backend/src/test/java/ai/warehouse/service/WhShipmentNdrServiceBulkTest.java`
+
+## WH-SC-409
+
+Catalogue source row:
+
+`| **WH-SC-409** | CL-ORION's November run BR-000001 is DRAFT; 3 of its 120 events are PICK/CASE for which no rate card line exists | bill1 rates the run on WS-162 | Refused 422 naming each missing rate-card combination; the run stays DRAFT with unrated_event_count = 3 and the unrated summary saved, and no event is BILLED. Once the line exists, Rate succeeds and the run is RATED; an event before go-live or outside the contract window is EXCLUDED with its BILLING_EXCLUSION code, never silently unrated | FR-292 | — | 3pl | v2·P5 | error |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-410
+
+Catalogue source row:
+
+`| **WH-SC-410** | CL-ORION has a CLIENT minimum of ₹1,00,000; November's charge lines are ₹30,000, ₹30,000 and ₹30,000; the storage period posted a ₹10,000 true-up | bill1 rates the run | The true-up becomes three is_minimum_true_up lines of ₹3,333.34, ₹3,333.33 and ₹3,333.33, adding up exactly to ₹10,000 (largest remainder, the tied extra paisa to the lowest line_no), each line showing its arithmetic; line_no is unique within the run (RF-009) | FR-292 | — | 3pl | v2·P5 | edge |`
+
+Explicit Java references: `warehouse-3pl/backend/src/test/java/ai/warehouse3pl/service/wh3plbillingrun/Wh3plBillingRunCalculatorTest.java`
+
+## WH-SC-411
+
+Catalogue source row:
+
+`| **WH-SC-411** | BR-000001 is APPROVED by bill2 (not its rater); accounting is connected and times out on the first hand-over | The envelope WH3-AR:{run}:RECEIVABLE is retried from WS-170 | The first attempt leaves it SENT with attempt_count = 1; the retry re-sends the **same key**, accounting answers with the reference it already issued, the envelope is POSTED and the run INVOICED — **one** receivable. A rejected envelope keeps the run APPROVED and blocks Cancel 409 naming the envelope until it is voided (RJ-011); with no accounting module the envelope downloads as CSV and the run is marked invoiced with a manual reference | FR-294 | — | 3pl | v2·P5 | edge |`
+
+Explicit Java references: `warehouse-3pl/backend/src/test/java/ai/warehouse3pl/service/wh3plarhandover/Wh3plArHandoverDispatcherTest.java`
+
+## WH-SC-412
+
+Catalogue source row:
+
+`| **WH-SC-412** | BR-000001 was APPROVED 20 days ago (window 60); cs1 raised dispute DSP-000001 for ₹450 | bill2 investigates and upholds a ₹150 credit on a credit charge code | One RATED wh3_billable_events row exists (subject WH3_DISPUTE, key DISPUTE:{id}:CREDIT, quantity −1, amount −150.00); BR-000001 and its wh3_billing_run_lines are unchanged; the client's next run bills the credit as its own line. cs1 attempting the uphold is refused 403; a credit above ₹450 is 422; a raise 61 days after approval is 422 | FR-293 | — | 3pl | v2·P5 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-413
+
+Catalogue source row:
+
+`| **WH-SC-413** | CL-NOVA's portal user holds the 'Warehouse 3PL Client Portal' bundle and a VIEW grant on CL-NOVA's owner only | The user calls every /warehouse/3pl/portal/** endpoint (stock grid, statistics, availability, export; inbound grid, detail, lineage; orders; shipments; billing and its lines; disputes and their pickers; performance, trend, drill-through; documents and download) naming CL-ORION, then opens an CL-ORION record id through CL-NOVA's portal | Every call is 403 OWNER_NOT_PERMITTED before any delegate read — never an empty grid; the same bundle is 403 on every 3PL admin endpoint and on the served screens' own URLs (it holds :view:all site tiers, never a :view) | FR-300 FR-284 | — | 3pl | v2·P5 | error |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-414
+
+Catalogue source row:
+
+`| **WH-SC-414** | The same CL-NOVA user; CL-NOVA has receipts, orders, shipments, a billing run, a dispute and three measured SLA windows | The user opens Client Portal (WS-172) and walks its tabs | Each tab is the existing screen's table under its own grid_identifier (WS-042, WS-076, WS-099, WS-105, WS-162, WS-164, WS-167, WS-132); SELECT DISTINCT grid_identifier FROM grid_column_definitions gains no portal row; Performance draws the trend and current period from the frozen wh3_sla_measurements rows and drills through to failing orders; Raise Dispute appears only with wh3_disputes:raise | FR-284 FR-298 | — | 3pl | v2·P5 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-415
+
+Catalogue source row:
+
+`| **WH-SC-415** | CL-NOVA (owner type CLIENT_3PL, posts_to_our_gl = false) holds 900 EA at SITE-A: 600 on a lot with MRP 124.95 and 300 on a lot with none; HOUSE holds 120 EA of OF-1120 | fin1 runs WS-211 Stock Valuation and WS-227 Custody & Insured Value as at D | WS-211 values only HOUSE; with CLIENT_3PL explicitly chosen, the 900 EA row carries a quantity and a NULL value (blank in export, total NULL), never 0. WS-227 shows one row: quantity 900, insured value 74,970.00, basis PARTIAL_LOT_MRP; HOUSE never appears on it | FR-115 FR-112 | — | 3pl | v2·P5 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+
+## WH-SC-416
+
+Catalogue source row:
+
+`| **WH-SC-416** | Garage A holds a current CUSTOMER role; buyer tc1 holds a live wh_trade_portal_users row for Garage A only and the 'Warehouse Trade Customer' bundle | tc1 opens the Trade Portal, reads availability, submits New order, follows it, downloads its challan, then names Garage B | Availability answers IN_STOCK / ON_ORDER / NOT_STOCKED per item with no quantity or site; the order is a SALES demand order in the pre-allocation state (OPEN), reserves nothing, and appears on WS-099 for the counter; the challan downloads; every read naming Garage B is 403 CUSTOMER_NOT_PERMITTED; after End access the same user is refused on Garage A too | FR-464 | — | app | v2·P5 | happy |`
+
+Explicit Java references: None found by lexical scan; coverage remains undetermined.
+

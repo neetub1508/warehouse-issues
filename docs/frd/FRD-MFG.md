@@ -1,0 +1,638 @@
+# FRD-MFG — `warehouse-manufacturing`: BOM, production orders, issue to WIP, FG receipt, QC, subcontracting, MRP
+
+> **Area** MFG · **Module** `warehouse-manufacturing` (`ai.warehousemanufacturing`, band **V560000–V569999**,
+> prefix **`whm_`**) · **Phase** P10 · **Decision record** `D-16` (SPINE) · **Source** R28 §4 group C,
+> §5 `RN-030`…`RN-036`, §8b `RN-050`…`RN-054` · **ID ranges** FR-620–669 · WS-320–339 · WH-SC-600–659 ·
+> OD-40–44 · **Depends on** `p8-06` (QC polymorphic source), `p8-09` (material requisition +
+> `WhMaterialRequisitionPort` + `CostObjectResolver`), `p8-10` (store issue with cost object), `p8-11`
+> (store return), `p8-02` (demand-order port), `p8-01` (PO schedule lines, for MRP supply), `p8-03` (gate
+> pass), `p9-04` (PR from an `MRP` replenishment suggestion, `OD-31`) · **Supersedes** `FR-268` and
+> `issues/p6-12.md` (the multi-level BOM refusal is reversed by `RN-032`; SPINE marks p6-12 VOID).
+>
+> **Authoring status.** Derived 2026-10-22 from R28, the stores and trade FRDs as landed, the code in
+> `classic` (read-only evidence, cited `WB/`, `WH/`, `WI/` = `warehouse-base`, `warehouse`,
+> `warehouse-india` `backend/src/main`), and a reference process catalogue built from SAP PP, Odoo MRP,
+> ERPNext Manufacturing, Tally Prime and Indian SME / GST job-work practice (`RM-040`). Statutory values
+> carry **RE-VERIFY**.
+
+---
+
+## 1. What is being built
+
+A discrete or batch manufacturer runs production through the warehouse: an engineer maintains a
+**multi-level, versioned BOM** with alternates, scrap, phantoms and co-/by-products; a planner runs
+**MRP** and converts proposals into **production orders** (make) or **purchase demand** (buy, through
+core and `warehouse-trade`); stores **reserve, stage to the line or issue** components against the order
+as a **cost object**; the shop floor **confirms operations**; each **production receipt** backflushes
+components and receives finished goods, co-products and by-products, records scrap, writes **lot
+genealogy** and sends output to **final QC**; rework and **subcontracting / job work** (with the India
+challan and ITC-04 where `warehouse-india` is on) are the same order with a different type; the order is
+**closed** by a settlement that puts its residual value where it belongs.
+
+**The module writes no position directly and owns no ledger.** Every stock effect is a movement through
+`WhbStockLedgerWriter.post` (`WB/J/warehousebase/service/ledger/writer/WhbStockLedgerWriter.java:333`) or a
+core document (store issue `p8-10`, store return `p8-11`). Accounting is deferred (`RN-054`): MFG records
+handover points only and never generates a debit or credit note.
+
+### 1.1 Reference process catalogue coverage (`RM-040`, `RM-043`)
+
+| # | Catalogue row (SAP / Odoo / ERPNext / Tally / IN) | Coverage | FR |
+|---|---|---|---|
+| C1 | Multi-level BOM, versions, effectivity, alternatives, usage, base quantity | covered | FR-622…628 |
+| C1a | Phantom assembly, component / assembly scrap, fixed (setup) quantity | covered | FR-623, FR-627 |
+| C1b | Co-products and by-products on the BOM | covered | FR-624 |
+| C1c | Explosion, where-used, recursion check, cost roll-up | covered | FR-627, FR-628 |
+| C2 | Production order statuses (CRTD/REL/PCNF/TECO/CLSD; draft/confirmed/progress/done) | covered (PLANNED/RELEASED/IN_PROGRESS/COMPLETED/CLOSED) | FR-632…637 |
+| C2a | Release with availability check, reservation, shortage | covered | FR-635 |
+| C2b | Partial completion, multiple receipts, over/under-delivery tolerance, close short | covered | FR-644, FR-647, FR-656 |
+| C2c | Order types with number ranges, priority, sales-order (MTO) link | covered | FR-632, FR-636, FR-637 |
+| C3 | Staging / transfer to a production storage location (311, "Material Transfer for Manufacture") | covered | FR-639 |
+| C3a | Goods issue to order (261/262) | covered through core `p8-09`/`p8-10`/`p8-11` | FR-640, FR-641 |
+| C3b | Backflush (by BOM, per component indicator) | covered | FR-645 |
+| C3c | Return unused, substitution / alternative item groups, unplanned issue with reason | covered | FR-641…643 |
+| C4 | FG receipt (101/102), partial, co-product split, by-product at NRV | covered | FR-644, FR-654, FR-655 |
+| C4a | Scrap, process loss normal vs abnormal, rejection | covered | FR-646 |
+| C4b | Rework order | covered | FR-653 |
+| C4c | Unbuild / disassembly of a manufactured item | **refused v1** (R-07) | §10 |
+| C4d | Additional (labour / overhead) cost | **recorded, not absorbed** (`OD-43`) | FR-630, §9 |
+| C4e | Variance and settlement, WIP at period end | covered | FR-656 |
+| C5 | In-process and final QC, usage decision incl. rework | covered through `p8-06` | FR-652, FR-653 |
+| C6 | Lot genealogy forward / backward, expiry carried to FG | covered (`whb_transformations`) | FR-648 |
+| C7 | Subcontracting: send components, receive a different item, scrap at vendor | covered | FR-658…661 |
+| C7a | India s.143 / r.45 / r.55 challan, 1-year / 3-year clocks, ITC-04 | covered through `warehouse-india` | FR-660 |
+| C7b | Job work **in** (processing a customer's material) | `OD-42` (recommend v1.1, non-own owner) | FR-632 |
+| C8 | MRP: netting, low-level code, lead-time offset, lot sizing, safety stock, time fence | covered | FR-662…667 |
+| C8a | Planned order firm / convert to production order or purchase requisition, pegging, exception messages | covered | FR-666, FR-667 |
+| C8b | Net-change MRP, multi-site transfer proposals | **refused v1** (R-03, R-04) | §10 |
+| C9 | Work centres, routing / operation list, confirmations, load view | covered, lightweight | FR-630, FR-631, FR-651, FR-668 |
+| C9a | Finite capacity scheduling / APS | **refused** (R-01) | §10 |
+| C10 | Prints: traveller / job card, pick list, issue slip, FG receipt note, dispatch note, cost sheet | covered | FR-636, FR-639, FR-640, FR-650, FR-659, FR-656 |
+
+---
+
+## 2. Personas (`RN-036`)
+
+| Persona | Is | Does in MFG | Key permissions |
+|---|---|---|---|
+| **Production engineer** | a person | Maintains BOMs, versions, operations; submits for approval | `whm_boms:create/edit/submit` |
+| **Engineering approver** | a person, ≠ submitter | Approves or returns a BOM version | `whm_boms:approve` |
+| **Production planner** | a person | Planning parameters, demand plans, MRP runs, firms/converts proposals, creates and releases orders, priorities | `whm_mrp_runs:run`, `whm_mrp_proposals:convert`, `whm_production_orders:create/release` |
+| **Production supervisor / shift in-charge** | a person | Requests materials, stages, confirms operations, posts receipts, holds and completes orders | `whm_production_orders:hold/complete`, `whm_production_receipts:post`, `whm_operation_confirmations:create` |
+| **Stores-issue clerk** | a person | Fulfils the order's requisition by a core store issue, executes staging lists, receives returns | core `wh_store_issues:post`, `whm_staging_lists:stage` |
+| **QC inspector** | a person | In-process and final inspection, dispositions incl. REWORK | core `wh_quality_inspections:*` |
+| **Production manager** | a person | Approves receipt reversals, large-scrap receipts, release (when configured), close settlements over threshold and subcontract write-offs | `whm_production_receipt_reversals:approve`, `whm_production_receipts:approve`, `whm_production_orders:approve_release`, `whm_production_settlements:approve`, `whm_subcontract_dispatches:approve_write_off` (MD-20) |
+| **Subcontract coordinator** | a person | Subcontract orders, dispatches to job workers, subcontract receipts, recalls and write-off requests | `whm_subcontract_dispatches:{view,create,edit,export,dispatch,cancel,recall,write_off}` — **not** `:approve_write_off` |
+| **Cost accountant** | a person | Reads order cost, variance and WIP reports; no write | `whm_production_orders:view`, `:export` |
+| **Department requester** | a person | Core `p8-09` persona; not an MFG actor | — |
+| **Auditor** | a person | Read-only across MFG; **no `:export`** (platform `V698` policy) | `:view` only |
+| **Scheduler** | system | MRP run job, late-order and stale-staging alerts | own actor, never ADMIN |
+
+---
+
+## 3. Module design
+
+- **Package / flag.** `ai.warehousemanufacturing`, `WarehouseManufacturingModuleConfig` with
+  `@ConditionalOnExpression("${enable.warehouse.manufacturing:false}")`, `@ComponentScan`, `@EntityScan`
+  (own + `ai.warehousebase.entity` + `ai.warehouse.entity`), `@EnableJpaRepositories` — copied from
+  `WI/J/warehouseindia/WarehouseIndiaModuleConfig.java:33-61`. Env `ENABLE_WAREHOUSE_MANUFACTURING`.
+  Requires `warehouse-base` and `warehouse`; `warehouse-india` and `warehouse-trade` are optional and are
+  reached only through **core-defined ports with optional beans** — MFG has **no compile dependency** on
+  either sibling.
+- **Layering.** FKs point down only: `whm_` → `wh_`/`whb_`/platform. No `wh_`/`whb_`/`whin_`/`wht_` table
+  gains an FK to a `whm_` table; core refers to MFG documents by the source-document quad and the
+  cost-object pair only (`D-11`, `RN-034`).
+- **Vocabularies are code-list rows** (`whb_code_lists` / `whb_code_list_values`,
+  `WB/M/V500010:50-82`) referenced by composite FK `*_list` + code — never `CHECK`s on extensible values.
+  Closed system values (statuses) carry no `CHECK` either (`D-10`); the service is the enforcement point.
+- **Owning-module guard (`RL-003`).** Every MFG seed migration inserts with `ON CONFLICT DO NOTHING` and
+  then runs the `DO` block of `warehouse-adapter-example/.../V525000__…sql:99-122`, raising if any code it
+  owns exists with `owning_module <> 'warehouse-manufacturing'`.
+- **Migration map** (schema `V5600xx`, seeds/permissions/menus `V5610xx`; every grid's
+  `grid_column_definitions`, `filter_definitions` and `grid_preferences` ship in the migration that
+  creates its table):
+
+| Block | Content | Task |
+|---|---|---|
+| `V560000` | bootstrap — asserts `warehouse-base` and `warehouse` objects exist; **creates no table** | p10-01 |
+| `V561000` | L1 menu **Manufacturing**, its three L2 sections, admin-settings registry rows (§8) | p10-01 |
+| `V560001` | registries: movement / document / location types, code lists, reason codes, `REWORK` disposition, print kinds, number series (§3.1) | p10-02 |
+| `V560010` · `V561010` | BOM: `whm_boms`, `whm_bom_lines`, `whm_bom_line_alternates`, `whm_bom_outputs` · permissions | p10-03 |
+| `V560020` · `V561020` | `whm_work_centres`, `whm_bom_operations` · permissions | p10-04 |
+| `V560030` · `V561030` | `whm_production_orders`, `_components`, `_outputs`, `_operations`, `_events` · permissions | p10-05 |
+| `V560040` · `V561040` | `whm_staging_lists`, `whm_staging_list_lines`, `whm_component_substitutions` · permissions | p10-06 |
+| `V560050` · `V561050` | `whm_production_receipts`, `_outputs`, `_consumptions`, `whm_production_receipt_reversals` · permissions | p10-07 |
+| `V560060` · `V561060` | `whm_operation_confirmations` · permissions | p10-08 |
+| `V560070` · `V561070` | `whm_production_settlements`, `_lines` · permissions | p10-09 |
+| `V560080` · `V561080` | `whm_subcontract_dispatches`, `_lines`, `whm_subcontract_reconciliations`, `whm_subcontract_reconciliation_actions` · permissions; **`V540190`** in `warehouse-india` (processed-form return, scrap, return reversal and loss on job-work lines — `V540150` is taken by the approval dispatches) | p10-10 |
+| `V560090` · `V561090` | `whm_item_planning_params`, `whm_demand_plans`, `whm_demand_plan_lines` · permissions | p10-11 |
+| `V560100` · `V561100` | `whm_mrp_runs`, `whm_mrp_proposals`, `whm_mrp_pegging`, `whm_mrp_exceptions` · permissions | p10-12 |
+| `V561110` | report grids (capacity load, registers) — no table | p10-13 |
+
+### 3.1 Registries MFG owns (`V560001`, `owning_module = 'warehouse-manufacturing'`)
+
+The evidence: there is **no** production, WIP, consumption or job-work movement type and **no** WIP /
+line-side location type today (`WB/M/V500003:78-120`, `V500006:118-138`); `VIRT-PRODUCTION-<site>`,
+`VIRT-SCRAP-<site>` and `VIRT-JOB_WORKER-<site>` already exist per site (`V500013:35-47`).
+
+| Registry | Rows |
+|---|---|
+| `whb_movement_types` (each with a `*_REVERSAL` twin; `balance_rule = MUST_BALANCE_PER_OWNER_ITEM`, cost basis `WEIGHTED_AVERAGE` like `V510102:511-556`) | `PRODUCTION_STAGE` (INTERNAL, store bin → line-side), `PRODUCTION_UNSTAGE` (INTERNAL, line-side → store), `PRODUCTION_RECEIPT` (INTERNAL: backflush lines → `VIRT-PRODUCTION`, outputs ← `VIRT-PRODUCTION`, scrap → `VIRT-SCRAP`), `PRODUCTION_SETTLEMENT` (`VALUE_ONLY`, `L-15`), `SUBCONTRACT_DISPATCH` (INTERNAL, store → the order's `JOB_WORKER` location, owner unchanged, `L-11`), `SUBCONTRACT_RECALL` (INTERNAL, `JOB_WORKER` location → store), `SUBCONTRACT_WRITE_OFF` (OUT, `JOB_WORKER` location → `VIRT-SCRAP`, reason context `SUBCONTRACT_WRITE_OFF`; MD-25) |
+| `whb_document_types` | `PRODUCTION_ORDER`, `PRODUCTION_RECEIPT`, `PRODUCTION_RECEIPT_REVERSAL`, `STAGING_LIST`, `OPERATION_CONFIRMATION`, `PRODUCTION_SETTLEMENT`, `SUBCONTRACT_DISPATCH`, `SUBCONTRACT_RECONCILIATION_ACTION` (recall / write-off) |
+| `whb_location_types` | `LINE_SIDE` — physical, stock-holding, countable, not pickable for outbound, `is_virtual_counterparty = false`. Job-worker stock uses the **base** type `JOB_WORKER` (virtual counterparty, `V500006:132`; MFG seeds no job-worker type — MD-28) |
+| code lists | `WHM_ORDER_TYPE` (`STANDARD`, `REWORK`, `SUBCONTRACT`) · `WHM_BOM_USAGE` (`PRODUCTION`, `SUBCONTRACT`, `COSTING`, `ENGINEERING`) · `WHM_BOM_TYPE` (`STANDARD`, `PHANTOM`) · `WHM_SUPPLY_METHOD` (`ISSUE`, `STAGE_BACKFLUSH`, `BACKFLUSH`) · `WHM_OUTPUT_TYPE` (`MAIN`, `CO_PRODUCT`, `BY_PRODUCT`) · `WHM_CONSUMPTION_POLICY` (`STRICT`, `WARN`, `FLEXIBLE`) · `WHM_PLANNING_METHOD` (`MRP`, `REORDER_POINT`, `NONE`) · `WHM_PROCUREMENT_TYPE` (`MAKE`, `BUY`) · `WHM_LOT_SIZING_RULE` (`LOT_FOR_LOT`, `FIXED`, `MIN_MAX`, `PERIOD_WEEKLY`, `PERIOD_MONTHLY`) · `WHM_MRP_EXCEPTION` (`RESCHEDULE_IN`, `RESCHEDULE_OUT`, `CANCEL`, `START_IN_PAST`, `DUE_IN_PAST`, `BELOW_SAFETY_STOCK`, `EXCESS_SUPPLY`, `NO_BOM`, `NO_LEAD_TIME`, `RECURSIVE_BOM`, `DEMAND_CANCELLED`) |
+| `whb_reason_codes` contexts | `PRODUCTION_SCRAP` (`MATERIAL_DEFECT`, `MACHINE_FAULT`, `OPERATOR_ERROR`, `SETUP_LOSS`, `PROCESS_LOSS`; flag `is_abnormal` per row) · `PRODUCTION_SUBSTITUTION` (`STOCK_OUT`, `QUALITY`, `ENGINEERING_CHANGE`, `CUSTOMER_REQUEST`) · `PRODUCTION_DEVIATION` (over/under/unplanned consumption) · `PRODUCTION_HOLD` (`MACHINE_DOWN`, `MATERIAL_SHORTAGE`, `QUALITY_ISSUE`, `PLANNER_HOLD`) · `PRODUCTION_CANCEL` · `PRODUCTION_CLOSE_SHORT` · `PRODUCTION_REOPEN` · `PRODUCTION_REVERSAL` · `BOM_CHANGE` · `SUBCONTRACT_WRITE_OFF` (`LOST_AT_JOB_WORKER`, `DAMAGED_AT_JOB_WORKER`, `EXCESS_PROCESS_LOSS`) |
+| stock statuses | **none.** MFG never uses the india-owned `SCRAP` stock status (`WI/M/V540131`): production and QC scrap leave stock to `VIRT-SCRAP` through `PRODUCTION_RECEIPT`, the base `SCRAP` disposition, or `SUBCONTRACT_WRITE_OFF`; scrap returned by a job worker is a by-product item received in its receipt default status (MD-25) |
+| `whb_dispositions` | `REWORK` → target status `REJECTED`, `onDisposition` creates a rework order (FR-653) |
+| `PRINT_TEMPLATE_KIND` | `PRODUCTION_ORDER_TRAVELLER`, `STAGING_PICK_LIST`, `FG_RECEIPT_NOTE`, `SUBCONTRACT_DISPATCH_NOTE`, `PRODUCTION_COST_SHEET` |
+| `whb_number_series` (gapless, per operator company + site, yearly, like `V510102:567-573`) | `PRD-` production order · `STG-` staging list · `FGR-` production receipt · `PRV-` receipt reversal · `OPC-` operation confirmation · `PST-` settlement · `SCD-` subcontract dispatch · `SCR-` subcontract recall / write-off · `MRP-` run (**not** gapless; a run number is not a statutory document) |
+
+`COST_OBJECT_TYPE.PRODUCTION_ORDER` (`p8-09` `V500303`) and `QC_SOURCE_TYPE.PRODUCTION_RECEIPT` /
+`IN_PROCESS` (`p8-06` `V500301`) are **seeded by core** and stay inert until MFG registers the resolver
+beans; MFG does not re-seed them.
+
+### 3.2 Seams MFG implements and seams it needs
+
+| Seam | Defined by | MFG role |
+|---|---|---|
+| `CostObjectResolver` type `PRODUCTION_ORDER` | `p8-09` (`FRD-STORES` `FR-533`) | **implements** — accepts `RELEASED`, `IN_PROGRESS` and `COMPLETED` (technically complete, not settled — MD-14), not on hold, no settlement `DRAFT`/`APPROVED`, same company; refuses otherwise; `reservationsFor` returns the order's component reservations for the item (MD-16) |
+| `WhMaterialRequisitionPort.create/cancel/close` | `p8-09` (named in `FRD-STORES` `FR-531` as amended for MD-16; `MRQ-OPEN-02`) | **calls** — "Request materials" creates one MRQ per order with cost object `PRODUCTION_ORDER`, purpose `PRODUCTION`, `source_module = warehouse-manufacturing`, idempotency key `PRD:<orderId>:<seq>`; the MRQ reserves nothing — the order's release reservations are consumed by the issue (MD-16) |
+| `QualityInspectionSourceResolver` types `PRODUCTION_RECEIPT`, `IN_PROCESS` | `p8-06` | **implements** both; uses `onDisposition` for `REWORK` |
+| `WhDemandOrderPort.getFulfilmentPosition` + demand-order read | `p8-02` | **reads** — MTO link and MRP independent demand (incl. `FORECAST` schedule lines, `OD-32` **confirmed**) |
+| Replenishment-suggestion intake (`OD-31`) | core replenishment (`V510070`) | **calls** — MRP BUY proposals become core suggestions with origin `MRP`; see **SEAM-M3** |
+| `WhbStockLedgerWriter.post/reverse`, `WhbReservationService`, `WhbTransformationRecorder.record`, `WhbDocumentNumberIssuer.resolveSiteSeries`, `WarehousePrintDataProvider` | base | **calls / implements** |
+| `JobWorkDispatchPort` (job-work dispatch / return / loss) | **not defined by FRD-STORES** — the core interface is shipped by `p10-10` as a cross-module change (the `PurchaseRequisitionHandoff` optional-bean shape); `warehouse-india` bean | **declares (in core) and calls** when the bean exists — see **SEAM-M5** |
+
+**Seams owed by other areas (MFG cannot ship them; each is a dependency, not a workaround):**
+
+| ID | Owner task | Needed change | Why |
+|---|---|---|---|
+| **SEAM-M1** | `p8-09` / `p8-10` | `ResolvedCostObject` gains `counterLocationPurpose` (default `CONSUMED`; the `PRODUCTION_ORDER` resolver returns `PRODUCTION`), and the store-issue post uses it — so an issue to an order lands in `VIRT-PRODUCTION-<site>` (WIP), not `VIRT-CONSUMED-<site>` (expense). `p8-11` returns from the same purpose | WIP is not an expense; the order's cost pool is read from that purpose (FR-654) |
+| **SEAM-M2** | `p8-09`/`p8-10`/`p8-11` | `CostObjectResolver` default hooks `assertIssuable(costObjectId, itemId, baseQty)`, `onIssuePosted(line)`, `onReturnPosted(line)` called in the posting transaction, plus `reservationsFor(costObjectId, itemId)` (MD-16). **No `onIssueReversed`** — rejected by STORES `STO-D13` (a posted issue is never reversed, `STO-D11`); an issue correction is a store return, which fires `onReturnPosted` (MD-17). All landed in `FRD-STORES` `FR-533` | MFG rolls up `issued_quantity`/`returned_quantity`, applies the consumption policy (FR-643) and attributes genealogy (FR-648) atomically |
+| **SEAM-M3** | core replenishment — STORES `p8-16` | `WhReplenishmentSuggestionPort.publishExternal(origin = MRP, originRunId, originProposalId, item, site, qty, needDate)` and `withdrawExternal(...)`; `wh_replenishment_suggestions` gains `origin` (code list `REPLENISHMENT_ORIGIN`: `REORDER`, `MRP`) and `origin_document_type/id`; `suggested_source` stays `PURCHASE` (the `CHECK` at `V510070:223` is untouched) | `OD-31` (trade) is **confirmed** with this shape; it is the only way MRP output reaches a PR without a sibling-to-sibling dependency |
+| **SEAM-M4** | `p8-06` | `InspectableSource.stockBearing` flag: when `false`, dispositions are **record-only** (no status movement) and only `ACCEPT`/`REJECT`/`REWORK` are offered | An in-process inspection inspects WIP that is not stock |
+| **SEAM-M5** | `p10-10` (declares `ai.warehouse.port.jobwork.JobWorkDispatchPort` in core; FRD-STORES has no job-work port) + `warehouse-india` (bean, `V540190`) | `registerDispatch` (dispatch post), `registerReturn(returnedAsItemId, consumedInputQty, scrapQty, scrapRetained)` (subcontract receipt post; a recall is a return with `returnedAsItemId` = the input), `reverseReturn(returnRef)` (subcontract receipt reversal), `registerLoss(dispatchRef, itemId, lotId, qty, reasonCode)` (write-off post) — MD-25; india's return matcher today accepts only the same item/lot/UoM (`WI/J/…/WhinJobWorkRegistrationValidationService.java:395-397,448`) and has no scrap (`§8` of the evidence) | ITC-04 reports inputs returned **in processed form** and waste/scrap at the job worker; owned in `p10-10` as a cross-module change |
+
+---
+
+## 4. Data model (authoritative column sets; precision per `DATA-MODEL.md` §5.1: quantity `DECIMAL(18,4)`, per-unit `DECIMAL(19,6)`, extended `DECIMAL(19,4)`, `*_percent` `DECIMAL(9,6)`)
+
+Every table: `id UUID`, `company_id`, `version`, `created_at/by`, `updated_at/by`; documents add
+`warehouse_id → whb_warehouses`. Dates of planning are SQL `DATE` (`dateOnly` filters); events are
+`TIMESTAMPTZ` with the `L-13` trio where a movement is posted.
+
+**`whm_boms`** — `bom_code` (= item code + `/` + alternative + `.v` + version, display only), `item_id →
+whb_items` (parent), `bom_usage` (code list), `bom_type` (`STANDARD`/`PHANTOM`), `alternative_no SMALLINT
+≥1`, `version_no INT ≥1`, `warehouse_id` (nullable = all sites), `base_quantity DECIMAL(18,4) >0`,
+`base_uom_code`, `lot_size_from`, `lot_size_to` (nullable, alternative selection), `is_default_alternative`,
+`process_loss_percent`, `consumption_policy` (code list, nullable = setting), `is_rework_alternative BOOLEAN NOT NULL DEFAULT false` (MD-26), `effective_from DATE NOT
+NULL`, `effective_to DATE` (half-open), `status` (`DRAFT`/`SUBMITTED`/`APPROVED`/`OBSOLETE`, no CHECK),
+`change_reason_code_id` (`BOM_CHANGE`), `change_note`, `supersedes_bom_id → self`, `copied_from_kit_id →
+whb_kit_definitions` (nullable, provenance only), `submitted_by/at`, `approved_by/at`, `returned_by/at`,
+`return_note`, `obsoleted_by/at`. **Unique index** `(item_id, bom_usage, alternative_no, version_no, COALESCE(warehouse_id, '00000000-0000-0000-0000-000000000000'::uuid))` — a plain uk lets two all-sites rows collide-free because `NULL <> NULL` (MD-27);
+**EXCLUDE** (gist) no two `APPROVED` rows of one `(item_id, bom_usage, alternative_no, coalesce(warehouse_id))`
+overlap on `daterange(effective_from, effective_to, '[)')`; partial unique index one `is_default_alternative` per
+`(item_id, bom_usage, COALESCE(warehouse_id, <nil uuid>))` among `APPROVED` current, non-rework rows.
+
+**`whm_bom_lines`** — `bom_id ON DELETE CASCADE` (only while `DRAFT`; mapped without `orphanRemoval`),
+`line_no`, `component_item_id`, `quantity DECIMAL(18,4) >0` per `base_quantity`, `uom_code`,
+`component_scrap_percent` [0,100), `is_fixed_quantity` (setup quantity, not scaled), `supply_method`,
+`default_supply_location_id → whb_locations` (nullable), `operation_seq INT` (nullable → `whm_bom_operations`
+of the same BOM), `lead_time_offset_days SMALLINT` (default 0), `alternate_group_code VARCHAR(20)`,
+`alternate_priority SMALLINT`, `limits_output_expiry BOOLEAN`, `is_customer_supplied BOOLEAN` (job work in,
+`OD-42`), `line_effective_from/to DATE` (engineering change inside a version; nullable), `reference_text`
+(position / designator). **uk** `(bom_id, line_no)`.
+
+**`whm_bom_line_alternates`** — `bom_line_id`, `alternate_item_id`, `quantity`, `uom_code`, `priority`,
+`usage_percent` (planning split; nullable = use only when primary short). uk `(bom_line_id, alternate_item_id)`.
+
+**`whm_bom_outputs`** — co- and by-products (the `MAIN` output is the header item and has no row):
+`bom_id`, `sequence`, `output_item_id`, `output_type` (`CO_PRODUCT`/`BY_PRODUCT`), `quantity` per
+`base_quantity`, `uom_code`, `cost_share_percent` (CO_PRODUCT; Σ ≤ 100, main takes 100 − Σ),
+`by_product_unit_value DECIMAL(19,6)` (BY_PRODUCT credit at NRV; nullable = zero value),
+`operation_seq`. uk `(bom_id, sequence)`, uk `(bom_id, output_item_id)`.
+
+**`whm_work_centres`** — `code` (upper, uk per company+site), `name`, `warehouse_id`, `department_id`
+(nullable), `available_minutes_per_day INT`, `working_days` (7-char mask `MTWTFSS`), `efficiency_percent`
+(default 100), `parallel_units SMALLINT` (default 1), `cost_rate_per_hour DECIMAL(19,6)` (recorded,
+`OD-43`), `default_line_side_location_id → whb_locations` (type `LINE_SIDE`), `is_active`, `status`.
+
+**`whm_bom_operations`** — `bom_id`, `operation_seq` (10, 20…), `work_centre_id`, `description`,
+`setup_minutes DECIMAL(18,4)`, `run_minutes_per_unit DECIMAL(18,4)`, `is_qc_checkpoint`,
+`is_milestone` (a confirmation here implies confirmation of earlier ones), uk `(bom_id, operation_seq)`.
+
+**`whm_production_orders`** — `order_number` (`PRD-`, issued at create), `order_type` (code list),
+`item_id`, `bom_id` (the version frozen at create; nullable only for `REWORK` without a rework BOM),
+`owner_id → whb_owners` (house by default; `OD-42`), `planned_quantity >0`, `uom_code`, `base_quantity`,
+`conversion_factor_used`, `received_quantity`, `scrapped_quantity`, `rejected_quantity` (rollups, base UoM),
+`priority SMALLINT 1..5` (1 highest, default 3), `planned_start_date`, `planned_end_date` (DATE),
+`actual_start_at`, `actual_end_at`, `status` (no CHECK), `is_on_hold`, `hold_reason_code_id`, `hold_note`,
+`held_by/at`, `consumption_policy`, `over_receipt_percent`, `under_receipt_percent`, `receipt_location_id`,
+`line_side_location_id` (nullable), `work_centre_id` (nullable header default), `planned_lot_code`,
+`demand_source_type` (`DEMAND_ORDER`/`MRP`/`MANUAL`/`QC_REWORK`/`PARENT_ORDER`), `demand_source_id`,
+`demand_source_line_id`, `demand_source_ref` (frozen SO / customer / demand number),
+`reserve_output_for_demand BOOLEAN`, `mrp_proposal_id` (bare UUID), `parent_order_id → self`
+(sub-assembly made for a parent), `rework_of_inspection_id` (bare UUID), `subcontractor_counterparty_id →
+whb_counterparties`, `subcontract_location_id → whb_locations` (base type `JOB_WORKER`, virtual counterparty — MD-28), `service_po_ref`
+(frozen trade PO number, display only), `planned_cost DECIMAL(19,4)` (rolled at release), `released_by/at`,
+`release_approved_by/at`, `completed_by/at`, `closed_at`, `settlement_id`, `cancel_reason_code_id`,
+`cancel_note`, `close_short_reason_code_id`, `notes`. **uk** `(warehouse_id, order_number)`.
+
+**`whm_production_order_components`** — `order_id`, `line_no`, `bom_line_id` (bare UUID, provenance),
+`item_id`, `required_quantity` (scaled, scrap applied), `uom_code`, `conversion_factor_used`,
+`required_base_quantity`, `supply_method`, `supply_location_id`, `supply_stock_status_code` (nullable = allocatable statuses; `REJECTED` on a rework order's first line — MD-26), `operation_seq`, `required_date DATE`,
+`issued_quantity`, `returned_quantity`, `staged_quantity`, `unstaged_quantity`, `consumed_quantity`
+(backflushed + issued − returned, base), `substitute_of_line_id → self`, `substitution_id`,
+`is_unplanned`, `deviation_reason_code_id`, `phantom_path` (`PARENT>PHANTOM>…`, display), `line_status`
+(`OPEN`/`PARTIAL`/`COMPLETE`/`CLOSED`, derived on write). uk `(order_id, line_no)`.
+
+**`whm_production_order_outputs`** — `order_id`, `sequence` (1 = MAIN), `item_id`, `output_type`,
+`planned_quantity`, `received_quantity`, `cost_share_percent`, `by_product_unit_value`.
+
+**`whm_production_order_operations`** — `order_id`, `operation_seq`, `work_centre_id`, `description`,
+`planned_setup_minutes`, `planned_run_minutes`, `confirmed_good_quantity`, `confirmed_scrap_quantity`,
+`confirmed_rework_quantity`, `actual_minutes`, `is_qc_checkpoint`, `status` (`OPEN`/`STARTED`/`CONFIRMED`).
+
+**`whm_production_order_events`** — append-only history: `order_id`, `event_type`, `from_status`,
+`to_status`, `reason_code_id`, `note`, `actor_id`, `occurred_at`.
+
+**`whm_staging_lists`** — `staging_number` (`STG-`), `order_id`, `to_location_id` (`LINE_SIDE`),
+`status` (`DRAFT`/`RELEASED`/`PARTIALLY_STAGED`/`STAGED`/`CLOSED`/`CANCELLED`), `released_by/at`,
+`closed_at`. **`whm_staging_list_lines`** — `staging_list_id`, `component_line_id`, `item_id`,
+`from_location_id`, `lot_id`, `serial_id`, `requested_quantity`, `staged_quantity`, `movement_id`,
+`reservation_id`.
+
+**`whm_component_substitutions`** — `order_id`, `original_component_line_id`, `substitute_item_id`,
+`substitute_quantity`, `source` (`BOM_ALTERNATE`/`AD_HOC`), `reason_code_id`, `note`, `approved_by/at`,
+`created_component_line_id`.
+
+**`whm_production_receipts`** — `receipt_number` (`FGR-`), `order_id`, `occurred_at`, `posting_date`,
+`status` (`DRAFT`/`PENDING_APPROVAL`/`POSTED`/`REVERSED`/`CANCELLED`), `is_final`, `movement_id`,
+`transformation_id`, `scrap_value DECIMAL(19,4)`, `gate_entry_id` (bare UUID, `p8-03`; subcontract receipts), `gate_entry_ref` (frozen), `submitted_by/at`, `approved_by/at`, `returned_by/at`, `return_note`, `posted_by/at`, `cancel_note` (MD-22, MD-26).
+**`whm_production_receipt_outputs`** — `receipt_id`, `order_output_id`, `item_id`, `output_type`,
+`quantity`, `uom_code`, `conversion_factor_used`, `base_quantity`, `to_location_id`, `stock_status_code`
+(resolved: `QC_HOLD` when final inspection, else the item × site receipt default), `lot_code`, `lot_id`,
+`manufacture_date DATE`, `expiry_date DATE`, `serials` (child table `whm_production_receipt_output_serials`),
+`disposition` (`GOOD`/`REJECTED`/`SCRAPPED`), `scrap_reason_code_id`, `unit_cost DECIMAL(19,6)`,
+`extended_value DECIMAL(19,4)`, `movement_line_id`.
+**`whm_production_receipt_consumptions`** — `receipt_id`, `component_line_id`, `item_id`,
+`from_location_id`, `lot_id`, `serial_id`, `proposed_base_quantity`, `base_quantity`, `scrap_base_quantity`,
+`deviation_reason_code_id`, `unit_cost`, `extended_value`, `movement_line_id`.
+**`whm_production_receipt_reversals`** — `reversal_number` (`PRV-`), `receipt_id` (uk while not
+`REJECTED`), `status` (`REQUESTED`/`APPROVED`/`POSTED`/`REJECTED`), `reason_code_id`, `note`,
+`requested_by/at`, `approved_by/at`, `reversal_movement_id`.
+
+**`whm_operation_confirmations`** — `confirmation_number` (`OPC-`), `order_id`, `operation_id`,
+`good_quantity`, `scrap_quantity`, `rework_quantity`, `scrap_reason_code_id`, `setup_minutes`,
+`run_minutes`, `operator_user_id`, `started_at`, `finished_at`, `is_final`, `status`
+(`RECORDED`/`CANCELLED`), `inspection_required`.
+
+**`whm_production_settlements`** — `settlement_number` (`PST-`), `order_id` (partial unique index `WHERE status <> 'REJECTED'` — a rejected settlement never blocks re-settlement, MD-22), `status`
+(`DRAFT`/`APPROVED`/`POSTED`/`REJECTED`), `pool_value`, `absorbed_value`, `residual_value`,
+`variance_percent`, `requires_approval`, `movement_id`, `approved_by/at`, `posted_by/at`.
+**`whm_production_settlement_lines`** — `settlement_id`, `target` (`ON_HAND_OUTPUT`/`COST_OF_SALES`/
+`ABNORMAL_SCRAP`), `item_id`, `lot_id`, `location_id`, `value DECIMAL(19,4)`, `movement_line_id`.
+
+**`whm_subcontract_dispatches`** — `dispatch_number` (`SCD-`), `order_id` (type `SUBCONTRACT`),
+`to_location_id` (the order's `JOB_WORKER` location), `job_worker_counterparty_id`, `expected_return_date DATE` (default: dispatch date + the india window when the bean answers, else the gate pass's expected return; MD-26), `status`
+(`DRAFT`/`DISPATCHED`/`CANCELLED`), `gate_pass_id` (bare UUID, `p8-03`), `challan_ref` (frozen india
+challan number), `jobwork_registration_ref`, `movement_id`, `dispatched_at`. **`_lines`** —
+`component_line_id`, `item_id`, `lot_id`, `quantity`, `base_quantity`, `job_work_type`
+(`INPUTS`/`CAPITAL_GOODS`), `movement_line_id`.
+**`whm_subcontract_reconciliations`** — `order_id`, `item_id`, `lot_id`, `sent_base_quantity`,
+`consumed_base_quantity`, `scrap_retained_base_quantity`, `recalled_base_quantity`,
+`written_off_base_quantity`, `pending_write_off_base_quantity`, `open_base_quantity` (derived on write: sent − consumed − scrap retained − recalled − written off − pending write-off), `resolution` (derived: `NONE`/`PARTIAL`/`RESOLVED`).
+**`whm_subcontract_reconciliation_actions`** — `action_number` (`SCR-`), `reconciliation_id`, `kind` (`RECALL`/`WRITE_OFF`), `base_quantity`, `reason_code_id`, `note`, `status` (`REQUESTED`/`POSTED`/`REJECTED`; a recall posts on create, a write-off waits `REQUESTED` for an approver ≠ requester — MD-20, MD-26), `requested_by/at`, `approved_by/at`, `movement_id`.
+
+**`whm_item_planning_params`** — item × site: `item_id`, `warehouse_id`, `planning_method`,
+`procurement_type`, `lot_sizing_rule`, `fixed_lot_quantity`, `min_lot_quantity`, `max_lot_quantity`,
+`rounding_multiple`, `safety_stock_quantity`, `safety_lead_time_days`, `manufacturing_lead_time_days`,
+`purchase_lead_time_days` (nullable → `whb_item_supplier_sources.lead_time_days` of the priority-1 source,
+then `whb_item_site_settings.lead_time_days`), `planning_time_fence_days`, `qc_lead_time_days`,
+`default_bom_alternative_no`, `is_active`. uk `(item_id, warehouse_id)`.
+
+**`whm_demand_plans`** — `plan_code`, `name`, `warehouse_id`, `bucket` (`WEEK`/`MONTH`),
+`consumption_mode` (`MAX_OF_FORECAST_AND_ORDERS`/`FORECAST_PLUS_ORDERS`), `status`
+(`DRAFT`/`ACTIVE`/`ARCHIVED`), `valid_from/to DATE`. **`_lines`** — `plan_id`, `item_id`,
+`period_start DATE`, `quantity`, uk `(plan_id, item_id, period_start)`.
+
+**`whm_mrp_runs`** — `run_number` (`MRP-`), `warehouse_id`, `planning_date DATE`, `horizon_days`,
+`status` (`QUEUED`/`RUNNING`/`COMPLETED`/`FAILED`/`SUPERSEDED`), `job_run_id` (→ `whb_job_runs`),
+`started_at`, `finished_at`, `item_count`, `proposal_count`, `exception_count`, `error_message`,
+`params_note` (horizon, demand plan id, settings snapshot as typed columns: `demand_plan_id`,
+`include_forecast_schedule_lines`, `include_qc_hold_supply`).
+**`whm_mrp_proposals`** — `run_id`, `item_id`, `warehouse_id`, `proposal_type` (`MAKE`/`BUY`),
+`quantity`, `uom_code`, `need_date`, `start_date` (need − lead time), `low_level_code`, `bom_id`,
+`status` (`OPEN`/`FIRMED`/`CONVERTED`/`DISMISSED`/`SUPERSEDED`), `firmed_by/at`, `converted_document_type`,
+`converted_document_id`, `converted_document_ref`, `dismiss_reason_code_id`.
+**`whm_mrp_pegging`** — `proposal_id`, `demand_type`, `demand_id`, `demand_line_id`, `demand_ref`,
+`quantity`, `parent_proposal_id`. **`whm_mrp_exceptions`** — `run_id`, `exception_code`, `item_id`,
+`document_type`, `document_id`, `document_ref`, `current_due_date`, `suggested_due_date` (`current_date` is a PostgreSQL reserved word — MD-27), `quantity`, `message`,
+`acknowledged_by/at`.
+
+---
+
+## 5. State machines (summary — the contracts are authoritative for guards)
+
+| Document | Ladder | Contract |
+|---|---|---|
+| BOM version | `DRAFT → SUBMITTED → APPROVED → OBSOLETE`; `SUBMITTED → DRAFT` (return); `DRAFT` deletable if never referenced | [`mfg-bom.contract.md`](../contracts/mfg-bom.contract.md) |
+| Production order | `PLANNED → RELEASED → IN_PROGRESS → COMPLETED → CLOSED`; `PLANNED/RELEASED → CANCELLED` (no posting); `RELEASED → PLANNED` (unrelease, nothing posted); `COMPLETED → IN_PROGRESS` (reopen, no live settlement); hold flag on `RELEASED`/`IN_PROGRESS`. `COMPLETED` = technically complete, **not settled**: no receipt or staging, but late store issues and returns are accepted until `CLOSED` (MD-14). `IN_PROGRESS` is never cancelled (MD-15) | [`mfg-production-order.contract.md`](../contracts/mfg-production-order.contract.md) |
+| Staging list | `DRAFT → RELEASED → PARTIALLY_STAGED → STAGED → CLOSED`; `PARTIALLY_STAGED → CLOSED` (close short, reason; unstaged lines' reservations stay with the order); `DRAFT/RELEASED → CANCELLED` (MD-22) | [`mfg-material-staging-issue.contract.md`](../contracts/mfg-material-staging-issue.contract.md) |
+| Production receipt | `DRAFT → (PENDING_APPROVAL →) POSTED → REVERSED`; `PENDING_APPROVAL → DRAFT` (approver returns, note); `DRAFT → CANCELLED`; reversal `REQUESTED → APPROVED → POSTED`, `→ REJECTED` (MD-22) | [`mfg-production-receipt.contract.md`](../contracts/mfg-production-receipt.contract.md) |
+| Operation confirmation | `RECORDED → CANCELLED` | [`mfg-qc-rework.contract.md`](../contracts/mfg-qc-rework.contract.md) |
+| Settlement | below the variance threshold `DRAFT → POSTED` in one transaction; above it `DRAFT → APPROVED → POSTED`; `DRAFT → REJECTED` (order stays `COMPLETED`, may reopen or re-close) (MD-22) | [`mfg-costing-close.contract.md`](../contracts/mfg-costing-close.contract.md) |
+| Subcontract dispatch | `DRAFT → DISPATCHED`; `DRAFT → CANCELLED` | [`mfg-subcontracting.contract.md`](../contracts/mfg-subcontracting.contract.md) |
+| MRP run / proposal | run `QUEUED → RUNNING → COMPLETED/FAILED → SUPERSEDED`; proposal `OPEN → FIRMED → CONVERTED`, `OPEN/FIRMED → DISMISSED`, `OPEN → SUPERSEDED` | [`mfg-mrp.contract.md`](../contracts/mfg-mrp.contract.md) |
+
+**The one-terminal-movement rule, generalised (`RN-033`, `FR-261`, `I-1`).** The VAS work order keeps
+"one terminal movement per work order" and is **not** widened (`V510102`, `WhWorkOrderPostingService`).
+The production order is a **separate document** with N movements over its life. The rule that replaces
+it: **every MFG posting document posts exactly one movement** (staging list line batch → one
+`PRODUCTION_STAGE`; receipt → one `PRODUCTION_RECEIPT` carrying backflush, outputs and scrap together;
+settlement → one `PRODUCTION_SETTLEMENT`; dispatch → one `SUBCONTRACT_DISPATCH`), with idempotency key
+`<DOCTYPE>:<id>` and `source_document_type`/`id` = that document; each balances per
+`(owner, item, lot, serial, duty status)` against `VIRT-PRODUCTION`/`VIRT-SCRAP` (`I-1`); a
+`POSTED` document with a null `movement_id` is refused by a deferred constraint trigger (the
+`trg_wh_work_orders_assert_completed_movement` shape). Correction is reversal of that one movement
+(`L-3`), never an edit.
+
+---
+
+## 6. Requirement catalogue
+
+| # | Requirement | Module | Ver | Ph | Closes |
+|---|---|---|---|---|---|
+| **FR-620** | **`warehouse-manufacturing` is its own module** — `ai.warehousemanufacturing`, band `V560000`–`V569999`, prefix `whm_`, flag `enable.warehouse.manufacturing` — requiring `warehouse-base` + `warehouse`; `warehouse-india` and `warehouse-trade` are optional and reached only through core-defined ports with optional beans. FKs point down only; no lower table references `whm_`. Its platform touchpoints (`MODULE-INTEGRATION.md` rows 1–22; mobile rows 23–27 do not apply — no warehouse mobile) are one bootstrap task | mfg | v1 | P10 | `RN-053` `RN-032` `D-16` |
+| **FR-621** | MFG **owns its registries** (§3.1) — movement, document and location types, code lists, reason contexts, the `REWORK` disposition, print kinds and number series — inserted with the `RL-003` owning-module guard (`V525000:99-122` pattern). Core-seeded `COST_OBJECT_TYPE.PRODUCTION_ORDER` and `QC_SOURCE_TYPE.PRODUCTION_RECEIPT`/`IN_PROCESS` are not re-seeded | mfg | v1 | P10 | `RL-003` `RL-006` |
+| **FR-622** | A **BOM** is a versioned header: parent item, usage (`PRODUCTION`/`SUBCONTRACT`/`COSTING`/`ENGINEERING`), type (`STANDARD`/`PHANTOM`), alternative number, version, site scope (null = all), **base quantity + UoM** (the BOM makes N), optional **lot-size range** for alternative selection, **default-alternative** flag, process-loss %, consumption policy, effectivity `[from, to)` as `DATE`s, change reason | mfg | v1 | P10 | C1, `RN-032` |
+| **FR-623** | A **BOM line** carries component, quantity per base, UoM (convertible to the component's base, `FR-143` guard reused), **component scrap %**, **fixed (setup) quantity** flag, **supply method** (`ISSUE`/`STAGE_BACKFLUSH`/`BACKFLUSH`), default supply location, operation, lead-time offset, **alternate group + priority** (with alternates in `whm_bom_line_alternates`), *limits output expiry*, line effectivity (engineering change inside a version) and a position/designator text | mfg | v1 | P10 | C1a, C3c |
+| **FR-624** | A BOM lists **co-products and by-products** as output rows. A co-product carries `cost_share_percent`; Σ co-product shares ≤ 100 and the main output takes the rest. A by-product carries an optional **unit value at NRV** credited to the order before the split (null = zero value). An output item cannot also be a component of the same BOM | mfg | v1 | P10 | C1b, C4 |
+| **FR-625** | **BOM lifecycle is maker–checker**: `DRAFT → SUBMITTED → APPROVED`; the approver is not the submitter (`403 BOM_SELF_APPROVAL`, MD-21); `SUBMITTED → DRAFT` on return with a note. An `APPROVED` BOM is **immutable** — *New version* copies it to a `DRAFT` with `supersedes_bom_id`; approving the new version with an `effective_from` sets the predecessor's `effective_to` to it, and a version wholly superseded becomes `OBSOLETE`. A `DRAFT` never referenced may be deleted; any other is never deleted | mfg | v1 | P10 | C1 |
+| **FR-626** | **One approved BOM per `(item, usage, alternative, site scope)` on any date** (gist `EXCLUDE`, service pre-check with an explicit `flush()` — partial unique indexes are not deferrable). **Selection** (MD-19) — one rule, at creation and re-checked at release, on the order's **planned start date**: explicit BOM → site-specific before all-sites → alternative whose lot-size range contains the quantity → default alternative (rework alternatives only for `REWORK` orders) → `422 BOM_NOT_FOUND` naming item, site, date and usage | mfg | v1 | P10 | C1 |
+| **FR-627** | **Structure guards on approval:** no cycle at any depth (A→B→…→A refused `422 BOM_RECURSIVE` listing the path), depth ≤ 20, every line UoM convertible, no phantom as its own parent. A **phantom** BOM's parent item **never holds stock**: MFG contributes a movement-line validator refusing a line for an item whose current default `PRODUCTION` BOM is `PHANTOM` (the `V500089` phantom-kit guard is the precedent); explosion replaces a phantom component by its own components, multiplied through | mfg | v1 | P10 | C1a, C1c |
+| **FR-628** | **Explosion and where-used** are read-only backend services and a screen: indented multi-level explosion for an item, quantity, date and site (scrap, fixed quantities and phantoms applied, low-level code shown); single-level and recursive **where-used** for a component; **cost roll-up** from current cost layers (AVCO/FIFO, `WhbCostLayerMath`) per level with missing-cost flags. Never computed on the frontend (rule 8) | mfg | v1 | P10 | C1c |
+| **FR-629** | **Kits stay; BOMs are new.** `whb_kit_definitions` (`V500060`) stays the single-level VAS kit used by the core work order (`FR-261`…`FR-265`). A manufacturing BOM is `whm_boms` because the kit table has no base quantity, alternative, usage, approval, outputs, supply method or operations, and widening a **base** table with manufacturing columns breaks `D-1` layering. *Copy from kit* creates a `DRAFT` BOM from a kit version (provenance `copied_from_kit_id`). `FR-268` and `p6-12` are superseded | mfg | v1 | P10 | `RN-032` `RN-033` |
+| **FR-630** | **Work centres** are a lightweight master — site, department, available minutes/day, working-day mask, efficiency %, parallel units, default line-side location, and a cost rate per hour **recorded for reporting only** (`OD-43`) | mfg | v1 | P10 | C9 |
+| **FR-631** | A BOM **optionally** carries an **operation list** (sequence, work centre, setup minutes, run minutes per unit, QC checkpoint, milestone); a component or output may be linked to an operation. A BOM with no operations is fully supported — routing is never mandatory | mfg | v1 | P10 | C9, `RM-040` |
+| **FR-632** | A **production order** carries type (`STANDARD`/`REWORK`/`SUBCONTRACT`), item, frozen BOM version, owner (house; a **non-own owner only when `OD-42` is adopted**, then never valued, `L-14`), planned quantity + UoM, **priority 1–5**, planned start/end dates, receipt and line-side locations, consumption policy, over/under-receipt tolerance %, planned lot code, the **demand link** (type/id/line/frozen ref), parent order, subcontractor and job-worker location (subcontract), and rollups of received / scrapped / rejected quantity | mfg | v1 | P10 | C2, C2c |
+| **FR-633** | **Creation snapshots the BOM**: components (scaled by planned ÷ base quantity, scrap applied, fixed quantities unscaled, phantoms exploded with `phantom_path`), outputs and operations are copied onto the order. **A BOM change after creation never alters an existing order**; *Re-explode* is offered only in `PLANNED`. Sources: manual, MRP proposal, QC `REWORK`, a demand-order line, or a parent order's sub-assembly | mfg | v1 | P10 | C2, edge "BOM changed after release" |
+| **FR-634** | **Lifecycle** `PLANNED → RELEASED → IN_PROGRESS → COMPLETED → CLOSED`, `CANCELLED` from `PLANNED`/`RELEASED` only while nothing is posted, staged or requested — once anything posts the order is `IN_PROGRESS` and is **never cancelled**: the exit is *Unstage* / store return, *Complete* (close-short reason, received may be 0) and *Close* (MD-15); *Unrelease* `RELEASED → PLANNED` under the same condition; `IN_PROGRESS` set by the first posting of any kind; *Complete* manual or by a receipt flagged `is_final`; `COMPLETED` accepts late store issues and returns, never a receipt or staging (MD-14); *Reopen* `COMPLETED → IN_PROGRESS` with a reason while no settlement is `DRAFT`/`APPROVED`/`POSTED` (a `REJECTED` one does not block); *Hold* / *Resume* is a flag that refuses every posting and release while set. Every transition writes `whm_production_order_events` and is its own verb permission (`RJ-005`) | mfg | v1 | P10 | C2 |
+| **FR-635** | **Release** requires the frozen BOM still `APPROVED` and effective on the planned start date (else `409 BOM_NOT_EFFECTIVE`; *Re-explode* is offered, the order being `PLANNED` — MD-19), a receipt location, and the availability check: a **shortage list** per component (required − allocatable free stock, `L-6`) is returned; `warehouse.manufacturing.release_with_shortage` = `BLOCK`/`WARN` (default)/`ALLOW`. Release creates **component reservations** per `warehouse.manufacturing.component_reservation` (`NONE`/`SOFT`/`HARD`, default `HARD`) with holder quad `(WAREHOUSE_MANUFACTURING, PRODUCTION_ORDER, orderId, componentLineNo)` (`L-10`); **the order is the only owner of its component reservations** — staging transfers them, store issues consume them through `reservationsFor`, close/cancel release them, and the order's MRQ never reserves again (MD-16); a `SOFT` reservation expires at the end of `planned_end_date` + `staging_stale_days` (site zone) and is re-dated when the order is rescheduled (MD-23); `warehouse.manufacturing.release_requires_approval` (default `false`) makes release maker–checker. Release rolls `planned_cost` | mfg | v1 | P10 | C2a |
+| **FR-636** | Order numbers are **gapless per site** (`PRD-`), issued at create. The **production order traveller** prints header, barcode, demand ref, components with required/issued quantities and supply method, operations with QC checkpoints, and output lots | mfg | v1 | P10 | C2c, C10 |
+| **FR-637** | **Sales-order (MTO) link.** An order created from a core demand-order line (`p8-02`, which `warehouse-trade` SOs create) freezes the SO/customer reference; with `reserve_output_for_demand` each good main-output receipt creates a reservation of that output for the demand line. A cancelled or reduced demand line raises a `DEMAND_CANCELLED` exception on the order (and in MRP) — the order is **never cancelled automatically** | mfg | v1 | P10 | C2c, edge "orphan MTO orders" |
+| **FR-638** | **Two WIP models, chosen per component by supply method.** `ISSUE`: consumed at issue into the **virtual `VIRT-PRODUCTION-<site>`** (the order's value collector; nothing countable on the floor). `STAGE_BACKFLUSH`: moved to a **physical `LINE_SIDE` location** (countable, reserved to the order) and consumed from there at receipt. `BACKFLUSH`: consumed at receipt straight from its supply location (bulk / cheap items). WIP value of an order = issued + backflushed value − returned − absorbed (FR-654) | mfg | v1 | P10 | C3, C4e |
+| **FR-639** | **Pick-to-line.** A **staging list** (`STG-`) generated from the order's open `STAGE_BACKFLUSH` (and optionally `ISSUE`) requirements moves stock store bin → line-side location as **one `PRODUCTION_STAGE` movement per stage action**, transferring the order's reservation to the line-side position; *Unstage* posts `PRODUCTION_UNSTAGE` back to a store location. The **staging pick list** prints lots and bins. Staged stock is never allocatable to another holder | mfg | v1 | P10 | C3 |
+| **FR-640** | **Manual issue is the core store issue.** *Request materials* calls `WhMaterialRequisitionPort.create` with cost object `PRODUCTION_ORDER` (`p8-09`); the stores clerk posts a core store issue (`p8-10`) whose lines carry the order as cost object, landing in `VIRT-PRODUCTION` (**SEAM-M1**); the **issue slip** is core's (`p8-12`) showing the order number. MFG's `CostObjectResolver` refuses an order not `RELEASED`/`IN_PROGRESS`/`COMPLETED` (`409 ORDER_NOT_OPEN`), on hold (`409 ORDER_ON_HOLD`), with a settlement awaiting approval (`409 ORDER_SETTLEMENT_PENDING`), or (under `STRICT`) an item not on the order; on a `COMPLETED` order the issue is a **late issue** that the settlement capitalises (MD-14). The MRQ reserves nothing; the issue consumes the order's release reservations (MD-16) | mfg·app | v1 | P10 | C3a, `RN-034` |
+| **FR-641** | **Returns of unused components**: issued stock returns by a core store return linked to the issue line (`p8-11`); staged stock by *Unstage*. Rollups (`issued_quantity`, `returned_quantity`, `staged_quantity`) update in the posting transaction through the resolver hooks `onIssuePosted` / `onReturnPosted` (**SEAM-M2**; there is no issue reversal — a mis-issue is corrected by a return, MD-17); a return above net issued is refused by core; returns are accepted on `COMPLETED` orders until `CLOSED` (MD-14) | mfg·app | v1 | P10 | C3c |
+| **FR-642** | **Component substitution**: from the BOM's alternate group (priority order) or **ad hoc** with a `PRODUCTION_SUBSTITUTION` reason and `whm_production_orders:substitute`; the original line's open quantity is reduced, a substitute line is added with `substitute_of_line_id`, the reservation is released and re-made, the UoM conversion is re-resolved, and genealogy and cost follow the substitute. Under `STRICT` an ad-hoc substitution needs a second user | mfg | v1 | P10 | C3c |
+| **FR-643** | **Consumption policy** (`STRICT`/`WARN`/`FLEXIBLE`, Odoo's three): consumption or issue deviating from the required quantity by more than the per-line tolerance, or of an **unplanned** item, is refused under `STRICT`, needs a `PRODUCTION_DEVIATION` reason under `WARN`, and is free under `FLEXIBLE`. Over-issue is visible on the order as a variance line | mfg | v1 | P10 | C3c |
+| **FR-644** | A **production receipt** (`FGR-`) receives the **main output, co-products and by-products** for a partial or final quantity; an order takes **any number of receipts**. Each output line has quantity, UoM, location, resolved stock status (`QC_HOLD` when the item × site requires final inspection), lot (from `planned_lot_code` or the item lot policy), manufacture date, **expiry** (shelf life from manufacture date, capped by the earliest consumed lot with *limits output expiry*), serials, and a disposition `GOOD`/`REJECTED`/`SCRAPPED` | mfg | v1 | P10 | C4, C2b |
+| **FR-645** | **Backflush at receipt.** For every `STAGE_BACKFLUSH`/`BACKFLUSH` component the receipt proposes consumption = required per unit × (good + rejected + scrapped main output in this receipt), lots by FEFO/FIFO from the line-side then the supply location; the supervisor may edit within the consumption policy. **Posting writes one `PRODUCTION_RECEIPT` movement**: consumption lines → `VIRT-PRODUCTION`, outputs ← `VIRT-PRODUCTION`, scrap → `VIRT-SCRAP`. **A backflush shortage refuses the whole post** naming item, location and lot (`422 BACKFLUSH_SHORTAGE`) — there is no partial post and no failed-movement queue (SAP COGI is refused, R-06); negative stock follows the item × site negative-stock policy only | mfg | v1 | P10 | C3b, `RN-033` |
+| **FR-646** | **Scrap and rejection with reasons.** Output units are `SCRAPPED` (to `VIRT-SCRAP`, reason from `PRODUCTION_SCRAP`) or `REJECTED` (into status `REJECTED` at the receipt location, for QC or rework). Component scrap beyond the BOM scrap % is a consumption deviation. A reason flagged `is_abnormal` puts the scrap's value outside the good units' cost (FR-654). A receipt whose scrap value exceeds `warehouse.manufacturing.scrap_value_approval_threshold` waits `PENDING_APPROVAL` for a second user (`whm_production_receipts:approve`; self-approval `403 RECEIPT_SELF_APPROVAL`), who approves (→ `POSTED`) or returns it to `DRAFT` with a note (MD-22) | mfg | v1 | P10 | C4a |
+| **FR-647** | **Tolerances and completion.** Cumulative good main output above planned × (1 + over-receipt %) is refused `422 OVER_RECEIPT_TOLERANCE_EXCEEDED` naming the level that supplied the % (order → setting, default 0). A receipt flagged `is_final` moves the order to `COMPLETED`; completing below planned × (1 − under-receipt %) needs a `PRODUCTION_CLOSE_SHORT` reason | mfg | v1 | P10 | C2b |
+| **FR-648** | **Genealogy at receipt.** Each posted receipt writes one `whb_transformations` row (`transformation_type = PRODUCTION`, `work_order_ref_type = PRODUCTION_RECEIPT`, id) through `WhbTransformationRecorder.record` in the post transaction: inputs = lots/serials **backflushed by this receipt** plus lots **issued or staged-and-consumed to the order since the previous receipt** (net of returns); the final receipt sweeps every remaining issued lot. Over-inclusion is the safe direction for a recall. Trace uses the existing `WhbGenealogyQueryService.trace` both ways | mfg·base | v1 | P10 | C6, `L-12` |
+| **FR-649** | **Receipt reversal is request → approve → post** (`PRV-`, approver ≠ requester), reversing the receipt's one movement (`L-3`) with a `PRODUCTION_REVERSAL` reason. Approver holds `whm_production_receipt_reversals:approve` (self-approval `403 REVERSAL_SELF_APPROVAL`, MD-20/MD-21). Refused when output stock has moved on (naming what moved), when the output is under an open inspection, when the order is `CLOSED`, **while a settlement is `DRAFT`/`APPROVED` (`409 ORDER_SETTLEMENT_PENDING` — reject it first, MD-18)**, or into a closed period (`L-8`). Rollups regress and a `COMPLETED` order returns to `IN_PROGRESS` in the same transaction; the transformation row is not deleted (append-only) — a reversing transformation is recorded | mfg | v1 | P10 | C2 |
+| **FR-650** | The **FG receipt note** prints receipt and order numbers, outputs with lots, expiry, status and location, scrap and rejection with reasons, consumed components and the QC reference | mfg | v1 | P10 | C10 |
+| **FR-651** | **Operation confirmation** (`OPC-`, optional): good / scrap / rework quantity, setup and run minutes, operator, start/finish, final flag; a milestone confirms earlier operations; confirmations post **no movement** and are cancelled, not edited. Confirmed scrap at an operation pre-fills the next receipt's scrap | mfg | v1 | P10 | C9 |
+| **FR-652** | **QC through the core polymorphic source** (`p8-06`). Final: MFG's `PRODUCTION_RECEIPT` resolver exposes the receipt's `QC_HOLD` output lines; release → `AVAILABLE` + putaway task, reject → `REJECTED`, scrap → the base `SCRAP` disposition (to `VIRT-SCRAP`, pending approval — no `SCRAP` stock status, MD-25), all by core. In-process: MFG's `IN_PROCESS` resolver exposes an operation confirmation at a QC-checkpoint operation as a **non-stock-bearing** source (**SEAM-M4**) — accept / reject / rework are recorded, nothing moves; release of a downstream receipt is refused while an in-process inspection of the order is open when `warehouse.manufacturing.block_receipt_on_open_inprocess_qc` is true | mfg·app | v1 | P10 | C5, `RN-036` |
+| **FR-653** | **Rework.** The `REWORK` disposition (MFG-registered) moves the stock to `REJECTED` and, through `onDisposition`, creates a **`PLANNED` rework order** whose first component is the rejected item/lot (`supply_stock_status_code = REJECTED`, `BACKFLUSH`, its HARD reservation on the `REJECTED` position — MD-26) and whose output is the same item (lot kept or new per `warehouse.manufacturing.rework_keeps_lot`, default `true`); extra components from a rework BOM (`usage = PRODUCTION`, `is_rework_alternative = true`) or ad hoc. Its cost is the carried value of the reworked units plus extras. A rework order is an ordinary order otherwise | mfg | v1 | P10 | C4b |
+| **FR-654** | **Actual costing of output (`OD-40`).** The order's **cost pool** = value of issues and backflush into `VIRT-PRODUCTION` for the order − returns − value already absorbed. A receipt absorbs its own backflush value fully plus the unabsorbed **issued** pool × (this receipt's good main base quantity ÷ remaining planned main base quantity, capped at 1); a final receipt absorbs all. By-product credit (qty × NRV) is deducted first; **abnormal** scrap's proportional share is valued to `VIRT-SCRAP`; the rest is split over `MAIN` + `CO_PRODUCT` by cost share and quantity; unit costs are written on the movement lines (`cost_basis = PRODUCTION_ACTUAL`). Non-own orders are never valued (`L-14`) | mfg | v1 | P10 | C4, C4e |
+| **FR-655** | **Co-product split is exact**: largest-remainder apportionment (`R-4`, `WhbCostLayerMath.split`), ties to the lowest output `sequence` (`RF-009`), so Σ output values = the absorbed pool to the minor unit and a re-run reproduces it | mfg | v1 | P10 | C4 |
+| **FR-656** | **Close is a settlement.** *Close* on a `COMPLETED` order computes the residual pool (late issues and returns accepted while `COMPLETED` — MD-14 —, rounding) and posts one `PRODUCTION_SETTLEMENT` value-only movement (`L-15`) capitalising it onto the order's output lots **still on hand** and onto `VIRT-COST_OF_SALES` for the part already consumed or shipped (the `P2-28` landed-cost split). Below `warehouse.manufacturing.close_variance_approval_percent` (default 5) of the absorbed value the settlement is created and posted in one transaction; above it it waits `DRAFT` for a second user (`whm_production_settlements:approve`, self-approval `403 SETTLEMENT_SELF_APPROVAL`) who approves or rejects; a `REJECTED` settlement frees the order for reopen or a new close (MD-22). Close also releases every remaining reservation, closes the order's open MRQ through the port, and requires no open staging list, draft receipt or open subcontract balance. `CLOSED` is terminal; the **cost sheet** prints planned vs actual by component and output | mfg | v1 | P10 | C4e |
+| **FR-657** | **Accounting is a handover, never a posting** (`RN-054`): MFG movements carry the standard envelope into `whb_accounting_handovers` like every movement; MFG emits no debit or credit note, no GL account and no journal. Labour and overhead absorption is not posted (`OD-43`) | mfg | v1 | P10 | `RM-030`…`RM-032` |
+| **FR-658** | **Subcontract order** = a production order of type `SUBCONTRACT` with a BOM of usage `SUBCONTRACT` (components = what we send, main output = **the different, processed item** we get back), a job-worker counterparty and a **location of base type `JOB_WORKER`** — a *virtual counterparty* (`V500006:132`): the stock is ours, at the job worker's premises, not countable on our floor, owner unchanged (`L-11`); the site's `VIRT-JOB_WORKER-<site>` by default or a per-job-worker `JOB_WORKER` location the site maintains; the per-order balance is MFG's reconciliation (MD-28) — and an optional frozen **service PO reference** (`p9-07`); the processing charge is trade's and accounting's, not MFG's | mfg | v1 | P10 | C7, `RM-040` |
+| **FR-659** | **Generic dispatch** (`SCD-`): a subcontract dispatch posts one `SUBCONTRACT_DISPATCH` movement store → job-worker location and, outside India or for an intra-GSTIN movement, references a core **returnable gate pass** (`p8-03`); the **dispatch note** prints components, lots, quantities, the job worker and the dispatch's `expected_return_date` (MD-26) | mfg | v1 | P10 | C7 |
+| **FR-660** | **India path.** With `warehouse-india` enabled the dispatch calls the core `JobWorkDispatchPort` (**SEAM-M5**); india raises its one delivery challan (purpose `JOB_WORK`, `job_work_type` `INPUTS`/`CAPITAL_GOODS`) and its job-work registration, and its existing clocks apply — inputs **1 year**, capital goods **3 years**, moulds/dies/jigs/tools no limit (**RE-VERIFY**, `V541053:115,121`). A subcontract receipt calls `registerReturn` with the **processed item**, the input quantity consumed, scrap returned and scrap retained, so ITC-04 reports inputs returned in processed form and waste at the job worker (s.143(5), **RE-VERIFY**); a recall calls `registerReturn` with the input item, a subcontract receipt reversal `reverseReturn`, a write-off `registerLoss` (MD-25). MFG never writes a `whin_` table | mfg·india | v1 | P10 | C7a, `FR-312` |
+| **FR-661** | **Subcontract receipt and reconciliation.** A receipt on a subcontract order backflushes components **from the job-worker location** (all supply methods treated as `BACKFLUSH`), receives the processed item at our store (gate entry `p8-03` referenced on `gate_entry_id`), and records scrap at the job worker as **retained** (to `VIRT-SCRAP`) or **returned** (a by-product receipt). **Close** of a subcontract order requires every component balance at the job-worker location to be zero or resolved by *Recall* (`SUBCONTRACT_RECALL` back to store, posts at once) or *Write off* (a `REQUESTED` action approved by a second user holding `whm_subcontract_dispatches:approve_write_off`, then one `SUBCONTRACT_WRITE_OFF` movement to `VIRT-SCRAP` with a `SUBCONTRACT_WRITE_OFF` reason) in `whm_subcontract_reconciliation_actions`; a pending write-off still blocks close (MD-20, MD-25, MD-26) | mfg | v1 | P10 | C7, edge "JW short/excess return" |
+| **FR-662** | **Item planning parameters** per item × site: planning method (`MRP`/`REORDER_POINT` — left to core replenishment —/`NONE`), make/buy, lot-sizing rule with fixed / min / max / rounding multiple, safety stock, safety lead time, manufacturing lead time, purchase lead time (fallback: priority-1 supplier source → item × site setting), planning time fence, QC lead time, default BOM alternative | mfg | v1 | P10 | C8 |
+| **FR-663** | **Demand plans** (forecast / MPS-lite): item × weekly or monthly bucket quantities in a named plan with validity; consumption mode `MAX_OF_FORECAST_AND_ORDERS` (default — orders consume forecast in the bucket) or `FORECAST_PLUS_ORDERS`. One `ACTIVE` plan per site at a time | mfg | v1 | P10 | C8 |
+| **FR-664** | **MRP is regenerative per site** (async `whb_job_runs` job, one run per site at a time under an advisory lock): low-level codes from the BOM graph; **independent demand** = open core demand-order lines incl. unreleased `FORECAST` schedule lines (`OD-32` confirmed), the active demand plan after consumption, approved-not-issued material requisitions (`p8-09`) **except** those with cost object `PRODUCTION_ORDER` (the order's components are already dependent demand — MD-16), and safety stock; **dependent demand** = components of open orders and of MAKE proposals; **supply** = allocatable on-hand of the **house owner only** (`L-14`; QC-held as supply after `qc_lead_time_days` if `include_qc_hold_supply`), open PO schedule-line quantity (`p8-01`), open production-order remaining quantity, `FIRMED` proposals, and published-but-unordered MRP suggestions (`OD-44`). Reservations are not subtracted again when their holder is a counted demand | mfg | v1 | P10 | C8 |
+| **FR-665** | **Lot sizing, offsets and fences.** Net requirement per daily bucket → lot size by rule (`LOT_FOR_LOT`, `FIXED` multiples, `MIN_MAX` replenish-to-max, `PERIOD_WEEKLY`/`MONTHLY` grouping) then min / max / rounding; start date = need date − (manufacturing or purchase lead time + safety lead time), component need dates offset by the BOM line's `lead_time_offset_days`; inside the planning time fence MRP proposes nothing new and raises `RESCHEDULE_IN` / `START_IN_PAST` instead | mfg | v1 | P10 | C8 |
+| **FR-666** | **Proposals and conversion.** Each proposal carries **pegging** to the demands it covers. The planner **firms** (kept across runs as supply), **dismisses** (reason) or **converts**: `MAKE` → a `PLANNED` production order (sub-assembly proposals become linked orders); `BUY` → a core replenishment suggestion with origin `MRP` (**SEAM-M3**, `OD-31` confirmed) that `warehouse-trade` turns into a PR (`p9-04`, FR-557) — and, **with trade disabled, the core replenishment screen turns into a draft core PO** (`OD-41`). A `BUY` proposal publishes a suggestion **only at convert**; a new run supersedes `OPEN` (never published) proposals and keeps `FIRMED` and `CONVERTED` ones; a published suggestion that no PO schedule line references counts as supply until `suggestion_cover_days` after publication, after which the run withdraws it (`withdrawExternal`) and re-plans the need (MD-24, `OD-44`) | mfg·app | v1 | P10 | C8a |
+| **FR-667** | **Exception messages** per run: reschedule in/out, cancel (excess supply), start or due date in the past, below safety stock, no BOM for a MAKE item, no lead time, recursive BOM, demand cancelled — each naming the document, current and suggested dates, acknowledged by the planner, never auto-applied | mfg | v1 | P10 | C8a |
+| **FR-668** | **Capacity is infinite and visible.** A **load report** buckets planned setup + run minutes of open orders' open operations and of `MAKE` proposals with operations, per work centre per day, against available minutes × efficiency × parallel units, flagging overload. **No finite scheduling, no automatic rescheduling, no APS** (R-01) | mfg | v1 | P10 | C9, C9a |
+| **FR-669** | **Screens, permissions, grids, exports.** Every MFG grid follows its canonical reference (§7), ships `grid_column_definitions` + `filter_definitions` + `grid_preferences` (both default filters and columns) in its table migration, registers its `COMMON_FILTER_CONFIGS` scope, exports a superset of its visible columns, and every verb is a `resource:action` permission with `permission_dependencies` on `:view`. AUDITOR reads, never exports. Menus: L1 **Manufacturing**, ≤ 8 leaves per L2. **No mobile** (user rule 2026-09-11). `en`/`fr`/`hi` in `WarehouseManufacturingSafeTranslation.tsx` | mfg | v1 | P10 | CLAUDE.md, `RJ-005` |
+
+---
+
+## 7. Screens (WS-320–339)
+
+| WS | Screen | Route `/warehouse/manufacturing/…` | Reference | Grid id · filter scope | Task |
+|---|---|---|---|---|---|
+| **WS-320** | BOMs | `boms` | **Customer** (relations + child editors; multi-tab modal: Header · Components · Alternates · Outputs · Operations · Approval) | `whm_boms` · `WAREHOUSE_MFG_BOM` | p10-03 |
+| **WS-321** | BOM Explosion & Where-used | `bom-explorer` | report (tree + table, export) | `whm_bom_explosion` · `WAREHOUSE_MFG_BOM_EXPLOSION` | p10-03 |
+| **WS-322** | Work Centres | `work-centres` | **Department** | `whm_work_centres` · `WAREHOUSE_MFG_WORK_CENTRE` | p10-04 |
+| **WS-323** | Production Orders | `production-orders` | **Service Vehicle** (state ladder, transition modals) | `whm_production_orders` · `WAREHOUSE_MFG_PRODUCTION_ORDER` | p10-05 |
+| **WS-324** | Production Order detail | `production-orders/[id]` | detail page, tabs: Components · Outputs · Operations · Materials (MRQ/issues/returns/staging) · Receipts · Quality · Cost · Genealogy · History | — | p10-05 |
+| **WS-325** | Staging Lists | `staging-lists` | **Service Vehicle** | `whm_staging_lists` · `WAREHOUSE_MFG_STAGING_LIST` | p10-06 |
+| **WS-326** | Production Receipts | `production-receipts` | **Service Vehicle** | `whm_production_receipts` · `WAREHOUSE_MFG_PRODUCTION_RECEIPT` | p10-07 |
+| **WS-327** | Receipt Reversals | `receipt-reversals` | **Service Vehicle** | `whm_production_receipt_reversals` · `WAREHOUSE_MFG_RECEIPT_REVERSAL` | p10-07 |
+| **WS-328** | Operation Confirmations | `operation-confirmations` | **Customer** | `whm_operation_confirmations` · `WAREHOUSE_MFG_OPERATION_CONFIRMATION` | p10-08 |
+| **WS-329** | Settlements & Close | `settlements` | **Service Vehicle** | `whm_production_settlements` · `WAREHOUSE_MFG_SETTLEMENT` | p10-09 |
+| **WS-330** | Subcontracting | `subcontracting` | **Service Vehicle** (dispatches + reconciliation tab) | `whm_subcontract_dispatches` · `WAREHOUSE_MFG_SUBCONTRACT_DISPATCH` | p10-10 |
+| **WS-331** | Item Planning Parameters | `planning-parameters` | **Customer** | `whm_item_planning_params` · `WAREHOUSE_MFG_PLANNING_PARAM` | p10-11 |
+| **WS-332** | Demand Plans | `demand-plans` | **Customer** (bucket grid editor + import) | `whm_demand_plans` · `WAREHOUSE_MFG_DEMAND_PLAN` | p10-11 |
+| **WS-333** | MRP Runs | `mrp-runs` | **Service Vehicle** | `whm_mrp_runs` · `WAREHOUSE_MFG_MRP_RUN` | p10-12 |
+| **WS-334** | MRP Proposals (planner workbench) | `mrp-proposals` | **Customer** (multi-select firm / convert / dismiss) | `whm_mrp_proposals` · `WAREHOUSE_MFG_MRP_PROPOSAL` | p10-12 |
+| **WS-335** | MRP Exceptions | `mrp-exceptions` | **Department** (acknowledge) | `whm_mrp_exceptions` · `WAREHOUSE_MFG_MRP_EXCEPTION` | p10-12 |
+| **WS-336** | Capacity Load | `capacity-load` | report | `whm_capacity_load` · `WAREHOUSE_MFG_CAPACITY_LOAD` | p10-13 |
+| **WS-337** | Manufacturing Registers (production register, WIP by order, scrap register, yield, consumption variance) | `registers` | report (tabbed) | `whm_register_*` · `WAREHOUSE_MFG_REGISTER` | p10-13 |
+| WS-338, WS-339 | **unused** | — | — | — | — |
+
+**Menus (`V561000`).** L1 **Manufacturing**. L2 **Production**: BOMs, Work Centres, Production Orders,
+Staging Lists, Production Receipts, Receipt Reversals, Operation Confirmations, Subcontracting (8). L2
+**Planning**: Planning Parameters, Demand Plans, MRP Runs, MRP Proposals, MRP Exceptions, Capacity Load (6).
+L2 **Costing & Reports**: Settlements & Close, BOM Explorer, Registers (3). Every insert carries the
+`WHERE NOT EXISTS` guard.
+
+**Permissions (resource:action; every verb depends on `:view`).**
+`whm_boms:{view,create,edit,delete,export,submit,approve,new_version,obsolete}` ·
+`whm_work_centres:{view,create,edit,delete,export}` ·
+`whm_production_orders:{view,create,edit,export,release,approve_release,unrelease,hold,complete,reopen,cancel,substitute,request_materials,close}` ·
+`whm_staging_lists:{view,create,edit,export,release,stage,unstage,cancel}` ·
+`whm_production_receipts:{view,create,edit,export,post,approve,cancel}` ·
+`whm_production_receipt_reversals:{view,create,export,approve,post}` ·
+`whm_operation_confirmations:{view,create,export,cancel}` ·
+`whm_production_settlements:{view,create,export,approve,post}` ·
+`whm_subcontract_dispatches:{view,create,edit,export,dispatch,cancel,recall,write_off,approve_write_off}` ·
+`whm_item_planning_params:{view,create,edit,delete,export}` ·
+`whm_demand_plans:{view,create,edit,delete,export,activate}` ·
+`whm_mrp_runs:{view,run,export}` · `whm_mrp_proposals:{view,firm,convert,dismiss,export}` ·
+`whm_mrp_exceptions:{view,acknowledge,export}` · `whm_reports:{view,export}`.
+
+---
+
+## 8. Settings (admin-settings registry rows, `V561000`; `visibleWhen` the module flag)
+
+| Key | Type | Default |
+|---|---|---|
+| `warehouse.manufacturing.release_requires_approval` | boolean | `false` |
+| `warehouse.manufacturing.release_with_shortage` | `BLOCK`/`WARN`/`ALLOW` | `WARN` |
+| `warehouse.manufacturing.component_reservation` | `NONE`/`SOFT`/`HARD` | `HARD` |
+| `warehouse.manufacturing.consumption_policy_default` | `STRICT`/`WARN`/`FLEXIBLE` | `WARN` |
+| `warehouse.manufacturing.consumption_tolerance_percent` | decimal | `0` |
+| `warehouse.manufacturing.over_receipt_percent` | decimal | `0` |
+| `warehouse.manufacturing.under_receipt_percent` | decimal | `0` |
+| `warehouse.manufacturing.scrap_value_approval_threshold` | decimal, null = never | null |
+| `warehouse.manufacturing.close_variance_approval_percent` | decimal | `5` |
+| `warehouse.manufacturing.rework_keeps_lot` | boolean | `true` |
+| `warehouse.manufacturing.block_receipt_on_open_inprocess_qc` | boolean | `false` |
+| `warehouse.manufacturing.staging_stale_days` | int | `7` |
+| `warehouse.manufacturing.mrp.horizon_days` | int | `90` |
+| `warehouse.manufacturing.mrp.suggestion_cover_days` | int | `30` (`OD-44`) |
+
+---
+
+## 9. Decisions (made here, binding on P10)
+
+| ID | Decision | Rejected alternative and why |
+|---|---|---|
+| **MD-01** | New `whm_boms`, kits stay (FR-629) | Extending `whb_kit_definitions`: base learns manufacturing (`D-1`), and the VAS work order's one-movement semantics would leak into a multi-movement BOM |
+| **MD-02** | Production order is a separate document; the VAS work order is unchanged (`RN-033`) | Widening `wh_work_orders`: its `CHECK (work_order_type IN …)` and its deferred one-movement trigger are exactly what a staged, partially completed order violates |
+| **MD-03** | Every MFG posting document posts exactly one movement (§5) | One movement per order: impossible with partial receipts; free-form postings: lose `L-12` traceability |
+| **MD-04** | Manual issue and return reuse core store issue / store return with cost object `PRODUCTION_ORDER` (`RN-034`); backflush, staging and receipt are MFG documents | An MFG issue slip: a second issue document, duplicate of `p8-10`, the failure `RM-022` names |
+| **MD-05** | Two WIP models per component: virtual `VIRT-PRODUCTION` (issue) and physical `LINE_SIDE` (stage + backflush) | One model: virtual-only loses floor stock visibility for staged lines; physical-only forces a move for every bolt |
+| **MD-06** | Actual costing, proportional draw, settlement at close (`OD-40` default) | Standard costing: needs a standard-cost master and variance accounts that the deferred accounting cannot receive |
+| **MD-07** | MRP BUY output goes to core replenishment suggestions with origin `MRP` (**confirms TRADE `OD-31`**); trade turns them into PRs; with trade off, core turns them into a draft PO (`OD-41` default) | MFG calling trade directly: sibling-to-sibling dependency; MFG creating POs: duplicates core's replenishment-to-PO path |
+| **MD-08** | MRP reads core demand orders incl. `FORECAST` schedule lines (**confirms TRADE `OD-32`**) | Reading `wht_` tables: upward/sideways dependency |
+| **MD-09** | Lightweight work centres + optional operation list; infinite-capacity load view; no finite scheduling (FR-668) | Refuse work centres entirely: the traveller, in-process QC checkpoints and the load view all need an operation; full routing/CRP: a product of its own (R-01) |
+| **MD-10** | Backflush failure refuses the whole post (FR-645) | A COGI-style failed-movement queue: a second inventory truth to reconcile |
+| **MD-11** | Genealogy at order-receipt grain with since-last-receipt attribution (FR-648) | Per-unit consumption capture: an operator burden SMEs refuse; no attribution: recall over-reach unbounded |
+| **MD-12** | Release approval is a setting, default off (FR-635) | Mandatory maker–checker on release: SME planners release dozens a day; the stock effect is guarded at issue and receipt |
+| **MD-13** | Job work through a core-defined port with an india bean (SEAM-M5); generic path via `p8-03` gate pass | MFG importing `warehouse-india`: breaks "india optional"; a second challan: `FR-313`'s one-challan rule |
+| **MD-14** | **`COMPLETED` = technically complete, not settled** (SAP `TECO`): no receipt or staging, but late store issues and returns are accepted (consumption policy applies) until `CLOSED`; they feed the settlement residual. The STORES `PRODUCTION_ORDER` resolver accepts `RELEASED`/`IN_PROGRESS`/`COMPLETED`, refuses on hold or with a settlement `DRAFT`/`APPROVED` (`FRD-STORES` `FR-533`, amended) | Resolver open only while `IN_PROGRESS`: `WH-SC-641`'s late issue is unreachable and every forgotten issue forces a reopen |
+| **MD-15** | **No cancel after the first posting.** An `IN_PROGRESS` order exits by *Unstage* / store return → *Complete* (close-short reason, received may be 0) → *Close* | Cancel with automatic reversal of every posting: hides a stock history behind one click; SAP/Odoo also refuse cancel after goods movements |
+| **MD-16** | **The production order is the single owner of its component reservations.** Its MRQ (via `WhMaterialRequisitionPort`) reserves nothing; the store issue consumes the order's reservations through `CostObjectResolver.reservationsFor`; MRP excludes `PRODUCTION_ORDER` MRQs from independent demand (`FRD-STORES` `FR-531`/`FR-533`, amended) | MRQ reserves too: the same component is reserved twice; MRQ transfers the order's reservation: two ledgers move on every approve/close for no gain |
+| **MD-17** | SEAM-M2 is `assertIssuable` + `onIssuePosted` + `onReturnPosted` (+ `reservationsFor`); **no `onIssueReversed`** — STORES rejected it (`STO-D13`), a mis-issue is corrected by a return | A reversal hook for a path that does not exist (`STO-D11`) |
+| **MD-18** | **A receipt reversal is refused while a settlement is `DRAFT`/`APPROVED`** (`409 ORDER_SETTLEMENT_PENDING`); reject the settlement, then reverse (order → `IN_PROGRESS`) | Reverse and silently void the pending settlement: an approver approves numbers that no longer exist |
+| **MD-19** | **BOM selection date = the order's planned start date**, at creation and re-checked at release (SAP explosion date = basic start date); release refuses a frozen BOM not effective on it (`409 BOM_NOT_EFFECTIVE`) and offers *Re-explode* | Creation date at create and start date at release: two rules that disagree for every order created before an engineering change |
+| **MD-20** | Permission names are §7's: `whm_production_receipt_reversals:approve`, `whm_production_receipts:approve`, `whm_production_settlements:approve`, and new `whm_subcontract_dispatches:approve_write_off` | A verb on another resource (`receipts:approve_reversal`): a role grant on one screen gates another |
+| **MD-21** | **Self-approval is `403`** (`<DOC>_SELF_APPROVAL`), like core `APPROVER_IS_ACTOR` / `MRN_AUTHORISER_IS_INSPECTOR` (`FRD-STORES` `WH-SC-454`, `-459`) | `409`: the state is fine, the actor is not — that is authorisation |
+| **MD-22** | **Every waiting state has an exit**: staging `PARTIALLY_STAGED → CLOSED` (close short); receipt `PENDING_APPROVAL → DRAFT` (return); settlement `DRAFT → POSTED` in one transaction below the threshold, `DRAFT → APPROVED → POSTED` above, `DRAFT → REJECTED`; settlement uniqueness is a partial unique index `WHERE status <> 'REJECTED'` | A plain uk on `order_id`: one rejection blocks the order forever |
+| **MD-23** | **`SOFT` component reservations expire** at the end of `planned_end_date` + `staging_stale_days` (site zone), re-dated on reschedule (`whb_reservations` requires `expires_at` for `SOFT`) | No expiry: `SOFT` becomes `HARD`; drop `SOFT`: SMEs want soft holds on cheap parts |
+| **MD-24** | **MRP suggestions:** BUY proposals publish only at convert; a run supersedes `OPEN` proposals only; a published, unordered suggestion is supply for `suggestion_cover_days`, then withdrawn and re-planned (`OD-44`) | "A run withdraws unconverted suggestions": `OPEN` proposals have none, and withdrawing converted ones re-proposes what trade is already buying |
+| **MD-25** | **SEAM-M5 has four calls** — `registerDispatch`, `registerReturn` (incl. recall as an unprocessed return), `reverseReturn`, `registerLoss`; **scrap never uses a `SCRAP` stock status** (india-owned, absent when india is off): production/QC scrap goes to `VIRT-SCRAP`; subcontract write-off is MFG's own `SUBCONTRACT_WRITE_OFF` movement type; returned scrap is a by-product item | Seed `SCRAP` status in base or MFG: collides with india's `V540131` owning-module guard and gives scrap two meanings |
+| **MD-26** | **Columns the flows need:** `whm_boms.is_rework_alternative`; `whm_production_order_components.supply_stock_status_code`; `whm_subcontract_dispatches.expected_return_date`; `whm_production_receipts.gate_entry_id`/`gate_entry_ref` and return columns; `whm_subcontract_reconciliation_actions` (recall / write-off with `REQUESTED` pending state) | A `REWORK` usage value: a rework BOM is still a production BOM; one `resolution` column: recall 2 + write off 2 (`WH-SC-648`) cannot be stored |
+| **MD-27** | `whm_mrp_exceptions.current_due_date` / `suggested_due_date` (not the reserved `current_date`); the `whm_boms` uniqueness is a unique index on `COALESCE(warehouse_id, nil-uuid)` | A plain uk over a nullable column: two all-sites rows never collide |
+| **MD-28** | **Job-worker stock sits at a base `JOB_WORKER` location** (virtual counterparty — `V500006:132`), the site's `VIRT-JOB_WORKER-<site>` or a per-job-worker one; the per-order balance is `whm_subcontract_reconciliations`. `WhMaterialRequisitionPort` is `p8-09`'s (now named in `FRD-STORES` `FR-531`); `JobWorkDispatchPort` is not a STORES port — `p10-10` declares it in core. SEAM-M3 is `p8-16`; the india migration is `V540190` | A physical job-worker location type in MFG: a second type for the same thing, and job-worker stock would count as on our floor |
+
+## 10. Refusals (`RM-043` — every absence is stated)
+
+| # | Not built | Reason | Re-entry path |
+|---|---|---|---|
+| **R-01** | Finite capacity scheduling, APS, automatic rescheduling, sequencing optimisation | A product of its own; SME practice is a load view plus a planner | Export of the load report; an external scheduler posts confirmations through the API |
+| **R-02** | Labour time & attendance, payroll, machine/IoT integration, OEE | Not inventory; platform HR owns people | Operation confirmations accept minutes from an integration principal |
+| **R-03** | Net-change MRP | Regenerative per site is correct and fast enough at SME scale | Schedule the run nightly |
+| **R-04** | Multi-site MRP with TRANSFER proposals | Cross-site netting needs a supply-network model | Core replenishment `TRANSFER` suggestions (`V510070`) |
+| **R-05** | Standard costing with price/quantity/lot-size variance accounts | Accounting deferred (`RN-054`) | `OD-40` alternative; settlement lines already separate the residual |
+| **R-06** | Failed-backflush queue (SAP COGI) | MD-10 | — |
+| **R-07** | Unbuild / disassembly of a manufactured item | Multi-level unbuild with cost reversal and lot return is rare in SME; single-level kits are disassembled by the core VAS work order | Order type `DISASSEMBLY` is a code-list row away |
+| **R-08** | Engineering change orders (ECO workflow, change-number master) | Versioning + effectivity + change reason + maker–checker cover SME practice | A change-number column can be added to `whm_boms` |
+| **R-09** | Configurable products / variant-rule BOMs | Variants are separate items with their own BOMs | — |
+| **R-10** | Process manufacturing: recipes with potency, catch weight, batch manufacturing record (eBMR), CoA generation | Regulated-industry programmes (cf. refusal 14 of the core FRD) | Print templates can render a CoA from inspection results |
+| **R-11** | Automatic production-order creation from a sales order (MTO automation) | MRP proposes; a planner converts | Convert from the demand line on WS-334 |
+| **R-12** | Tool / mould life and maintenance planning | Asset domain (`assets` module, not edited) | Moulds sent to a job worker travel on the india challan as capital goods |
+| **R-13** | Mobile shop-floor screens | User rule 2026-09-11: no warehouse mobile | Web screens are tablet-usable |
+| **R-14** | Any GL posting, debit note, credit note or job-work charge invoice | `RN-054` | Handover envelope (FR-657) |
+
+## 11. Open decisions (OD-40 … OD-44)
+
+| ID | Question | Recommendation (ships as default) | Gates |
+|---|---|---|---|
+| **OD-40** | Value FG at actual (proportional draw + settlement) or at standard with variance? | **Actual** (MD-06). Standard is R-05's re-entry path | FR-654, FR-656 |
+| **OD-41** | With `warehouse-trade` disabled, what happens to MRP BUY proposals? | They still publish to core replenishment suggestions (origin `MRP`); the core replenishment screen converts them to a **draft core PO** as it does reorder suggestions; with trade enabled, trade converts them to PRs (FR-557). Nothing is lost when trade is toggled; a suggestion converted by core is marked consumed so trade never sees it twice | FR-666, SEAM-M3 |
+| **OD-42** | Job work **in** (we process a customer's material)? | **v1.1**: allow an order owner that is a non-own owner when every component and output is of that owner; never valued (`L-14`); no title change (`L-11`); billing is 3PL/trade's | FR-632 |
+| **OD-43** | Absorb labour / overhead (work-centre rate × minutes) into FG cost? | **No** in v1: the rate and minutes are recorded and reported on the cost sheet; absorption would need a value-only credit to a conversion-cost location with no accounting receiver | FR-630, FR-654 |
+| **OD-44** | How does MRP avoid re-proposing a BUY already sent to trade but not yet on a PO? | A published `MRP` suggestion counts as supply until a PO schedule line references it or `warehouse.manufacturing.mrp.suggestion_cover_days` elapse — then the run withdraws it and re-plans (MD-24) — needing SEAM-M3's suggestion status read; trade to confirm it passes the suggestion reference onto the PO line (`p9-07`) | FR-664 |
+
+---
+
+## 12. Scenarios (WH-SC-600 … WH-SC-659)
+
+Cast: plant `PLT1` (site), stores `PLT1-RM`, line-side `PLT1-LS-A` (type `LINE_SIDE`), FG store
+`PLT1-FG`; FG `PUMP-100`; sub-assembly `MOTOR-ASSY` (stocked, own BOM); phantom `SEAL-KIT`
+(components `ORING-30` ×2, `GASKET-31` ×1); components `CASING-01` ×1, `IMPELLER-02` ×1, `SHAFT-03` ×1,
+`BOLT-M8` ×8 (`BACKFLUSH`); alternate `IMPELLER-02B`; batch case `RESIN-A` (main) with co-product
+`RESIN-B` (30 %) and by-product `SOLVENT-REC` (NRV ₹12/L); job worker `JW-0044` (plating) returning
+`SHAFT-03P` for sent `SHAFT-03`; users `eng1`, `appr1`, `planner1`, `sup1`, `stores1`, `qc1`, `mgr1`.
+
+| ID | Given | When | Then | FR | Inv | Mod | Ver·Ph | Kind |
+|---|---|---|---|---|---|---|---|---|
+| **WH-SC-600** | A BOM `PUMP-100` v1 `DRAFT` with five lines incl. phantom `SEAL-KIT` | `eng1` submits, `appr1` approves | `APPROVED`, effective from today; edit refused; *New version* creates v2 `DRAFT` | FR-625 | — | mfg | v1·P10 | happy |
+| **WH-SC-601** | v1 `SUBMITTED` by `eng1` | `eng1` approves | `403 BOM_SELF_APPROVAL` | FR-625 | — | mfg | v1·P10 | negative |
+| **WH-SC-602** | v2 approved effective 2026-11-01 | approval | v1 `effective_to` = 2026-11-01; an order with planned start 2026-10-30 takes v1, one with planned start 2026-11-02 takes v2 (whatever day it is created); rescheduling the first to start 2026-11-03 makes its release refuse `409 BOM_NOT_EFFECTIVE` until *Re-explode* | FR-625, FR-626 | — | mfg | v1·P10 | edge |
+| **WH-SC-603** | Two approved alternatives of `PUMP-100`, lot sizes 1–49 and 50+ | order for 60 | alternative 2 selected | FR-626 | — | mfg | v1·P10 | happy |
+| **WH-SC-604** | `MOTOR-ASSY` BOM contains `PUMP-100`, whose BOM contains `MOTOR-ASSY` | approve | `422 BOM_RECURSIVE` naming `PUMP-100 > MOTOR-ASSY > PUMP-100` | FR-627 | — | mfg | v1·P10 | negative |
+| **WH-SC-605** | Phantom `SEAL-KIT` | an adjustment of +5 `SEAL-KIT` | refused at the movement-line validator | FR-627 | `L-1` | mfg | v1·P10 | negative |
+| **WH-SC-606** | `PUMP-100` with phantom `SEAL-KIT` | explode for 10 | indented tree; `ORING-30` 20, `GASKET-31` 10 at level 1 under `PUMP-100`, `phantom_path` shown; cost roll-up flags `GASKET-31` with no cost | FR-628 | — | mfg | v1·P10 | happy |
+| **WH-SC-607** | `BOLT-M8` | where-used, recursive | `MOTOR-ASSY` and `PUMP-100` (via `MOTOR-ASSY`) with quantities per parent | FR-628 | — | mfg | v1·P10 | happy |
+| **WH-SC-608** | Kit `KIT-SVC-A` v3 | *Copy from kit* | a `DRAFT` BOM with the same lines, base quantity 1, `copied_from_kit_id` set; the kit is unchanged | FR-629 | — | mfg | v1·P10 | happy |
+| **WH-SC-609** | `CASING-01` line scrap 5 %, `BOLT-M8` fixed 2 (setup) + 8 per unit | order for 100 | required `CASING-01` 105, `BOLT-M8` 802 | FR-623, FR-633 | — | mfg | v1·P10 | edge |
+| **WH-SC-610** | Order `PRD-000101` for 100 `PUMP-100` `PLANNED`; `IMPELLER-02` free stock 60 | release, setting `WARN` | released with a shortage list (`IMPELLER-02` short 40); HARD reservations for the available 60 with holder `PRODUCTION_ORDER/PRD-000101/2` | FR-635 | `L-6` `L-10` | mfg | v1·P10 | happy |
+| **WH-SC-611** | The same with `BLOCK` | release | `409 RELEASE_SHORTAGE` listing the shortages; order stays `PLANNED` | FR-635 | — | mfg | v1·P10 | negative |
+| **WH-SC-612** | BOM v1 changed by a v2 after `PRD-000101` was created | open the order | components are v1's; *Re-explode* is not offered (order `RELEASED`) | FR-633 | — | mfg | v1·P10 | edge |
+| **WH-SC-613** | `PRD-000101` `RELEASED`, nothing posted | cancel with reason | `CANCELLED`; reservations released; the number stays issued | FR-634 | — | mfg | v1·P10 | happy |
+| **WH-SC-614** | `PRD-000101` has one posted staging (so it is `IN_PROGRESS`) | cancel | `409 ORDER_HAS_POSTINGS` naming `STG-000031`; offered instead: *Unstage*, then *Complete* with a `PRODUCTION_CLOSE_SHORT` reason, then *Close* — never cancel (MD-15) | FR-634 | — | mfg | v1·P10 | negative |
+| **WH-SC-615** | `PRD-000101` on hold (`MACHINE_DOWN`) | a store issue to it | refused by the `PRODUCTION_ORDER` cost-object resolver `409 ORDER_ON_HOLD` | FR-634, FR-640 | — | mfg·app | v1·P10 | negative |
+| **WH-SC-616** | SO `SO-7781` line 2 for 50 `PUMP-100`, its core demand order | create order from the demand line with *reserve output* | order carries `SO-7781/2` and the customer; each good receipt reserves output for the demand line | FR-637 | `L-10` | mfg | v1·P10 | happy |
+| **WH-SC-617** | The SO line is cancelled after release | — | `DEMAND_CANCELLED` exception on the order and in the next MRP run; the order is not cancelled | FR-637 | — | mfg | v1·P10 | edge |
+| **WH-SC-618** | `CASING-01` `STAGE_BACKFLUSH`, 105 required | release staging list `STG-000031`, `stores1` stages 105 from `PLT1-RM-B04` | one `PRODUCTION_STAGE` movement to `PLT1-LS-A`; reservation now at the line-side position; staged 105 | FR-639 | `L-1` | mfg | v1·P10 | happy |
+| **WH-SC-619** | Staged `CASING-01` 105 at `PLT1-LS-A` | a sales pick searches for `CASING-01` | line-side stock is not offered | FR-639 | `L-6` | mfg | v1·P10 | negative |
+| **WH-SC-620** | `SHAFT-03` `ISSUE` | *Request materials* | one MRQ with cost object `PRODUCTION_ORDER/PRD-000101`, purpose `PRODUCTION`; `stores1` posts the store issue; the movement lands in `VIRT-PRODUCTION-PLT1`; the order line shows issued 100 | FR-640 | `L-1` | mfg·app | v1·P10 | happy |
+| **WH-SC-621** | Order in `STRICT`; a store issue of `PAINT-RED` not on the order | post | refused `422 ITEM_NOT_ON_ORDER` by the resolver | FR-640, FR-643 | — | mfg·app | v1·P10 | negative |
+| **WH-SC-622** | 100 `SHAFT-03` issued, 97 consumed by the final receipt | store return of 3 linked to the issue line | the order's returned 3, net issued 97; value leaves the pool | FR-641 | — | mfg·app | v1·P10 | happy |
+| **WH-SC-623** | `IMPELLER-02` short; alternate `IMPELLER-02B` priority 1 | `sup1` substitutes 40 | original open 60, substitute line 40 with `substitute_of_line_id`; reservation re-made for `IMPELLER-02B` | FR-642 | `L-10` | mfg | v1·P10 | happy |
+| **WH-SC-624** | `WARN` policy; backflush proposes 8 `BOLT-M8`/unit, operator edits to 9 | post | requires a `PRODUCTION_DEVIATION` reason; posted with the deviation visible on the order | FR-643, FR-645 | — | mfg | v1·P10 | edge |
+| **WH-SC-625** | `PRD-000101`: receive 40 good `PUMP-100` | post `FGR-000051` | one `PRODUCTION_RECEIPT` movement: backflush of 40 × components from `PLT1-LS-A` / supply locations → `VIRT-PRODUCTION`, 40 `PUMP-100` ← `VIRT-PRODUCTION` into `QC_HOLD` (final inspection required); order `IN_PROGRESS`, received 40 | FR-644, FR-645 | `L-1` `I-1` | mfg | v1·P10 | happy |
+| **WH-SC-626** | `BOLT-M8` on hand 200 at the supply location, backflush needs 320 | post | `422 BACKFLUSH_SHORTAGE` naming `BOLT-M8`, location and shortfall 120; **nothing posts** | FR-645 | `L-6` | mfg | v1·P10 | negative |
+| **WH-SC-627** | Second receipt of 55 and a third of 5, `is_final` | post | order `COMPLETED`, received 100; three movements, one per receipt | FR-644, FR-647 | `I-1` | mfg | v1·P10 | happy |
+| **WH-SC-628** | Planned 100, over-receipt 0 %, already received 100 | receive 1 more | `422 OVER_RECEIPT_TOLERANCE_EXCEEDED` naming the setting as the level | FR-647 | — | mfg | v1·P10 | negative |
+| **WH-SC-629** | Final receipt brings total to 92 of 100, under-receipt 5 % | post `is_final` | refused until a `PRODUCTION_CLOSE_SHORT` reason is given | FR-647 | — | mfg | v1·P10 | edge |
+| **WH-SC-630** | Receipt with 3 `SCRAPPED` (reason `MACHINE_FAULT`, abnormal) and 2 `REJECTED` | post | 3 to `VIRT-SCRAP` carrying their value share; 2 into `REJECTED` at `PLT1-FG`; good units do not bear the abnormal share | FR-646, FR-654 | `L-1` | mfg | v1·P10 | edge |
+| **WH-SC-631** | Scrap value ₹18,000, threshold ₹10,000 | post by `sup1` | `PENDING_APPROVAL`; `mgr1` approves → posted; `sup1` cannot approve | FR-646 | — | mfg | v1·P10 | edge |
+| **WH-SC-632** | Lots `RESIN-A` consumed `L-77` (expiry 2027-01-31, *limits output expiry*); FG shelf life 18 months | receipt on 2026-10-25 | output expiry 2027-01-31, not 2028-04-25 | FR-644 | — | mfg | v1·P10 | edge |
+| **WH-SC-633** | Lots `CASING-01` `L-12` (staged, backflushed) and `SHAFT-03` `L-40` (issued) feed `FGR-000051` output lot `P-2610-01` | trace `L-40` forward | reaches `P-2610-01` through the receipt's transformation; trace `P-2610-01` backward lists both | FR-648 | `L-12` | mfg·base | v1·P10 | happy |
+| **WH-SC-634** | `FGR-000051` posted, output still in `QC_HOLD` untouched | reversal requested by `sup1`, approved by `mgr1`, posted | one reversing movement; received rollup −40; transformation kept, a reversing row recorded | FR-649 | `L-3` | mfg | v1·P10 | happy |
+| **WH-SC-635** | 10 of `FGR-000051`'s output already shipped | request reversal | `409 RECEIPT_OUTPUT_MOVED` naming the shipment and quantity | FR-649 | `L-3` | mfg | v1·P10 | negative |
+| **WH-SC-636** | `FGR-000051` 40 `PUMP-100` in `QC_HOLD` | `qc1` starts a final inspection (source `PRODUCTION_RECEIPT`), passes 38, rejects 2 → disposition release 38 / `REWORK` 2 | 38 → `AVAILABLE` + putaway task; 2 → `REJECTED` and a `PLANNED` rework order `PRD-000140` for 2 `PUMP-100` with component `PUMP-100` lot `P-2610-01` from `REJECTED` | FR-652, FR-653 | — | mfg·app | v1·P10 | happy |
+| **WH-SC-637** | Operation 30 is a QC checkpoint; confirmation `OPC-000210` good 40 | in-process inspection rejects 1 | recorded on the inspection; **no movement**; next receipt pre-fills 1 rejected | FR-651, FR-652 | — | mfg·app | v1·P10 | edge |
+| **WH-SC-638** | Rework order `PRD-000140` completed with extra `GASKET-31` | final receipt | output 2 `PUMP-100` same lot `P-2610-01` (`rework_keeps_lot`), value = carried value + gasket | FR-653, FR-654 | — | mfg | v1·P10 | happy |
+| **WH-SC-639** | `PRD-000101`: issued pool ₹4,00,000 (ISSUE components), planned 100; first receipt 40 good | post | absorbs ₹1,60,000 of the issued pool + its own backflush value; unit cost written on the output line | FR-654 | — | mfg | v1·P10 | happy |
+| **WH-SC-640** | `RESIN-A` batch 1,000 L, co-product `RESIN-B` 30 %, by-product `SOLVENT-REC` 50 L at ₹12; pool ₹1,00,001 | final receipt 700 L A, 300 L B, 50 L solvent | solvent credit ₹600; ₹99,401 split 70/30 by largest remainder; Σ output values = ₹1,00,001 exactly | FR-654, FR-655 | — | mfg | v1·P10 | edge |
+| **WH-SC-641** | `PRD-000101` `COMPLETED`; a late store issue of ₹2,000 after the final receipt (accepted by the resolver because `COMPLETED` is not settled — MD-14); 60 of 100 shipped | close | settlement residual ₹2,000; one `PRODUCTION_SETTLEMENT` value-only movement: ₹800 to on-hand lots, ₹1,200 to `VIRT-COST_OF_SALES`; order `CLOSED` | FR-656 | `L-15` | mfg | v1·P10 | happy |
+| **WH-SC-642** | Residual is 9 % of absorbed, threshold 5 % | close by `planner1` | settlement `DRAFT` awaiting `mgr1`; order stays `COMPLETED` | FR-656 | — | mfg | v1·P10 | edge |
+| **WH-SC-643** | Order `CLOSED` | a store issue to it | refused by the resolver `409 ORDER_NOT_OPEN` | FR-656, FR-640 | — | mfg·app | v1·P10 | negative |
+| **WH-SC-644** | `COMPLETED` order, no settlement | reopen with reason | `IN_PROGRESS`; reopen after settlement is refused | FR-634 | — | mfg | v1·P10 | edge |
+| **WH-SC-645** | Subcontract order `PRD-000150` for 200 `SHAFT-03P`, BOM usage `SUBCONTRACT` (200 `SHAFT-03` in), job worker `JW-0044`, India off | dispatch `SCD-000011` | one `SUBCONTRACT_DISPATCH` movement to the order's `JOB_WORKER` location for `JW-0044`, owner unchanged; a returnable gate pass referenced; dispatch note printed | FR-658, FR-659 | `L-11` | mfg | v1·P10 | happy |
+| **WH-SC-646** | The same with India on, inter-state | dispatch | india raises one `JOB_WORK` delivery challan (`INPUTS`) and a job-work registration; the clock runs 1 year from the challan date (RE-VERIFY) | FR-660 | — | mfg·india | v1·P10 | happy |
+| **WH-SC-647** | 190 `SHAFT-03P` received, 6 `SHAFT-03` scrapped and retained at `JW-0044` | post subcontract receipt | backflush 196 `SHAFT-03` from the job-worker location (190 → `VIRT-PRODUCTION`, 6 → `VIRT-SCRAP`); 190 `SHAFT-03P` into `PLT1-RM`; india records 190 returned in processed form + 6 waste for ITC-04; 4 remain open | FR-660, FR-661 | `L-1` | mfg·india | v1·P10 | happy |
+| **WH-SC-648** | 4 `SHAFT-03` open at `JW-0044` | close the subcontract order | `409 SUBCONTRACT_BALANCE_OPEN` listing 4; *Recall* 2 (posts) + *Write off* 2 (`REQUESTED`, still blocks close; `mgr1` approves → `SUBCONTRACT_WRITE_OFF` posts, india `registerLoss`) → closable | FR-661 | — | mfg | v1·P10 | negative |
+| **WH-SC-649** | `JW-0044` returns `SHAFT-03P` that is not the order's output | receive | `422 OUTPUT_NOT_ON_ORDER` | FR-661 | — | mfg | v1·P10 | negative |
+| **WH-SC-650** | `PUMP-100` MRP, LFL, mfg lead time 5 d; SO demand 50 on 2026-11-20; on hand 10; safety 5 | run MRP | MAKE proposal 45 need 2026-11-20 start 2026-11-15; dependent `IMPELLER-02` demand 45 on 2026-11-15; BUY proposal net of its stock and open PO schedule lines; pegging to `SO-7781/2` | FR-664, FR-665 | — | mfg | v1·P10 | happy |
+| **WH-SC-651** | `BOLT-M8` `FIXED` lot 1,000, net need 320 | run | BUY 1,000 | FR-665 | — | mfg | v1·P10 | edge |
+| **WH-SC-652** | Stock owned by 3PL client `OWN-C1` of `CASING-01` 500 | run | not counted as supply | FR-664 | `L-14` | mfg | v1·P10 | negative |
+| **WH-SC-653** | Demand plan 200/month for `PUMP-100` Nov, SO orders 50 in Nov, mode MAX | run | Nov independent demand 200, not 250 | FR-663, FR-664 | — | mfg | v1·P10 | edge |
+| **WH-SC-654** | MAKE proposal 45 `PUMP-100` firmed | convert | `PLANNED` order with snapshot; proposal `CONVERTED` linking the order; the sub-assembly `MOTOR-ASSY` proposal converts to a linked child order | FR-666 | — | mfg | v1·P10 | happy |
+| **WH-SC-655** | BUY proposal 800 `IMPELLER-02`, trade enabled | convert | a core replenishment suggestion origin `MRP`; `buyer1` raises the PR in trade (`WH-SC-499`) | FR-666 | — | mfg·app | v1·P10 | happy |
+| **WH-SC-656** | The same with trade disabled | convert, then core *Create PO* on the suggestion | a draft core PO; the suggestion consumed; the next run counts the PO as supply | FR-666 | — | mfg·app | v1·P10 | edge |
+| **WH-SC-657** | Open order due 2026-11-10 but demand moved to 2026-11-25 | run | `RESCHEDULE_OUT` exception naming the order and both dates; nothing changes until the planner acts | FR-667 | — | mfg | v1·P10 | edge |
+| **WH-SC-658** | Two MRP runs for `PLT1` requested at once | second request | `409 MRP_RUN_IN_PROGRESS`; the first completes and supersedes the previous run's `OPEN` proposals; `FIRMED` stay | FR-664, FR-666 | — | mfg | v1·P10 | negative |
+| **WH-SC-659** | Work centre `WC-ASSY` 480 min/day, eff. 90 %; released orders need 610 min on 2026-11-03 | open capacity load | 2026-11-03 shows 141 % with overload; nothing is rescheduled | FR-668 | — | mfg | v1·P10 | happy |
+
+## 13. Traceability
+
+| Task | FR | WS | WH-SC | Contract |
+|---|---|---|---|---|
+| p10-01 bootstrap | FR-620, FR-669 (menus, settings) | — | — | — |
+| p10-02 registries | FR-621 | — | — | all |
+| p10-03 BOM | FR-622…629 | WS-320, WS-321 | 600–609 | `mfg-bom` |
+| p10-04 work centres, operations | FR-630, FR-631 | WS-322 | — (none; operations are exercised by 637 and 659) | `mfg-bom` |
+| p10-05 production order | FR-632…637 | WS-323, WS-324 | 610–617, 644 | `mfg-production-order` |
+| p10-06 staging, issue, return, substitution | FR-638…643 | WS-325 | 618–624 | `mfg-material-staging-issue` |
+| p10-07 receipt, backflush, scrap, genealogy, reversal | FR-644…650 | WS-326, WS-327 | 625–635 | `mfg-production-receipt` |
+| p10-08 confirmations, QC, rework | FR-651…653 | WS-328 | 636–638 | `mfg-qc-rework` |
+| p10-09 costing, settlement, close | FR-654…657 | WS-329 | 639–643 | `mfg-costing-close` |
+| p10-10 subcontracting / job work | FR-658…661 | WS-330 | 645–649 | `mfg-subcontracting` |
+| p10-11 planning masters | FR-662, FR-663 | WS-331, WS-332 | 653 | `mfg-mrp` |
+| p10-12 MRP | FR-664…667 | WS-333…335 | 650–652, 654–658 | `mfg-mrp` |
+| p10-13 capacity load + registers | FR-668 | WS-336, WS-337 | 659 | `mfg-production-order` §5 |

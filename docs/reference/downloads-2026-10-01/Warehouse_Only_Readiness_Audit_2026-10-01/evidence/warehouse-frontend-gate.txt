@@ -1,0 +1,1333 @@
+==> Run Jest - warehouse frontend suites (blocking)
+FAIL ../../warehouse/frontend/src/__tests__/whGridFilterParity.test.ts
+  ● Console
+
+    console.log
+      🧪 Platform Test Environment Initialized
+
+      at Object.log (jest.setup.js:9:9)
+
+  ● Leg 2 — every filter key is in its grid’s COMMON_FILTER_CONFIGS scope › wh_order_edit_rules.fromStatus
+
+    expect(received).toContain(expected) // indexOf
+
+    Expected value: "fromStatus"
+    Received array: ["search", "ownerId", "channelId", "fulfilmentPolicy", "isActive"]
+
+      463 |     // control renders, accepts input and the grid does not move. The fix is a line in filterUtils.ts,
+      464 |     // handed to the driver - never an edit from a module test.
+    > 465 |     expect(keys).toContain(row.key);
+          |                  ^
+      466 |   });
+      467 | });
+      468 |
+
+      at toContain (../../warehouse/frontend/src/__tests__/whGridFilterParity.test.ts:465:18)
+
+  ● Leg 2 — every filter key is in its grid’s COMMON_FILTER_CONFIGS scope › wh_order_edit_rules.editType
+
+    expect(received).toContain(expected) // indexOf
+
+    Expected value: "editType"
+    Received array: ["search", "ownerId", "channelId", "fulfilmentPolicy", "isActive"]
+
+      463 |     // control renders, accepts input and the grid does not move. The fix is a line in filterUtils.ts,
+      464 |     // handed to the driver - never an edit from a module test.
+    > 465 |     expect(keys).toContain(row.key);
+          |                  ^
+      466 |   });
+      467 | });
+      468 |
+
+      at toContain (../../warehouse/frontend/src/__tests__/whGridFilterParity.test.ts:465:18)
+
+  ● Leg 2 — every filter key is in its grid’s COMMON_FILTER_CONFIGS scope › wh_order_edit_rules.isAllowed
+
+    expect(received).toContain(expected) // indexOf
+
+    Expected value: "isAllowed"
+    Received array: ["search", "ownerId", "channelId", "fulfilmentPolicy", "isActive"]
+
+      463 |     // control renders, accepts input and the grid does not move. The fix is a line in filterUtils.ts,
+      464 |     // handed to the driver - never an edit from a module test.
+    > 465 |     expect(keys).toContain(row.key);
+          |                  ^
+      466 |   });
+      467 | });
+      468 |
+
+      at toContain (../../warehouse/frontend/src/__tests__/whGridFilterParity.test.ts:465:18)
+
+  ● Leg 2 — every filter key is in its grid’s COMMON_FILTER_CONFIGS scope › wh_rpt_consolidated_valuation.search
+
+    expect(received).toBeDefined()
+
+    Received: undefined
+
+      457 |     const scope = SCOPES[binding.scope];
+      458 |
+    > 459 |     expect(scope).toBeDefined();
+          |                   ^
+      460 |     const keys = SCOPE_BUCKETS.flatMap((bucket) => scope[bucket] ?? []);
+      461 |
+      462 |     // A key not in the scope is dropped by convertFiltersForApi() BEFORE the request is built: the
+
+      at toBeDefined (../../warehouse/frontend/src/__tests__/whGridFilterParity.test.ts:459:19)
+
+  ● Leg 2 — every filter key is in its grid’s COMMON_FILTER_CONFIGS scope › wh_rpt_consolidated_valuation.sourceSystem
+
+    expect(received).toBeDefined()
+
+    Received: undefined
+
+      457 |     const scope = SCOPES[binding.scope];
+      458 |
+    > 459 |     expect(scope).toBeDefined();
+          |                   ^
+      460 |     const keys = SCOPE_BUCKETS.flatMap((bucket) => scope[bucket] ?? []);
+      461 |
+      462 |     // A key not in the scope is dropped by convertFiltersForApi() BEFORE the request is built: the
+
+      at toBeDefined (../../warehouse/frontend/src/__tests__/whGridFilterParity.test.ts:459:19)
+
+  ● Leg 2 — every filter key is in its grid’s COMMON_FILTER_CONFIGS scope › wh_rpt_consolidated_valuation.warehouseId
+
+    expect(received).toBeDefined()
+
+    Received: undefined
+
+      457 |     const scope = SCOPES[binding.scope];
+      458 |
+    > 459 |     expect(scope).toBeDefined();
+          |                   ^
+      460 |     const keys = SCOPE_BUCKETS.flatMap((bucket) => scope[bucket] ?? []);
+      461 |
+      462 |     // A key not in the scope is dropped by convertFiltersForApi() BEFORE the request is built: the
+
+      at toBeDefined (../../warehouse/frontend/src/__tests__/whGridFilterParity.test.ts:459:19)
+
+  ● Leg 2 — every filter key is in its grid’s COMMON_FILTER_CONFIGS scope › wh_rpt_consolidated_valuation.itemCategoryId
+
+    expect(received).toBeDefined()
+
+    Received: undefined
+
+      457 |     const scope = SCOPES[binding.scope];
+      458 |
+    > 459 |     expect(scope).toBeDefined();
+          |                   ^
+      460 |     const keys = SCOPE_BUCKETS.flatMap((bucket) => scope[bucket] ?? []);
+      461 |
+      462 |     // A key not in the scope is dropped by convertFiltersForApi() BEFORE the request is built: the
+
+      at toBeDefined (../../warehouse/frontend/src/__tests__/whGridFilterParity.test.ts:459:19)
+
+  ● Leg 2 — every filter key is in its grid’s COMMON_FILTER_CONFIGS scope › wh_fulfilment_policies.search
+
+    expect(received).toBeDefined()
+
+    Received: undefined
+
+      457 |     const scope = SCOPES[binding.scope];
+      458 |
+    > 459 |     expect(scope).toBeDefined();
+          |                   ^
+      460 |     const keys = SCOPE_BUCKETS.flatMap((bucket) => scope[bucket] ?? []);
+      461 |
+      462 |     // A key not in the scope is dropped by convertFiltersForApi() BEFORE the request is built: the
+
+      at toBeDefined (../../warehouse/frontend/src/__tests__/whGridFilterParity.test.ts:459:19)
+
+  ● Leg 2 — every filter key is in its grid’s COMMON_FILTER_CONFIGS scope › wh_fulfilment_policies.ownerId
+
+    expect(received).toBeDefined()
+
+    Received: undefined
+
+      457 |     const scope = SCOPES[binding.scope];
+      458 |
+    > 459 |     expect(scope).toBeDefined();
+          |                   ^
+      460 |     const keys = SCOPE_BUCKETS.flatMap((bucket) => scope[bucket] ?? []);
+      461 |
+      462 |     // A key not in the scope is dropped by convertFiltersForApi() BEFORE the request is built: the
+
+      at toBeDefined (../../warehouse/frontend/src/__tests__/whGridFilterParity.test.ts:459:19)
+
+  ● Leg 2 — every filter key is in its grid’s COMMON_FILTER_CONFIGS scope › wh_fulfilment_policies.channelId
+
+    expect(received).toBeDefined()
+
+    Received: undefined
+
+      457 |     const scope = SCOPES[binding.scope];
+      458 |
+    > 459 |     expect(scope).toBeDefined();
+          |                   ^
+      460 |     const keys = SCOPE_BUCKETS.flatMap((bucket) => scope[bucket] ?? []);
+      461 |
+      462 |     // A key not in the scope is dropped by convertFiltersForApi() BEFORE the request is built: the
+
+      at toBeDefined (../../warehouse/frontend/src/__tests__/whGridFilterParity.test.ts:459:19)
+
+  ● Leg 2 — every filter key is in its grid’s COMMON_FILTER_CONFIGS scope › wh_fulfilment_policies.fulfilmentPolicy
+
+    expect(received).toBeDefined()
+
+    Received: undefined
+
+      457 |     const scope = SCOPES[binding.scope];
+      458 |
+    > 459 |     expect(scope).toBeDefined();
+          |                   ^
+      460 |     const keys = SCOPE_BUCKETS.flatMap((bucket) => scope[bucket] ?? []);
+      461 |
+      462 |     // A key not in the scope is dropped by convertFiltersForApi() BEFORE the request is built: the
+
+      at toBeDefined (../../warehouse/frontend/src/__tests__/whGridFilterParity.test.ts:459:19)
+
+  ● Leg 2 — every filter key is in its grid’s COMMON_FILTER_CONFIGS scope › wh_fulfilment_policies.isActive
+
+    expect(received).toBeDefined()
+
+    Received: undefined
+
+      457 |     const scope = SCOPES[binding.scope];
+      458 |
+    > 459 |     expect(scope).toBeDefined();
+          |                   ^
+      460 |     const keys = SCOPE_BUCKETS.flatMap((bucket) => scope[bucket] ?? []);
+      461 |
+      462 |     // A key not in the scope is dropped by convertFiltersForApi() BEFORE the request is built: the
+
+      at toBeDefined (../../warehouse/frontend/src/__tests__/whGridFilterParity.test.ts:459:19)
+
+  ● Leg 3 — the API service forwards every filter key › wh_cross_dock_plans.warehouseId
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      520 |     // An enumerating service silently drops the keys it does not name: a scope entry plus a
+      521 |     // filter_definitions row plus an unforwarded parameter is still a filter that does nothing.
+    > 522 |     expect(bodies.some((body) => forwards(body, row.key))).toBe(true);
+          |                                                            ^
+      523 |   });
+      524 | });
+      525 |
+
+      at toBe (../../warehouse/frontend/src/__tests__/whGridFilterParity.test.ts:522:60)
+
+  ● Leg 3 — the API service forwards every filter key › wh_cross_dock_plans.crossDockType
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      520 |     // An enumerating service silently drops the keys it does not name: a scope entry plus a
+      521 |     // filter_definitions row plus an unforwarded parameter is still a filter that does nothing.
+    > 522 |     expect(bodies.some((body) => forwards(body, row.key))).toBe(true);
+          |                                                            ^
+      523 |   });
+      524 | });
+      525 |
+
+      at toBe (../../warehouse/frontend/src/__tests__/whGridFilterParity.test.ts:522:60)
+
+  ● Leg 3 — the API service forwards every filter key › wh_cross_dock_plans.status
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      520 |     // An enumerating service silently drops the keys it does not name: a scope entry plus a
+      521 |     // filter_definitions row plus an unforwarded parameter is still a filter that does nothing.
+    > 522 |     expect(bodies.some((body) => forwards(body, row.key))).toBe(true);
+          |                                                            ^
+      523 |   });
+      524 | });
+      525 |
+
+      at toBe (../../warehouse/frontend/src/__tests__/whGridFilterParity.test.ts:522:60)
+
+  ● Leg 3 — the API service forwards every filter key › wh_cross_dock_plans.grnNumber
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      520 |     // An enumerating service silently drops the keys it does not name: a scope entry plus a
+      521 |     // filter_definitions row plus an unforwarded parameter is still a filter that does nothing.
+    > 522 |     expect(bodies.some((body) => forwards(body, row.key))).toBe(true);
+          |                                                            ^
+      523 |   });
+      524 | });
+      525 |
+
+      at toBe (../../warehouse/frontend/src/__tests__/whGridFilterParity.test.ts:522:60)
+
+  ● Leg 3 — the API service forwards every filter key › wh_cross_dock_plans.orderNumber
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      520 |     // An enumerating service silently drops the keys it does not name: a scope entry plus a
+      521 |     // filter_definitions row plus an unforwarded parameter is still a filter that does nothing.
+    > 522 |     expect(bodies.some((body) => forwards(body, row.key))).toBe(true);
+          |                                                            ^
+      523 |   });
+      524 | });
+      525 |
+
+      at toBe (../../warehouse/frontend/src/__tests__/whGridFilterParity.test.ts:522:60)
+
+  ● Leg 3 — the API service forwards every filter key › wh_shipment_tracking_events.carrierId
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      520 |     // An enumerating service silently drops the keys it does not name: a scope entry plus a
+      521 |     // filter_definitions row plus an unforwarded parameter is still a filter that does nothing.
+    > 522 |     expect(bodies.some((body) => forwards(body, row.key))).toBe(true);
+          |                                                            ^
+      523 |   });
+      524 | });
+      525 |
+
+      at toBe (../../warehouse/frontend/src/__tests__/whGridFilterParity.test.ts:522:60)
+
+  ● Leg 3 — the API service forwards every filter key › wh_shipment_tracking_events.normalisedStatus
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      520 |     // An enumerating service silently drops the keys it does not name: a scope entry plus a
+      521 |     // filter_definitions row plus an unforwarded parameter is still a filter that does nothing.
+    > 522 |     expect(bodies.some((body) => forwards(body, row.key))).toBe(true);
+          |                                                            ^
+      523 |   });
+      524 | });
+      525 |
+
+      at toBe (../../warehouse/frontend/src/__tests__/whGridFilterParity.test.ts:522:60)
+
+  ● Leg 3 — the API service forwards every filter key › wh_shipment_tracking_events.eventFrom
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      520 |     // An enumerating service silently drops the keys it does not name: a scope entry plus a
+      521 |     // filter_definitions row plus an unforwarded parameter is still a filter that does nothing.
+    > 522 |     expect(bodies.some((body) => forwards(body, row.key))).toBe(true);
+          |                                                            ^
+      523 |   });
+      524 | });
+      525 |
+
+      at toBe (../../warehouse/frontend/src/__tests__/whGridFilterParity.test.ts:522:60)
+
+  ● Leg 3 — the API service forwards every filter key › wh_shipment_tracking_events.eventTo
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      520 |     // An enumerating service silently drops the keys it does not name: a scope entry plus a
+      521 |     // filter_definitions row plus an unforwarded parameter is still a filter that does nothing.
+    > 522 |     expect(bodies.some((body) => forwards(body, row.key))).toBe(true);
+          |                                                            ^
+      523 |   });
+      524 | });
+      525 |
+
+      at toBe (../../warehouse/frontend/src/__tests__/whGridFilterParity.test.ts:522:60)
+
+  ● Leg 3 — the API service forwards every filter key › wh_rate_quotes.carrierId
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      520 |     // An enumerating service silently drops the keys it does not name: a scope entry plus a
+      521 |     // filter_definitions row plus an unforwarded parameter is still a filter that does nothing.
+    > 522 |     expect(bodies.some((body) => forwards(body, row.key))).toBe(true);
+          |                                                            ^
+      523 |   });
+      524 | });
+      525 |
+
+      at toBe (../../warehouse/frontend/src/__tests__/whGridFilterParity.test.ts:522:60)
+
+  ● Leg 3 — the API service forwards every filter key › wh_rate_quotes.wasSelected
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      520 |     // An enumerating service silently drops the keys it does not name: a scope entry plus a
+      521 |     // filter_definitions row plus an unforwarded parameter is still a filter that does nothing.
+    > 522 |     expect(bodies.some((body) => forwards(body, row.key))).toBe(true);
+          |                                                            ^
+      523 |   });
+      524 | });
+      525 |
+
+      at toBe (../../warehouse/frontend/src/__tests__/whGridFilterParity.test.ts:522:60)
+
+  ● Leg 3 — the API service forwards every filter key › wh_rate_quotes.quotedFrom
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      520 |     // An enumerating service silently drops the keys it does not name: a scope entry plus a
+      521 |     // filter_definitions row plus an unforwarded parameter is still a filter that does nothing.
+    > 522 |     expect(bodies.some((body) => forwards(body, row.key))).toBe(true);
+          |                                                            ^
+      523 |   });
+      524 | });
+      525 |
+
+      at toBe (../../warehouse/frontend/src/__tests__/whGridFilterParity.test.ts:522:60)
+
+  ● Leg 3 — the API service forwards every filter key › wh_rate_quotes.quotedTo
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      520 |     // An enumerating service silently drops the keys it does not name: a scope entry plus a
+      521 |     // filter_definitions row plus an unforwarded parameter is still a filter that does nothing.
+    > 522 |     expect(bodies.some((body) => forwards(body, row.key))).toBe(true);
+          |                                                            ^
+      523 |   });
+      524 | });
+      525 |
+
+      at toBe (../../warehouse/frontend/src/__tests__/whGridFilterParity.test.ts:522:60)
+
+  ● Leg 3 — the API service forwards every filter key › wh_channel_order_imports.channelId
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      520 |     // An enumerating service silently drops the keys it does not name: a scope entry plus a
+      521 |     // filter_definitions row plus an unforwarded parameter is still a filter that does nothing.
+    > 522 |     expect(bodies.some((body) => forwards(body, row.key))).toBe(true);
+          |                                                            ^
+      523 |   });
+      524 | });
+      525 |
+
+      at toBe (../../warehouse/frontend/src/__tests__/whGridFilterParity.test.ts:522:60)
+
+  ● Leg 3 — the API service forwards every filter key › wh_channel_order_imports.ownerId
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      520 |     // An enumerating service silently drops the keys it does not name: a scope entry plus a
+      521 |     // filter_definitions row plus an unforwarded parameter is still a filter that does nothing.
+    > 522 |     expect(bodies.some((body) => forwards(body, row.key))).toBe(true);
+          |                                                            ^
+      523 |   });
+      524 | });
+      525 |
+
+      at toBe (../../warehouse/frontend/src/__tests__/whGridFilterParity.test.ts:522:60)
+
+  ● Leg 3 — the API service forwards every filter key › wh_channel_order_imports.warehouseId
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      520 |     // An enumerating service silently drops the keys it does not name: a scope entry plus a
+      521 |     // filter_definitions row plus an unforwarded parameter is still a filter that does nothing.
+    > 522 |     expect(bodies.some((body) => forwards(body, row.key))).toBe(true);
+          |                                                            ^
+      523 |   });
+      524 | });
+      525 |
+
+      at toBe (../../warehouse/frontend/src/__tests__/whGridFilterParity.test.ts:522:60)
+
+  ● Leg 3 — the API service forwards every filter key › wh_channel_order_imports.outcome
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      520 |     // An enumerating service silently drops the keys it does not name: a scope entry plus a
+      521 |     // filter_definitions row plus an unforwarded parameter is still a filter that does nothing.
+    > 522 |     expect(bodies.some((body) => forwards(body, row.key))).toBe(true);
+          |                                                            ^
+      523 |   });
+      524 | });
+      525 |
+
+      at toBe (../../warehouse/frontend/src/__tests__/whGridFilterParity.test.ts:522:60)
+
+  ● Leg 3 — the API service forwards every filter key › wh_channel_order_imports.externalOrderId
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      520 |     // An enumerating service silently drops the keys it does not name: a scope entry plus a
+      521 |     // filter_definitions row plus an unforwarded parameter is still a filter that does nothing.
+    > 522 |     expect(bodies.some((body) => forwards(body, row.key))).toBe(true);
+          |                                                            ^
+      523 |   });
+      524 | });
+      525 |
+
+      at toBe (../../warehouse/frontend/src/__tests__/whGridFilterParity.test.ts:522:60)
+
+  ● Leg 3 — the API service forwards every filter key › wh_channel_order_imports.importedFrom
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      520 |     // An enumerating service silently drops the keys it does not name: a scope entry plus a
+      521 |     // filter_definitions row plus an unforwarded parameter is still a filter that does nothing.
+    > 522 |     expect(bodies.some((body) => forwards(body, row.key))).toBe(true);
+          |                                                            ^
+      523 |   });
+      524 | });
+      525 |
+
+      at toBe (../../warehouse/frontend/src/__tests__/whGridFilterParity.test.ts:522:60)
+
+  ● Leg 3 — the API service forwards every filter key › wh_channel_order_imports.importedTo
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      520 |     // An enumerating service silently drops the keys it does not name: a scope entry plus a
+      521 |     // filter_definitions row plus an unforwarded parameter is still a filter that does nothing.
+    > 522 |     expect(bodies.some((body) => forwards(body, row.key))).toBe(true);
+          |                                                            ^
+      523 |   });
+      524 | });
+      525 |
+
+      at toBe (../../warehouse/frontend/src/__tests__/whGridFilterParity.test.ts:522:60)
+
+  ● Leg 3 — the API service forwards every filter key › wh_tracking_links.shipmentNumber
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      520 |     // An enumerating service silently drops the keys it does not name: a scope entry plus a
+      521 |     // filter_definitions row plus an unforwarded parameter is still a filter that does nothing.
+    > 522 |     expect(bodies.some((body) => forwards(body, row.key))).toBe(true);
+          |                                                            ^
+      523 |   });
+      524 | });
+      525 |
+
+      at toBe (../../warehouse/frontend/src/__tests__/whGridFilterParity.test.ts:522:60)
+
+  ● Leg 3 — the API service forwards every filter key › wh_tracking_links.warehouseId
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      520 |     // An enumerating service silently drops the keys it does not name: a scope entry plus a
+      521 |     // filter_definitions row plus an unforwarded parameter is still a filter that does nothing.
+    > 522 |     expect(bodies.some((body) => forwards(body, row.key))).toBe(true);
+          |                                                            ^
+      523 |   });
+      524 | });
+      525 |
+
+      at toBe (../../warehouse/frontend/src/__tests__/whGridFilterParity.test.ts:522:60)
+
+  ● Leg 3 — the API service forwards every filter key › wh_tracking_links.status
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      520 |     // An enumerating service silently drops the keys it does not name: a scope entry plus a
+      521 |     // filter_definitions row plus an unforwarded parameter is still a filter that does nothing.
+    > 522 |     expect(bodies.some((body) => forwards(body, row.key))).toBe(true);
+          |                                                            ^
+      523 |   });
+      524 | });
+      525 |
+
+      at toBe (../../warehouse/frontend/src/__tests__/whGridFilterParity.test.ts:522:60)
+
+  ● Leg 3 — the API service forwards every filter key › wh_supplier_claims.warehouseId
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      520 |     // An enumerating service silently drops the keys it does not name: a scope entry plus a
+      521 |     // filter_definitions row plus an unforwarded parameter is still a filter that does nothing.
+    > 522 |     expect(bodies.some((body) => forwards(body, row.key))).toBe(true);
+          |                                                            ^
+      523 |   });
+      524 | });
+      525 |
+
+      at toBe (../../warehouse/frontend/src/__tests__/whGridFilterParity.test.ts:522:60)
+
+  ● Leg 3 — the API service forwards every filter key › wh_supplier_claims.supplierCounterpartyId
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      520 |     // An enumerating service silently drops the keys it does not name: a scope entry plus a
+      521 |     // filter_definitions row plus an unforwarded parameter is still a filter that does nothing.
+    > 522 |     expect(bodies.some((body) => forwards(body, row.key))).toBe(true);
+          |                                                            ^
+      523 |   });
+      524 | });
+      525 |
+
+      at toBe (../../warehouse/frontend/src/__tests__/whGridFilterParity.test.ts:522:60)
+
+  ● Leg 3 — the API service forwards every filter key › wh_supplier_claims.claimType
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      520 |     // An enumerating service silently drops the keys it does not name: a scope entry plus a
+      521 |     // filter_definitions row plus an unforwarded parameter is still a filter that does nothing.
+    > 522 |     expect(bodies.some((body) => forwards(body, row.key))).toBe(true);
+          |                                                            ^
+      523 |   });
+      524 | });
+      525 |
+
+      at toBe (../../warehouse/frontend/src/__tests__/whGridFilterParity.test.ts:522:60)
+
+  ● Leg 3 — the API service forwards every filter key › wh_supplier_claims.status
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      520 |     // An enumerating service silently drops the keys it does not name: a scope entry plus a
+      521 |     // filter_definitions row plus an unforwarded parameter is still a filter that does nothing.
+    > 522 |     expect(bodies.some((body) => forwards(body, row.key))).toBe(true);
+          |                                                            ^
+      523 |   });
+      524 | });
+      525 |
+
+      at toBe (../../warehouse/frontend/src/__tests__/whGridFilterParity.test.ts:522:60)
+
+  ● Leg 3 — the API service forwards every filter key › wh_supplier_claims.claimDateFrom
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      520 |     // An enumerating service silently drops the keys it does not name: a scope entry plus a
+      521 |     // filter_definitions row plus an unforwarded parameter is still a filter that does nothing.
+    > 522 |     expect(bodies.some((body) => forwards(body, row.key))).toBe(true);
+          |                                                            ^
+      523 |   });
+      524 | });
+      525 |
+
+      at toBe (../../warehouse/frontend/src/__tests__/whGridFilterParity.test.ts:522:60)
+
+  ● Leg 3 — the API service forwards every filter key › wh_supplier_claims.claimDateTo
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      520 |     // An enumerating service silently drops the keys it does not name: a scope entry plus a
+      521 |     // filter_definitions row plus an unforwarded parameter is still a filter that does nothing.
+    > 522 |     expect(bodies.some((body) => forwards(body, row.key))).toBe(true);
+          |                                                            ^
+      523 |   });
+      524 | });
+      525 |
+
+      at toBe (../../warehouse/frontend/src/__tests__/whGridFilterParity.test.ts:522:60)
+
+  ● Leg 3 — the API service forwards every filter key › wh_supplier_claim_ageing.asOfDate
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      520 |     // An enumerating service silently drops the keys it does not name: a scope entry plus a
+      521 |     // filter_definitions row plus an unforwarded parameter is still a filter that does nothing.
+    > 522 |     expect(bodies.some((body) => forwards(body, row.key))).toBe(true);
+          |                                                            ^
+      523 |   });
+      524 | });
+      525 |
+
+      at toBe (../../warehouse/frontend/src/__tests__/whGridFilterParity.test.ts:522:60)
+
+  ● Leg 3 — the API service forwards every filter key › wh_supplier_claim_ageing.warehouseId
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      520 |     // An enumerating service silently drops the keys it does not name: a scope entry plus a
+      521 |     // filter_definitions row plus an unforwarded parameter is still a filter that does nothing.
+    > 522 |     expect(bodies.some((body) => forwards(body, row.key))).toBe(true);
+          |                                                            ^
+      523 |   });
+      524 | });
+      525 |
+
+      at toBe (../../warehouse/frontend/src/__tests__/whGridFilterParity.test.ts:522:60)
+
+  ● Leg 3 — the API service forwards every filter key › wh_supplier_claim_ageing.supplierCounterpartyId
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      520 |     // An enumerating service silently drops the keys it does not name: a scope entry plus a
+      521 |     // filter_definitions row plus an unforwarded parameter is still a filter that does nothing.
+    > 522 |     expect(bodies.some((body) => forwards(body, row.key))).toBe(true);
+          |                                                            ^
+      523 |   });
+      524 | });
+      525 |
+
+      at toBe (../../warehouse/frontend/src/__tests__/whGridFilterParity.test.ts:522:60)
+
+  ● Leg 3 — the API service forwards every filter key › wh_supplier_claim_ageing.claimType
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+      520 |     // An enumerating service silently drops the keys it does not name: a scope entry plus a
+      521 |     // filter_definitions row plus an unforwarded parameter is still a filter that does nothing.
+    > 522 |     expect(bodies.some((body) => forwards(body, row.key))).toBe(true);
+          |                                                            ^
+      523 |   });
+      524 | });
+      525 |
+
+      at toBe (../../warehouse/frontend/src/__tests__/whGridFilterParity.test.ts:522:60)
+
+FAIL ../../warehouse-base/frontend/src/__tests__/whbRegistryLabelFallback.test.ts
+  ● Console
+
+    console.log
+      🧪 Platform Test Environment Initialized
+
+      at Object.log (jest.setup.js:9:9)
+
+  ● every seeded registry and code-list code has a label key (P1-19) › knows the label prefix of every seeded vocabulary
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  -  1
+    + Received  + 26
+
+    - Array []
+    + Array [
+    +   "wh_hold_types",
+    +   "wh_print_templates",
+    +   "whb_code_list_values.ALERT_CONDITION_COLUMN",
+    +   "whb_code_list_values.ALERT_CONDITION_OPERATOR",
+    +   "whb_code_list_values.ALERT_RECIPIENT_TYPE",
+    +   "whb_code_list_values.ALERT_SCOPE_TYPE",
+    +   "whb_code_list_values.ALERT_TYPE",
+    +   "whb_code_list_values.ALERT_URGENCY",
+    +   "whb_code_list_values.API_ENDPOINT",
+    +   "whb_code_list_values.DEVICE_TYPE",
+    +   "whb_code_list_values.HEALTH_SIGNAL",
+    +   "whb_code_list_values.HEALTH_SIGNAL_STATUS",
+    +   "whb_code_list_values.HOLD_SCOPE",
+    +   "whb_code_list_values.KIT_TYPE",
+    +   "whb_code_list_values.MARKETPLACE_CLAIM_TYPE",
+    +   "whb_code_list_values.ORDER_EDIT_TYPE",
+    +   "whb_code_list_values.PRINT_MEDIA_TYPE",
+    +   "whb_code_list_values.RECON_CASE_SEVERITY",
+    +   "whb_code_list_values.RECON_CASE_TYPE",
+    +   "whb_code_list_values.RECON_DOCUMENT_TYPE",
+    +   "whb_code_list_values.RECON_RESOLUTION",
+    +   "whb_code_list_values.WAVE_TYPE",
+    +   "whb_counterparties",
+    +   "whb_metric_definitions",
+    + ]
+
+      281 |   it('knows the label prefix of every seeded vocabulary', () => {
+      282 |     const unmapped = Object.keys(seeded).filter((vocabulary) => !SEEDED_VOCABULARY_PREFIXES[vocabulary]);
+    > 283 |     expect(unmapped.sort()).toEqual([]);
+          |                             ^
+      284 |   });
+      285 |
+      286 |   it.each([...LOCALES])('%s has a key for every seeded code', (locale) => {
+
+      at Object.toEqual (../../warehouse-base/frontend/src/__tests__/whbRegistryLabelFallback.test.ts:283:29)
+
+  ● every seeded registry and code-list code has a label key (P1-19) › en has a key for every seeded code
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  -  1
+    + Received  + 88
+
+    - Array []
+    + Array [
+    +   "documentType.byCode.ADJ",
+    +   "documentType.byCode.CHANNEL_PUBLISH_RUN",
+    +   "documentType.byCode.DEMAND_ORDER",
+    +   "documentType.byCode.FITMENT",
+    +   "documentType.byCode.LANDED_COST",
+    +   "documentType.byCode.LOT_EXPIRY",
+    +   "documentType.byCode.LPN",
+    +   "documentType.byCode.NRV_ASSESSMENT",
+    +   "documentType.byCode.OSB",
+    +   "documentType.byCode.QCINSP",
+    +   "documentType.byCode.RECALL",
+    +   "documentType.byCode.REPLEN_TASK",
+    +   "documentType.byCode.RETURN_RECEIPT",
+    +   "documentType.byCode.REVALUATION",
+    +   "documentType.byCode.SHIPMENT",
+    +   "movementType.byCode.ADJUST_DOWN_AUTO",
+    +   "movementType.byCode.ADJUST_UP_AUTO",
+    +   "movementType.byCode.ASSEMBLY",
+    +   "movementType.byCode.ASSEMBLY_REVERSAL",
+    +   "movementType.byCode.COUNT_ADJUST_AUTO",
+    +   "movementType.byCode.DISASSEMBLY",
+    +   "movementType.byCode.DISASSEMBLY_REVERSAL",
+    +   "movementType.byCode.DROP_SHIP",
+    +   "movementType.byCode.DROP_SHIP_REVERSAL",
+    +   "movementType.byCode.EQUIPMENT_ISSUE",
+    +   "movementType.byCode.EQUIPMENT_RETURN",
+    +   "movementType.byCode.ISSUE_TO_ASSET",
+    +   "movementType.byCode.LPN_MERGE",
+    +   "movementType.byCode.LPN_MOVE",
+    +   "movementType.byCode.LPN_SPLIT",
+    +   "movementType.byCode.OPENING_BALANCE",
+    +   "movementType.byCode.OPENING_BALANCE_REVERSAL",
+    +   "movementType.byCode.PICK",
+    +   "movementType.byCode.PICK_REVERSAL",
+    +   "movementType.byCode.PUTAWAY",
+    +   "movementType.byCode.PUTAWAY_REVERSAL",
+    +   "movementType.byCode.REPACK",
+    +   "movementType.byCode.REPACK_REVERSAL",
+    +   "movementType.byCode.REPLEN",
+    +   "movementType.byCode.REPLEN_REVERSAL",
+    +   "movementType.byCode.RETURN_FROM_ASSET",
+    +   "movementType.byCode.VAS",
+    +   "movementType.byCode.VAS_REVERSAL",
+    +   "reasonCode.byCode.ADDRESS_CORRECTED",
+    +   "reasonCode.byCode.ADDRESS_INCOMPLETE",
+    +   "reasonCode.byCode.CARRIER_CHANGED",
+    +   "reasonCode.byCode.CARRIER_INITIATED",
+    +   "reasonCode.byCode.CARRIER_REJECTED",
+    +   "reasonCode.byCode.CARRIER_REPORTED",
+    +   "reasonCode.byCode.COD_NOT_READY",
+    +   "reasonCode.byCode.COST_CORRECTION",
+    +   "reasonCode.byCode.CUSTOMER_REFUSED",
+    +   "reasonCode.byCode.DESPATCHED",
+    +   "reasonCode.byCode.DESTAGED",
+    +   "reasonCode.byCode.DUPLICATE_LABEL",
+    +   "reasonCode.byCode.EXCESS_SUPPLY",
+    +   "reasonCode.byCode.FOUND_UNIDENTIFIED",
+    +   "reasonCode.byCode.FUTURE_DELIVERY_REQUESTED",
+    +   "reasonCode.byCode.LABEL_DAMAGED",
+    +   "reasonCode.byCode.MISPRINT",
+    +   "reasonCode.byCode.NDR_RTO_AUTHORISED",
+    +   "reasonCode.byCode.NDR_UNANSWERED",
+    +   "reasonCode.byCode.NOT_NEEDED",
+    +   "reasonCode.byCode.NRV_REVERSAL",
+    +   "reasonCode.byCode.NRV_WRITE_DOWN",
+    +   "reasonCode.byCode.OUT_OF_DELIVERY_AREA",
+    +   "reasonCode.byCode.PREMISES_CLOSED",
+    +   "reasonCode.byCode.PRICE_ESCALATION",
+    +   "reasonCode.byCode.PRINTER_FAULT",
+    +   "reasonCode.byCode.QUALITY_REJECTED",
+    +   "reasonCode.byCode.SHIPMENT_CANCELLED",
+    +   "reasonCode.byCode.SHORT_PICKED",
+    +   "reasonCode.byCode.SHORT_SHELF_LIFE",
+    +   "reasonCode.byCode.SUPPLIER_ISSUE",
+    +   "reasonCode.byCode.TRANSFER_INSTEAD",
+    +   "reasonCode.byCode.TRANSIT_DAMAGE",
+    +   "reasonCode.byCode.WRONG_ITEM_SUPPLIED",
+    +   "reasonCode.byCode.WRONG_SUBJECT",
+    +   "reasonCode.byCode.WRONG_TEMPLATE",
+    +   "reasonCode.byCode.YIELDED",
+    +   "stockStatus.byCode.REJECTED",
+    +   "registry.printTemplateKindByCode.COUNT_SHEET",
+    +   "disposition.byCode.QUARANTINE",
+    +   "disposition.byCode.REJECT",
+    +   "allocationStrategy.byCode.FIXED_LOCATION_FIRST",
+    +   "outboxEvent.eventTypeByCode.channel.inventory.published",
+    + ]
+
+      292 |         : [];
+      293 |     });
+    > 294 |     expect(missing).toEqual([]);
+          |                     ^
+      295 |   });
+      296 |
+      297 |   it('read every row of a VALUES block whose descriptions hold ";" and "," (anti-vacuous)', () => {
+
+      at toEqual (../../warehouse-base/frontend/src/__tests__/whbRegistryLabelFallback.test.ts:294:21)
+
+  ● every seeded registry and code-list code has a label key (P1-19) › fr has a key for every seeded code
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  -  1
+    + Received  + 88
+
+    - Array []
+    + Array [
+    +   "documentType.byCode.ADJ",
+    +   "documentType.byCode.CHANNEL_PUBLISH_RUN",
+    +   "documentType.byCode.DEMAND_ORDER",
+    +   "documentType.byCode.FITMENT",
+    +   "documentType.byCode.LANDED_COST",
+    +   "documentType.byCode.LOT_EXPIRY",
+    +   "documentType.byCode.LPN",
+    +   "documentType.byCode.NRV_ASSESSMENT",
+    +   "documentType.byCode.OSB",
+    +   "documentType.byCode.QCINSP",
+    +   "documentType.byCode.RECALL",
+    +   "documentType.byCode.REPLEN_TASK",
+    +   "documentType.byCode.RETURN_RECEIPT",
+    +   "documentType.byCode.REVALUATION",
+    +   "documentType.byCode.SHIPMENT",
+    +   "movementType.byCode.ADJUST_DOWN_AUTO",
+    +   "movementType.byCode.ADJUST_UP_AUTO",
+    +   "movementType.byCode.ASSEMBLY",
+    +   "movementType.byCode.ASSEMBLY_REVERSAL",
+    +   "movementType.byCode.COUNT_ADJUST_AUTO",
+    +   "movementType.byCode.DISASSEMBLY",
+    +   "movementType.byCode.DISASSEMBLY_REVERSAL",
+    +   "movementType.byCode.DROP_SHIP",
+    +   "movementType.byCode.DROP_SHIP_REVERSAL",
+    +   "movementType.byCode.EQUIPMENT_ISSUE",
+    +   "movementType.byCode.EQUIPMENT_RETURN",
+    +   "movementType.byCode.ISSUE_TO_ASSET",
+    +   "movementType.byCode.LPN_MERGE",
+    +   "movementType.byCode.LPN_MOVE",
+    +   "movementType.byCode.LPN_SPLIT",
+    +   "movementType.byCode.OPENING_BALANCE",
+    +   "movementType.byCode.OPENING_BALANCE_REVERSAL",
+    +   "movementType.byCode.PICK",
+    +   "movementType.byCode.PICK_REVERSAL",
+    +   "movementType.byCode.PUTAWAY",
+    +   "movementType.byCode.PUTAWAY_REVERSAL",
+    +   "movementType.byCode.REPACK",
+    +   "movementType.byCode.REPACK_REVERSAL",
+    +   "movementType.byCode.REPLEN",
+    +   "movementType.byCode.REPLEN_REVERSAL",
+    +   "movementType.byCode.RETURN_FROM_ASSET",
+    +   "movementType.byCode.VAS",
+    +   "movementType.byCode.VAS_REVERSAL",
+    +   "reasonCode.byCode.ADDRESS_CORRECTED",
+    +   "reasonCode.byCode.ADDRESS_INCOMPLETE",
+    +   "reasonCode.byCode.CARRIER_CHANGED",
+    +   "reasonCode.byCode.CARRIER_INITIATED",
+    +   "reasonCode.byCode.CARRIER_REJECTED",
+    +   "reasonCode.byCode.CARRIER_REPORTED",
+    +   "reasonCode.byCode.COD_NOT_READY",
+    +   "reasonCode.byCode.COST_CORRECTION",
+    +   "reasonCode.byCode.CUSTOMER_REFUSED",
+    +   "reasonCode.byCode.DESPATCHED",
+    +   "reasonCode.byCode.DESTAGED",
+    +   "reasonCode.byCode.DUPLICATE_LABEL",
+    +   "reasonCode.byCode.EXCESS_SUPPLY",
+    +   "reasonCode.byCode.FOUND_UNIDENTIFIED",
+    +   "reasonCode.byCode.FUTURE_DELIVERY_REQUESTED",
+    +   "reasonCode.byCode.LABEL_DAMAGED",
+    +   "reasonCode.byCode.MISPRINT",
+    +   "reasonCode.byCode.NDR_RTO_AUTHORISED",
+    +   "reasonCode.byCode.NDR_UNANSWERED",
+    +   "reasonCode.byCode.NOT_NEEDED",
+    +   "reasonCode.byCode.NRV_REVERSAL",
+    +   "reasonCode.byCode.NRV_WRITE_DOWN",
+    +   "reasonCode.byCode.OUT_OF_DELIVERY_AREA",
+    +   "reasonCode.byCode.PREMISES_CLOSED",
+    +   "reasonCode.byCode.PRICE_ESCALATION",
+    +   "reasonCode.byCode.PRINTER_FAULT",
+    +   "reasonCode.byCode.QUALITY_REJECTED",
+    +   "reasonCode.byCode.SHIPMENT_CANCELLED",
+    +   "reasonCode.byCode.SHORT_PICKED",
+    +   "reasonCode.byCode.SHORT_SHELF_LIFE",
+    +   "reasonCode.byCode.SUPPLIER_ISSUE",
+    +   "reasonCode.byCode.TRANSFER_INSTEAD",
+    +   "reasonCode.byCode.TRANSIT_DAMAGE",
+    +   "reasonCode.byCode.WRONG_ITEM_SUPPLIED",
+    +   "reasonCode.byCode.WRONG_SUBJECT",
+    +   "reasonCode.byCode.WRONG_TEMPLATE",
+    +   "reasonCode.byCode.YIELDED",
+    +   "stockStatus.byCode.REJECTED",
+    +   "registry.printTemplateKindByCode.COUNT_SHEET",
+    +   "disposition.byCode.QUARANTINE",
+    +   "disposition.byCode.REJECT",
+    +   "allocationStrategy.byCode.FIXED_LOCATION_FIRST",
+    +   "outboxEvent.eventTypeByCode.channel.inventory.published",
+    + ]
+
+      292 |         : [];
+      293 |     });
+    > 294 |     expect(missing).toEqual([]);
+          |                     ^
+      295 |   });
+      296 |
+      297 |   it('read every row of a VALUES block whose descriptions hold ";" and "," (anti-vacuous)', () => {
+
+      at toEqual (../../warehouse-base/frontend/src/__tests__/whbRegistryLabelFallback.test.ts:294:21)
+
+  ● every seeded registry and code-list code has a label key (P1-19) › hi has a key for every seeded code
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  -  1
+    + Received  + 88
+
+    - Array []
+    + Array [
+    +   "documentType.byCode.ADJ",
+    +   "documentType.byCode.CHANNEL_PUBLISH_RUN",
+    +   "documentType.byCode.DEMAND_ORDER",
+    +   "documentType.byCode.FITMENT",
+    +   "documentType.byCode.LANDED_COST",
+    +   "documentType.byCode.LOT_EXPIRY",
+    +   "documentType.byCode.LPN",
+    +   "documentType.byCode.NRV_ASSESSMENT",
+    +   "documentType.byCode.OSB",
+    +   "documentType.byCode.QCINSP",
+    +   "documentType.byCode.RECALL",
+    +   "documentType.byCode.REPLEN_TASK",
+    +   "documentType.byCode.RETURN_RECEIPT",
+    +   "documentType.byCode.REVALUATION",
+    +   "documentType.byCode.SHIPMENT",
+    +   "movementType.byCode.ADJUST_DOWN_AUTO",
+    +   "movementType.byCode.ADJUST_UP_AUTO",
+    +   "movementType.byCode.ASSEMBLY",
+    +   "movementType.byCode.ASSEMBLY_REVERSAL",
+    +   "movementType.byCode.COUNT_ADJUST_AUTO",
+    +   "movementType.byCode.DISASSEMBLY",
+    +   "movementType.byCode.DISASSEMBLY_REVERSAL",
+    +   "movementType.byCode.DROP_SHIP",
+    +   "movementType.byCode.DROP_SHIP_REVERSAL",
+    +   "movementType.byCode.EQUIPMENT_ISSUE",
+    +   "movementType.byCode.EQUIPMENT_RETURN",
+    +   "movementType.byCode.ISSUE_TO_ASSET",
+    +   "movementType.byCode.LPN_MERGE",
+    +   "movementType.byCode.LPN_MOVE",
+    +   "movementType.byCode.LPN_SPLIT",
+    +   "movementType.byCode.OPENING_BALANCE",
+    +   "movementType.byCode.OPENING_BALANCE_REVERSAL",
+    +   "movementType.byCode.PICK",
+    +   "movementType.byCode.PICK_REVERSAL",
+    +   "movementType.byCode.PUTAWAY",
+    +   "movementType.byCode.PUTAWAY_REVERSAL",
+    +   "movementType.byCode.REPACK",
+    +   "movementType.byCode.REPACK_REVERSAL",
+    +   "movementType.byCode.REPLEN",
+    +   "movementType.byCode.REPLEN_REVERSAL",
+    +   "movementType.byCode.RETURN_FROM_ASSET",
+    +   "movementType.byCode.VAS",
+    +   "movementType.byCode.VAS_REVERSAL",
+    +   "reasonCode.byCode.ADDRESS_CORRECTED",
+    +   "reasonCode.byCode.ADDRESS_INCOMPLETE",
+    +   "reasonCode.byCode.CARRIER_CHANGED",
+    +   "reasonCode.byCode.CARRIER_INITIATED",
+    +   "reasonCode.byCode.CARRIER_REJECTED",
+    +   "reasonCode.byCode.CARRIER_REPORTED",
+    +   "reasonCode.byCode.COD_NOT_READY",
+    +   "reasonCode.byCode.COST_CORRECTION",
+    +   "reasonCode.byCode.CUSTOMER_REFUSED",
+    +   "reasonCode.byCode.DESPATCHED",
+    +   "reasonCode.byCode.DESTAGED",
+    +   "reasonCode.byCode.DUPLICATE_LABEL",
+    +   "reasonCode.byCode.EXCESS_SUPPLY",
+    +   "reasonCode.byCode.FOUND_UNIDENTIFIED",
+    +   "reasonCode.byCode.FUTURE_DELIVERY_REQUESTED",
+    +   "reasonCode.byCode.LABEL_DAMAGED",
+    +   "reasonCode.byCode.MISPRINT",
+    +   "reasonCode.byCode.NDR_RTO_AUTHORISED",
+    +   "reasonCode.byCode.NDR_UNANSWERED",
+    +   "reasonCode.byCode.NOT_NEEDED",
+    +   "reasonCode.byCode.NRV_REVERSAL",
+    +   "reasonCode.byCode.NRV_WRITE_DOWN",
+    +   "reasonCode.byCode.OUT_OF_DELIVERY_AREA",
+    +   "reasonCode.byCode.PREMISES_CLOSED",
+    +   "reasonCode.byCode.PRICE_ESCALATION",
+    +   "reasonCode.byCode.PRINTER_FAULT",
+    +   "reasonCode.byCode.QUALITY_REJECTED",
+    +   "reasonCode.byCode.SHIPMENT_CANCELLED",
+    +   "reasonCode.byCode.SHORT_PICKED",
+    +   "reasonCode.byCode.SHORT_SHELF_LIFE",
+    +   "reasonCode.byCode.SUPPLIER_ISSUE",
+    +   "reasonCode.byCode.TRANSFER_INSTEAD",
+    +   "reasonCode.byCode.TRANSIT_DAMAGE",
+    +   "reasonCode.byCode.WRONG_ITEM_SUPPLIED",
+    +   "reasonCode.byCode.WRONG_SUBJECT",
+    +   "reasonCode.byCode.WRONG_TEMPLATE",
+    +   "reasonCode.byCode.YIELDED",
+    +   "stockStatus.byCode.REJECTED",
+    +   "registry.printTemplateKindByCode.COUNT_SHEET",
+    +   "disposition.byCode.QUARANTINE",
+    +   "disposition.byCode.REJECT",
+    +   "allocationStrategy.byCode.FIXED_LOCATION_FIRST",
+    +   "outboxEvent.eventTypeByCode.channel.inventory.published",
+    + ]
+
+      292 |         : [];
+      293 |     });
+    > 294 |     expect(missing).toEqual([]);
+          |                     ^
+      295 |   });
+      296 |
+      297 |   it('read every row of a VALUES block whose descriptions hold ";" and "," (anti-vacuous)', () => {
+
+      at toEqual (../../warehouse-base/frontend/src/__tests__/whbRegistryLabelFallback.test.ts:294:21)
+
+  ● every seeded registry and code-list code has a label key (P1-19) › read every row of a VALUES block whose descriptions hold ";" and "," (anti-vacuous)
+
+    expect(received).toHaveLength(expected)
+
+    Expected length: 9
+    Received length: 10
+    Received array:  ["AVAILABLE", "BLOCKED", "CORE_UNGRADED", "DAMAGED", "EXPIRED", "PENDING_RESOLUTION", "QC_HOLD", "QUARANTINE", "REJECTED", "RETURNED"]
+
+      296 |
+      297 |   it('read every row of a VALUES block whose descriptions hold ";" and "," (anti-vacuous)', () => {
+    > 298 |     expect(seeded.whb_stock_statuses).toHaveLength(9);
+          |                                       ^
+      299 |     expect(seeded.whb_item_types).toEqual(expect.arrayContaining(['SERVICE', 'ASSET']));
+      300 |     expect(seeded.whb_condition_codes).toEqual(expect.arrayContaining(['USED_FAIR', 'UNSALVAGEABLE']));
+      301 |     expect(seeded['whb_code_list_values.RETURN_TYPE']).toEqual(expect.arrayContaining(['CUSTOMER', 'EXCHANGE']));
+
+      at Object.toHaveLength (../../warehouse-base/frontend/src/__tests__/whbRegistryLabelFallback.test.ts:298:39)
+
+  ● every seeded registry and code-list code has a label key (P1-19) › read a literal INSERT … SELECT seed (anti-vacuous)
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 0
+    + Received  + 1
+
+      Array [
+        "FIFO_BY_RECEIPT",
+    +   "FIXED_LOCATION_FIRST",
+      ]
+
+      304 |
+      305 |   it('read a literal INSERT … SELECT seed (anti-vacuous)', () => {
+    > 306 |     expect(seeded.whb_allocation_strategies).toEqual(['FIFO_BY_RECEIPT']);
+          |                                              ^
+      307 |   });
+      308 | });
+      309 |
+
+      at Object.toEqual (../../warehouse-base/frontend/src/__tests__/whbRegistryLabelFallback.test.ts:306:46)
+
+FAIL ../../warehouse-base/frontend/src/__tests__/warehouseMobileDecisionGate.test.ts
+  ● Console
+
+    console.log
+      🧪 Platform Test Environment Initialized
+
+      at Object.log (jest.setup.js:9:9)
+
+  ● GATE 2 - no seeded warehouse registry code is re-enumerated as a mobile z.enum (FR-382, RL-009) › finds no seeded warehouse code inside any z.enum literal in the mobile schemas
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 7
+
+    - Array []
+    + Array [
+    +   "AVAILABLE",
+    +   "HIGH",
+    +   "LOW",
+    +   "MEDIUM",
+    +   "OTHER",
+    + ]
+
+      232 |     const violations = [...codes].filter((code) => closed.has(code)).sort();
+      233 |
+    > 234 |     expect(violations).toEqual([]);
+          |                        ^
+      235 |   });
+      236 |
+      237 |   it('parses the real mobile schema file (anti-vacuous)', () => {
+
+      at Object.toEqual (../../warehouse-base/frontend/src/__tests__/warehouseMobileDecisionGate.test.ts:234:24)
+
+PASS ../../warehouse-base/frontend/src/__tests__/whbGridFilterParity.test.ts
+  ● Console
+
+    console.log
+      🧪 Platform Test Environment Initialized
+
+      at Object.log (jest.setup.js:9:9)
+
+FAIL ../../warehouse-base/frontend/src/__tests__/warehouseRegistryOpenness.test.ts
+  ● Console
+
+    console.log
+      🧪 Platform Test Environment Initialized
+
+      at Object.log (jest.setup.js:9:9)
+
+  ● No whb* TypeScript file re-closes an open registry vocabulary (OD-5, FR-380, I-18) › finds no seeded registry code inside a TypeScript string-literal union
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  -  1
+    + Received  + 20
+
+    - Array []
+    + Array [
+    +   "warehouse-base/frontend/src/types/whbCompany.ts: HOUSE",
+    +   "warehouse-base/frontend/src/types/whbGlPostingRule.ts: NONE",
+    +   "warehouse-base/frontend/src/types/whbJobRun.ts: WAREHOUSE",
+    +   "warehouse-base/frontend/src/types/whbMasterMerge.ts: COUNTERPARTY | ITEM",
+    +   "warehouse/frontend/src/types/whDemandOrder.ts: PICKED",
+    +   "warehouse/frontend/src/types/whMarketplaceClaim.ts: EXPIRED | REJECTED",
+    +   "warehouse/frontend/src/types/whNrvAssessment.ts: REJECTED",
+    +   "warehouse/frontend/src/types/whReceiptReversal.ts: REJECTED",
+    +   "warehouse/frontend/src/types/whRevaluation.ts: REJECTED",
+    +   "warehouse/frontend/src/types/whRma.ts: EXPIRED",
+    +   "warehouse/frontend/src/types/whStockAdjustment.ts: REJECTED",
+    +   "warehouse/frontend/src/types/whSupplierClaim.ts: REJECTED",
+    +   "warehouse/frontend/src/types/whSupplierReturn.ts: PICKED",
+    +   "warehouse/frontend/src/types/whTrackingLink.ts: EXPIRED",
+    +   "warehouse/frontend/src/types/whTransferOrder.ts: REJECTED",
+    +   "warehouse/frontend/src/types/whWave.ts: PICKED",
+    +   "warehouse/frontend/src/types/whWeighingInstrument.ts: EXPIRED",
+    +   "warehouse/frontend/src/types/whWorkOrder.ts: REPACK | VAS",
+    + ]
+
+      408 |     }
+      409 |
+    > 410 |     expect(violations.sort()).toEqual([]);
+          |                               ^
+      411 |   });
+      412 |
+      413 |   /**
+
+      at Object.toEqual (../../warehouse-base/frontend/src/__tests__/warehouseRegistryOpenness.test.ts:410:31)
+
+  ● No whb* TypeScript file re-closes an open registry vocabulary (OD-5, FR-380, I-18) › finds no array/object literal enumerating a seeded registry vocabulary
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 4
+
+    - Array []
+    + Array [
+    +   "warehouse-base/frontend/src/components/warehouseCatalogues/WhbAccountingHandoverManagementTable.tsx: whb_dispositions.target_stock_status_code: BLOCKED, REJECTED",
+    +   "warehouse-base/frontend/src/components/warehouseCatalogues/WhbAccountingHandoverViewModal.tsx: whb_dispositions.target_stock_status_code: BLOCKED, REJECTED",
+    + ]
+
+      430 |     }
+      431 |
+    > 432 |     expect(violations.sort()).toEqual([]);
+          |                               ^
+      433 |   });
+      434 |
+      435 |   /**
+
+      at Object.toEqual (../../warehouse-base/frontend/src/__tests__/warehouseRegistryOpenness.test.ts:432:31)
+
+PASS ../../warehouse/frontend/src/__tests__/warehouseLocales.test.ts
+  ● Console
+
+    console.log
+      🧪 Platform Test Environment Initialized
+
+      at Object.log (jest.setup.js:9:9)
+
+PASS ../../warehouse-base/frontend/src/__tests__/warehouseBaseLocales.test.ts
+  ● Console
+
+    console.log
+      🧪 Platform Test Environment Initialized
+
+      at Object.log (jest.setup.js:9:9)
+
+PASS ../../warehouse-india/frontend/src/__tests__/warehouseIndiaLocales.test.ts
+  ● Console
+
+    console.log
+      🧪 Platform Test Environment Initialized
+
+      at Object.log (jest.setup.js:9:9)
+
+
+Test Suites: 4 failed, 4 passed, 8 total
+Tests:       54 failed, 3514 passed, 3568 total
+Snapshots:   0 total
+Time:        1.727 s, estimated 2 s
+Ran all test suites matching /\/warehouse(-base|-india|-3pl)?\/frontend\//i.
+<== Run Jest - warehouse frontend suites (blocking): failed (exit 1)
+
+==> Upload frontend-test-results
+Copied 2 file(s) to <results>/frontend-test-results/
+
+==> Summary (summary.md)
+### Frontend tests
+
+:x: Jest reported failures (non-blocking while the suite is red).
+Download the `frontend-test-results` artifact for the full report.
+Results: /tmp/warehouse-only-audit-2026-10-01/ci/frontend
+frontend: failure (exit 1)

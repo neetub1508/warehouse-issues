@@ -5,6 +5,17 @@
 
 <!-- check-design-set: issue-citations file #2 #9 — `#2` and `#9` are ordinals in prose, not issue references — *Refusal #2*, *Adapter #2 (services)*, *ship-blocker #2*, *logistics needs #1, #2, #3, #5, #6, #10* — and at COMPETITOR-BENCHMARK.md:70/:146 `#9` is the markdown in-page anchor `[§9](#9--where-the-audits-disagree)`. In this repository `#2` and `#9` are in fact the two **pull requests** opened while the backlog was being filed, so no issue row can ever exist for either: see issues/CREATED.md -->
 
+> **Re-target · 2026-10-22 (`DECISIONS.md` `D-16`, [`reviews/R28`](reviews/R28-manufacturing-storage-retarget-impact.md)).**
+> §2.5.1 (`whad_`) and §2.5.2 (`whas_`) are **removed** — the adapters no longer exist and their prefixes
+> are retired. The retail/e-commerce tables (`RN-010`…`RN-017`: `wh_awb_pools`, `wh_awb_numbers`,
+> `wh_shipment_ndrs`, `wh_ndr_actions`, `wh_cod_remittances` + lines, the channel-account / order-import /
+> publish-rule tables, the tracking-link tables, `wh_marketplace_claims`, `wh_rto_consignments`,
+> `wh_rate_quotes`, `wh_carrier_serviceability`) and the dealer tables (`RN-020`, `RN-021`, `RN-023`) are
+> **removed** by `P7`, whose migration files are deleted or rewritten in place (`RN-052`); their rows
+> below are historical. Generic shipping tables stay. New prefixes: **`wht_`** (`warehouse-trade`,
+> `V550000`–`V559999`) and **`whm_`** (`warehouse-manufacturing`, `V560000`–`V569999`); their tables are
+> specified in `docs/frd/FRD-TRADE.md` and `docs/frd/FRD-MFG.md` and their task files.
+
 > **This document is subordinate to [`DECISIONS.md`](DECISIONS.md) and to
 > [`IRREVERSIBLE.md`](IRREVERSIBLE.md), in that order.** Where a source review proposed a shape that
 > either of those overrules, §9.1 says so by name; nothing here diverges silently.
@@ -55,9 +66,11 @@ it and a reader should not have to hold two documents open.
 |---|---|---|---|---|---|
 | `warehouse-base` | `ai.warehousebase` | **`whb_`** | **V500000–V509999** | platform only | v1 |
 | `warehouse` | `ai.warehouse` | **`wh_`** | **V510000–V519999** | platform + `warehouse-base` | v1 |
-| `warehouse-adapter-<vertical>` | `ai.warehouseadapter<vertical>` — a **sibling** package | `whad_` `whas_` `whaf_` `whaa_` | **V520000–V529999**, sub-allocated in §7.4 | platform + base + that vertical | v1 → v1.1 |
+| `warehouse-adapter-<vertical>` | `ai.warehouseadapter<vertical>` — a **sibling** package | ~~`whad_` `whas_`~~ (removed, `D-16`) · `whaf_` `whaa_` (unscheduled) · `whae_` (example) | **V520000–V529999**, sub-allocated in §7.4 | platform + base + that vertical | CI fixture only since `D-16` |
 | `warehouse-3pl` | `ai.warehouse3pl` | **`wh3_`** | **V530000–V539999** | platform + base + app | v2 |
 | `warehouse-india` | `ai.warehouseindia` | **`whin_`** | **V540000–V549999** | platform + base + app | v1 wave + v2 wave (`A-4`) |
+| `warehouse-trade` *(D-16)* | `ai.warehousetrade` | **`wht_`** | **V550000–V559999** | platform + base + app | P9 |
+| `warehouse-manufacturing` *(D-16)* | `ai.warehousemanufacturing` | **`whm_`** | **V560000–V569999** | platform + base + app | P10 |
 
 `V130000`–`V599999` is empty. Re-verified for this document, 2026-09-01:
 
@@ -1245,8 +1258,8 @@ so this is net-new and must not be built on it. A missing GRN number is an audit
 | `whb_import_batches` | The **handler-registry** import framework, with a reversal path | `import_kind`, `file_name`, `document_id`, `status`, `total_rows`, `valid_rows`, `error_rows`, `is_dry_run`, `applied_at`, `reversed_at`, `reversal_of_batch_id` | idx(`import_kind`,`created_at` DESC) | `document_id ↓platform documents(id)`; self | `FR-416` `FR-417` | v1 |
 | `whb_import_batch_rows` | One row per input row, with its outcome | `batch_id`, `row_no`, `raw_text`, `status`, `error_code`, `error_detail`, `created_entity_type`, `created_entity_id` | uk(`batch_id`,`row_no`) | `batch_id → whb_import_batches` | `FR-416` | v1 |
 | `whb_master_merges` | **The merge path a 40,000-SKU import needs on day two.** Two duplicate items, or two duplicate counterparties, are reconciled by *transferring* the loser's stock to the survivor **through the movement port** and deactivating the loser with a scan redirect — never by an `UPDATE` against an append-only ledger. Refused where `base_uom_code`, `lot_control_mode` or `serial_control_mode` differ. **Not `whb_item_supersessions`**: a supersession is a real commercial fact about two real parts, a merge says one of them never existed (`FR-451`, `Z-007`). **An open document naming the loser refuses the merge; it is never re-pointed** (`P1-21`'s decision, `WH-SC-330`) | `entity_type` (`ITEM`/`COUNTERPARTY`), `losing_id`, `surviving_id`, `merged_by`, `merged_at`, `reason`, `moved_stock_movement_id` (nullable — null where the loser held no stock; the first of the merge's movements, one per site, each carrying the merge as its source document) | uk(`entity_type`,`losing_id`) — a row can only lose once; idx(`entity_type`,`surviving_id`); idx(`merged_at`); chk(`losing_id` ≠ `surviving_id`) | `merged_by → users` (platform); `moved_stock_movement_id` has **no FK** — `whb_stock_movements` is partitioned with PK (`id`,`occurred_at`), so no single-column FK can target it | `FR-451` | v1 |
-| `whb_category_stocking_ownership` | **`D-9` obligation 2, mandatory in v1.** Exactly one stocking system per category per company per effective period, **recorded as data** | `company_id`, `category_scope` (`WAREHOUSE_CATEGORY`/`EXTERNAL_CATEGORY`), `category_ref`, **`stocking_system`** (`WAREHOUSE`/`ACCESSORIES` — **no `CHECK`**), `effective_from`, `effective_to`, `decided_by`, **`decision_note` `NOT NULL`** | `EXCLUDE (company_id =, category_scope =, category_ref =, range &&)` — `D-9`'s *"exactly one"* at every instant, not merely one per start date (`RG-021`) | `company_id → whb_companies`; `decided_by ↓platform users(id)` | `D-9` `M2` `FR-369` | v1 |
-| `whb_external_stock_snapshots` | The accessories quantity, loaded by **snapshot** — because `warehouse` may not read `accessory_stock_levels` (`M8`, `D-11` B9) | `source_module`, `external_id`, `as_at_date`, `quantity_on_hand`, `loaded_at`, `loaded_by`, `import_batch_id` | uk(`source_module`,`external_id`,`as_at_date`); idx(`as_at_date`) | `import_batch_id → whb_import_batches` | `M2` `FR-369` | v1 |
+| `whb_category_stocking_ownership` | **REMOVED by `D-16` (`P7-09`) — historical row, no table is created.** **`D-9` obligation 2, mandatory in v1.** Exactly one stocking system per category per company per effective period, **recorded as data** | `company_id`, `category_scope` (`WAREHOUSE_CATEGORY`/`EXTERNAL_CATEGORY`), `category_ref`, **`stocking_system`** (`WAREHOUSE`/`ACCESSORIES` — **no `CHECK`**), `effective_from`, `effective_to`, `decided_by`, **`decision_note` `NOT NULL`** | `EXCLUDE (company_id =, category_scope =, category_ref =, range &&)` — `D-9`'s *"exactly one"* at every instant, not merely one per start date (`RG-021`) | `company_id → whb_companies`; `decided_by ↓platform users(id)` | `D-9` `M2` `FR-369` | v1 |
+| `whb_external_stock_snapshots` | **REMOVED by `D-16` (`P7-09`) — historical row, no table is created.** The accessories quantity, loaded by **snapshot** — because `warehouse` may not read `accessory_stock_levels` (`M8`, `D-11` B9) | `source_module`, `external_id`, `as_at_date`, `quantity_on_hand`, `loaded_at`, `loaded_by`, `import_batch_id` | uk(`source_module`,`external_id`,`as_at_date`); idx(`as_at_date`) | `import_batch_id → whb_import_batches` | `M2` `FR-369` | v1 |
 | `whb_channels` | The channel master. **In base**, because the ledger's source lineage and the item alias both reference it | `code`, `name`, `channel_kind` (`CHANNEL_KIND` code list: `MARKETPLACE`/`OWN_STORE`/`POS`/`B2B`) + `channel_kind_list`, `owning_module`, `min_shelf_life_ship_pct` (nullable `DECIMAL(9,6)`; the second step of counterparty → channel → item, `RJ-009`) | uk(`code`) | `(channel_kind_list, channel_kind) → whb_code_list_values` | `FR-207` `FR-161` | v1 |
 | `whb_transport_details` | Vehicle, transporter, distance, dispatch-from and ship-to — **every field an e-way bill needs**, and none of them India-specific | `document_type`, `document_id`, `transport_mode`, `vehicle_number`, `vehicle_type`, `transporter_counterparty_id`, `transporter_doc_no`, `transporter_doc_date`, `distance_km`, `dispatch_from_*` address block, `ship_to_*` address block, `driver_name`, `driver_phone`, `driver_licence_no` | uk(`document_type`,`document_id`); idx(`vehicle_number`) | `transporter_counterparty_id → whb_counterparties`; **`document_id` is a generic reference with no FK** — the document is a `wh_transfer_orders` row or a `whin_delivery_challans` row, both **above** base (§3.4 defect **X-5**) | `FR-308` | v1 |
 | `whb_metric_definitions` | **The KPI catalogue** (`RC-007`) — a `D-10` registry with **no `CHECK`**, so `warehouse-3pl` or an adapter registers its own metric by `INSERT`. Seeded under `RL-003`'s guarded idiom; `definition_text_key` binds to the platform metric explainer | `code`, `name`, `unit`, `definition_text_key`, `owning_module`, `is_system`, `higher_is_better`, `is_active` | uk(`code`) | — | `FR-470` `FR-394` | v1 |
@@ -1376,21 +1389,21 @@ writing `whb_stock_movements` directly (`FR-436`, `D-11` B5). A `wh_` table ther
 | `wh_pickup_requests` | The request to the carrier to come | `request_number`, `carrier_id`, `warehouse_id`, `requested_for_at`, `status`, `carrier_reference` | uk(`request_number`) | as named | `FR-194` | v1.1 |
 | `wh_shipment_tracking_events` | Stored **normalised and raw** | `shipment_id`, `carrier_id`, `event_at`, `raw_status`, `normalised_status`, `location_text`, `raw_payload` **TEXT**, `received_at` | idx(`shipment_id`,`event_at` DESC); uk(`shipment_id`,`carrier_id`,`event_at`,`raw_status`) | as named | `FR-198` `FR-199` | v2 |
 | `wh_carrier_status_mappings` | Per-carrier status mapping **held as data**, so a mapping can be corrected and the history reinterpreted | `carrier_id`, `raw_status`, `normalised_status`, `is_terminal`, `effective_from` | uk(`carrier_id`,`raw_status`,`effective_from`) | as named | `FR-198` | v2 |
-| `wh_rate_quotes` | **The quote is persisted** — carrier, service, account, amount, transit estimate, billable weight, whether it was selected and why | `shipment_id`, `carrier_id`, `service_code`, `carrier_account_id`, `quoted_amount`, `currency_code`, `transit_days`, `billable_weight_kg`, `was_selected`, `selection_reason`, `quoted_at` | idx(`shipment_id`) | as named | `FR-200` | v2 |
-| `wh_carrier_serviceability` | Pincode serviceability. **Gates the rate shop; address validation only warns** | `carrier_id`, `service_code`, `postal_code`, `is_serviceable`, `supports_cod`, `supports_reverse`, `effective_from` | uk(`carrier_id`,`service_code`,`postal_code`,`effective_from`) | as named | `FR-201` | v2 |
-| `wh_awb_pools` | Waybill blocks per carrier × account × service × payment mode | `carrier_id`, `carrier_account_id`, `service_code`, `payment_mode`, `block_from`, `block_to`, `fetched_at`, `remaining_count`, `low_water_mark` | idx(`carrier_id`,`remaining_count`) | as named | `FR-202` | v2 |
-| `wh_awb_numbers` | Individual waybill numbers, **claimed transactionally with `FOR UPDATE SKIP LOCKED`** | `pool_id`, `awb_number`, `status` (`FREE`/`CLAIMED`/`USED`/`VOID`), `shipment_id`, `claimed_at`, `voided_at`, `void_reason_code_id` | uk(`awb_number`); idx(`pool_id`,`status`) `WHERE status = 'FREE'` | as named | `FR-202` `FR-425` | v2 |
-| `wh_shipment_ndrs` | **NDR is a workflow with a response clock**, not an exception code | `shipment_id`, `carrier_id`, `ndr_reason_code_id`, `raised_at`, `response_due_at`, `status`, `attempt_no`, `closed_at` | idx(`response_due_at`) `WHERE status = 'OPEN'`; idx(`shipment_id`) | as named | `FR-203` | v2 |
-| `wh_ndr_actions` | The action taken and by whom | `ndr_id`, `action`, `actor_user_id`, `acted_at`, `note`, `new_promised_date` | idx(`ndr_id`) | as named | `FR-203` | v2 |
-| `wh_cod_remittances` | UTR, gross, deductions, net | `remittance_number`, `carrier_id`, `utr`, `remitted_at`, `gross_amount`, `deduction_amount`, `net_amount`, `status` | uk(`remittance_number`); uk(`carrier_id`,`utr`) | as named | `FR-204` | v2 |
-| `wh_cod_remittance_lines` | Matched to shipments; unmatched is a first-class state | `remittance_id`, `shipment_id`, `awb_number`, `expected_amount`, `remitted_amount`, `variance_amount`, `match_status` (`MATCHED`/`UNMATCHED`/`SHORT`/`OVER`) | idx(`remittance_id`); idx(`shipment_id`) | as named | `FR-204` | v2 |
-| `wh_rto_consignments` | **RTO is an inbound stock stream, not an order status** | `shipment_id`, `initiated_at`, `rto_reason_code_id`, `return_awb`, `received_at`, `return_receipt_id`, `status`, `age_days` | idx(`shipment_id`); idx(`status`,`initiated_at`) | `return_receipt_id → wh_return_receipts` | `FR-205` | v1 (columns) · v2 (workflow) |
-| `wh_channel_accounts` | Per-owner channel accounts, credentials through the **platform's secret masking**. The sites it fulfils from are `wh_channel_account_warehouses`, built junction-shaped (`RG-017`) | `channel_id`, `owner_id`, `account_code`, `credentials_ref`, `is_active`, `last_poll_at` | uk(`channel_id`,`owner_id`,`account_code`) | ↓base `channel_id`, `owner_id` | `FR-207` | v2 |
-| `wh_channel_account_warehouses` | **The sites a marketplace account fulfils from** — several, not one (`RG-017`) | `channel_account_id`, `warehouse_id`, `role` (`FULFIL`/`RETURNS`), `priority`, `effective_from`, `effective_to` | `EXCLUDE (channel_account_id =, warehouse_id =, role =, range &&)` | `channel_account_id → wh_channel_accounts`; `warehouse_id ↓base whb_warehouses` | `FR-207` | v2 |
-| `wh_channel_order_imports` | Import idempotency and the stale-repoll discard | `channel_account_id`, `external_order_id`, `external_version`, `payload` **TEXT**, `payload_hash`, `imported_at`, `demand_order_id`, `outcome` | uk(`channel_account_id`,`external_order_id`,`external_version`) | as named | `FR-208` | v2 |
-| `wh_channel_publish_rules` | **The oversell control** | `channel_account_id`, `item_id` (nullable = all), `basis` (`AVAILABLE`/`ON_HAND`/`AVAILABLE_MINUS_BUFFER`/`FIXED`/`PERCENT`), `buffer_quantity`, `buffer_percent`, `fixed_quantity`, `warehouse_scope_id`, `is_active` | uk(`channel_account_id`,`item_id`,`warehouse_scope_id`) `NULLS NOT DISTINCT` | as named | `FR-209` | v2 |
-| `wh_tracking_links` | Signed, expiring public tracking link per shipment | `shipment_id`, `token_hash`, `expires_at`, `revoked_at`, `access_count` | uk(`token_hash`); idx(`shipment_id`) | as named | `FR-210` | v2 |
-| `wh_trade_portal_users` | **The trade-customer persona on `FR-284`'s surface** — a garage or fleet buyer scoped by customer counterparty through the single resolver. A fleet manager buying for two garages is two rows; the counterparty holds a current `CUSTOMER` role link (`RK-006`) | `user_id`, `customer_counterparty_id`, `effective_from`, `effective_to` | `EXCLUDE (user_id =, customer_counterparty_id =, range &&)`; idx(`customer_counterparty_id`) `WHERE effective_to IS NULL` | `user_id ↓platform users(id)`; `customer_counterparty_id ↓base whb_counterparties` | `FR-464` | v2 |
+| `wh_rate_quotes` | **REMOVED by `D-16` (`P7-02`) — historical row, no table is created.** **The quote is persisted** — carrier, service, account, amount, transit estimate, billable weight, whether it was selected and why | `shipment_id`, `carrier_id`, `service_code`, `carrier_account_id`, `quoted_amount`, `currency_code`, `transit_days`, `billable_weight_kg`, `was_selected`, `selection_reason`, `quoted_at` | idx(`shipment_id`) | as named | `FR-200` | v2 |
+| `wh_carrier_serviceability` | **REMOVED by `D-16` (`P7-02`) — historical row, no table is created.** Pincode serviceability. **Gates the rate shop; address validation only warns** | `carrier_id`, `service_code`, `postal_code`, `is_serviceable`, `supports_cod`, `supports_reverse`, `effective_from` | uk(`carrier_id`,`service_code`,`postal_code`,`effective_from`) | as named | `FR-201` | v2 |
+| `wh_awb_pools` | **REMOVED by `D-16` (`P7-02`) — historical row, no table is created.** Waybill blocks per carrier × account × service × payment mode | `carrier_id`, `carrier_account_id`, `service_code`, `payment_mode`, `block_from`, `block_to`, `fetched_at`, `remaining_count`, `low_water_mark` | idx(`carrier_id`,`remaining_count`) | as named | `FR-202` | v2 |
+| `wh_awb_numbers` | **REMOVED by `D-16` (`P7-02`) — historical row, no table is created.** Individual waybill numbers, **claimed transactionally with `FOR UPDATE SKIP LOCKED`** | `pool_id`, `awb_number`, `status` (`FREE`/`CLAIMED`/`USED`/`VOID`), `shipment_id`, `claimed_at`, `voided_at`, `void_reason_code_id` | uk(`awb_number`); idx(`pool_id`,`status`) `WHERE status = 'FREE'` | as named | `FR-202` `FR-425` | v2 |
+| `wh_shipment_ndrs` | **REMOVED by `D-16` (`P7-03`) — historical row, no table is created.** **NDR is a workflow with a response clock**, not an exception code | `shipment_id`, `carrier_id`, `ndr_reason_code_id`, `raised_at`, `response_due_at`, `status`, `attempt_no`, `closed_at` | idx(`response_due_at`) `WHERE status = 'OPEN'`; idx(`shipment_id`) | as named | `FR-203` | v2 |
+| `wh_ndr_actions` | **REMOVED by `D-16` (`P7-03`) — historical row, no table is created.** The action taken and by whom | `ndr_id`, `action`, `actor_user_id`, `acted_at`, `note`, `new_promised_date` | idx(`ndr_id`) | as named | `FR-203` | v2 |
+| `wh_cod_remittances` | **REMOVED by `D-16` (`P7-03`) — historical row, no table is created.** UTR, gross, deductions, net | `remittance_number`, `carrier_id`, `utr`, `remitted_at`, `gross_amount`, `deduction_amount`, `net_amount`, `status` | uk(`remittance_number`); uk(`carrier_id`,`utr`) | as named | `FR-204` | v2 |
+| `wh_cod_remittance_lines` | **REMOVED by `D-16` (`P7-03`) — historical row, no table is created.** Matched to shipments; unmatched is a first-class state | `remittance_id`, `shipment_id`, `awb_number`, `expected_amount`, `remitted_amount`, `variance_amount`, `match_status` (`MATCHED`/`UNMATCHED`/`SHORT`/`OVER`) | idx(`remittance_id`); idx(`shipment_id`) | as named | `FR-204` | v2 |
+| `wh_rto_consignments` | **REMOVED by `D-16` (`P7-05`) — historical row, no table is created.** **RTO is an inbound stock stream, not an order status** | `shipment_id`, `initiated_at`, `rto_reason_code_id`, `return_awb`, `received_at`, `return_receipt_id`, `status`, `age_days` | idx(`shipment_id`); idx(`status`,`initiated_at`) | `return_receipt_id → wh_return_receipts` | `FR-205` | v1 (columns) · v2 (workflow) |
+| `wh_channel_accounts` | **REMOVED by `D-16` (`P7-04`) — historical row, no table is created.** Per-owner channel accounts, credentials through the **platform's secret masking**. The sites it fulfils from are `wh_channel_account_warehouses`, built junction-shaped (`RG-017`) | `channel_id`, `owner_id`, `account_code`, `credentials_ref`, `is_active`, `last_poll_at` | uk(`channel_id`,`owner_id`,`account_code`) | ↓base `channel_id`, `owner_id` | `FR-207` | v2 |
+| `wh_channel_account_warehouses` | **REMOVED by `D-16` (`P7-04`) — historical row, no table is created.** **The sites a marketplace account fulfils from** — several, not one (`RG-017`) | `channel_account_id`, `warehouse_id`, `role` (`FULFIL`/`RETURNS`), `priority`, `effective_from`, `effective_to` | `EXCLUDE (channel_account_id =, warehouse_id =, role =, range &&)` | `channel_account_id → wh_channel_accounts`; `warehouse_id ↓base whb_warehouses` | `FR-207` | v2 |
+| `wh_channel_order_imports` | **REMOVED by `D-16` (`P7-04`) — historical row, no table is created.** Import idempotency and the stale-repoll discard | `channel_account_id`, `external_order_id`, `external_version`, `payload` **TEXT**, `payload_hash`, `imported_at`, `demand_order_id`, `outcome` | uk(`channel_account_id`,`external_order_id`,`external_version`) | as named | `FR-208` | v2 |
+| `wh_channel_publish_rules` | **REMOVED by `D-16` (`P7-04`) — historical row, no table is created.** **The oversell control** | `channel_account_id`, `item_id` (nullable = all), `basis` (`AVAILABLE`/`ON_HAND`/`AVAILABLE_MINUS_BUFFER`/`FIXED`/`PERCENT`), `buffer_quantity`, `buffer_percent`, `fixed_quantity`, `warehouse_scope_id`, `is_active` | uk(`channel_account_id`,`item_id`,`warehouse_scope_id`) `NULLS NOT DISTINCT` | as named | `FR-209` | v2 |
+| `wh_tracking_links` | **REMOVED by `D-16` (`P7-03`) — historical row, no table is created.** Signed, expiring public tracking link per shipment | `shipment_id`, `token_hash`, `expires_at`, `revoked_at`, `access_count` | uk(`token_hash`); idx(`shipment_id`) | as named | `FR-210` | v2 |
+| `wh_trade_portal_users` | **REMOVED by `D-16` (`P7-08`) — historical row, no table is created.** **The trade-customer persona on `FR-284`'s surface** — a garage or fleet buyer scoped by customer counterparty through the single resolver. A fleet manager buying for two garages is two rows; the counterparty holds a current `CUSTOMER` role link (`RK-006`) | `user_id`, `customer_counterparty_id`, `effective_from`, `effective_to` | `EXCLUDE (user_id =, customer_counterparty_id =, range &&)`; idx(`customer_counterparty_id`) `WHERE effective_to IS NULL` | `user_id ↓platform users(id)`; `customer_counterparty_id ↓base whb_counterparties` | `FR-464` | v2 |
 | `wh_working_calendars` | Per-warehouse and per-client working days, cut-offs and holidays. **Used by the same code that computes promised dates and SLA clocks.** The sites and clients a calendar applies to are `wh_working_calendar_assignments`; cut-offs and exceptions layer over the `REGISTERED` branch's platform holiday assignment, read-only (`RG-017`, `RH-011`) | `code`, `name`, `timezone`, `is_default` | uk(`code`) | — | `FR-181` | v2 |
 | `wh_working_calendar_assignments` | **Which sites and clients a calendar applies to** — the more specific assignment wins, and the resolution is logged (`RG-017`) | `calendar_id`, `warehouse_id`, `owner_id` (both nullable), `effective_from`, `effective_to` | `EXCLUDE (calendar_id =, warehouse_id =, owner_id =, range &&)`, nullable members per §1.3 rule 2 | `calendar_id → wh_working_calendars`; ↓base `warehouse_id`, `owner_id` | `FR-181` | v2 |
 | `wh_working_calendar_days` | Per-day open/close, cut-off, holiday | `calendar_id`, `day_kind` (`WEEKDAY`/`DATE`), `day_ref`, `is_open`, `open_time`, `close_time`, `cutoff_time`, `note` | uk(`calendar_id`,`day_kind`,`day_ref`) | as named | `FR-181` | v2 |
@@ -1407,11 +1420,11 @@ writing `whb_stock_movements` directly (`FR-436`, `D-11` B5). A `wh_` table ther
 | `wh_rmas` | The optional authorisation | `rma_number`, `customer_counterparty_id`, `original_demand_order_id`, `rma_reason_code_id`, `expected_condition_code`, `rma_date`, `expiry_date`, `status`, `external_ref` | ↓base | `FR-269` | v1 |
 | `wh_rma_lines` | | `rma_id`, `line_no`, `item_id`, `quantity`, `original_serial_number`, `original_lot_code` | ↓base | `FR-269` | v1 |
 | `wh_return_gradings` | Grading **at the point of receipt**, with photographs | `return_receipt_line_id`, `condition_code`, `grade_note`, `graded_by`, `graded_at`, `photo_document_id`, `disposition_code` | `photo_document_id ↓platform documents(id)` | `FR-272` | v2 |
-| `wh_obsolescence_returns` | OEM obsolescence: an authorisation with a window, an allowance and a claim | `claim_number`, `supplier_counterparty_id`, `authorisation_ref`, `window_from`, `window_to`, `allowance_amount`, `claimed_amount`, `settled_amount`, `status` | ↓base | `FR-276` | v2 |
-| `wh_obsolescence_return_lines` | | `claim_id`, `item_id`, `quantity`, `unit_cost`, `is_eligible`, `ineligibility_reason` | ↓base | `FR-276` | v2 |
+| `wh_obsolescence_returns` | **REMOVED by `D-16` (`P7-07`) — historical row, no table is created.** OEM obsolescence: an authorisation with a window, an allowance and a claim | `claim_number`, `supplier_counterparty_id`, `authorisation_ref`, `window_from`, `window_to`, `allowance_amount`, `claimed_amount`, `settled_amount`, `status` | ↓base | `FR-276` | v2 |
+| `wh_obsolescence_return_lines` | **REMOVED by `D-16` (`P7-07`) — historical row, no table is created.** | `claim_id`, `item_id`, `quantity`, `unit_cost`, `is_eligible`, `ineligibility_reason` | ↓base | `FR-276` | v2 |
 | `wh_recalls` | **Quarantine matching on-hand stock in place**, then list every shipment that carried the lot | `recall_number`, `item_id`, `lot_id`, `recall_class`, `initiated_at`, `initiated_by`, `regulator_reference`, `status`, `quarantine_movement_id` (bare) | ↓base | `FR-280` | v2 |
 | `wh_recall_lines` | Affected shipment/consignee and the notification state | `recall_id`, `shipment_id`, `consignee_counterparty_id`, `quantity`, `notified_at`, `response_status` | as named | `FR-280` | v2 |
-| `wh_marketplace_claims` | The **return-claim window** as a queue with an owner and a due date. `BUILD-SPEC-SCREENS.md` §1 allocates no screen to it and `IMPLEMENTATION-PLAN.md` §2 allocated no table — `P5-13` closes both. **The due date is computed at receipt from the per-channel window and is never edited afterwards** | `return_receipt_id`, `channel_id`, `channel_account_id`, `claim_reference`, `claim_window_days`, `due_date`, `claimed_amount`, `restocking_fee_amount`, `eligibility_code`, `status`, `submitted_at`, `settled_at` | ↓base `channel_id → whb_channels`; `return_receipt_id → wh_return_receipts` | `FR-272` `FR-276` `FR-279` | v2 |
+| `wh_marketplace_claims` | **REMOVED by `D-16` (`P7-05`) — historical row, no table is created.** The **return-claim window** as a queue with an owner and a due date. `BUILD-SPEC-SCREENS.md` §1 allocates no screen to it and `IMPLEMENTATION-PLAN.md` §2 allocated no table — `P5-13` closes both. **The due date is computed at receipt from the per-channel window and is never edited afterwards** | `return_receipt_id`, `channel_id`, `channel_account_id`, `claim_reference`, `claim_window_days`, `due_date`, `claimed_amount`, `restocking_fee_amount`, `eligibility_code`, `status`, `submitted_at`, `settled_at` | ↓base `channel_id → whb_channels`; `return_receipt_id → wh_return_receipts` | `FR-272` `FR-276` `FR-279` | v2 |
 | `wh_supplier_claims` | **One** supplier claim register, not three. Short-shipment, damage-in-transit and obsolescence all raise the same object against the same supplier with the same status ladder and the same settlement — `wh_obsolescence_returns` above stays as the *authorisation* for the obsolescence case and points at a claim here (`FR-459`, `E-081`) | `claim_number`, `supplier_counterparty_id`, `claim_type` (`SHORT_SHIPMENT`/`DAMAGE_IN_TRANSIT`/`QUALITY_REJECT`/`OBSOLESCENCE`/`PRICE`), `source_document_type`, `source_document_id`, `claim_date`, `claimed_value`, `currency_code`, `status` (`DRAFT`/`SUBMITTED`/`ACKNOWLEDGED`/`APPROVED`/`PART_APPROVED`/`REJECTED`/`SETTLED`/`WITHDRAWN`), `settled_value`, `settlement_mode` (`CREDIT_NOTE`/`REPLACEMENT`/`CASH`/`WRITE_OFF`), `settlement_ref`, `settled_at`, `ageing_bucket_at_close` | uk(`claim_number`); idx(`supplier_counterparty_id`,`status`); idx(`claim_date`) | `supplier_counterparty_id → whb_counterparties`; ↓base | `FR-459` | v2 |
 | `wh_supplier_claim_lines` | The item, the quantity and the value claimed, traced to the receipt line that evidences it | `claim_id`, `line_no`, `item_id`, `quantity`, `uom_code`, `unit_value`, `line_value`, `receipt_line_id`, `lot_id`, `serial_id`, `approved_quantity`, `approved_value`, `rejection_reason` | uk(`claim_id`,`line_no`) | `claim_id → wh_supplier_claims`; ↓base | `FR-459` | v2 |
 
@@ -1465,6 +1478,100 @@ mistake with its issue numbers; a filter-aware statistic behind a `statistics.*`
 unfiltered number to a filtered grid (`FR-395`).
 
 ---
+
+#### 2.2.7 Manufacturing stores — PO schedules, gate, bill, sampling, MRN, requisition, issue, return (`D-16`, P8)
+
+| Table | Purpose | Key columns | Keys / indexes | FKs | FR | Ver |
+|---|---|---|---|---|---|---|
+| `wh_purchase_order_schedule_lines` | PO delivery schedule — firm/forecast quantities per PO line with open quantity (`P8-01`, `V510400`, WS-275) | `po_line_id`, `schedule_no`, `kind` (`FIRM`/`FORECAST`, no CHECK), `scheduled_date`, `scheduled_quantity` (CHECK > 0), `received_quantity`, `cancelled_quantity`, `status` (default `OPEN`), `release_ref`, `closed_reason_code_id`, `version` | uk(`po_line_id`,`schedule_no`); idx(`scheduled_date`) WHERE `status IN ('OPEN','PARTIALLY_RECEIVED')` | `po_line_id → wh_purchase_order_lines` ON DELETE CASCADE; `closed_reason_code_id ↓base whb_reason_codes` | `FR-500` `FR-501` `FR-502` `FR-503` `FR-504` | v1.1 |
+| `wh_goods_receipt_line_schedule_allocations` | Receipt → schedule-line allocation, oldest firm line first (`POS-T4-02`); reversal stamps `reversed_at` (`P8-01`, `V510400`) | `grn_line_id`, `schedule_line_id`, `quantity` (CHECK > 0), `reversed_at` | uk(`grn_line_id`,`schedule_line_id`) | `grn_line_id → wh_goods_receipt_lines`; `schedule_line_id → wh_purchase_order_schedule_lines` | `FR-500` `FR-501` `FR-502` `FR-503` `FR-504` | v1.1 |
+| `wh_demand_order_schedule_lines` | Customer delivery schedule per demand line; only firm in-horizon quantity is allocated, forecast never reserves (`P8-02`, `V510401`, WS-276) | `demand_line_id`, `schedule_no`, `kind` (`FIRM`/`FORECAST`), `requested_date`, `quantity` (> 0), `allocated_quantity`, `shipped_quantity`, `cancelled_quantity`, `status` (`OPEN`/`PARTIALLY_SHIPPED`/`SHIPPED`/`CANCELLED`, no CHECK), `release_ref` | uk(`demand_line_id`,`schedule_no`) | `demand_line_id → wh_demand_order_lines` ON DELETE CASCADE | `FR-505` | v1.1 |
+| `wh_gate_entries` | Gate entry register, inward / outward, gapless `GE` number (`P8-03`, `V510402`, WS-260/261) | `gate_entry_number`, `warehouse_id`, `gate_code`, `direction` (`IN`/`OUT`, closed CHECK), `purpose_list`+`purpose` (`GATE_PURPOSE`), `party_counterparty_id`, `party_name_text`, `vehicle_number`, `vehicle_number_normalised`, `driver_name`, `driver_mobile`, `transporter_counterparty_id`, `transporter_name_text`, `lr_number`, `security_officer_id`, `entered_at`, `exit_proposed_at`, `exited_at`, `turned_back_at`, `turn_back_reason_code_id`, `cancel_reason_code_id`, `cancel_note`, `status` (default `OPEN`, no CHECK), `remarks`, `version` | uk(`warehouse_id`,`gate_entry_number`); idx(`warehouse_id`,`entered_at` DESC); idx(`vehicle_number_normalised`,`status`); CHECK `exited_at IS NULL OR exited_at >= entered_at`; deferred gapless-assert trigger | ↓base `warehouse_id`, `party_counterparty_id → whb_counterparties`, composite code-list FK; `security_officer_id ↓platform users` | `FR-507` `FR-508` `FR-509` `FR-510` `FR-511` | v1.1 |
+| `wh_gate_entry_documents` | Documents presented at the gate — PO, ASN, supplier bill, outward document (`P8-03`, `V510402`) | `gate_entry_id`, `document_type` (`PO`/`ASN`/`SUPPLIER_BILL`/`OUTWARD_DOCUMENT`), `po_id`, `asn_id`, `bill_type_list`+`bill_type` (`SUPPLIER_DOCUMENT_TYPE`), `bill_number`, `bill_date`, `bill_amount` `DECIMAL(19,4)`, `eway_bill_number`, `outward_document_type`, `outward_document_id` (polymorphic, resolver-validated) | CHECK exactly the columns of its type are set | `gate_entry_id → wh_gate_entries`; `po_id → wh_purchase_orders`; `asn_id → wh_asns` | `FR-507` `FR-508` `FR-509` `FR-510` `FR-511` | v1.1 |
+| `wh_gate_passes` | Returnable / non-returnable gate pass (RGP/NRGP), gapless `GP` number; never posts a movement (`STO-D4`) (`P8-03`, `V510402`, WS-262/263) | `gate_pass_number`, `warehouse_id`, `kind` (`RETURNABLE`/`NON_RETURNABLE`, closed CHECK), `purpose_list`+`purpose` (`GATE_PASS_PURPOSE`), `party_counterparty_id`, `party_name_text`, `expected_return_date`, `approx_value` `DECIMAL(19,4)`, `currency_code`, `status` (default `DRAFT`), `approved_by/at`, `out_gate_entry_id`, `gated_out_at`, `returned_at`, `closed_by/at`, `close_reason_code_id`, `cancel_reason_code_id`, `remarks`, `version` | uk(`warehouse_id`,`gate_pass_number`); CHECK `expected_return_date` required when `RETURNABLE` | `out_gate_entry_id → wh_gate_entries`; ↓base | `FR-512` `FR-513` `FR-514` `FR-515` | v1.1 |
+| `wh_gate_pass_lines` | Gate-pass line — item or free description, quantity out, returned / closed counters (`P8-03`, `V510402`) | `gate_pass_id`, `line_no`, `item_id` (nullable), `description`, `quantity_out` (> 0), `uom_code`, `serial_or_tag`, `approx_value`, `source_document_type`, `source_document_id`, `source_document_ref`, `returned_quantity`, `closed_quantity` | CHECK `item_id IS NOT NULL OR description IS NOT NULL`; CHECK `returned_quantity + closed_quantity <= quantity_out` | `gate_pass_id → wh_gate_passes`; ↓base `item_id`, `uom_code`; source document via `GatePassSourceResolver` (no FK) | `FR-512` `FR-513` `FR-514` `FR-515` | v1.1 |
+| `wh_gate_pass_returns` | Returns received against an RGP line, through an inward gate entry (`P8-03`, `V510402`) | `gate_pass_line_id`, `in_gate_entry_id`, `quantity` (> 0), `condition_list`+`condition_code` (`RETURN_CONDITION`), `remarks`, `returned_at` | — | `gate_pass_line_id → wh_gate_pass_lines`; `in_gate_entry_id → wh_gate_entries` | `FR-512` `FR-513` `FR-514` `FR-515` | v1.1 |
+| `wh_goods_receipt_bills` | Supplier bill(s) on a GRN; duplicate guard per supplier per FY on live bills (`P8-04`, `V510403`) | `grn_id`, `bill_type_list`+`bill_type` (`SUPPLIER_DOCUMENT_TYPE`), `bill_number`, `bill_number_normalised`, `bill_date`, `bill_amount` `DECIMAL(19,4)`, `currency_code`, `eway_bill_number`, `is_primary`, `is_supplementary`, `fiscal_year`, `supplier_counterparty_id`, `is_live` | partial uk(`grn_id`) WHERE `is_primary`; partial uk(`supplier_counterparty_id`,`fiscal_year`,`bill_number_normalised`) WHERE `is_live` | `grn_id → wh_goods_receipts` ON DELETE CASCADE; ↓base | `FR-516` `FR-517` `FR-518` `FR-519` `FR-520` | v1.1 |
+| `wh_goods_receipt_bill_lines` | Billed quantity per GRN line on a supplementary bill only (`P8-04`, `V510403`) | `bill_id`, `grn_line_id`, `billed_quantity` (> 0) | — | `bill_id → wh_goods_receipt_bills`; `grn_line_id → wh_goods_receipt_lines` | `FR-516` `FR-517` `FR-518` `FR-519` `FR-520` | v1.1 |
+| `wh_sampling_schemes` | Configurable sampling scheme, versioned copy-on-write once used; seeds `CLIENT-DEFAULT` and the system `Z14-GII-AQL-<aql>` family (`P8-05`, `V510404`, WS-264) | `code`, `name`, `standard_reference`, `version_no`, `supersedes_id`, `is_system`, `is_active`, `status`, `version` | uk(`code`,`version_no`) | `supersedes_id → wh_sampling_schemes` | `FR-521` `FR-522` `FR-523` `FR-524` | v1.1 |
+| `wh_sampling_scheme_bands` | Lot-size bands of a scheme — sample size or percent, Ac/Re (`P8-05`, `V510404`) | `scheme_id`, `lot_from` (>= 1), `lot_to` (null = open), `sample_size`, `sample_percent` `DECIMAL(9,6)`, `accept_number`, `reject_number` | uk(`scheme_id`,`lot_from`); CHECK `num_nonnulls(sample_size, sample_percent) = 1`; CHECK `lot_to IS NULL OR lot_to >= lot_from`; CHECK `accept_number < reject_number` when both set; deferred contiguity trigger (`IIS-GRD-01`) | `scheme_id → wh_sampling_schemes` ON DELETE CASCADE | `FR-521` `FR-522` `FR-523` `FR-524` | v1.1 |
+| `wh_material_receipt_notes` | MRN — authorised by a second person; stock held `MRN_PENDING` until then; gapless `MRN` number (`P8-08`, `V510407`, WS-266/267) | `mrn_number`, `warehouse_id`, `grn_id`, `supplier_counterparty_id`, `status` (default `DRAFT`, no CHECK), `remarks`, `submitted_by/at`, `authorised_by/at`, `rejected_by/at`, `rejection_note`, `cancel_reason_code_id`, `cancel_note`, `alert_raised_at`, `version` | uk(`warehouse_id`,`mrn_number`); idx(`grn_id`); idx(`status`) WHERE `status = 'SUBMITTED'` | `grn_id → wh_goods_receipts`; ↓base | `FR-527` `FR-538` | v1.1 |
+| `wh_material_receipt_note_lines` | MRN line — copied GRN-line quantity facts and the authorised quantity; one live MRN line per GRN-line quantity is a service sum check under a GRN lock (`P8-08`, `V510407`) | `mrn_id`, `line_no`, `grn_line_id`, `item_id`, `lot_id`, `uom_code`, `billed_quantity`, `received_quantity`, `accepted_quantity`, `rejected_quantity`, `quantity_authorisable` (> 0), `quantity_authorised`, `unit_price` `DECIMAL(19,6)`, `line_value` `DECIMAL(19,4)`, `inspection_id`, `status_change_movement_id` | — | `mrn_id → wh_material_receipt_notes`; `grn_line_id → wh_goods_receipt_lines`; ↓base | `FR-527` `FR-538` | v1.1 |
+| `wh_cost_centres` | Cost-centre / machine / project master behind the cost-object seam (`P8-09`, `V510408`, WS-273) | `code` (upper-cased), `name`, `kind` (`COST_CENTRE`/`MACHINE`/`PROJECT`, closed, default `COST_CENTRE`), `company_id`, `department_id`, `parent_id`, `external_ref` (`OD-27`), `is_active`, `status`, `version` | uk(`company_id`,`code`) | `company_id ↓base whb_companies`; `department_id ↓platform departments`; `parent_id → wh_cost_centres` | `FR-533` | v1.1 |
+| `wh_material_requisitions` | Material requisition (indent) for a department / cost object; not a demand order (`STO-D9`); gapless `MRQ` number (`P8-09`, `V510408`, WS-268/269) | `requisition_number`, `company_id`, `warehouse_id`, `department_id`, `cost_object_type_list`+`cost_object_type`, `cost_object_id`, `cost_object_ref` (frozen), `purpose_list`+`purpose`, `requested_by`, `required_by_date`, `priority`, `status` (no CHECK), `submitted_by/at`, `first_approved_by/at`, `approved_by/at`, `approval_note`, `closed_by/at`, `close_reason_code_id`, `cancel_reason_code_id`, `cancel_note`, `completed_at`, `source_module`, `source_document_type`, `source_document_id`, `source_document_ref`, `idempotency_key`, `request_fingerprint`, `estimated_value` `DECIMAL(19,4)`, `alert_raised_at`, `notes`, `version` | uk(`warehouse_id`,`requisition_number`); idx(`department_id`,`status`); idx(`warehouse_id`,`status`,`required_by_date`) | `department_id ↓platform departments`; `requested_by ↓platform users`; composite code-list FKs ↓base; `source_document_id` bare | `FR-528` `FR-529` `FR-530` `FR-531` `FR-532` | v1.1 |
+| `wh_material_requisition_lines` | Requisition line — per-line approval, reservation, partial issue, closure (`P8-09`, `V510408`) | `requisition_id`, `line_no`, `item_id`, `uom_code`, `conversion_factor_used`, `requested_quantity` (> 0), `approved_quantity`, `issued_quantity`, `returned_quantity`, `closed_quantity`, `cancelled_quantity`, `line_status` (no CHECK), `required_date`, `cost_object_type_list`/`cost_object_type`/`cost_object_id`/`cost_object_ref` (nullable = inherit header), `remarks`, `reservation_id` | CHECK `approved_quantity IS NULL OR approved_quantity <= requested_quantity`; CHECK `issued_quantity + closed_quantity <= COALESCE(approved_quantity, 0)` | `requisition_id → wh_material_requisitions` ON DELETE CASCADE; ↓base | `FR-528` `FR-529` `FR-530` `FR-531` `FR-532` | v1.1 |
+| `wh_material_requisition_line_handoffs` | Back-to-back purchase-requisition hand-off record through the optional `PurchaseRequisitionHandoff` bean (`P8-09`, `V510408`) | `requisition_line_id`, `quantity` (> 0), `target_module`, `target_document_type`, `target_document_id`, `target_document_ref`, `raised_by/at` | — | `requisition_line_id → wh_material_requisition_lines`; no FK upward | `FR-528` `FR-529` `FR-530` `FR-531` `FR-532` | v1.1 |
+| `wh_material_requisition_issue_queue` | **Grid id, not a stored table** — WS-274 issue queue, one row per open requisition line, backend-computed (`P8-09`, grid seeded in `V511408`) | `requisitionNumber`, `departmentName`, `itemCode`, `itemName`, `openToIssue`, `available`, `reserved`, `short`, `requiredByDate`, `ageDays`, `priority` | — | reads `wh_material_requisitions`, `wh_material_requisition_lines` | `FR-528` `FR-529` `FR-530` `FR-531` `FR-532` | v1.1 |
+| `wh_store_issues` | Store issue to `VIRT-CONSUMED` / `VIRT-PRODUCTION`; posted issue immutable, never reversed (`STO-D11`); gapless `SIS` number (`P8-10`, `V510409`, WS-270/271) | `issue_number`, `company_id`, `warehouse_id`, `requisition_id` (nullable — direct issue), `department_id`, `issued_to_user_id`, `issued_to_name`, `status` (no CHECK), `issue_movement_id`, `posted_by/at`, `acknowledged_by_name`, `acknowledged_at`, `acknowledgement_document_id`, `cancel_reason_code_id`, `cancel_note`, `notes`, `version` | uk(`warehouse_id`,`issue_number`); idx(`requisition_id`); idx(`warehouse_id`,`posted_at` DESC) | `requisition_id → wh_material_requisitions`; `department_id ↓platform departments`; `issued_to_user_id ↓platform users`; `acknowledgement_document_id ↓platform documents` | `FR-533` `FR-535` | v1.1 |
+| `wh_store_issue_lines` | Issue line carrying the cost object (`RN-034`; the ledger gains no column, `SIR-UNR-01`) (`P8-10`, `V510409`) | `issue_id`, `line_no`, `requisition_line_id`, `item_id`, `uom_code`, `conversion_factor_used`, `quantity` (> 0), `location_id`, `stock_status_code` (default `AVAILABLE`), `lot_id`, `lpn_id`, `cost_object_type_list`+`cost_object_type`, `cost_object_id`, `cost_object_ref`, `counter_location_purpose`, `unit_cost` `DECIMAL(19,6)`, `line_value` `DECIMAL(19,4)`, `returned_quantity` | CHECK `returned_quantity <= quantity`; idx(`cost_object_type`,`cost_object_id`); idx(`item_id`) | `issue_id → wh_store_issues` ON DELETE CASCADE; `requisition_line_id → wh_material_requisition_lines`; `location_id ↓base whb_locations`; ↓base | `FR-533` `FR-535` | v1.1 |
+| `wh_store_issue_line_serials` | Serials issued on a store-issue line (`P8-10`, `V510409`) | `issue_line_id`, `serial_id` | uk | `issue_line_id → wh_store_issue_lines`; `serial_id ↓base whb_serials` | `FR-533` `FR-535` | v1.1 |
+| `wh_store_returns` | Store return linked to a store issue, posted as `ISSUE_RETURN`; gapless `SRN` number (`P8-11`, `V510410`, WS-272) | `return_number`, `company_id`, `warehouse_id`, `store_issue_id`, `department_id`, `return_location_id`, `status` (no CHECK), `submitted_by/at`, `received_by/at`, `return_movement_id`, `rejected_by/at`, `reject_note`, `cancel_reason_code_id`, `cancel_note`, `notes`, `version` | uk(`warehouse_id`,`return_number`) | `store_issue_id → wh_store_issues`; `return_location_id ↓base whb_locations` | `FR-536` `FR-537` | v1.1 |
+| `wh_store_return_lines` | Return line valued at the original issue cost; cost object copied and frozen (`SIR-UNR-03`) (`P8-11`, `V510410`) | `return_id`, `line_no`, `store_issue_line_id`, `item_id`, `uom_code`, `quantity` (> 0), `lot_id`, `condition_list`+`condition_code` (`RETURN_CONDITION`), `reason_code_id`, `cost_object_type`/`cost_object_id`/`cost_object_ref` (copied), `unit_cost` `DECIMAL(19,6)` (copied), `target_status_code`, `inspection_id` | — | `return_id → wh_store_returns` ON DELETE CASCADE; `store_issue_line_id → wh_store_issue_lines`; `reason_code_id ↓base whb_reason_codes` | `FR-536` `FR-537` | v1.1 |
+| `wh_store_return_line_serials` | Serials returned on a store-return line (`P8-11`, `V510410`) | — (columns not listed in the task) | — | `→ wh_store_return_lines` | `FR-536` `FR-537` | v1.1 |
+
+#### 2.2.8 Columns P8 adds to existing tables
+
+| Table | Column change | Task | FR | Ver |
+|---|---|---|---|---|
+| `wh_purchase_orders` | + `po_type` (`FIXED`/`OPEN`/`BLANKET_RELEASE`, default `FIXED`, no CHECK), `valid_from`, `valid_to` (CHECK from ≤ to), `agreement_ref`, `source_module`, `source_document_type`/`_id`/`_ref` (no FK), `idempotency_key`, `request_fingerprint` (CHECK `^[0-9a-f]{64}$`), `revision_no`, `approval_source` (`IN_MODULE`/`SOURCE_MODULE`); partial uk(`source_module`,`idempotency_key`) — `V510400` | `P8-01` | `FR-500` `FR-501` `FR-502` `FR-503` `FR-504` | v1.1 |
+| `wh_purchase_order_lines` | `ordered_quantity` DROP NOT NULL, CHECK → `ordered_quantity IS NULL OR > 0`; `line_total` DROP NOT NULL; + `rate_source` (default `MANUAL`), `rate_source_ref`, `agreement_line_ref`, `scheduled_quantity`; CHECK `rate_source <> 'AGREEMENT' OR rate_source_ref IS NOT NULL` — `V510400` | `P8-01` | `FR-500` `FR-501` `FR-502` `FR-503` `FR-504` | v1.1 |
+| `wh_demand_orders` | + `source_module`, `source_document_type`/`_id`/`_ref`, `sales_order_ref`, `customer_po_ref`, `customer_po_date`, `revision_no`; idempotency partial uk widened to (`source_module`,`idempotency_key`) via `COALESCE(source_module,'')` — `V510401` | `P8-02` | `FR-505` | v1.1 |
+| `wh_receiving_sessions` | + `gate_entry_id → wh_gate_entries`, partial uk(`gate_entry_id`) WHERE `status <> 'CANCELLED'`; `gate_pass_ref` kept, relabelled (`STO-D3`) — `V510402` | `P8-03` | `FR-507` `FR-508` `FR-509` `FR-510` `FR-511` | v1.1 |
+| `wh_weighing_records` | `subject_type` CHECK replaced to add `GATE_ENTRY` — `V510402` | `P8-03` | `FR-507` `FR-508` `FR-509` `FR-510` `FR-511` | v1.1 |
+| `wh_goods_receipts` | + `gate_entry_id → wh_gate_entries` (nullable) — `V510403` | `P8-04` | `FR-516` `FR-517` `FR-518` `FR-519` `FR-520` | v1.1 |
+| `wh_goods_receipt_lines` | + `billed_quantity` (nullable), `excess_accepted_quantity`, `excess_refused_quantity`, `excess_refused_reason_code_id → whb_reason_codes`, `excess_approved_by → users`, `excess_approved_at`, `excess_approval_note`; CHECK → `accepted + rejected <= received - excess_refused`, + `excess_accepted + excess_refused <= received`, + `billed_quantity IS NULL OR >= 0` — `V510403` | `P8-04` | `FR-516` `FR-517` `FR-518` `FR-519` `FR-520` | v1.1 |
+| `wh_inspection_plans` | + `sampling_scheme_id → wh_sampling_schemes`, `fixed_sample_quantity`, `sample_percent` `DECIMAL(9,6)`, `min_sample_quantity`, `inspection_level` (default `II`); sample-size-formula CHECK adds `BAND_TABLE`; per-formula CHECKs — `V510404` | `P8-05` | `FR-521` `FR-522` `FR-523` `FR-524` | v1.1 |
+| `wh_inspection_plan_assignments` | Specified in `V510404`: `scope_type` (5 scopes, closed), `scope_rank`, `item_id`, `category_id → whb_item_categories`, `supplier_counterparty_id`, `plan_id` (nullable), `no_inspection`, `effective_from`, `effective_to`; CHECK `(plan_id IS NOT NULL) <> no_inspection`; EXCLUDE gist on scope + daterange (table already registered for `P1-14`/`V510220`, v2) | `P8-05` | `FR-521` `FR-522` `FR-523` `FR-524` | v1.1 |
+| `wh_quality_inspections` | + `plan_assignment_id`, `sampling_scheme_id` — `V510404` | `P8-05` | `FR-521` `FR-522` `FR-523` `FR-524` | v1.1 |
+| `wh_quality_inspection_lines` | + `sample_size_proposed`, `accept_number`, `reject_number`, `defective_count`, `lot_verdict_proposed`, `lot_verdict` (`ACCEPT_LOT`/`REJECT_LOT`), `lot_verdict_override_reason`, `destructive_quantity`, `destructive_movement_id`; CHECK `destructive_quantity <= inspected_quantity` — `V510404` | `P8-05` | `FR-521` `FR-522` `FR-523` `FR-524` | v1.1 |
+| `wh_quality_inspections` | `grn_id` DROP NOT NULL (FK kept); + `source_type_list`/`source_type` (`QC_SOURCE_TYPE`, default `GOODS_RECEIPT`), `source_document_id`, `source_document_ref`, `inspection_stage_list`/`inspection_stage` (default `INCOMING`), `warehouse_id`, `stock_bearing`; CHECK `source_type <> 'GOODS_RECEIPT' OR grn_id IS NOT NULL`; idx(`source_type`,`source_document_id`) — `V510405` | `P8-06` | `FR-525` | v1.1 |
+| `wh_quality_inspection_lines` | `grn_line_id` DROP NOT NULL; + `source_line_id`, `item_id`, `lot_id`, `held_location_id`, `held_status_code`, `owner_id`, `outcome_list`/`outcome_code` (`INSPECTION_OUTCOME`); uk → (`inspection_id`,`source_line_id`); CHECK `grn_line_id IS NULL OR = source_line_id`; CHECK `outcome_code IS NULL OR disposition_code IS NULL` — `V510405` | `P8-06` | `FR-525` | v1.1 |
+| `wh_supplier_returns` | + `origin_inspection_id → wh_quality_inspections` (nullable, derived) — `V510406` | `P8-07` | `FR-526` | v1.1 |
+| `wh_supplier_return_lines` | + `origin_inspection_line_id → wh_quality_inspection_lines` (nullable), idx — `V510406` | `P8-07` | `FR-526` | v1.1 |
+| `wh_rmas` | + `source_module`, `source_document_type`/`_id`/`_ref`, `idempotency_key`, `request_fingerprint` (CHECK `^[0-9a-f]{64}$`); partial uk(`source_module`,`idempotency_key`); no FK upward — `V510412` | `P8-15` | `FR-506` | v1.1 |
+| `wh_supplier_returns` | + `intent_list` (default `SUPPLIER_RETURN_INTENT`), `intent_code` (`REPLACE`/`CREDIT`/`NO_ACTION`, default `NO_ACTION`, composite FK) — `V510412` | `P8-15` | `FR-506` | v1.1 |
+| `wh_replenishment_runs` | `run_type` CHECK → `IN ('MANUAL','SCHEDULED','EXTERNAL')`; `run_by` CHECK treats `EXTERNAL` like `MANUAL` — `V510413` | `P8-16` | `FR-528` | v1.1 |
+| `wh_replenishment_suggestions` | + `origin_list` (default `REPLENISHMENT_ORIGIN`), `origin` (`REORDER`/`MRP`, default `REORDER`, composite FK), `origin_document_type`, `origin_document_id` (bare), `need_date`; `reorder_point` DROP NOT NULL + CHECK `origin <> 'REORDER' OR reorder_point IS NOT NULL`; partial uk(`origin`,`origin_document_id`) WHERE `origin <> 'REORDER' AND status <> 'REJECTED'` — `V510413` | `P8-16` | `FR-528` | v1.1 |
+| `whb_stock_statuses` | + row `MRN_PENDING` (on-hand, not ATP/allocatable/pickable/shippable, countable) — `V500302` | `P8-08` | `FR-527` | v1.1 |
+| `whb_movement_types` | + row `ISSUE_RETURN` (`IN`, financial, `ACTUAL`, `MUST_BALANCE_PER_OWNER_ITEM`, requires reason) — `V500305` | `P8-11` | `FR-536` `FR-537` | v1.1 |
+| `whb_document_types` | + rows `GATE_ENTRY`, `GATE_PASS` (`V510402`), `MATERIAL_RECEIPT_NOTE` (`V500302`), `MATERIAL_REQUISITION` (`V500303`), `STORE_ISSUE` (`V500304`), `STORE_RETURN` (`V500305`) | `P8-03` `P8-08` `P8-09` `P8-10` `P8-11` | `FR-507` `FR-527` `FR-528` `FR-533` `FR-536` | v1.1 |
+
+#### 2.2.9 Removed by `D-16` — the P7 register (`FRD-REM.md`, `RN-050`, `RN-051`)
+
+No table below is created on a fresh install; the migration files that created them are deleted or
+rewritten in place (`RN-052`, `FRD-REM.md` Appendix B). Rows that §2 still shows are marked **REMOVED** and kept
+only as the historical record.
+
+| Table | Removed by | FR |
+|---|---|---|
+| `wh_awb_pools`, `wh_awb_numbers` | `P7-02` (`V510205`, `V511277` deleted) | `FR-480` |
+| `wh_carrier_serviceability`, `wh_rate_quotes` | `P7-02` (`V510204` rewritten) | `FR-481` |
+| `wh_shipment_ndrs`, `wh_ndr_actions` | `P7-03` (`V510206` deleted) | `FR-482` |
+| `wh_cod_remittances`, `wh_cod_remittance_lines` | `P7-03` (`V510207` deleted) | `FR-483` |
+| `wh_tracking_links`, `wh_tracking_notification_rules`, `wh_tracking_notifications` | `P7-03` (`V510209`, `V511274` deleted) | `FR-485` |
+| `wh_channel_accounts`, `wh_channel_account_warehouses`, `wh_channel_order_imports`, `wh_channel_publish_rules`, `wh_channel_publish_rule_stock_statuses`, `wh_channel_publish_logs` | `P7-04` (`V510208` deleted) | `FR-484` |
+| `wh_marketplace_claims` | `P7-05` (`V510215` deleted) | `FR-486` |
+| `wh_rto_consignments` | `P7-05` (`V510050` rewritten) | `FR-487` |
+| `wh_obsolescence_returns`, `wh_obsolescence_return_lines` | `P7-07` | `FR-490` |
+| `wh_trade_portal_users` | `P7-08` (`V510221` deleted) | `FR-491` |
+| `whb_category_stocking_ownership`, `whb_external_stock_snapshots` | `P7-09` (`V500053` deleted) | `FR-492` |
+| `whad_*` (10), `whas_*` (5) — §2.5.1, §2.5.2 | adapters deleted 2026-09-21, never rebuilt | `RN-051` |
+
+**Columns dropped** (the table stays): `whb_item_categories.is_dual_eligible` (`P7-09`, `REM-D7`) ·
+`wh_carrier_services.supports_cod` (`P7-03`, `OD-22`) · `wh_carriers` NDR and COD clock columns (`ndr_*`,
+`cod_remittance_days`; `P7-03`, `REM-D14`) · `wh_demand_orders.payment_mode`, `.cod_amount`, `.channel_account_id`
+and its unique index (`P7-04`, `FR-483`, `FR-484`).
+
+**Renamed in storage** (`P7-11`, `REM-D5`, `FR-496`, `FR-497`): code `VOR` → `LINE_STOP` in
+`chk_wh_purchase_orders_order_source`; `WAREHOUSE_TYPE` `WORKSHOP` → `PRODUCTION_STORE`; identifier type
+`OEM_PART_NUMBER` → `MANUFACTURER_PART_NUMBER`; grid / permission resource `wh_rpt_parts_kpis` → `wh_rpt_stock_kpis`
+(§8.3). **Kept:** `whb_channels` and every `channel_id` (`B2B` kind only, `REM-D2`); `wh_carrier_accounts.payment_mode`
+(`REM-D12`).
+
+The P7 grep gates name these **stems**, which are search patterns and not tables: `wh_awb_`, `wh_rate_quote`,
+`wh_cod_remittance`, `wh_tracking_link`, `wh_tracking_notification`, `wh_channel_account`, `wh_channel_order_import`,
+`wh_channel_publish`, `wh_marketplace_claim`, `wh_rto_consignment`, `wh_obsolescence_return`, `wh_trade_portal`,
+`whb_external_stock_snapshot`.
 
 ### 2.3 `warehouse-3pl` — `wh3_`, V530000–V539999, v2
 
@@ -1589,10 +1696,12 @@ a document type of its own.
 
 ### 2.5 The adapters — `whad_` `whas_` `whaf_` `whaa_`, V520000–V529999
 
+> **`D-16`:** only §2.5.5 (`whae_`, the CI example) and the §2.5.6 reservation are live. §2.5.1 and
+> §2.5.2 are **removed**; §2.5.3 and §2.5.4 are unscheduled.
+
 `D-11`: an adapter ships with **zero commits to `warehouse-base`**, enforced by an
 `ArchitectureInvariantsTest` in each module and by a `warehouse-adapter-example` reference adapter that
-CI builds. **Two adapters ship in v1, not one, because one adapter proves nothing about genericity**
-(`FR-352`, `D-11`, `E-006`).
+CI builds. *(Historical: two adapters were to ship in v1 — `FR-352`, `D-11`, `E-006`.)*
 
 **A correction to `D-3`'s illustrative example, stated rather than diverged from.** `D-3` gives
 `whad_part_supersessions` as the dealer adapter's worked example. `FR-071` places supersession chains
@@ -1602,7 +1711,11 @@ in **base** (`whb_item_supersessions`), and R6 `P-031` already flags the tension
 adapter's own tables are below. Recorded here because a reader comparing the two documents will
 otherwise think one is wrong.
 
-#### 2.5.1 `warehouse-adapter-dealer` — `whad_`, V520000–V520999, v1
+#### 2.5.1 `warehouse-adapter-dealer` — `whad_`, V520000–V520999, v1 — **REMOVED by `D-16`**
+
+> **Removed.** The dealer adapter was deleted on 2026-09-21 and is not rebuilt (`RN-051`). No `whad_`
+> table is created; the prefix and the `V520000`–`V520999` sub-band are retired and never reused. The
+> table below is kept only as the historical record.
 
 The adapter that **proves the port**: counter sale, workshop parts request, OEM order and core return.
 
@@ -1623,7 +1736,9 @@ The **`CORE` item type** and the core-bank **location** are ordinary base rows (
 `whb_locations`) — the adapter registers the item-type row from its own migration (`D-11` A6) and the
 location is created by the operator. Nothing about cores requires a base release.
 
-#### 2.5.2 `warehouse-adapter-services` — `whas_`, V521000–V521999, v1
+#### 2.5.2 `warehouse-adapter-services` — `whas_`, V521000–V521999, v1 — **REMOVED by `D-16`**
+
+> **Removed** with the services adapter; no `whas_` table is created and the sub-band is retired.
 
 **The largest consumer**, and the second adapter that proves genericity.
 
@@ -1687,6 +1802,256 @@ block claims its numbers on its own header. The reservation is real work in one 
 `FR-407` requires the `logistics:*` permission rows and their `permission_dependencies` to be
 **inserted in v1**, because retro-granting a permission invented in v2 to every existing role across
 every install is hand work. That insert is `WHB-71` in §7.2.
+
+### 2.6 `warehouse-trade` — `wht_`, V550000–V559999 (`D-16`, P9)
+
+`RN-053` / `D-16`: the **commercial document** — requisition, sourcing, contract, order, acknowledgement,
+amendment, evaluation, return authorisation — lives in trade; **execution** stays in core and is reached only
+through the `p8-01` (`WhPurchaseOrderPort`) and `p8-02` (`WhDemandOrderPort`) ports, so trade never writes
+`wh_purchase_orders` or `wh_demand_orders` (`TPO-UNR-01`, `TSO-UNR-01`). **FKs point down only** — every `wht_`
+FK targets `wht_`, `wh_`, `whb_` or platform tables (`p9-01` invariant (d)); no `wh_`/`whb_` migration references
+`wht_`. Every table: `id UUID`, `version BIGINT`, audit columns, `company_id` NOT NULL. **No JSONB**; status
+columns `VARCHAR(30)` with **no `CHECK`**. Precision (FRD-TRADE §8, core's `V510011` convention): money
+`DECIMAL(19,4)`, unit price `DECIMAL(19,6)`, quantity `DECIMAL(18,4)`, percent `DECIMAL(9,6)`.
+`V550000` (p9-01) creates **no table** — it only asserts platform, base and the core contract it consumes
+(`wh_purchase_orders.po_type`, `.source_module`, `wh_purchase_order_schedule_lines`,
+`wh_demand_orders.sales_order_ref`, `wh_demand_order_schedule_lines`). `V550011` (p9-02) is seed only;
+`V551000`–`V551199` are permissions / menus / grids per task; p9-14 (`V551140`/`V551141`) adds report grids
+`wht_rpt_*`, not tables. Column sets not restated in a task live in that task's contract §0.
+
+#### 2.6.1 Masters — profiles, AVL, customer item refs, T&C (p9-02, `V550010`)
+
+| Table | Purpose | Key columns | Keys / indexes | FKs | FR | Ver |
+|---|---|---|---|---|---|---|
+| `wht_supplier_profiles` | Supplier trade profile extension of the counterparty — **no second master** (no name, address, GSTIN, contact) | `counterparty_id`, `company_id`, `is_purchase_blocked` + block reason / by / at, MSME category, `udyam_registration_no` `VARCHAR(19)`, payment terms (recorded only — no due-date / payment column), `latest_grade_code` (p9-12) | uk(`company_id`,`counterparty_id`) | ↓base `counterparty_id → whb_counterparties`, `company_id → whb_companies` | `FR-541` `FR-542` | v1 |
+| `wht_customer_profiles` | Customer trade profile — mirror of the supplier profile | `counterparty_id`, `company_id`, `is_sales_blocked` + reason, customer category, default currency, payment terms (recorded), `default_ship_to_address_id`, `default_dispatch_warehouse_id`, `latest_grade_code` (p9-12) | uk(`company_id`,`counterparty_id`) | ↓base `counterparty_id`, `company_id`, `default_ship_to_address_id → whb_counterparty_addresses`, `default_dispatch_warehouse_id → whb_warehouses` | `FR-541` `FR-543` | v1 |
+| `wht_approved_vendor_items` | Approved vendor list per company × item (or category) × supplier, dated | `item_id` xor `item_category_id`, supplier, status code (`trade_avl_status`), validity date range | structural `CHECK` on the xor; `EXCLUDE USING gist` (company, coalesce(item, category), supplier, daterange) for approved rows; migration declares `btree_gist` | ↓base `item_id → whb_items`, `item_category_id → whb_item_categories` | `FR-544` | v1 |
+| `wht_customer_item_refs` | Customer-material info record — customer part number; never on `whb_item_external_refs` | customer, `item_id`, customer part number, drawing number, `drawing_revision`, part approval status | uk(company, customer, item, `drawing_revision`) | ↓base | `FR-545` | v1 |
+| `wht_terms_templates` | T&C template per company × document type | `company_id`, `document_type_code`, `name` | per contract §0 | ↓base `company_id` | `FR-584` | v1 |
+| `wht_terms_template_versions` | Versioned T&C body; documents freeze the version id | `version_no`, `body` TEXT, `effective_from`, `is_current` | per contract §0 | `→ wht_terms_templates` | `FR-584` | v1 |
+
+#### 2.6.2 Approval engine (p9-03, `V550020`)
+
+| Table | Purpose | Key columns | Keys / indexes | FKs | FR | Ver |
+|---|---|---|---|---|---|---|
+| `wht_approval_rules` | One matrix for every trade document type; no rule ⇒ refusal | `company_id`, `document_type_code` (FR-548 list, no CHECK), `warehouse_id`, `department_id`, `item_category_id`, `currency_code` NOT NULL, `value_from`/`value_to` `DECIMAL(19,4)`, `qty_from`/`qty_to`, `specificity` (computed on save), `is_active` | per contract §0 | ↓base `warehouse_id`, `item_category_id`; ↓platform `department_id` | `FR-548` `FR-550` | v1 |
+| `wht_approval_rule_conditions` | Rule conditions (e.g. `non_l1_award`, `manual_rate`, `amendment`) — named in p9-03, not in FRD §8 | rule, condition code | per contract §0 | `→ wht_approval_rules` | `FR-548` | v1 |
+| `wht_approval_rule_levels` | Ordered levels of a rule | `level_no`, `mode` (`ANY_ONE`/`ALL`), `role_id` (nullable) | per contract §0 | `→ wht_approval_rules`; ↓platform `role_id` | `FR-548` `FR-549` | v1 |
+| `wht_approval_rule_level_users` | Named approvers of a level | level, user | per contract §0 | `→ wht_approval_rule_levels`; ↓platform users | `FR-548` | v1 |
+| `wht_approval_requests` | One approval request per submitted document version | `document_type`, `document_id`, `document_version`, `maker_id`, `value`, `qty`, `currency`, `rule_id`, `status`, `decided_at` | uk one `PENDING` per (`document_type`,`document_id`) | `rule_id → wht_approval_rules`; document generic | `FR-549` `FR-550` `FR-551` `FR-553` | v1 |
+| `wht_approval_steps` | Frozen level snapshot of a request; maker ≠ checker | `request`, `level_no`, member resolution (`TAM-OPEN-01`), `status`, `acted_by`, `on_behalf_of`, `comment`, `acted_at`, `alert_episode_started_at` | per contract §0 | `→ wht_approval_requests` | `FR-549` `FR-551` `FR-554` `FR-555` | v1 |
+| `wht_approval_delegations` | Dated approver → delegate | `approver`, `delegate`, `valid_from`, `valid_to` | per contract §0 | ↓platform users | `FR-552` | v1 |
+
+#### 2.6.3 Purchase requisition (p9-04, `V550030`)
+
+| Table | Purpose | Key columns | Keys / indexes | FKs | FR | Ver |
+|---|---|---|---|---|---|---|
+| `wht_purchase_requisitions` | PR header | department, cost object (`p8-10` columns `cost_object_type` + id/code — never a second vocabulary), requester, `status` | per contract §0 | ↓platform `departments` | `FR-556` `FR-558` `FR-561` | v1 |
+| `wht_purchase_requisition_lines` | PR line, raised manually or from a core shortage / suggestion | item, qty, `required_by_date` `DATE`, estimated rate (reference only, never a PO price), `line_status`, source columns | partial unique per source column `WHERE line_status <> 'CANCELLED'` | ↓core `wh_material_requisition_lines` (`p8-09`), `wh_replenishment_suggestions` | `FR-556` `FR-557` `FR-560` | v1 |
+| `wht_requisition_allocations` | PR line → target (RFQ / PO / release) allocation; Σ allocated ≤ approved − cancelled under row lock | PR line, target, allocated qty | per contract §0 | `→ wht_purchase_requisition_lines` | `FR-559` `FR-560` `FR-561` | v1 |
+
+#### 2.6.4 RFQ, vendor quotation, comparative statement, award (p9-05, `V550040`)
+
+| Table | Purpose | Key columns | Keys / indexes | FKs | FR | Ver |
+|---|---|---|---|---|---|---|
+| `wht_rfqs` | RFQ header | response due date, deliver-to site, terms, `status` | per contract §0 | ↓base site | `FR-562` | v1 |
+| `wht_rfq_lines` | RFQ line, from PR lines or manual | item, qty, UoM, required date, specification note | per contract §0 | `→ wht_rfqs` | `FR-562` | v1 |
+| `wht_rfq_suppliers` | Invitees — one print job per invitee | supplier, sent-at, channel, response status | per contract §0 | `→ wht_rfqs`; ↓base counterparty | `FR-563` | v1 |
+| `wht_vendor_quotations` | Vendor quotation against an RFQ or unsolicited, versioned; prices masked in the backend response in sealed mode | supplier ref + date, `valid_until`, currency, payment / delivery / freight terms, `supersedes_id` | per contract §0 | `supersedes_id → wht_vendor_quotations`; `→ wht_rfqs` | `FR-564` `FR-565` `FR-569` | v1 |
+| `wht_vendor_quotation_lines` | Per-line offer, incl. alternatives and free-of-charge | per contract §0 | per contract §0 | `→ wht_vendor_quotations` | `FR-564` | v1 |
+| `wht_vendor_quotation_charges` | Header charges with allocation basis per charge (landed price excludes tax) | charge type (`trade_charge_type`), allocation basis | per contract §0 | `→ wht_vendor_quotations` | `FR-564` `FR-566` | v1 |
+| `wht_comparative_statements` | CS — backend-computed matrix RFQ line × supplier; stale after a revised quotation | per contract §0 | per contract §0 | `→ wht_rfqs` | `FR-566` | v1 |
+| `wht_comparative_statement_awards` | Per-line award, split allowed; non-L1 needs a reason | award reason (`trade_award_reason`), award target | per contract §0 | `→ wht_comparative_statements` | `FR-567` `FR-568` | v1 |
+
+#### 2.6.5 Rate contracts and price lists (p9-06, `V550050`)
+
+Price rows carry denormalised `company_id`, `counterparty_id`, `item_id`, `uom_code` (set by trigger from
+header / line) and `is_effective` (true once the contract or its amendment is approved) so `EXCLUDE … WHERE
+(is_effective)` can be declared; `btree_gist` asserted. Revisions are dated rows, never updated (`TRC-UNR-01`).
+
+| Table | Purpose | Key columns | Keys / indexes | FKs | FR | Ver |
+|---|---|---|---|---|---|---|
+| `wht_purchase_rate_contracts` | Purchase rate contract per supplier | `valid_from` / `valid_to` `DATE`, currency, terms, `status` | per contract §0 | ↓base supplier counterparty | `FR-570` `FR-574` | v1 |
+| `wht_purchase_rate_contract_lines` | Item × UoM line; consumption under row lock | item, UoM | per contract §0 | `→ wht_purchase_rate_contracts` | `FR-570` | v1 |
+| `wht_purchase_rate_contract_prices` | Dated price rows | `company_id`, `counterparty_id`, `item_id`, `uom_code` (trigger), `effective_from`, `is_effective`, rate | `EXCLUDE` — at most one approved rate per (company, supplier, item, UoM) per date | `→ wht_purchase_rate_contract_lines` | `FR-571` `FR-572` | v1 |
+| `wht_purchase_rate_contract_slabs` | Quantity slabs, per order line (`OD-35`) | `from_qty`, rate | per contract §0 | `→ wht_purchase_rate_contract_lines` | `FR-570` | v1 |
+| `wht_price_lists` | Sales price list | code, currency, validity, applicability | per contract §0 | ↓base | `FR-602` | v1 |
+| `wht_price_list_prices` | Item × UoM dated prices with floor price | `company_id`, `item_id`, `uom_code`, `effective_from`, `is_effective` | `EXCLUDE … WHERE (is_effective)` | `→ wht_price_lists` | `FR-602` `FR-604` | v1 |
+| `wht_price_list_slabs` | Optional quantity slabs | per contract §0 | per contract §0 | `→ wht_price_lists` | `FR-602` | v1 |
+| `wht_sales_rate_contracts` + `_lines`, `_prices`, `_slabs` | Sales rate contract per customer — mirror of the purchase four (FRD §8 shorthand; full child names not spelled in p9-06) | as the purchase twin | as the purchase twin, incl. `EXCLUDE` on prices | ↓base customer counterparty | `FR-603` `FR-604` | v1 |
+| `wht_rate_contract_amendments` | Price revision / validity / ceiling amendment, per side, with a changes child (child name not spelled); approval types `PRC` / `SRC` / `PRICE_LIST`, condition `amendment` — named in p9-06, not in FRD §8 | per contract §0 | per contract §0 | `→` the contract | `FR-572` `FR-603` | v1 |
+
+#### 2.6.6 Purchase order and releases (p9-07, `V550060`)
+
+| Table | Purpose | Key columns | Keys / indexes | FKs | FR | Ver |
+|---|---|---|---|---|---|---|
+| `wht_purchase_orders` | Trade PO (`FIXED` / `OPEN` / `BLANKET`); one core PO created at approval through the `p8-01` port | `po_type` (immutable after submit), supplier, validity (OPEN/BLANKET), ceilings, terms, T&C version, MSME acknowledgement, `core_po_id`, `status`; fulfilment derived, never stored | per contract §0 | `core_po_id → wh_purchase_orders` (FK down) | `FR-575` `FR-576` `FR-577` `FR-583` `FR-585` `FR-618` | v1 |
+| `wht_purchase_order_lines` | PO line; no received quantity stored (`TPO-UNR-05`) | item, qty (`OPEN` = NULL, not 0), unit price, discount %, `price_source`, tolerance, `core_po_line_id` | per contract §0 | `→ wht_purchase_orders`; `core_po_line_id →` core PO lines | `FR-576` `FR-582` | v1 |
+| `wht_po_schedule_lines` | Dated schedule lines (FIXED / BLANKET) | delivery date `DATE`, qty | per contract §0 | `→ wht_purchase_order_lines` | `FR-575` `FR-579` | v1 |
+| `wht_po_releases` | Release / call-off document (`-Rnn`); proposals are `PROPOSED`, never released by the job | release number, release date, `status` | per contract §0 | `→ wht_purchase_orders` | `FR-578` `FR-579` `FR-580` | v1 |
+| `wht_po_release_lines` | Released schedule line or call-off item × qty × date | per contract §0 | per contract §0 | `→ wht_po_releases` | `FR-580` | v1 |
+| `wht_po_charges` | PO header charges | charge type | per contract §0 | `→ wht_purchase_orders` | `FR-576` | v1 |
+
+#### 2.6.7 Sales enquiry and customer quotation (p9-08, `V550070`)
+
+| Table | Purpose | Key columns | Keys / indexes | FKs | FR | Ver |
+|---|---|---|---|---|---|---|
+| `wht_sales_enquiries` | Sales enquiry; regret prints `REGRET_LETTER` | customer, customer enquiry ref + date, source (`trade_enquiry_source`), quote-by date, sales executive, `status` | per contract §0 | ↓base customer counterparty | `FR-598` | v1 |
+| `wht_sales_enquiry_lines` | Enquiry line; a new-item line has no `item_id` | `item_id` (nullable), customer part no | per contract §0 | `→ wht_sales_enquiries` | `FR-598` | v1 |
+| `wht_customer_quotations` | Versioned quotation; only the latest `SENT` version is winnable | version, `valid_until`, currency, terms, `status`, loss reason, competitor (free text) | per contract §0 | `→ wht_sales_enquiries` | `FR-599` `FR-600` `FR-601` | v1 |
+| `wht_customer_quotation_lines` | Quotation line priced by the sales price-resolution service | per contract §0 | per contract §0 | `→ wht_customer_quotations` | `FR-599` | v1 |
+| `wht_customer_quotation_charges` | Quotation charges | charge type | per contract §0 | `→ wht_customer_quotations` | `FR-599` | v1 |
+
+#### 2.6.8 Sales order and dispatch releases (p9-09, `V550080`)
+
+| Table | Purpose | Key columns | Keys / indexes | FKs | FR | Ver |
+|---|---|---|---|---|---|---|
+| `wht_sales_orders` | Trade SO; one core demand order created at approval through the `p8-02` port | SO type, customer PO ref, `core_demand_order_id`, `status`; fulfilment derived from core | partial unique on customer PO `WHERE status <> 'CANCELLED'` (`TSO-GRD-02`) | `core_demand_order_id → wh_demand_orders` (FK down) | `FR-605` `FR-608` `FR-609` `FR-618` | v1 |
+| `wht_sales_order_lines` | SO line | per contract §0 | per contract §0 | `→ wht_sales_orders` | `FR-605` | v1 |
+| `wht_so_schedule_lines` | Schedule line — three dates never merged | `delivery_date` (requested), `committed_date`, `customer_revised_date`, qty | per contract §0 | `→ wht_sales_order_lines` | `FR-607` `FR-611` | v1 |
+| `wht_so_dispatch_releases` | One release per SO × planned dispatch date; firms core lines | planned dispatch date, `is_replacement` (p9-13), `status` | per contract §0 | `→ wht_sales_orders` | `FR-607` | v1 |
+| `wht_so_dispatch_release_lines` | Released schedule lines | per contract §0 | per contract §0 | `→ wht_so_dispatch_releases` | `FR-607` | v1 |
+| `wht_so_charges` | SO charges | charge type | per contract §0 | `→ wht_sales_orders` | `FR-605` | v1 |
+
+#### 2.6.9 Acknowledgement, expediting and commitments (p9-10, `V550090`)
+
+The agreed / committed date never changes by an acknowledgement or follow-up — only by an approved amendment.
+
+| Table | Purpose | Key columns | Keys / indexes | FKs | FR | Ver |
+|---|---|---|---|---|---|---|
+| `wht_po_acknowledgements` | Supplier acknowledgement — lives in trade, the port has none (`TPO-T4-05`) | ack date, supplier ref, `ACCEPTED` / `ACCEPTED_WITH_CHANGES` / `REJECTED` | per contract §0 | `→ wht_purchase_orders` | `FR-586` | v1 |
+| `wht_po_ack_lines` | Per-schedule-line confirmed date and qty | confirmed date, confirmed qty | per contract §0 | `→ wht_po_acknowledgements`, `→ wht_po_schedule_lines` | `FR-586` | v1 |
+| `wht_po_followups` | Expediting follow-up log, kept apart from the agreed date | date, contact, mode, supplier promised / revised date, remarks | per contract §0 | `→ wht_purchase_orders` | `FR-587` | v1 |
+| `wht_so_acknowledgements` | Sales order acknowledgement sent (`SALES_ORDER_ACK`) → `ISSUED` | committed dates per schedule line | per contract §0 | `→ wht_sales_orders` | `FR-606` | v1 |
+| `wht_so_commitment_followups` | Delivery-commitment follow-up log (twin of expediting) | per contract §0 | per contract §0 | `→ wht_sales_orders` | `FR-610` | v1 |
+
+#### 2.6.10 Amendments and versions (p9-11, `V550100`)
+
+Version snapshot tables are append-only (trigger refuses UPDATE / DELETE); row sets per version, **no JSON
+snapshot**. Version 1 is written at order approval (`OrderVersionService.snapshot`).
+
+| Table | Purpose | Key columns | Keys / indexes | FKs | FR | Ver |
+|---|---|---|---|---|---|---|
+| `wht_po_amendments` | PO amendment document, approval on new total and on delta | reason code (`trade_amendment_reason`), `status` | one open amendment per order — partial unique index | `→ wht_purchase_orders` | `FR-553` `FR-590` `FR-591` | v1 |
+| `wht_po_amendment_changes` | Change rows computed against the current version; rate change records the effective (un-received) quantity | effective quantity | per contract §0 | `→ wht_po_amendments` | `FR-590` `FR-591` | v1 |
+| `wht_purchase_order_versions` | Header snapshot per version (append-only) | `version_no` | per contract §0 | `→ wht_purchase_orders` | `FR-592` `FR-593` | v1 |
+| `wht_purchase_order_line_versions` | Line snapshot per version (append-only) | per contract §0 | per contract §0 | `→ wht_purchase_order_versions` | `FR-592` `FR-593` | v1 |
+| `wht_po_schedule_line_versions` | Schedule-line snapshot per version (append-only) | per contract §0 | per contract §0 | `→ wht_purchase_order_versions` | `FR-592` `FR-593` | v1 |
+| the `wht_so_*` mirror set | Mirror of the five PO amendment / version tables above for SOs — named generically in FRD §8 `V550100`, p9-11 (individual names not spelled) | as the PO twins | as the PO twins | `→ wht_sales_orders` | `FR-590` `FR-591` `FR-592` `FR-593` | v1 |
+
+#### 2.6.11 Vendor evaluation and customer rating (p9-12, `V550110`)
+
+| Table | Purpose | Key columns | Keys / indexes | FKs | FR | Ver |
+|---|---|---|---|---|---|---|
+| `wht_evaluation_schemes` | Scheme per company × side | side | per contract §0 | ↓base `company_id` | `FR-594` `FR-614` | v1 |
+| `wht_evaluation_criteria` | Criteria from the fixed metric catalogue, weights sum to 100 | metric code, weight | per contract §0 | `→ wht_evaluation_schemes` | `FR-594` | v1 |
+| `wht_evaluation_grade_bands` | Score → grade bands (`trade_evaluation_grade`) | grade code | per contract §0 | `→ wht_evaluation_schemes` | `FR-594` `FR-596` | v1 |
+| `wht_evaluation_runs` | Run per period; publish maker ≠ checker, supersede | period (`MONTHLY` / `QUARTERLY`), `status` | per contract §0 | `→ wht_evaluation_schemes` | `FR-595` | v1 |
+| `wht_counterparty_evaluations` | Per-counterparty result of a run; feeds `latest_grade_code` on profiles; never auto-blocks | counterparty, grade | per contract §0 | `→ wht_evaluation_runs`; ↓base counterparty | `FR-595` `FR-596` `FR-597` `FR-614` | v1 |
+| `wht_counterparty_evaluation_scores` | Per-criterion score; no denominator ⇒ excluded, weights re-normalised | criterion, numerator, denominator, score | per contract §0 | `→ wht_counterparty_evaluations`, `→ wht_evaluation_criteria` | `FR-595` `FR-614` | v1 |
+
+#### 2.6.12 Sales return authorisation (p9-13, `V550120`)
+
+| Table | Purpose | Key columns | Keys / indexes | FKs | FR | Ver |
+|---|---|---|---|---|---|---|
+| `wht_sales_return_authorisations` | SRA against an SO; core RMA created on approval (`OD-33`); no credit note | reason code (`trade_return_reason`), intent (`trade_return_intent`), `core_rma_id`, `accounting_handover_marked_at` (`CREDIT` intent), `status` | per contract §0 | `core_rma_id → wh_rmas` (FK down); `→ wht_sales_orders` | `FR-612` `FR-613` | v1 |
+| `wht_sales_return_authorisation_lines` | Authorised qty ≤ shipped − already authorised (`TSR-GRD-01`) | qty, expected condition | per contract §0 | `→ wht_sales_return_authorisations`; core shipped demand-order lines | `FR-612` | v1 |
+
+### 2.7 `warehouse-manufacturing` — `whm_`, V560000–V569999 (`D-16`, P10)
+
+**FKs point down only**: `whm_` → `wh_`/`whb_`/platform; no `wh_`/`whb_`/`whin_`/`wht_` table gains an FK to a
+`whm_` table, and core refers to MFG documents by the source-document quad and the cost-object pair only (`D-11`,
+`RN-034`). **Vocabularies are code-list rows** (`whb_code_lists` / `whb_code_list_values`) referenced by composite FK;
+**statuses carry no `CHECK`** (`D-10`) — the service enforces them. Precision per §5.1: quantity `DECIMAL(18,4)`,
+per-unit `DECIMAL(19,6)`, extended `DECIMAL(19,4)`, `*_percent` `DECIMAL(9,6)`. Every table has `id UUID`, `company_id`,
+`version`, `created_at/by`, `updated_at/by`; documents add `warehouse_id → whb_warehouses`; planning dates are SQL
+`DATE`. Schema blocks are `V5600xx`, seeds/permissions/menus `V5610xx`; `V560000` (bootstrap), `V560001`
+(registries), `V561000` (menu, settings) and `V561110` (report grids) **create no table**. Every posting document
+(`POSTED` with null `movement_id` refused) reuses the deferred constraint trigger defined in `V560030`.
+
+#### 2.7.1 BOM and routing — `V560010` (BOM), `V560020` (work centres, operations)
+
+| Table | Purpose | Key columns | Keys / indexes | FKs | FR | Ver |
+|---|---|---|---|---|---|---|
+| `whm_boms` | Versioned BOM header, maker–checker (`DRAFT`/`SUBMITTED`/`APPROVED`/`OBSOLETE`); an `APPROVED` BOM is immutable. **Kits stay in `whb_kit_definitions`**; a BOM is a new table | `bom_code` (display), `item_id`, `bom_usage`, `bom_type` (`STANDARD`/`PHANTOM`), `alternative_no`, `version_no`, `warehouse_id` (null = all sites), `base_quantity`, `base_uom_code`, `lot_size_from/to`, `is_default_alternative`, `process_loss_percent`, `consumption_policy`, `effective_from`, `effective_to` (half-open), `status`, `change_reason_code_id`, `supersedes_bom_id`, `copied_from_kit_id`, `submitted/approved/returned/obsoleted_by/at` | uk(`item_id`,`bom_usage`,`alternative_no`,`version_no`,`warehouse_id`); **gist `EXCLUDE`** no two `APPROVED` rows of (`item_id`,`bom_usage`,`alternative_no`,`coalesce(warehouse_id)`) overlap on `daterange(effective_from, effective_to, '[)')`; partial uk one `is_default_alternative` per (`item_id`,`bom_usage`,`warehouse_id`) among `APPROVED` current | ↓base `item_id → whb_items`; `supersedes_bom_id → self`; `copied_from_kit_id → whb_kit_definitions` (provenance only); `change_reason_code_id` (`BOM_CHANGE`) ↓base | `FR-622` `FR-625` `FR-626` `FR-627` `FR-629` | v1 |
+| `whm_bom_lines` | Component line per `base_quantity` | `bom_id`, `line_no`, `component_item_id`, `quantity`, `uom_code`, `component_scrap_percent` [0,100), `is_fixed_quantity`, `supply_method` (`ISSUE`/`STAGE_BACKFLUSH`/`BACKFLUSH`), `default_supply_location_id`, `operation_seq`, `lead_time_offset_days`, `alternate_group_code`, `alternate_priority`, `limits_output_expiry`, `is_customer_supplied` (`OD-42`), `line_effective_from/to`, `reference_text` | uk(`bom_id`,`line_no`) | `bom_id → whm_boms` **`ON DELETE CASCADE`** (DRAFT only; no `orphanRemoval`); `default_supply_location_id ↓base whb_locations`; `operation_seq` matched to `whm_bom_operations` by service, not FK | `FR-623` | v1 |
+| `whm_bom_line_alternates` | Alternate components for a line (planning split or use-when-short) | `bom_line_id`, `alternate_item_id`, `quantity`, `uom_code`, `priority`, `usage_percent` (null = only when primary short) | uk(`bom_line_id`,`alternate_item_id`) | `bom_line_id → whm_bom_lines`; ↓base item | `FR-623` `FR-642` | v1 |
+| `whm_bom_outputs` | Co- and by-products (the `MAIN` output is the header item and has no row) | `bom_id`, `sequence`, `output_item_id`, `output_type` (`CO_PRODUCT`/`BY_PRODUCT`), `quantity`, `uom_code`, `cost_share_percent` (Σ ≤ 100, main takes the rest), `by_product_unit_value` `DECIMAL(19,6)` (NRV), `operation_seq` | uk(`bom_id`,`sequence`); uk(`bom_id`,`output_item_id`) | `bom_id → whm_boms`; ↓base item | `FR-624` | v1 |
+| `whm_work_centres` | Lightweight capacity master; cost rate **recorded for reporting only** (`OD-43`) | `code` (upper), `name`, `warehouse_id`, `department_id` (nullable), `available_minutes_per_day`, `working_days` `CHAR(7)` mask `MTWTFSS`, `efficiency_percent` (default 100), `parallel_units` (default 1), `cost_rate_per_hour` `DECIMAL(19,6)`, `default_line_side_location_id`, `is_active`, `status` | uk(`company_id`,`warehouse_id`,`code`) | ↓base `warehouse_id`; `default_line_side_location_id ↓base whb_locations` (type `LINE_SIDE`); `department_id ↓platform` | `FR-630` `FR-668` | v1 |
+| `whm_bom_operations` | Optional operation list of a BOM (routing-lite) | `bom_id`, `operation_seq` (10, 20…), `work_centre_id`, `description`, `setup_minutes`, `run_minutes_per_unit`, `is_qc_checkpoint`, `is_milestone` | uk(`bom_id`,`operation_seq`) | `bom_id → whm_boms`; `work_centre_id → whm_work_centres` | `FR-631` | v1 |
+
+#### 2.7.2 Production orders — `V560030`
+
+| Table | Purpose | Key columns | Keys / indexes | FKs | FR | Ver |
+|---|---|---|---|---|---|---|
+| `whm_production_orders` | The order (`PLANNED`/`RELEASED`/`IN_PROGRESS`/`COMPLETED`/`CLOSED`/`CANCELLED`, hold flag), BOM version frozen at create; carries the MTO link, rework and subcontract fields | `order_number` (`PRD-`, gapless per site, issued at create), `order_type` (`STANDARD`/`REWORK`/`SUBCONTRACT`), `item_id`, `bom_id` (frozen; null only for `REWORK` without a rework BOM), `owner_id`, `planned_quantity`, `uom_code`, `base_quantity`, `conversion_factor_used`, `received/scrapped/rejected_quantity` (rollups), `priority` 1..5, `planned_start_date`, `planned_end_date`, `actual_start_at/end_at`, `status`, `is_on_hold`, `hold_reason_code_id`, `consumption_policy`, `over/under_receipt_percent`, `receipt_location_id`, `line_side_location_id`, `work_centre_id`, `planned_lot_code`, `demand_source_type/id/line_id/ref`, `reserve_output_for_demand`, `mrp_proposal_id` (bare), `parent_order_id`, `rework_of_inspection_id` (bare), `subcontractor_counterparty_id`, `subcontract_location_id`, `service_po_ref` (frozen), `planned_cost` `DECIMAL(19,4)`, `released/release_approved/completed_by/at`, `closed_at`, `settlement_id`, `cancel_reason_code_id`, `close_short_reason_code_id` | uk(`warehouse_id`,`order_number`) | `bom_id → whm_boms`; `parent_order_id → self`; `work_centre_id → whm_work_centres`; ↓base `item_id`, `owner_id → whb_owners`, `subcontractor_counterparty_id → whb_counterparties`, `subcontract_location_id`/`receipt_location_id`/`line_side_location_id → whb_locations`, reason codes; `mrp_proposal_id`, `rework_of_inspection_id` bare | `FR-632` `FR-634` `FR-635` `FR-636` `FR-637` `FR-653` `FR-658` | v1 |
+| `whm_production_order_components` | Component requirements snapshotted from the BOM (scaled, scrap applied, phantoms exploded) with issue / stage / consume rollups | `order_id`, `line_no`, `bom_line_id` (bare, provenance), `item_id`, `required_quantity`, `uom_code`, `conversion_factor_used`, `required_base_quantity`, `supply_method`, `supply_location_id`, `operation_seq`, `required_date`, `issued_quantity`, `returned_quantity`, `staged_quantity`, `unstaged_quantity`, `consumed_quantity`, `substitute_of_line_id`, `substitution_id`, `is_unplanned`, `deviation_reason_code_id`, `phantom_path`, `line_status` (`OPEN`/`PARTIAL`/`COMPLETE`/`CLOSED`, derived on write) | uk(`order_id`,`line_no`) | `order_id → whm_production_orders`; `substitute_of_line_id → self`; ↓base item, location | `FR-633` `FR-638` `FR-641` `FR-643` | v1 |
+| `whm_production_order_outputs` | Output snapshot (sequence 1 = `MAIN`, then co-/by-products) | `order_id`, `sequence`, `item_id`, `output_type`, `planned_quantity`, `received_quantity`, `cost_share_percent`, `by_product_unit_value` | — (not stated) | `order_id → whm_production_orders`; ↓base item | `FR-633` `FR-644` `FR-655` | v1 |
+| `whm_production_order_operations` | Operation snapshot with confirmation rollups (`OPEN`/`STARTED`/`CONFIRMED`) | `order_id`, `operation_seq`, `work_centre_id`, `description`, `planned_setup_minutes`, `planned_run_minutes`, `confirmed_good/scrap/rework_quantity`, `actual_minutes`, `is_qc_checkpoint`, `status` | — (not stated) | `order_id → whm_production_orders`; `work_centre_id → whm_work_centres` | `FR-633` `FR-651` `FR-668` | v1 |
+| `whm_production_order_events` | **Append-only** order history (no UPDATE/DELETE grant path) | `order_id`, `event_type`, `from_status`, `to_status`, `reason_code_id`, `note`, `actor_id`, `occurred_at` | — | `order_id → whm_production_orders`; ↓base reason code | `FR-634` | v1 |
+
+#### 2.7.3 Staging and substitution — `V560040`
+
+| Table | Purpose | Key columns | Keys / indexes | FKs | FR | Ver |
+|---|---|---|---|---|---|---|
+| `whm_staging_lists` | Pick-to-line list (`DRAFT`/`RELEASED`/`PARTIALLY_STAGED`/`STAGED`/`CLOSED`/`CANCELLED`) | `staging_number` (`STG-`), `order_id`, `to_location_id` (`LINE_SIDE`), `status`, `released_by/at`, `closed_at` | — (not stated) | `order_id → whm_production_orders`; `to_location_id ↓base whb_locations` | `FR-639` | v1 |
+| `whm_staging_list_lines` | One line per component lot staged; each stage action is one `PRODUCTION_STAGE` movement | `staging_list_id`, `component_line_id`, `item_id`, `from_location_id`, `lot_id`, `serial_id`, `requested_quantity`, `staged_quantity`, `movement_id`, `reservation_id` | — (not stated) | `staging_list_id → whm_staging_lists`; `component_line_id → whm_production_order_components`; ↓base location, lot, serial, movement, reservation | `FR-639` `FR-641` | v1 |
+| `whm_component_substitutions` | Substitution record — BOM alternate or ad hoc with a `PRODUCTION_SUBSTITUTION` reason | `order_id`, `original_component_line_id`, `substitute_item_id`, `substitute_quantity`, `source` (`BOM_ALTERNATE`/`AD_HOC`), `reason_code_id`, `note`, `approved_by/at`, `created_component_line_id` | — (not stated) | `order_id → whm_production_orders`; `original_/created_component_line_id → whm_production_order_components`; ↓base item, reason code | `FR-642` | v1 |
+
+#### 2.7.4 Production receipt — `V560050`
+
+| Table | Purpose | Key columns | Keys / indexes | FKs | FR | Ver |
+|---|---|---|---|---|---|---|
+| `whm_production_receipts` | FG receipt (`DRAFT`/`PENDING_APPROVAL`/`POSTED`/`REVERSED`/`CANCELLED`); one `PRODUCTION_RECEIPT` movement and one `whb_transformations` genealogy row per posted receipt; any number per order | `receipt_number` (`FGR-`), `order_id`, `occurred_at`, `posting_date`, `status`, `is_final`, `movement_id`, `transformation_id`, `scrap_value` `DECIMAL(19,4)`, `approved_by/at`, `posted_by/at`, `cancel_note` | deferred trigger: `POSTED` needs `movement_id` | `order_id → whm_production_orders`; ↓base `movement_id`, `transformation_id → whb_transformations` | `FR-644` `FR-647` `FR-648` `FR-650` | v1 |
+| `whm_production_receipt_outputs` | Received output line — main, co- or by-product — with disposition and cost | `receipt_id`, `order_output_id`, `item_id`, `output_type`, `quantity`, `uom_code`, `conversion_factor_used`, `base_quantity`, `to_location_id`, `stock_status_code` (resolved: `QC_HOLD` on final inspection, else item × site default), `lot_code`, `lot_id`, `manufacture_date`, `expiry_date`, `disposition` (`GOOD`/`REJECTED`/`SCRAPPED`), `scrap_reason_code_id`, `unit_cost` `DECIMAL(19,6)`, `extended_value` `DECIMAL(19,4)`, `movement_line_id` | — (not stated) | `receipt_id → whm_production_receipts`; `order_output_id → whm_production_order_outputs`; ↓base item, location, lot, reason code, movement line | `FR-644` `FR-646` `FR-654` `FR-655` | v1 |
+| `whm_production_receipt_output_serials` | Child table of the output line's serials (replaces a `serials` column) | `receipt_output_id`, serial — **column set not stated in FRD §4 / `p10-07`** | — (not stated) | → `whm_production_receipt_outputs` | `FR-644` `FR-648` | v1 |
+| `whm_production_receipt_consumptions` | Backflush (proposed vs actual) consumption per component lot | `receipt_id`, `component_line_id`, `item_id`, `from_location_id`, `lot_id`, `serial_id`, `proposed_base_quantity`, `base_quantity`, `scrap_base_quantity`, `deviation_reason_code_id`, `unit_cost`, `extended_value`, `movement_line_id` | — (not stated) | `receipt_id → whm_production_receipts`; `component_line_id → whm_production_order_components`; ↓base location, lot, serial, reason code, movement line | `FR-643` `FR-645` `FR-654` | v1 |
+| `whm_production_receipt_reversals` | Reversal request → approve → post (approver ≠ requester), reversing the receipt's one movement | `reversal_number` (`PRV-`), `receipt_id`, `status` (`REQUESTED`/`APPROVED`/`POSTED`/`REJECTED`), `reason_code_id` (`PRODUCTION_REVERSAL`), `note`, `requested_by/at`, `approved_by/at`, `reversal_movement_id` | partial uk(`receipt_id`) while `status <> 'REJECTED'` | `receipt_id → whm_production_receipts`; ↓base reason code, movement | `FR-649` | v1 |
+
+#### 2.7.5 Operation confirmation — `V560060`
+
+| Table | Purpose | Key columns | Keys / indexes | FKs | FR | Ver |
+|---|---|---|---|---|---|---|
+| `whm_operation_confirmations` | Optional operation confirmation; a milestone confirms earlier operations; may require in-process inspection | `confirmation_number` (`OPC-`), `order_id`, `operation_id`, `good_quantity`, `scrap_quantity`, `rework_quantity`, `scrap_reason_code_id`, `setup_minutes`, `run_minutes`, `operator_user_id`, `started_at`, `finished_at`, `is_final`, `status` (`RECORDED`/`CANCELLED`), `inspection_required` | — (not stated) | `order_id → whm_production_orders`; `operation_id → whm_production_order_operations`; ↓base reason code | `FR-651` `FR-652` `FR-653` | v1 |
+
+#### 2.7.6 Settlement — `V560070`
+
+| Table | Purpose | Key columns | Keys / indexes | FKs | FR | Ver |
+|---|---|---|---|---|---|---|
+| `whm_production_settlements` | *Close* = one `PRODUCTION_SETTLEMENT` value-only movement of the residual pool (`DRAFT`/`APPROVED`/`POSTED`/`REJECTED`) | `settlement_number` (`PST-`), `order_id`, `status`, `pool_value`, `absorbed_value`, `residual_value` `DECIMAL(19,4)`, `variance_percent`, `requires_approval`, `movement_id`, `approved_by/at`, `posted_by/at` | uk(`order_id`); deferred trigger: `POSTED` needs `movement_id` | `order_id → whm_production_orders`; ↓base movement | `FR-654` `FR-656` `FR-657` | v1 |
+| `whm_production_settlement_lines` | Where the residual lands | `settlement_id`, `target` (`ON_HAND_OUTPUT`/`COST_OF_SALES`/`ABNORMAL_SCRAP`), `item_id`, `lot_id`, `location_id`, `value` `DECIMAL(19,4)`, `movement_line_id` | — (not stated) | `settlement_id → whm_production_settlements`; ↓base item, lot, location, movement line | `FR-655` `FR-656` | v1 |
+
+#### 2.7.7 Subcontracting — `V560080`
+
+| Table | Purpose | Key columns | Keys / indexes | FKs | FR | Ver |
+|---|---|---|---|---|---|---|
+| `whm_subcontract_dispatches` | Dispatch of components to the job worker — one `SUBCONTRACT_DISPATCH` movement store → job-worker location (`DRAFT`/`DISPATCHED`/`CANCELLED`); India challan / registration refs are **frozen text**, never FKs | `dispatch_number` (`SCD-`), `order_id` (type `SUBCONTRACT`), `to_location_id` (type `JOB_WORKER`), `job_worker_counterparty_id`, `status`, `gate_pass_id` (bare, `p8-03`), `challan_ref`, `jobwork_registration_ref`, `movement_id`, `dispatched_at` | — (not stated) | `order_id → whm_production_orders`; ↓base `to_location_id`, `job_worker_counterparty_id → whb_counterparties`, movement; `gate_pass_id` bare | `FR-658` `FR-659` `FR-660` | v1 |
+| `whm_subcontract_dispatch_lines` | Dispatched component lot | `component_line_id`, `item_id`, `lot_id`, `quantity`, `base_quantity`, `job_work_type` (`INPUTS`/`CAPITAL_GOODS`), `movement_line_id` | — (not stated) | → `whm_subcontract_dispatches`; `component_line_id → whm_production_order_components`; ↓base item, lot, movement line | `FR-659` `FR-660` | v1 |
+| `whm_subcontract_reconciliations` | Per order × item × lot balance at the job worker; resolved by recall or write-off | `order_id`, `item_id`, `lot_id`, `sent_base_quantity`, `consumed_base_quantity`, `scrap_retained_base_quantity`, `recalled_base_quantity`, `written_off_base_quantity`, `open_base_quantity` (derived on write), `resolution` (`RECALL`/`WRITE_OFF`/`NONE`), `resolution_movement_id`, `resolved_by/at` | — (not stated) | `order_id → whm_production_orders`; ↓base item, lot, movement | `FR-661` | v1 |
+
+#### 2.7.8 Planning and MRP — `V560090` (planning masters), `V560100` (MRP)
+
+| Table | Purpose | Key columns | Keys / indexes | FKs | FR | Ver |
+|---|---|---|---|---|---|---|
+| `whm_item_planning_params` | Item × site planning parameters (`REORDER_POINT` is left to core replenishment) | `item_id`, `warehouse_id`, `planning_method`, `procurement_type`, `lot_sizing_rule`, `fixed/min/max_lot_quantity`, `rounding_multiple`, `safety_stock_quantity`, `safety_lead_time_days`, `manufacturing_lead_time_days`, `purchase_lead_time_days` (null → priority-1 `whb_item_supplier_sources.lead_time_days`, then `whb_item_site_settings.lead_time_days`), `planning_time_fence_days`, `qc_lead_time_days`, `default_bom_alternative_no`, `is_active` | uk(`item_id`,`warehouse_id`) | ↓base `item_id`, `warehouse_id`; composite FKs to the code lists | `FR-662` | v1 |
+| `whm_demand_plans` | Named forecast / MPS-lite plan (`DRAFT`/`ACTIVE`/`ARCHIVED`) | `plan_code`, `name`, `warehouse_id`, `bucket` (`WEEK`/`MONTH`), `consumption_mode` (`MAX_OF_FORECAST_AND_ORDERS`/`FORECAST_PLUS_ORDERS`), `status`, `valid_from/to` | — (not stated) | ↓base `warehouse_id` | `FR-663` | v1 |
+| `whm_demand_plan_lines` | Item × bucket quantity | `plan_id`, `item_id`, `period_start`, `quantity` | uk(`plan_id`,`item_id`,`period_start`) | `plan_id → whm_demand_plans`; ↓base item | `FR-663` | v1 |
+| `whm_mrp_runs` | Regenerative MRP run per site (async `whb_job_runs` job; `QUEUED`/`RUNNING`/`COMPLETED`/`FAILED`/`SUPERSEDED`); settings snapshot as typed columns | `run_number` (`MRP-`, **not** gapless), `warehouse_id`, `planning_date`, `horizon_days`, `status`, `job_run_id`, `started_at`, `finished_at`, `item_count`, `proposal_count`, `exception_count`, `error_message`, `demand_plan_id`, `include_forecast_schedule_lines`, `include_qc_hold_supply`, `params_note` | — (not stated) | `job_run_id ↓base whb_job_runs`; `demand_plan_id → whm_demand_plans` | `FR-664` | v1 |
+| `whm_mrp_proposals` | `MAKE`/`BUY` proposal (`OPEN`/`FIRMED`/`CONVERTED`/`DISMISSED`/`SUPERSEDED`); `MAKE` converts to a `PLANNED` order, `BUY` to a core replenishment suggestion (origin `MRP`, SEAM-M3) | `run_id`, `item_id`, `warehouse_id`, `proposal_type`, `quantity`, `uom_code`, `need_date`, `start_date`, `low_level_code`, `bom_id`, `status`, `firmed_by/at`, `converted_document_type/id/ref`, `dismiss_reason_code_id` | — (not stated) | `run_id → whm_mrp_runs`; `bom_id → whm_boms`; ↓base item, reason code; converted document generic | `FR-665` `FR-666` | v1 |
+| `whm_mrp_pegging` | Which demands a proposal covers | `proposal_id`, `demand_type`, `demand_id`, `demand_line_id`, `demand_ref`, `quantity`, `parent_proposal_id` | — (not stated) | `proposal_id`, `parent_proposal_id → whm_mrp_proposals`; demand generic | `FR-666` | v1 |
+| `whm_mrp_exceptions` | Exception message per run (code list `WHM_MRP_EXCEPTION`) | `run_id`, `exception_code`, `item_id`, `document_type/id/ref`, `current_date`, `suggested_date`, `quantity`, `message`, `acknowledged_by/at` | — (not stated) | `run_id → whm_mrp_runs`; ↓base item; document generic | `FR-667` | v1 |
+
+Capacity load and the production / WIP / yield / scrap / consumption-variance registers (`whm_capacity_load`,
+`whm_register_*`, `V561110`, `p10-13`, `FR-668`) are **report grids over the tables above — no table**.
+By name: `whm_register_production`, `whm_register_wip`, `whm_register_scrap`, `whm_register_yield`,
+`whm_register_consumption_variance`, the report menu group `whm_reports`, and `p10-03`'s explosion / where-used
+grid `whm_bom_explosion` — grid identifiers, never `CREATE TABLE`.
+
+#### 2.7.9 Columns P10 adds to other modules' tables
+
+| Table | Column change | Task | FR | Ver |
+|---|---|---|---|---|
+| `whin_job_work_dispatch_lines` (`warehouse-india`) | Processed-form return item and scrap (returned / retained) on job-work lines, so the return matcher (today same item / lot / UoM only) and the ITC-04 builder accept inputs returned **in processed form** and waste at the job worker (SEAM-M5, s.143(5) **RE-VERIFY**). Migration **`V540190__Allow_processed_form_return_and_scrap_on_whin_job_work_dispatch_lines.sql`** — FRD-MFG §3 says `V540150`, which is taken by `V540150__Create_whin_approval_dispatches_and_approval_clocks.sql`. Exact column names not stated | `p10-10` | `FR-660` `FR-661` | v1 |
 
 ---
 
@@ -2436,8 +2801,27 @@ so a migration author does not have to open the other repository to type a `CREA
 | **Money / extended value** | `DECIMAL(19,4)` | `extended_cost`, `layer_value`, `value_consumed`, `variance_value`, `total_value_impact`, `subtotal`, `tax_amount`, `total_amount`, `line_total`, `shipping_cost`, `credit_amount`, `core_deposit_amount`, `declared_value`, `allocated_amount`, every `wh3_` `amount` / `charge` / `rate`-as-money column, `write_down_amount` |
 | **Per-unit cost and price** | `DECIMAL(19,6)` | `unit_cost`, `unit_price`, `unit_value`, `standard_cost`, `moving_average_after`, `old_unit_cost`, `new_unit_cost`, `assessed_nrv`, `rate` on `wh3_rate_card_lines` **where the rate is per unit** |
 | **Percentages and ratios** | `DECIMAL(9,6)` | `variance_pct`, `over_receipt_tolerance_pct`, `recount_threshold_pct`, `approval_threshold_pct`, `min_shelf_life_receipt_pct`, `min_shelf_life_ship_pct`, `discount_percent`, `markup_percent`, `scrap_factor_percent`, `quantity_ratio`, `buffer_percent`, every `*_percent` and `*_ratio` |
-| **Currency exchange rates** | `DECIMAL(19,8)` | `whb_cost_layers.exchange_rate`, and **nothing else** |
+| **Currency exchange rates** | `DECIMAL(19,8)` | `whb_cost_layers.exchange_rate`, `whb_stock_movement_lines.exchange_rate` (`V501122`), and **nothing else** |
 | **Physical measures** | `DECIMAL(12,3)` kg / `DECIMAL(12,2)` cm / `DECIMAL(15,2)` cc | `weight_gross_kg`, `weight_net_kg`, `gross_weight_kg`, `scale_weight_kg`, `tare_weight_kg`, `max_weight_kg`, `billable_weight_kg`, `length_cm`/`width_cm`/`height_cm`/`depth_cm`, `volume_cc`, `max_volume_cc`, `distance_km` `DECIMAL(10,2)` |
+
+> **Amended — ratified 2026-10-14 (#203).** `exchange_rate` is no longer on `whb_cost_layers` alone (W07 `#201`,
+> W09 `#203` G5). `V501122` adds to `whb_stock_movement_lines` the producer's source-cost evidence,
+> **written once at INSERT and never restated** (nullable, never backfilled — a line posted before
+> `V501122` keeps NULL; I-2's line allowlist stays `'{}'`): `source_currency_code` `VARCHAR(3)` FK →
+> `currencies`, `source_unit_cost` `DECIMAL(19,6)`, `source_extended_cost` `DECIMAL(19,4)`,
+> `exchange_rate` `DECIMAL(19,8)` (base units per one source unit, frozen at submission, 1 for
+> base-currency input, positive `CHECK`) and `cost_source_line_id` `UUID` (no FK — the line key is
+> `(id, occurred_at)`). `unit_cost` / `cost_currency_code` / `extended_cost` keep their meaning: the
+> base-currency value the line posted at. `V501122` also creates the append-only
+> `whb_movement_line_approved_costs` (`id`, `movement_line_id`, `occurred_at`, `movement_id`,
+> `unit_cost` `DECIMAL(19,6)`, `cost_currency_code` `VARCHAR(3)`, `extended_cost` `DECIMAL(19,4)`,
+> `moving_average_after` `DECIMAL(19,6)`, `cost_layer_id`, `created_at`, `created_by`) — one row per
+> line the engine valued when its `PENDING` movement was approved; a reader takes that row when there
+> is one, else the line. `V501204` creates `whb_cost_layer_value_restatements` (`id`,
+> `cost_layer_id` FK → `whb_cost_layers`, `movement_id` + `movement_occurred_at` bare pair with no FK,
+> `value_change` `DECIMAL(19,4)` `<> 0`, `created_at`, `created_by`) — one dated row per restatement
+> of a layer's `layer_value` (landed cost, revaluation, NRV), INSERT-only, so an as-at valuation
+> leaves out a restatement posted after the as-at (F396 `#411` item 2).
 
 **The two tie-breaks are normative and are restated verbatim because an author reading the table
 quickly resolves both the wrong way:**
@@ -3639,6 +4023,10 @@ named in that migration's row.
 
 ### 7.4 The adapters — V520000 to V529999, sub-allocated
 
+> **`D-16`:** the dealer and services rows are retired — no file is written in `V520000`–`V521999`.
+> `warehouse-trade` owns `V550000`–`V559999` and `warehouse-manufacturing` owns `V560000`–`V569999`
+> (`DECISIONS.md` `D-2`); their sub-allocation is in their task files.
+
 | Sub-band | Owner | Prefix | Ships | Content |
 |---|---|---|---|---|
 | **V520000–V520999** | `warehouse-adapter-dealer` | `whad_` | v1 | `V520000` bootstrap + source-system and movement-type seed rows · `V520010` `whad_vehicle_fitments` · `V520011` `whad_counter_sales`, `whad_counter_sale_lines` · `V520012` `whad_oem_orders`, `whad_oem_order_lines` · `V520013` `whad_price_files`, `whad_price_file_lines` (v1.1) · `V520014` `whad_core_exchanges` (v2) · `V520015` `whad_price_levels`, `whad_item_prices` (`RA-002`) · `V520100`+ permissions, menus, grids |
@@ -3749,6 +4137,49 @@ defending `whb_stock_positions`; spend it defending `whb_stock_movement_lines`.*
 
 ---
 
+### 7.9 The `D-16` re-target — P8 in `warehouse`, `warehouse-trade` V550000–V559999, `warehouse-manufacturing` V560000–V569999
+
+Each task claims its numbers on its own header (`IMPLEMENTATION-PLAN.md` §2.8.2–§2.8.4); this table is the
+table-creating subset. P8 schema files are `V510400`+ and its seed/permission files `V511400`+ (`V500300`+ in base);
+trade schema `V5500n0`, seeds/permissions `V5510n0`/`V5510n1`; manufacturing schema `V5600n0`, seeds/permissions
+`V5610n0`. `V550000`, `V560000` and `V560001` create no table. The P7 removals allocate nothing — they delete or
+rewrite files in place (§2.2.9). The unnamed `wht_sales_rate_contracts` children and the `wht_so_*` amendment /
+version mirror set (§2.6.5, §2.6.10) are not counted until `P9-06` / `P9-11` name them.
+
+| Migration | Task | Tables |
+|---|---|---|
+| `V510400` | `P8-01` | `wh_purchase_order_schedule_lines`, `wh_goods_receipt_line_schedule_allocations` |
+| `V510401` | `P8-02` | `wh_demand_order_schedule_lines` |
+| `V510402` | `P8-03` | `wh_gate_entries`, `wh_gate_entry_documents`, `wh_gate_passes`, `wh_gate_pass_lines`, `wh_gate_pass_returns` |
+| `V510403` | `P8-04` | `wh_goods_receipt_bills`, `wh_goods_receipt_bill_lines` |
+| `V510404` | `P8-05` | `wh_sampling_schemes`, `wh_sampling_scheme_bands` |
+| `V510407` | `P8-08` | `wh_material_receipt_notes`, `wh_material_receipt_note_lines` |
+| `V510408` | `P8-09` | `wh_cost_centres`, `wh_material_requisitions`, `wh_material_requisition_lines`, `wh_material_requisition_line_handoffs` |
+| `V510409` | `P8-10` | `wh_store_issues`, `wh_store_issue_lines`, `wh_store_issue_line_serials` |
+| `V510410` | `P8-11` | `wh_store_returns`, `wh_store_return_lines`, `wh_store_return_line_serials` |
+| `V550010` | `P9-02` | `wht_supplier_profiles`, `wht_customer_profiles`, `wht_approved_vendor_items`, `wht_customer_item_refs`, `wht_terms_templates`, `wht_terms_template_versions` |
+| `V550020` | `P9-03` | `wht_approval_rules`, `wht_approval_rule_conditions`, `wht_approval_rule_levels`, `wht_approval_rule_level_users`, `wht_approval_requests`, `wht_approval_steps`, `wht_approval_delegations` |
+| `V550030` | `P9-04` | `wht_purchase_requisitions`, `wht_purchase_requisition_lines`, `wht_requisition_allocations` |
+| `V550040` | `P9-05` | `wht_rfqs`, `wht_rfq_lines`, `wht_rfq_suppliers`, `wht_vendor_quotations`, `wht_vendor_quotation_lines`, `wht_vendor_quotation_charges`, `wht_comparative_statements`, `wht_comparative_statement_awards` |
+| `V550050` | `P9-06` | `wht_purchase_rate_contracts`, `wht_purchase_rate_contract_lines`, `wht_purchase_rate_contract_prices`, `wht_purchase_rate_contract_slabs`, `wht_price_lists`, `wht_price_list_prices`, `wht_price_list_slabs`, `wht_sales_rate_contracts`, `wht_rate_contract_amendments` |
+| `V550060` | `P9-07` | `wht_purchase_orders`, `wht_purchase_order_lines`, `wht_po_schedule_lines`, `wht_po_releases`, `wht_po_release_lines`, `wht_po_charges` |
+| `V550070` | `P9-08` | `wht_sales_enquiries`, `wht_sales_enquiry_lines`, `wht_customer_quotations`, `wht_customer_quotation_lines`, `wht_customer_quotation_charges` |
+| `V550080` | `P9-09` | `wht_sales_orders`, `wht_sales_order_lines`, `wht_so_schedule_lines`, `wht_so_dispatch_releases`, `wht_so_dispatch_release_lines`, `wht_so_charges` |
+| `V550090` | `P9-10` | `wht_po_acknowledgements`, `wht_po_ack_lines`, `wht_po_followups`, `wht_so_acknowledgements`, `wht_so_commitment_followups` |
+| `V550100` | `P9-11` | `wht_po_amendments`, `wht_po_amendment_changes`, `wht_purchase_order_versions`, `wht_purchase_order_line_versions`, `wht_po_schedule_line_versions` |
+| `V550110` | `P9-12` | `wht_evaluation_schemes`, `wht_evaluation_criteria`, `wht_evaluation_grade_bands`, `wht_evaluation_runs`, `wht_counterparty_evaluations`, `wht_counterparty_evaluation_scores` |
+| `V550120` | `P9-13` | `wht_sales_return_authorisations`, `wht_sales_return_authorisation_lines` |
+| `V560010` | `P10-03` | `whm_boms`, `whm_bom_lines`, `whm_bom_line_alternates`, `whm_bom_outputs` |
+| `V560020` | `P10-04` | `whm_work_centres`, `whm_bom_operations` |
+| `V560030` | `P10-05` | `whm_production_orders`, `whm_production_order_components`, `whm_production_order_outputs`, `whm_production_order_operations`, `whm_production_order_events` |
+| `V560040` | `P10-06` | `whm_staging_lists`, `whm_staging_list_lines`, `whm_component_substitutions` |
+| `V560050` | `P10-07` | `whm_production_receipts`, `whm_production_receipt_outputs`, `whm_production_receipt_output_serials`, `whm_production_receipt_consumptions`, `whm_production_receipt_reversals` |
+| `V560060` | `P10-08` | `whm_operation_confirmations` |
+| `V560070` | `P10-09` | `whm_production_settlements`, `whm_production_settlement_lines` |
+| `V560080` | `P10-10` | `whm_subcontract_dispatches`, `whm_subcontract_dispatch_lines`, `whm_subcontract_reconciliations` |
+| `V560090` | `P10-11` | `whm_item_planning_params`, `whm_demand_plans`, `whm_demand_plan_lines` |
+| `V560100` | `P10-12` | `whm_mrp_runs`, `whm_mrp_proposals`, `whm_mrp_pegging`, `whm_mrp_exceptions` |
+
 ## 8. Grand total
 
 ### 8.1 The inventory, and the command that counts it
@@ -3790,25 +4221,17 @@ wh_approval_levels
 wh_asn_line_serials
 wh_asn_lines
 wh_asns
-wh_awb_numbers
-wh_awb_pools
 wh_blocked_movements
 wh_carrier_account_scopes
 wh_carrier_accounts
-wh_carrier_serviceability
 wh_carrier_services
 wh_carrier_status_mappings
 wh_carriers
 wh_carton_contents
 wh_carton_evidence
 wh_cartons
-wh_channel_account_warehouses
-wh_channel_accounts
-wh_channel_order_imports
-wh_channel_publish_rules
-wh_cod_remittance_lines
-wh_cod_remittances
 wh_consignments
+wh_cost_centres
 wh_count_lines
 wh_count_program_scopes
 wh_count_programs
@@ -3820,11 +4243,20 @@ wh_cutover_checklist_items
 wh_cutover_checklists
 wh_demand_history
 wh_demand_order_lines
+wh_demand_order_schedule_lines
 wh_demand_orders
 wh_dock_appointments
 wh_dock_door_vehicle_types
 wh_dock_doors
+wh_gate_entries
+wh_gate_entry_documents
+wh_gate_pass_lines
+wh_gate_pass_returns
+wh_gate_passes
+wh_goods_receipt_bill_lines
+wh_goods_receipt_bills
 wh_goods_receipt_line_attributes
+wh_goods_receipt_line_schedule_allocations
 wh_goods_receipt_line_serials
 wh_goods_receipt_lines
 wh_goods_receipts
@@ -3841,13 +4273,14 @@ wh_landed_cost_allocations
 wh_landed_cost_documents
 wh_manifest_shipments
 wh_manifests
-wh_marketplace_claims
+wh_material_receipt_note_lines
+wh_material_receipt_notes
+wh_material_requisition_line_handoffs
+wh_material_requisition_lines
+wh_material_requisitions
 wh_metric_targets
 wh_migration_mappings
-wh_ndr_actions
 wh_nrv_assessments
-wh_obsolescence_return_lines
-wh_obsolescence_returns
 wh_opening_stock_batches
 wh_opening_stock_lines
 wh_order_edit_rules
@@ -3861,6 +4294,7 @@ wh_print_template_versions
 wh_print_templates
 wh_printers
 wh_purchase_order_lines
+wh_purchase_order_schedule_lines
 wh_purchase_orders
 wh_putaway_rules
 wh_putaway_task_serials
@@ -3868,7 +4302,6 @@ wh_putaway_tasks
 wh_quality_inspection_lines
 wh_quality_inspection_results
 wh_quality_inspections
-wh_rate_quotes
 wh_recall_lines
 wh_recalls
 wh_receipt_reversal_lines
@@ -3888,22 +4321,26 @@ wh_revaluation_lines
 wh_revaluations
 wh_rma_lines
 wh_rmas
-wh_rto_consignments
-wh_shipment_ndrs
+wh_sampling_scheme_bands
+wh_sampling_schemes
 wh_shipment_orders
 wh_shipment_tracking_events
 wh_shipments
 wh_shipping_labels
 wh_stock_adjustment_lines
 wh_stock_adjustments
+wh_store_issue_line_serials
+wh_store_issue_lines
+wh_store_issues
+wh_store_return_line_serials
+wh_store_return_lines
+wh_store_returns
 wh_supplier_claim_lines
 wh_supplier_claims
 wh_supplier_return_lines
 wh_supplier_returns
 wh_three_way_match_allocations
 wh_three_way_matches
-wh_tracking_links
-wh_trade_portal_users
 wh_transfer_order_lines
 wh_transfer_orders
 wh_vas_service_types
@@ -3919,25 +4356,10 @@ wh_working_calendar_days
 wh_working_calendars
 whaa_asset_item_links
 whaa_spare_consumptions
-whad_core_exchanges
-whad_counter_sale_lines
-whad_counter_sales
-whad_item_prices
-whad_oem_order_lines
-whad_oem_orders
-whad_price_file_lines
-whad_price_files
-whad_price_levels
-whad_vehicle_fitments
 whae_example_documents
 whaf_job_consumptions
 whaf_van_replenishments
 whaf_van_stock_assignments
-whas_fitted_serials
-whas_job_part_issues
-whas_material_request_lines
-whas_material_requests
-whas_warranty_holds
 whb_accounting_handovers
 whb_alert_events
 whb_alert_rule_conditions
@@ -3953,7 +4375,6 @@ whb_api_clients
 whb_attribute_keys
 whb_audit_event_changes
 whb_audit_events
-whb_category_stocking_ownership
 whb_channels
 whb_code_list_values
 whb_code_lists
@@ -3976,7 +4397,6 @@ whb_document_types
 whb_duty_statuses
 whb_entity_attribute_values
 whb_event_types
-whb_external_stock_snapshots
 whb_gl_posting_rules
 whb_gs1_serial_counters
 whb_gs1_settings
@@ -4130,6 +4550,106 @@ whin_tax_rule_components
 whin_tax_rule_conditions
 whin_tax_rules
 whin_warehousing_bonds
+whm_bom_line_alternates
+whm_bom_lines
+whm_bom_operations
+whm_bom_outputs
+whm_boms
+whm_component_substitutions
+whm_demand_plan_lines
+whm_demand_plans
+whm_item_planning_params
+whm_mrp_exceptions
+whm_mrp_pegging
+whm_mrp_proposals
+whm_mrp_runs
+whm_operation_confirmations
+whm_production_order_components
+whm_production_order_events
+whm_production_order_operations
+whm_production_order_outputs
+whm_production_orders
+whm_production_receipt_consumptions
+whm_production_receipt_output_serials
+whm_production_receipt_outputs
+whm_production_receipt_reversals
+whm_production_receipts
+whm_production_settlement_lines
+whm_production_settlements
+whm_staging_list_lines
+whm_staging_lists
+whm_subcontract_dispatch_lines
+whm_subcontract_dispatches
+whm_subcontract_reconciliations
+whm_work_centres
+wht_approval_delegations
+wht_approval_requests
+wht_approval_rule_conditions
+wht_approval_rule_level_users
+wht_approval_rule_levels
+wht_approval_rules
+wht_approval_steps
+wht_approved_vendor_items
+wht_comparative_statement_awards
+wht_comparative_statements
+wht_counterparty_evaluation_scores
+wht_counterparty_evaluations
+wht_customer_item_refs
+wht_customer_profiles
+wht_customer_quotation_charges
+wht_customer_quotation_lines
+wht_customer_quotations
+wht_evaluation_criteria
+wht_evaluation_grade_bands
+wht_evaluation_runs
+wht_evaluation_schemes
+wht_po_ack_lines
+wht_po_acknowledgements
+wht_po_amendment_changes
+wht_po_amendments
+wht_po_charges
+wht_po_followups
+wht_po_release_lines
+wht_po_releases
+wht_po_schedule_line_versions
+wht_po_schedule_lines
+wht_price_list_prices
+wht_price_list_slabs
+wht_price_lists
+wht_purchase_order_line_versions
+wht_purchase_order_lines
+wht_purchase_order_versions
+wht_purchase_orders
+wht_purchase_rate_contract_lines
+wht_purchase_rate_contract_prices
+wht_purchase_rate_contract_slabs
+wht_purchase_rate_contracts
+wht_purchase_requisition_lines
+wht_purchase_requisitions
+wht_rate_contract_amendments
+wht_requisition_allocations
+wht_rfq_lines
+wht_rfq_suppliers
+wht_rfqs
+wht_sales_enquiries
+wht_sales_enquiry_lines
+wht_sales_order_lines
+wht_sales_orders
+wht_sales_rate_contracts
+wht_sales_return_authorisation_lines
+wht_sales_return_authorisations
+wht_so_acknowledgements
+wht_so_charges
+wht_so_commitment_followups
+wht_so_dispatch_release_lines
+wht_so_dispatch_releases
+wht_so_schedule_lines
+wht_supplier_profiles
+wht_terms_template_versions
+wht_terms_templates
+wht_vendor_quotation_charges
+wht_vendor_quotation_lines
+wht_vendor_quotations
 ```
 <!-- TABLE-INVENTORY-END -->
 
@@ -4137,15 +4657,15 @@ whin_warehousing_bonds
 
 ```bash
 sed -n '/^<!-- TABLE-INVENTORY-BEGIN -->$/,/^<!-- TABLE-INVENTORY-END -->$/p' docs/DATA-MODEL.md \
-  | grep -cE '^(whb|wh|wh3|whin|whad|whas|whaf|whaa|whae)_[a-z0-9_]+$'
+  | grep -cE '^(whb|wh|wh3|whin|wht|whm|whad|whas|whaf|whaa|whae)_[a-z0-9_]+$'
 ```
 
 **Per module, computed:**
 
 ```bash
 sed -n '/^<!-- TABLE-INVENTORY-BEGIN -->$/,/^<!-- TABLE-INVENTORY-END -->$/p' docs/DATA-MODEL.md \
-  | grep -oE '^(whb|wh|wh3|whin|whad|whas|whaf|whaa|whae)_[a-z0-9_]+$' \
-  | sed -E 's/^(whb|wh3|whin|whad|whas|whaf|whaa|whae)_.*/\1/; s/^wh_.*/wh/' \
+  | grep -oE '^(whb|wh|wh3|whin|wht|whm|whad|whas|whaf|whaa|whae)_[a-z0-9_]+$' \
+  | sed -E 's/^(whb|wh3|whin|wht|whm|whad|whas|whaf|whaa|whae)_.*/\1/; s/^wh_.*/wh/' \
   | sort | uniq -c | sort -rn
 ```
 
@@ -4177,21 +4697,29 @@ lists and typed attributes, and the v1.1/v2 tables `GAP-REGISTER-R4.md` §4.0 al
 (`whb_metric_definitions`, `wh_adjustment_approval_policies`, `wh_metric_targets`,
 `wh3_storage_aging_bands`, `whad_price_levels`, `whad_item_prices`; 359 → 365):
 
+**Re-run 2026-10-22 for `D-16`** (the commands in §8.1, against this file): the inventory held 134 `whb_` and
+132 `wh_` names before the re-target (the previous run's 131 / 130 had drifted; 370 in all). `P7` removes 20
+inventory names (18 `wh_`, 2 `whb_`; the other four §2.2.9 tables were never inventoried) and the 15
+`whad_`/`whas_` tables leave with their adapters; `P8` adds 24 `wh_` (§2.2.7), `P9` 68 `wht_` (§2.6) and `P10`
+32 `whm_` (§2.7). 370 − 35 + 124 = **459**:
+
 | Module | Prefix | Tables | Band | Ships |
 |---|---|---:|---|---|
-| `warehouse-base` | `whb_` | **131** | V500000–V509999 | v1 · v1.1 · v2 · v3 |
-| `warehouse` | `wh_` | **130** | V510000–V519999 | v1 · v1.1 · v2 |
+| `warehouse-base` | `whb_` | **132** | V500000–V509999 | v1 · v1.1 · v2 · v3 |
+| `warehouse` | `wh_` | **138** | V510000–V519999 | v1 · v1.1 · v2 |
+| `warehouse-trade` | `wht_` | **68** | V550000–V559999 | v1 (P9) |
 | `warehouse-india` | `whin_` | **58** | V540000–V549999 | v1 wave · v2 wave |
+| `warehouse-manufacturing` | `whm_` | **32** | V560000–V569999 | v1 (P10) |
 | `warehouse-3pl` | `wh3_` | **25** | V530000–V539999 | v2 · v3 |
-| `warehouse-adapter-dealer` | `whad_` | **10** | V520000–V520999 | v1 · v1.1 · v2 |
-| `warehouse-adapter-services` | `whas_` | **5** | V521000–V521999 | v1 · v2 |
+| `warehouse-adapter-dealer` | `whad_` | ~~10~~ **0** — removed (`D-16`) | V520000–V520999 | — |
+| `warehouse-adapter-services` | `whas_` | ~~5~~ **0** — removed (`D-16`) | V521000–V521999 | — |
 | `warehouse-adapter-field-service` | `whaf_` | **3** | V522000–V522999 | v1.1 |
 | `warehouse-adapter-assets` | `whaa_` | **2** | V523000–V523999 | v1.1 |
 | `warehouse-adapter-example` | `whae_` | **1** | V525000–V525999 | v1 |
-| **Total** | | **365** | | |
+| **Total** | | **459** | | |
 
 **Cross-check: `0` tables without an allocated migration** (the third command above, re-run
-2026-09-10 after the round-4 additions).
+2026-09-10 after the round-4 additions, and 2026-10-22 after `D-16` — 459 tables, 0 without).
 
 ### 8.3 What the total is not
 
@@ -4226,7 +4754,7 @@ Four things are deliberately **not** in the 358, so the number is not quietly wr
    | `wh_rpt_count_variance` | WS-214 | `wh_counts` + `wh_count_lines` |
    | `wh_rpt_low_stock` | WS-215 | positions + `whb_item_site_settings` |
    | `wh_rpt_kpis` | WS-216 | lifecycle timestamps; `wh_kpi_snapshots` only where proven |
-   | `wh_rpt_parts_kpis` | WS-217 | ledger + `wh_demand_history` + `wh_insufficient_stock_*` |
+   | `wh_rpt_stock_kpis` (was `wh_rpt_parts_kpis`, renamed by `P7-11`) | WS-217 | ledger + `wh_demand_history` + `wh_insufficient_stock_*` |
    | `wh_rpt_traceability` | WS-218 | movements + `whb_transformations` |
    | `wh_rpt_stock_to_gl` | WS-219 | movements + `whb_accounting_handovers` |
    | `wh_rpt_in_transit_ageing` | WS-220 | positions at per-transfer transit locations |
@@ -4280,25 +4808,17 @@ wh_approval_levels v2
 wh_asn_line_serials v1.1
 wh_asn_lines v1.1
 wh_asns v1.1
-wh_awb_numbers v2
-wh_awb_pools v2
 wh_blocked_movements v1
 wh_carrier_account_scopes v2
 wh_carrier_accounts v1
-wh_carrier_serviceability v2
 wh_carrier_services v1
 wh_carrier_status_mappings v2
 wh_carriers v1
 wh_carton_contents v1
 wh_carton_evidence v1
 wh_cartons v1
-wh_channel_account_warehouses v2
-wh_channel_accounts v2
-wh_channel_order_imports v2
-wh_channel_publish_rules v2
-wh_cod_remittance_lines v2
-wh_cod_remittances v2
 wh_consignments v1.1
+wh_cost_centres v1.1
 wh_count_lines v1
 wh_count_program_scopes v1
 wh_count_programs v1
@@ -4310,11 +4830,20 @@ wh_cutover_checklist_items v1
 wh_cutover_checklists v1
 wh_demand_history v1
 wh_demand_order_lines v1
+wh_demand_order_schedule_lines v1.1
 wh_demand_orders v1
 wh_dock_appointments v1
 wh_dock_door_vehicle_types v1
 wh_dock_doors v1
+wh_gate_entries v1.1
+wh_gate_entry_documents v1.1
+wh_gate_pass_lines v1.1
+wh_gate_pass_returns v1.1
+wh_gate_passes v1.1
+wh_goods_receipt_bill_lines v1.1
+wh_goods_receipt_bills v1.1
 wh_goods_receipt_line_attributes v1
+wh_goods_receipt_line_schedule_allocations v1.1
 wh_goods_receipt_line_serials v1
 wh_goods_receipt_lines v1
 wh_goods_receipts v1
@@ -4331,13 +4860,14 @@ wh_landed_cost_allocations v1
 wh_landed_cost_documents v1
 wh_manifest_shipments v1.1
 wh_manifests v1.1
-wh_marketplace_claims v2
+wh_material_receipt_note_lines v1.1
+wh_material_receipt_notes v1.1
+wh_material_requisition_line_handoffs v1.1
+wh_material_requisition_lines v1.1
+wh_material_requisitions v1.1
 wh_metric_targets v1
 wh_migration_mappings v1.1
-wh_ndr_actions v2
 wh_nrv_assessments v2
-wh_obsolescence_return_lines v2
-wh_obsolescence_returns v2
 wh_opening_stock_batches v1
 wh_opening_stock_lines v1
 wh_order_edit_rules v1.1
@@ -4351,6 +4881,7 @@ wh_print_template_versions v1
 wh_print_templates v1
 wh_printers v1.1
 wh_purchase_order_lines v1
+wh_purchase_order_schedule_lines v1.1
 wh_purchase_orders v1
 wh_putaway_rules v1
 wh_putaway_task_serials v1
@@ -4358,7 +4889,6 @@ wh_putaway_tasks v1
 wh_quality_inspection_lines v1
 wh_quality_inspection_results v1
 wh_quality_inspections v1
-wh_rate_quotes v2
 wh_recall_lines v2
 wh_recalls v2
 wh_receipt_reversal_lines v1
@@ -4378,22 +4908,26 @@ wh_revaluation_lines v1
 wh_revaluations v1
 wh_rma_lines v1
 wh_rmas v1
-wh_rto_consignments v1
-wh_shipment_ndrs v2
+wh_sampling_scheme_bands v1.1
+wh_sampling_schemes v1.1
 wh_shipment_orders v1
 wh_shipment_tracking_events v2
 wh_shipments v1
 wh_shipping_labels v1.1
 wh_stock_adjustment_lines v1
 wh_stock_adjustments v1
+wh_store_issue_line_serials v1.1
+wh_store_issue_lines v1.1
+wh_store_issues v1.1
+wh_store_return_line_serials v1.1
+wh_store_return_lines v1.1
+wh_store_returns v1.1
 wh_supplier_claim_lines v2
 wh_supplier_claims v2
 wh_supplier_return_lines v1
 wh_supplier_returns v1
 wh_three_way_match_allocations v2
 wh_three_way_matches v2
-wh_tracking_links v2
-wh_trade_portal_users v2
 wh_transfer_order_lines v1
 wh_transfer_orders v1
 wh_vas_service_types v1.1
@@ -4409,25 +4943,10 @@ wh_working_calendar_days v2
 wh_working_calendars v2
 whaa_asset_item_links v1.1
 whaa_spare_consumptions v1.1
-whad_core_exchanges v2
-whad_counter_sale_lines v1
-whad_counter_sales v1
-whad_item_prices v1
-whad_oem_order_lines v1.1
-whad_oem_orders v1
-whad_price_file_lines v1.1
-whad_price_files v1.1
-whad_price_levels v1
-whad_vehicle_fitments v1
 whae_example_documents v1
 whaf_job_consumptions v1.1
 whaf_van_replenishments v1.1
 whaf_van_stock_assignments v1.1
-whas_fitted_serials v1
-whas_job_part_issues v1
-whas_material_request_lines v1
-whas_material_requests v1
-whas_warranty_holds v2
 whb_accounting_handovers v1
 whb_alert_events v1.1
 whb_alert_rule_conditions v1.1
@@ -4443,7 +4962,6 @@ whb_api_clients v2
 whb_attribute_keys v1
 whb_audit_event_changes v1
 whb_audit_events v1
-whb_category_stocking_ownership v1
 whb_channels v1
 whb_code_list_values v1
 whb_code_lists v1
@@ -4466,7 +4984,6 @@ whb_document_types v1
 whb_duty_statuses v1
 whb_entity_attribute_values v1
 whb_event_types v1
-whb_external_stock_snapshots v1
 whb_gl_posting_rules v1
 whb_gs1_serial_counters v1.1
 whb_gs1_settings v1.1
@@ -4620,6 +5137,106 @@ whin_tax_rule_components v2
 whin_tax_rule_conditions v2
 whin_tax_rules v2
 whin_warehousing_bonds v2
+whm_bom_line_alternates v1
+whm_bom_lines v1
+whm_bom_operations v1
+whm_bom_outputs v1
+whm_boms v1
+whm_component_substitutions v1
+whm_demand_plan_lines v1
+whm_demand_plans v1
+whm_item_planning_params v1
+whm_mrp_exceptions v1
+whm_mrp_pegging v1
+whm_mrp_proposals v1
+whm_mrp_runs v1
+whm_operation_confirmations v1
+whm_production_order_components v1
+whm_production_order_events v1
+whm_production_order_operations v1
+whm_production_order_outputs v1
+whm_production_orders v1
+whm_production_receipt_consumptions v1
+whm_production_receipt_output_serials v1
+whm_production_receipt_outputs v1
+whm_production_receipt_reversals v1
+whm_production_receipts v1
+whm_production_settlement_lines v1
+whm_production_settlements v1
+whm_staging_list_lines v1
+whm_staging_lists v1
+whm_subcontract_dispatch_lines v1
+whm_subcontract_dispatches v1
+whm_subcontract_reconciliations v1
+whm_work_centres v1
+wht_approval_delegations v1
+wht_approval_requests v1
+wht_approval_rule_conditions v1
+wht_approval_rule_level_users v1
+wht_approval_rule_levels v1
+wht_approval_rules v1
+wht_approval_steps v1
+wht_approved_vendor_items v1
+wht_comparative_statement_awards v1
+wht_comparative_statements v1
+wht_counterparty_evaluation_scores v1
+wht_counterparty_evaluations v1
+wht_customer_item_refs v1
+wht_customer_profiles v1
+wht_customer_quotation_charges v1
+wht_customer_quotation_lines v1
+wht_customer_quotations v1
+wht_evaluation_criteria v1
+wht_evaluation_grade_bands v1
+wht_evaluation_runs v1
+wht_evaluation_schemes v1
+wht_po_ack_lines v1
+wht_po_acknowledgements v1
+wht_po_amendment_changes v1
+wht_po_amendments v1
+wht_po_charges v1
+wht_po_followups v1
+wht_po_release_lines v1
+wht_po_releases v1
+wht_po_schedule_line_versions v1
+wht_po_schedule_lines v1
+wht_price_list_prices v1
+wht_price_list_slabs v1
+wht_price_lists v1
+wht_purchase_order_line_versions v1
+wht_purchase_order_lines v1
+wht_purchase_order_versions v1
+wht_purchase_orders v1
+wht_purchase_rate_contract_lines v1
+wht_purchase_rate_contract_prices v1
+wht_purchase_rate_contract_slabs v1
+wht_purchase_rate_contracts v1
+wht_purchase_requisition_lines v1
+wht_purchase_requisitions v1
+wht_rate_contract_amendments v1
+wht_requisition_allocations v1
+wht_rfq_lines v1
+wht_rfq_suppliers v1
+wht_rfqs v1
+wht_sales_enquiries v1
+wht_sales_enquiry_lines v1
+wht_sales_order_lines v1
+wht_sales_orders v1
+wht_sales_rate_contracts v1
+wht_sales_return_authorisation_lines v1
+wht_sales_return_authorisations v1
+wht_so_acknowledgements v1
+wht_so_charges v1
+wht_so_commitment_followups v1
+wht_so_dispatch_release_lines v1
+wht_so_dispatch_releases v1
+wht_so_schedule_lines v1
+wht_supplier_profiles v1
+wht_terms_template_versions v1
+wht_terms_templates v1
+wht_vendor_quotation_charges v1
+wht_vendor_quotation_lines v1
+wht_vendor_quotations v1
 ```
 <!-- TABLE-VERSIONS-END -->
 

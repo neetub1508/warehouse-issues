@@ -72,6 +72,8 @@ gh auth login                                   # needs a token with Issues: wri
 ./issues/create-issues.sh                       # files the backlog, first run only
 ./issues/create-issues.sh --sync                # push every .md to its issue
 ./issues/create-issues.sh --check               # diff filed bodies against the .md; non-zero on drift
+./issues/create-issues.sh --file-tbd --dry-run  # D-16: list what would be filed (files with `issue: TBD`)
+./issues/create-issues.sh --file-tbd           # file ONLY the `issue: TBD` epics/tasks (P7-P10), stamp the numbers back
 REPO=owner/other-repo ./issues/create-issues.sh # stand this backlog up somewhere else
 ```
 
@@ -79,6 +81,12 @@ REPO=owner/other-repo ./issues/create-issues.sh # stand this backlog up somewher
 which `neetub1508/warehouse-issues` now does — so a re-run cannot duplicate the 152 or orphan every
 cross-reference in the first set. The create path remains useful only for standing the backlog up in
 a *different* repository; **`--sync` / `--check` are what you use from here on.**
+
+**Adding a phase to a filed backlog (`D-16`, P7–P10).** New files carry `issue: TBD`; `--sync` / `--check`
+skip them (a `TBD` is never read as a number). `--file-tbd` files only those, master → phase epics → tasks in
+phase order, substitutes `__P7__`…`__P10__` with the new epic numbers, writes each number back over its `TBD`,
+re-patches the epics whose checklist changed (and the master when an epic was new), and appends the new rows to
+`CREATED.md`. Labels `phase-p7`…`phase-p10`, `warehouse-trade` and `warehouse-manufacturing` are ensured first.
 
 ## What the script does, in order
 

@@ -194,3 +194,117 @@ cross-reference against — regenerate it with `create-issues.sh`, do not hand-e
 | #138 | `p6-10.md` | P6-10 · The real-time operations dashboard on the platform widget framework |
 | #142 | `p6-11.md` | P6-11 · The accessories absorption path, stated in advance so it is a decision rather than a discovery |
 | #144 | `p6-12.md` | P6-12 · Multi-level BOM with routings is not built — recorded so the refusal is a decision with a way back in |
+
+## Warehouse-only readiness findings — 2026-10-01
+
+Created at the user’s request as one `[Finding]` issue per audit entry. Existing related implementation issues remain linked, unchanged. [Batch index](FINDINGS-2026-10-01.md).
+
+| Issue | Task file | Title |
+|---|---|---|
+| #195 | `finding-w01.md` | [Warehouse] [Finding] W01 · Historical stock report can omit older surviving stock |
+| #196 | `finding-w02.md` | [Warehouse] [Finding] W02 · Zone-less putaway rules can throw during response mapping |
+| #197 | `finding-w03.md` | [Warehouse] [Finding] W03 · Blank unit on imported/direct demand order is not defaulted |
+| #198 | `finding-w04.md` | [Warehouse] [Finding] W04 · Style/variant matrix has no supported style-creation path found |
+| #199 | `finding-w05.md` | [Warehouse] [Finding] W05 · Supplier preference by site remains unverified in implementation |
+| #200 | `finding-w06.md` | [Warehouse] [Finding] W06 · Cost-layer and valuation-policy maintenance surfaces remain unbuilt/unproven |
+| #201 | `finding-w07.md` | [Warehouse] [Finding] W07 · Approval cost and original-currency evidence require persistence reconciliation |
+| #202 | `finding-w08.md` | [Warehouse] [Finding] W08 · Cost inputs from receipt/return/transfer producers need end-to-end proof |
+| #203 | `finding-w09.md` | [Warehouse] [Finding] W09 · Costing contract documentation and runtime evidence need reconciliation |
+| #204 | `finding-w10.md` | [Warehouse] [Finding] W10 · Accounting-integrated mode lacks an installed implementation |
+| #205 | `finding-w11.md` | [Warehouse] [Finding] W11 · Versioned accounting-envelope extension |
+| #206 | `finding-w12.md` | [Warehouse] [Finding] W12 · RMA expiry has no scheduled transition found |
+| #207 | `finding-w13.md` | [Warehouse] [Finding] W13 · Sealed-carton/item attachments lack an owning-module delete guard |
+| #208 | `finding-w14.md` | [Warehouse] [Finding] W14 · Generic bin movement ownership remains unresolved |
+| #209 | `finding-w15.md` | [Warehouse] [Finding] W15 · Emergency replenishment issue is partly stale |
+| #210 | `finding-w16.md` | [Warehouse] [Finding] W16 · Replenishment source is not reserved when task is raised |
+| #211 | `finding-w17.md` | [Warehouse] [Finding] W17 · Partial pick-face replenishment is unsupported |
+| #212 | `finding-w18.md` | [Warehouse] [Finding] W18 · Replenishment priority is not recalculated at claim time |
+| #213 | `finding-w19.md` | [Warehouse] [Finding] W19 · Generic task completion/cancellation signaling is inconsistent or unproven |
+| #214 | `finding-w20.md` | [Warehouse] [Finding] W20 · Blocked-task alert setting has no consumer found |
+| #215 | `finding-w21.md` | [Warehouse] [Finding] W21 · Snapshot schedule outage and missing-day recovery need proof |
+| #216 | `finding-w22.md` | [Warehouse] [Finding] W22 · Full-history ageing performance remains unmeasured |
+| #217 | `finding-w23.md` | [Warehouse] [Finding] W23 · Archiving and hot-ledger reconstruction are deferred |
+| #218 | `finding-w24.md` | [Warehouse] [Finding] W24 · Scheduled reports cannot yet guarantee recipient-specific scope |
+| #219 | `finding-w25.md` | [Warehouse] [Finding] W25 · Stock-to-GL search treats literal wildcards as patterns |
+| #220 | `finding-w26.md` | [Warehouse] [Finding] W26 · Stock-period Site sort is advertised but unsupported |
+| #221 | `finding-w27.md` | [Warehouse] [Finding] W27 · Opening-stock row validation filter has no operator surface |
+| #222 | `finding-w28.md` | [Warehouse] [Finding] W28 · Receiving-session export label differs from grid |
+| #223 | `finding-w29.md` | [Warehouse] [Finding] W29 · Handover shipment picker renders a null name |
+| #224 | `finding-w30.md` | [Warehouse] [Finding] W30 · Site-access denial reports misleading permission |
+| #225 | `finding-w31.md` | [Warehouse] [Finding] W31 · Date/filter/export consistency still needs broad UI verification |
+| #226 | `finding-w32.md` | [Warehouse] [Finding] W32 · Install and contract documents contain contradictory current-state claims |
+| #227 | `finding-w33.md` | [Warehouse] [Finding] W33 · Warehouse-only disaster recovery is not demonstrated |
+| #228 | `finding-w34.md` | [Warehouse] [Finding] W34 · Database integration tests are outside the passing default gate |
+| #229 | `finding-w35.md` | [Warehouse] [Finding] W35 · The standalone acceptance sequence remains incompletely demonstrated |
+| #230 | `finding-w36.md` | [Warehouse] [Finding] W36 · Frontend test breadth does not establish operator-flow readiness |
+| #231 | `finding-w37.md` | [Warehouse] [Finding] W37 · Warehouse is deliberately web-only and online-only |
+| #232 | `finding-w38.md` | [Warehouse] [Finding] W38 · Physical scanner, printer and device operation is not field-proven |
+| #233 | `finding-w39.md` | [Warehouse] [Finding] W39 · Frontend health endpoint fails, with an additional localhost binding mismatch |
+| #234 | `finding-w40.md` | [Warehouse] [Finding] W40 · Fresh install / upgrade / module combinations need runtime proof |
+| #235 | `finding-w41.md` | [Warehouse] [Finding] W41 · Import validation cache assumes one backend instance |
+| #236 | `finding-w42.md` | [Warehouse] [Finding] W42 · Import update cannot clear optional values |
+| #237 | `finding-w43.md` | [Warehouse] [Finding] W43 · Large generated import reverse still needs execution-budget decision |
+| #238 | `finding-w44.md` | [Warehouse] [Finding] W44 · Dock data and picker can admit confusing legacy combinations |
+| #239 | `finding-w45.md` | [Warehouse] [Finding] W45 · Regulated-item setup refuses contradictions too late |
+| #240 | `finding-w46.md` | [Warehouse] [Finding] W46 · Optional tax-basis valuation remains deferred |
+| #241 | `finding-w47.md` | [Warehouse] [Finding] W47 · Provider-backed operational features require actual connector evidence |
+| #242 | `finding-w48.md` | [Warehouse] [Finding] W48 · 3PL billing needs an independent cycle-level reconciliation |
+| #243 | `finding-w49.md` | [Warehouse] [Finding] W49 · Permissions need adversarial workflow tests, not only annotations |
+| #244 | `finding-w50.md` | [Warehouse] [Finding] W50 · Idempotency/concurrency across the complete order flow needs proof |
+| #245 | `finding-w51.md` | [Warehouse] [Finding] W51 · Cut-over performance and opening-stock reversal need measured evidence |
+| #246 | `finding-w52.md` | [Warehouse] [Finding] W52 · Alert and background-job recovery need an operational drill |
+| #247 | `finding-w53.md` | [Warehouse] [Finding] W53 · Production performance and resource limits lack a current benchmark |
+| #248 | `finding-w54.md` | [Warehouse] [Finding] W54 · Backup retention, attachments and external acknowledgments need one recovery policy |
+| #249 | `finding-w55.md` | [Warehouse] [Finding] W55 · Data import handoff and document permissions complicate onboarding |
+| #250 | `finding-w56.md` | [Warehouse] [Finding] W56 · Product promises exceed the evidence in some help text |
+| #251 | `finding-w57.md` | [Warehouse] [Finding] W57 · Operational KPI semantics and coexistence defaults require sign-off |
+| #252 | `finding-w58.md` | [Warehouse] [Finding] W58 · Existing demand-merge option has no calculation consumer found |
+| #253 | `finding-w59.md` | [Warehouse] [Finding] W59 · Advanced operational features must remain explicitly outside the basic offer |
+| #254 | `finding-w60.md` | [Warehouse] [Finding] W60 · Filter parity gate cannot reliably parse current filter declarations/helpers |
+| #255 | `finding-w61.md` | [Warehouse] [Finding] W61 · Registry-label gate has parser/mapping failures and unresolved label checks |
+| #256 | `finding-w62.md` | [Warehouse] [Finding] W62 · Registry and mobile gates conflate equal strings from different domains |
+| #257 | `finding-w63.md` | [Warehouse] [Finding] W63 · Carrier and shipment lifecycle has recorded unowned transitions |
+| #258 | `finding-w64.md` | [Warehouse] [Finding] W64 · Client offboarding and accounting-related operational follow-ups remain recorded |
+| #259 | `finding-w65.md` | [Warehouse] [Finding] W65 · Task assignment may accept an inactive or out-of-site operator |
+| #260 | `finding-w66.md` | [Warehouse] [Finding] W66 · Paper catch-up and device session edge cases need acceptance |
+| #261 | `finding-w67.md` | [Warehouse] [Finding] W67 · GS1 pallet identity remains intentionally deferred |
+| #262 | `finding-w68.md` | [Warehouse] [Finding] W68 · Weighing and labour capture have recorded interface limits |
+| #263 | `finding-w69.md` | [Warehouse] [Finding] W69 · India e-way lifecycle has recorded state and race gaps |
+| #264 | `finding-w70.md` | [Warehouse] [Finding] W70 · India challan evidence and setup need further closure |
+| #265 | `finding-w71.md` | [Warehouse] [Finding] W71 · Closed receiving and access work contains unresolved smaller obligations |
+
+### Earlier reported issues referenced by this batch
+
+These existing GitHub reports have no source task file in this batch; listed for reference resolution only. Their bodies and states were not modified.
+
+| Issue | Task file | Title |
+|---|---|---|
+| #165 | `—` (existing report; no source file) | [Warehouse] P2-12 follow-up · RMA expiry job (RJ-012) — open RMAs expire on the site's date |
+| #166 | `—` (existing report; no source file) | [Warehouse] P2-11 follow-up · Pack evidence and item documents cannot be deleted out from under a sealed carton |
+| #168 | `—` (existing report; no source file) | [Warehouse] P2-24 follow-up · MERGE_DEMAND is read by the demand calculation |
+| #169 | `—` (existing report; no source file) | [Warehouse] P2-16 follow-up · Cost Layers and Valuation Policies screens |
+| #170 | `—` (existing report; no source file) | [Warehouse] P2-16 follow-up · Movement lines keep the approved cost, the source-currency amount and the cost source line |
+| #171 | `—` (existing report; no source file) | [Warehouse] P2-16 follow-up · Receipts, supplier returns, transfers and workshop returns give the costing engine what it needs |
+| #172 | `—` (existing report; no source file) | [Warehouse] P2-16 follow-up · Ratify costing defaults, contract codes and run the integration tests in the gate |
+| #173 | `—` (existing report; no source file) | [Warehouse] Follow-up · Accounting envelope v2 — duty status, lot, serial and exchange rate per line |
+| #174 | `—` (existing report; no source file) | [Warehouse] Follow-up · The accounting-facing adapter has no home — no module owns WhbAccountingHandoverSink or WhbGlBalanceProvider |
+| #175 | `—` (existing report; no source file) | [Warehouse] Follow-up · Prove INTEGRATED mode end to end — WH-SC-156, WH-SC-157, CONFIG-CASE-07/10 |
+| #176 | `—` (existing report; no source file) | [Warehouse] P2-02 follow-up · FR-150 / WH-SC-285 bin-to-bin movement has no owning task — the deferral, not a closure |
+| #177 | `—` (existing report; no source file) | [Warehouse] P2-02 follow-up · RA-006 — P2-09's emergency replenish is specified as a BIN_TO_BIN transfer, which V511246 makes unbuildable |
+| #178 | `—` (existing report; no source file) | [Warehouse] OD-20 · Does v1 ship a union valuation report across the two ownership domains? (gates P2-20, P2-27) |
+| #179 | `—` (existing report; no source file) | [Warehouse] P2-20 · WS-224's 365-day lower bound makes the as-at quantity a windowed net, not an all-time balance |
+| #180 | `—` (existing report; no source file) | WhStockToGl search: an unescaped LIKE makes '_' and '%' live wildcards |
+| #181 | `—` (existing report; no source file) | wh_opening_stock_lines.validationStatus: a seeded filter row nothing can consume |
+| #182 | `—` (existing report; no source file) | WS-212 Ageing now scans the whole ledger: PP-7's bound was removed on purpose, and the cost is unmeasured |
+| #183 | `—` (existing report; no source file) | V511248's header loses its § characters, so MigrationHeaderRule fails and blocks every warehouse ci-gate run |
+| #184 | `—` (existing report; no source file) | P2-21: four product calls taken by default in report pack 2 |
+| #185 | `—` (existing report; no source file) | RH-010 unmet: WS-215 cannot be scheduled without a platform commit |
+| #186 | `—` (existing report; no source file) | [Warehouse] W13-1 carry: WH-SC-044…WH-SC-059 not demonstrated (SCENARIO-CATALOGUE.md not available locally) |
+| #187 | `—` (existing report; no source file) | [Warehouse] Site-access 403s name the wrong permission (shared requirePermitted) |
+| #188 | `—` (existing report; no source file) | [Warehouse] P4-13 follow-up · Refuse an unlotted regulated item at the item screen; Schedule H1 prescriber/patient fields (adviser-gated) |
+| #189 | `—` (existing report; no source file) | [Warehouse] Putaway Rules: creating/editing a zone-less rule (FIXED_LOCATION or CONSOLIDATE_SAME_LOT) always 500s |
+| #190 | `—` (existing report; no source file) | [Warehouse] Receiving Sessions export labels the Site column "Warehouse" |
+| #191 | `—` (existing report; no source file) | [Warehouse Base] Style x Variant Matrix: no code path ever creates a "style" — page is permanently empty |
+| #192 | `—` (existing report; no source file) | [Warehouse Base] Stock Periods: "Site" column marked sortable but sort is silently ignored |
+| #193 | `—` (existing report; no source file) | [Warehouse] Channel order import rejects lines with no uomCode instead of defaulting to the item's base unit |
+| #194 | `—` (existing report; no source file) | [Warehouse] Handovers: shipment picker shows literal "TRACKING - null" when ship-to name is blank |

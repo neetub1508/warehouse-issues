@@ -3,13 +3,24 @@
 **Adopted solutions:** [Global settings and resolved behaviour](GLOBAL-SETTINGS-DECISIONS.md) · [First-day setup](../INSTALL.md). Existing historical questions are resolved by this contract where named.
 
 
-Pre-implementation design for the Classic **Warehouse and Inventory Management** product. No production
-code lives here.
+Pre-implementation design for the Classic **Warehouse and Inventory Management** product for
+**manufacturing plant stores and storage** (`DECISIONS.md` `D-16`, 2026-10-22). It is a separate product
+from the `dealer` module; dealer and retail/e-commerce features are removed. No production code lives
+here.
 
-**Five modules:** `warehouse-base` · `warehouse` · `warehouse-adapter-<vertical>` · `warehouse-3pl` ·
-`warehouse-india` — packages `ai.warehousebase`, `ai.warehouse`, `ai.warehouseadapter<vertical>`,
-`ai.warehouse3pl`, `ai.warehouseindia` · prefixes `whb_` `wh_` `wha*_` `wh3_` `whin_` · Flyway
-**V500000–V549999**.
+**Modules:** `warehouse-base` · `warehouse` · `warehouse-3pl` · `warehouse-india` · **`warehouse-trade`**
+(purchase + sales) · **`warehouse-manufacturing`** (BOM, production, MRP) · plus the CI-only
+`warehouse-adapter-example` — packages `ai.warehousebase`, `ai.warehouse`, `ai.warehouse3pl`,
+`ai.warehouseindia`, `ai.warehousetrade`, `ai.warehousemanufacturing` · prefixes `whb_` `wh_` `wh3_`
+`whin_` `wht_` `whm_` (`whae_` for the example) · Flyway **V500000–V569999**. The dealer and services
+adapters (`whad_`, `whas_`, `V520000`–`V521999`) were removed and their bands stay reserved.
+
+**Start here for the re-target:** [`reviews/R27-client-p2p-stores-gap.md`](reviews/R27-client-p2p-stores-gap.md)
+(the client purchase-to-stores gap) → [`reviews/R28-manufacturing-storage-retarget-impact.md`](reviews/R28-manufacturing-storage-retarget-impact.md)
+(impact and decisions; §8b is authoritative) → `DECISIONS.md` `D-16` → the per-area requirements in
+[`frd/`](frd/) (`FRD-REM`, `FRD-STORES`, `FRD-TRADE`, `FRD-MFG`) and the workflow contracts in
+[`contracts/`](contracts/). Phases `P7` → `P8` → {`P9`, `P10`} (`IMPLEMENTATION-PLAN.md` §1.9). Reviews
+R1–R26, the gap registers and `competitive/` predate `D-16` and are historical.
 
 ---
 
@@ -17,7 +28,7 @@ code lives here.
 
 | # | Document | For | Why |
 |---|---|---|---|
-| 1 | **[DECISIONS.md](DECISIONS.md)** | Everyone | **The spine. Read this first, always.** Module names, packages, Flyway bands, table prefixes, id namespaces, the version ladder, `D-1`…`D-14`, `OD-1`…`OD-19`, `L-1`…`L-14`, and the authoring rules. **It wins over every other document here** except `reviews/R1` on a question about the existing codebase |
+| 1 | **[DECISIONS.md](DECISIONS.md)** | Everyone | **The spine. Read this first, always.** Module names, packages, Flyway bands, table prefixes, id namespaces, the version ladder, `D-1`…`D-16`, `OD-1`…`OD-19`, `L-1`…`L-14`, and the authoring rules. **It wins over every other document here** except `reviews/R1` on a question about the existing codebase |
 | 2 | **[IRREVERSIBLE.md](IRREVERSIBLE.md)** | Whoever writes a migration | **Free now, impossible later.** 67 merged rows, the four points of no return, and the full v1 column set per table — including every column whose *feature* ships in v1.1, v2 or v3. **Check this immediately before writing any migration.** If you read only two documents before building, read this and `DECISIONS.md` |
 | 3 | **[WAREHOUSE-FUNCTIONAL-REQUIREMENTS.md](WAREHOUSE-FUNCTIONAL-REQUIREMENTS.md)** | Everyone | The spec. **469 requirements** `FR-001`…`FR-469` in 28 areas, each carrying its module, version, phase and the findings it closes. **This document wins over the build spec, which wins over the screens** |
 | 4 | **[DATA-MODEL.md](DATA-MODEL.md)** | Engineers, reviewers | **317 tables**, the ER diagrams, §3 the split proof (every crossing FK, proven to point downward), §5 money and rounding, §6 the invariants as enforceable `I-n` constraints with their SQL, §7 the migration allocation. **This is the migration authority** |
@@ -62,7 +73,7 @@ Every task issue in [`../issues/`](../issues/) is written so an engineer — or 
 - the **migration numbers are pre-allocated per task**, so parallel work cannot collide
 - every grid names its `gridIdentifier`, its `COMMON_FILTER_CONFIGS` scope, its cache names and its
   permission resource
-- every task states which of the five modules it lands in
+- every task states which module it lands in
 - acceptance criteria are the numbered scenarios from [SCENARIO-CATALOGUE.md](SCENARIO-CATALOGUE.md),
   not prose
 - **the traps that have cost a rebuild cycle in this codebase are named on the task that will hit
