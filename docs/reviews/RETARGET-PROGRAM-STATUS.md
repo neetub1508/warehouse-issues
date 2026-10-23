@@ -4,6 +4,8 @@
 
 ## Done
 
+- **P7-03 #551 closed 2026-10-23** — NDR, COD remittances, customer tracking links and the public tracking page removed (classic 99b1767085 + S4 438a5bf4dc); failed delivery maps to EXCEPTION; supports_cod dropped. Gates: reviewer PASS, functional PASS, tester PASS after the floor fix.
+
 - **P7-09 #557 closed 2026-10-23** — accessories coexistence, consolidated valuation and is_dual_eligible removed (classic `1cb82c3e45` + barrier `145ff7fb0b`); reviewer PASS, functional-reviewer PASS, tester PASS (India on/off); ci-gate not run (on request).
 
 - **P7-02 #550 closed 2026-10-23** — AWB pools, serviceability and rate quotes removed (classic `f12edccf6f` + barrier `145ff7fb0b`); carrier account scopes kept; reviewer PASS, functional-reviewer PASS, tester PASS; ci-gate not run (on request).

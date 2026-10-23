@@ -5,14 +5,13 @@
 
 **Order (user, 2026-10-23): `P7` first, then the rest.** *Must run after P7* is **true** where a `P7` task edits a file, class, table or permission the item touches, or the item adds a migration or schema change (`P7` rewrites the migration set in place once, `D-16` item 4, and `P7-13` rebuilds on it); all of `P8`–`P10` are true by `P7-13`'s rule. *Scope* says whether the whole task is to build or only its *Reopened scope* items.
 
-**Totals: 126 open issues** — P7 11 · P8 17 · P9 15 · P10 15 · P5/P6 survivors 11 · reopened 41 · new findings 2 · old open findings 4 · other 10 (#539 #543 closed as carried by `P10-14` #605, 2026-10-23).
+**Totals: 125 open issues** — P7 10 · P8 17 · P9 15 · P10 15 · P5/P6 survivors 11 · reopened 41 · new findings 2 · old open findings 4 · other 10 (#539 #543 closed as carried by `P10-14` #605, 2026-10-23).
 
-## 1. P7 — removal and the clean rebuild (run first) — 11 open
+## 1. P7 — removal and the clean rebuild (run first) — 10 open
 
 | Issue | Task file | Title | Scope | Must run after P7 | Why |
 |---|---|---|---|---|---|
 | #545 | `issues/09-EPIC-p7.md` | EPIC: P7 — Remove dealer and retail code, rename the dual-use items, rebuild on a clean… | epic (checklist of its tasks) | false | is P7 |
-| #551 | `issues/p7-03.md` | P7-03 · Remove the NDR workflow, COD remittances, customer tracking links and the publi… | whole task | false | is P7 |
 | #552 | `issues/p7-04.md` | P7-04 · Remove channel accounts, channel order imports and channel publish rules; drop … | whole task | false | is P7 |
 | #553 | `issues/p7-05.md` | P7-05 · Remove RTO consignments and marketplace claims; return receipts post and revers… | whole task | false | is P7 |
 | #554 | `issues/p7-06.md` | P7-06 · Replace the Channels L1 menu with Shipping → Carrier Tracking & Planning and re… | whole task | false | is P7 |
