@@ -147,9 +147,9 @@
 
 | ID | File:line | FR | Difference |
 |---|---|---|---|
-| TEP-DIV-01 | `warehouse-base/…/entity/WhbTaskType.java:79`; `V500010__Create_whb_code_lists_task_types_dispositions_attribute_keys.sql:250` | `FR-228` | a `labour_standard_minutes` column is stored per task type; the FRD forbids claiming an engineered standard before a year of actual data — the column must stay a manually entered reference that nothing computes or pays from |
-| TEP-DIV-02 | `warehouse-base/…/service/whbtask/WhbTaskCompletedEvents.java` (`EVENT_TASK_COMPLETED`, `ACTOR_TYPE_USER`) | `FR-229` | the only task event emitted is `task.completed` with a `USER` actor; the published task-event contract an automation vendor integrates against does not exist yet (v3, `P6-04`) |
-| TEP-DIV-03 | `warehouse-base/…/controller/WhbTaskController.java:204-205` | `FR-214`, `FR-215` | single-task Assign needs only `whb_tasks:edit`, weaker than the queue push's `whb_tasks:assign` (`:262-263`), so an editor without `:assign` can assign. The permission decision is `P0-10`'s (acceptance item added) |
+| TEP-DIV-01 | `warehouse-base/…/entity/WhbTaskType.java:79`; `V500010__Create_whb_code_lists_task_types_dispositions_attribute_keys.sql:250` | `FR-228` | a `labour_standard_minutes` column is stored per task type; the FRD forbids claiming an engineered standard before a year of actual data — the column must stay a manually entered reference that nothing computes or pays from — **Triage 2026-10-23: CARRIED** — `P6-03` #103 (`FR-228`: the column stays a manual reference until measured labour exists) |
+| TEP-DIV-02 | `warehouse-base/…/service/whbtask/WhbTaskCompletedEvents.java` (`EVENT_TASK_COMPLETED`, `ACTOR_TYPE_USER`) | `FR-229` | the only task event emitted is `task.completed` with a `USER` actor; the published task-event contract an automation vendor integrates against does not exist yet (v3, `P6-04`) — **Triage 2026-10-23: CARRIED** — `P6-04` #109 (v3 task-event contract, R31 `TEP-OPEN-01`) |
+| TEP-DIV-03 | `warehouse-base/…/controller/WhbTaskController.java:204-205` | `FR-214`, `FR-215` | single-task Assign needs only `whb_tasks:edit`, weaker than the queue push's `whb_tasks:assign` (`:262-263`), so an editor without `:assign` can assign. The permission decision is `P0-10`'s (acceptance item added) — **Triage 2026-10-23: FIX-CODE** — owner `P0-10` #83, reopened |
 
 ## 9. Open rows
 

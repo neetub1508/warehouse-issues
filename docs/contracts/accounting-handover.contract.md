@@ -349,6 +349,6 @@ and no account codes (`AHO-OPEN-02`). This contract records the built behaviour 
 
 | # | File:line | FR | What differs |
 |---|---|---|---|
-| 1 | `warehouse/frontend/src/components/whStockToGl/WhStockToGlManagementTable.tsx:52` | FR-247 | The `difference` drill (`AHO-RPT-05`) is not wired: the cell opens the details modal. Its target WS-209 now exists (`WhMovementRegisterController`), but `COMMON_FILTER_CONFIGS.WAREHOUSE_RPT_MOVEMENT_REGISTER` (`platform/frontend/src/utils/filterUtils.ts:1708-1715`) has no `periodId` or item-group key, so the drill can carry site, owner and posting-date window but not item group. `P2-18` owns the wiring (acceptance item added) |
+| 1 | `warehouse/frontend/src/components/whStockToGl/WhStockToGlManagementTable.tsx:52` | FR-247 | The `difference` drill (`AHO-RPT-05`) is not wired: the cell opens the details modal. Its target WS-209 now exists (`WhMovementRegisterController`), but `COMMON_FILTER_CONFIGS.WAREHOUSE_RPT_MOVEMENT_REGISTER` (`platform/frontend/src/utils/filterUtils.ts:1708-1715`) has no `periodId` or item-group key, so the drill can carry site, owner and posting-date window but not item group. `P2-18` owns the wiring (acceptance item added) — **Triage 2026-10-23: FIX-CODE** — owner `P2-18` #128, reopened |
 
 <!-- Ratify with /functional-contract. A derived contract proves nothing until a human has ratified it. -->

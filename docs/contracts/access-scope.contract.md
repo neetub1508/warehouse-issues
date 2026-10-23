@@ -121,4 +121,4 @@ None — every rule above is stated by the FRD or `BUILD-SPEC-SCREENS.md` §10.2
 
 | # | File:line | FR | What differs |
 |---|---|---|---|
-| 1 | `warehouse/backend/.../db/migration/` (no `V510222`) | FR-466 | `wh_approval_levels` and the multi-level approve path are not built (v2 increment of `P2-23`) |
+| 1 | `warehouse/backend/.../db/migration/` (no `V510222`) | FR-466 | `wh_approval_levels` and the multi-level approve path are not built (v2 increment of `P2-23`) — **Triage 2026-10-23: FIX-CODE** — owner `P2-23` #146 (v2 increment), reopened |

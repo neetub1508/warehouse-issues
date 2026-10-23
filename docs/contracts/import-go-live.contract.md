@@ -155,5 +155,5 @@ The FRD rule is kept; the code is what differs.
 
 | # | File:line | FR | Difference |
 |---|---|---|---|
-| 1 | `warehouse-base/…/service/whbitem/WhbItemImportHandler.java`, `warehouse-base/…/service/whblocation/WhbLocationGenerateImportHandler.java`, `warehouse/…/service/whopeningstock/WhOpeningStockImportHandler.java` (the registered handlers) | FR-418 | items, locations and opening stock have handlers; identifiers and barcodes, packaging, ASN lines, supersessions and price files have none |
-| 2 | — (no configuration-object import kind under `warehouse-base` / `warehouse`) | FR-414 | the v1.1 configuration package (one import kind per configuration object, upserted on `code`, dry run as a diff) is not built |
+| 1 | `warehouse-base/…/service/whbitem/WhbItemImportHandler.java`, `warehouse-base/…/service/whblocation/WhbLocationGenerateImportHandler.java`, `warehouse/…/service/whopeningstock/WhOpeningStockImportHandler.java` (the registered handlers) | FR-418 | items, locations and opening stock have handlers; identifiers and barcodes, packaging, ASN lines, supersessions and price files have none — **Triage 2026-10-23: FIX-CODE** — owner `P1-10` #92, reopened |
+| 2 | — (no configuration-object import kind under `warehouse-base` / `warehouse`) | FR-414 | the v1.1 configuration package (one import kind per configuration object, upserted on `code`, dry run as a diff) is not built — **Triage 2026-10-23: FIX-CODE** — owner `P3-18` #90 (v1.1), reopened |

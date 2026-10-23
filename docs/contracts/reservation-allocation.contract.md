@@ -128,8 +128,8 @@
 
 | ID | File:line | FR | Difference |
 |---|---|---|---|
-| RSA-DIV-01 | `warehouse-base/…/service/allocation/WhbAllocationVocabulary.java:37` | `FR-172` | the FRD's ordering key *"fewest locations"* is coded `FEWEST_PICKS` |
-| RSA-DIV-02 | — (grep of `warehouse-base` / `warehouse` `src/main` for a supersession-inclusive availability or report finds none) | `FR-176` | the allocator substitutes and records `requested_item_id` (`WhbReservation.java:161`), but no report or availability answer separates *including superseded equivalents* |
+| RSA-DIV-01 | `warehouse-base/…/service/allocation/WhbAllocationVocabulary.java:37` | `FR-172` | the FRD's ordering key *"fewest locations"* is coded `FEWEST_PICKS` — **Triage 2026-10-23: AMEND-SPEC** — rule: the FRD's *fewest locations* key is the code value `FEWEST_PICKS` (`WhbAllocationVocabulary`). `FR-172` amended |
+| RSA-DIV-02 | — (grep of `warehouse-base` / `warehouse` `src/main` for a supersession-inclusive availability or report finds none) | `FR-176` | the allocator substitutes and records `requested_item_id` (`WhbReservation.java:161`), but no report or availability answer separates *including superseded equivalents* — **Triage 2026-10-23: FIX-CODE** — owner `P2-07` #53 (`FR-176`), reopened |
 
 ## 9. Open rows
 

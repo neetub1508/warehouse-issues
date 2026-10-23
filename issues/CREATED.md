@@ -31,6 +31,11 @@ duplicates** — each was folded into its most similar existing task on 2026-09-
 > The VOID tasks `P2-24` #149, `P2-25` #150, `P2-26` #151, `P3-19` #95, `P5-12` #67, `P5-15` #81 and
 > `P6-09` #134 are closed as not planned.
 
+> **Tracking fix (2026-10-23) filed two findings and reopened 41 tasks.** `W72` #606 and `W73` #607
+> (`FINDINGS-2026-10-23.md`) are the contract divergences with no owning task. 41 closed tasks carry a
+> *Reopened scope — R30/R31 (2026-10-23)* section and the `reopened-r31` label; their rows below are
+> unchanged. The full list and the divergence triage are in `docs/reviews/OPEN-WORK-INDEX.md`.
+
 > **The `.md` files win.** Every file below carries an `issue: NN` line in its front matter,
 > which is what `create-issues.sh --sync` and `--check` read. GitHub is a mirror:
 > `--sync` pushes, `--check` fails CI on drift. Never edit an issue body in the GitHub UI.
@@ -381,3 +386,5 @@ These existing GitHub reports have no source task file in this batch; listed for
 | #603 | `issues/p10-12.md` | P10-12 · MRP — regenerative per-site run, netting with low-level codes, lot sizing and fences, pegged proposals, firm / convert / dismiss, BUY to core replenishment suggestions, exception messages |
 | #604 | `issues/p10-13.md` | P10-13 · Capacity load (infinite, visible) and the manufacturing registers — production, WIP by order, scrap, yield, consumption variance |
 | #605 | `issues/p10-14.md` | P10-14 · Bonded / MOOWR stock to production and to a job worker — bond rules read by the exit guard, the bond register, output in bond, bonded loss, job work under permission, the MOOWR return and SEZ movement lines |
+| #606 | `finding-w72.md` | [Warehouse] [Finding] W72 · Counterfeit control has no open owner after P3-24 was closed not planned |
+| #607 | `finding-w73.md` | [Warehouse] [Finding] W73 · Nine non-functional rules are verified only by the reviewer gate |

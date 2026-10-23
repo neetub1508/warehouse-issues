@@ -190,6 +190,6 @@ The FRD rule is kept; the code is what differs.
 
 | # | File:line | FR | Difference |
 |---|---|---|---|
-| 1 | `warehouse-base/backend/src/main/resources/db/migration/V500010__Create_whb_code_lists_task_types_dispositions_attribute_keys.sql:155`, `:161` | FR-270 | the two retail return types the FRD removes (`RTO`, `MARKETPLACE`) are still seeded (removal pending in `P7`); BUILD-SPEC WS-135's `returnType` list carried them too and was amended (R31 `F-CB-022`) |
-| 2 | `warehouse/…/entity/WhSupplierClaim.java:72` | FR-459 | the `OBSOLESCENCE` claim type and its source are still in the vocabulary (`D-16` `RN-051` removes them) |
-| 3 | `warehouse/…/entity/WhSupplierClaim.java:69-77` | FR-459 | types are short shipment, damage in transit, quality reject, price; the FRD's expiry claim has no type |
+| 1 | `warehouse-base/backend/src/main/resources/db/migration/V500010__Create_whb_code_lists_task_types_dispositions_attribute_keys.sql:155`, `:161` | FR-270 | the two retail return types the FRD removes (`RTO`, `MARKETPLACE`) are still seeded (removal pending in `P7`); BUILD-SPEC WS-135's `returnType` list carried them too and was amended (R31 `F-CB-022`) — **Triage 2026-10-23: P7-REMOVES** — `P7-05` #553 and `P7-10` #558 |
+| 2 | `warehouse/…/entity/WhSupplierClaim.java:72` | FR-459 | the `OBSOLESCENCE` claim type and its source are still in the vocabulary (`D-16` `RN-051` removes them) — **Triage 2026-10-23: P7-REMOVES** — `P7-07` #555 |
+| 3 | `warehouse/…/entity/WhSupplierClaim.java:69-77` | FR-459 | types are short shipment, damage in transit, quality reject, price; the FRD's expiry claim has no type — **Triage 2026-10-23: FIX-CODE** — owner `P5-23` #123 (`FR-459`), reopened |

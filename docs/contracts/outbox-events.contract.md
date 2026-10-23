@@ -128,9 +128,9 @@
 
 | ID | FR says | Code has (grep) | Source |
 |---|---|---|---|
-| OEV-DIV-01 | Issue-to-asset and return-from-asset are posted through the port | `V500003` seeds `EQUIPMENT_ISSUE` / `EQUIPMENT_RETURN` only; no `ISSUE_TO_ASSET` / `RETURN_FROM_ASSET` type — **resolved R31**: `FR-338` restated to this pair (`OEV-OPEN-02`) | FR-338 |
-| OEV-DIV-02 | The integration surface is argued as platform work first and built in base only if platform declines | built in base (`V500066`, `WhbApiClientGate`); no recorded platform decline found | FR-458 |
-| OEV-DIV-03 | Seam acceptance = two deletion tests (delete logistics; delete warehouse) | only the warehouse side is tested (no FK out); no logistics module exists to delete | FR-336 |
+| OEV-DIV-01 | Issue-to-asset and return-from-asset are posted through the port | `V500003` seeds `EQUIPMENT_ISSUE` / `EQUIPMENT_RETURN` only; no `ISSUE_TO_ASSET` / `RETURN_FROM_ASSET` type — **resolved R31**: `FR-338` restated to this pair (`OEV-OPEN-02`) — **Triage 2026-10-23: AMEND-SPEC** — applied R31 (`FR-338` restated); stands as the rule | FR-338 |
+| OEV-DIV-02 | The integration surface is argued as platform work first and built in base only if platform declines | built in base (`V500066`, `WhbApiClientGate`); no recorded platform decline found — **Triage 2026-10-23: AMEND-SPEC** — rule: the platform question was settled by `OD-8` (resolved 2026-09-11, `GLOBAL-SETTINGS-DECISIONS.md`): the port authenticates an ordinary platform user and the API client is a warehouse-base integration surface that narrows it. Evidence: `V500066` header *THE DECISION THIS FILE IMPLEMENTS*. `FR-458` amended | FR-458 |
+| OEV-DIV-03 | Seam acceptance = two deletion tests (delete logistics; delete warehouse) | only the warehouse side is tested (no FK out); no logistics module exists to delete — **Triage 2026-10-23: CARRIED** — `P6-08` #131 (`p6-08.md:120`, `:229` — the two deletion tests) | FR-336 |
 
 ## 7. Out of scope
 

@@ -165,7 +165,7 @@ The FRD rule is kept; the code is what differs.
 
 | # | File:line | FR | Difference |
 |---|---|---|---|
-| 1 | `warehouse-base/…/entity/WhbItemLocationSetting.java` (columns `min_quantity`, `max_quantity`, `replen_trigger_quantity`) | FR-252 | item × location carries min / max / trigger only; no reorder point, reorder quantity, safety stock or lead time at that grain |
-| 2 | `warehouse/backend/src/main/resources/db/migration/V510011__Create_wh_purchase_orders_and_lines.sql:95` | FR-260 | `order_source` exists; the customer-waiting flag, linked job reference and promised date are absent from `wh_purchase_orders` |
-| 3 | `warehouse/backend/src/main/java/ai/warehouse/controller/WhInsufficientStockLogController.java:175-183` (`POST`, `captureLostSale`) | FR-257 | manual capture is served; R31 `RPN-OPEN-01` removes it (`D-17` item 4); `P2-15` owns the removal (acceptance item added) |
-| 4 | — (no reorder-point proposal anywhere in `warehouse-base` / `warehouse` / `warehouse-manufacturing`) | FR-258 | not built (v3); carrier `P10-11` (`D-18` item 6) |
+| 1 | `warehouse-base/…/entity/WhbItemLocationSetting.java` (columns `min_quantity`, `max_quantity`, `replen_trigger_quantity`) | FR-252 | item × location carries min / max / trigger only; no reorder point, reorder quantity, safety stock or lead time at that grain — **Triage 2026-10-23: FIX-CODE** — owner `P1-03` #33 (v1.1 part of `FR-252`), reopened. reviewer-confirm |
+| 2 | `warehouse/backend/src/main/resources/db/migration/V510011__Create_wh_purchase_orders_and_lines.sql:95` | FR-260 | `order_source` exists; the customer-waiting flag, linked job reference and promised date are absent from `wh_purchase_orders` — **Triage 2026-10-23: FIX-CODE** — owner `P2-15` #106 (`FR-260`), reopened. reviewer-confirm |
+| 3 | `warehouse/backend/src/main/java/ai/warehouse/controller/WhInsufficientStockLogController.java:175-183` (`POST`, `captureLostSale`) | FR-257 | manual capture is served; R31 `RPN-OPEN-01` removes it (`D-17` item 4); `P2-15` owns the removal (acceptance item added) — **Triage 2026-10-23: FIX-CODE** — owner `P2-15` #106, reopened |
+| 4 | — (no reorder-point proposal anywhere in `warehouse-base` / `warehouse` / `warehouse-manufacturing`) | FR-258 | not built (v3); carrier `P10-11` (`D-18` item 6) — **Triage 2026-10-23: CARRIED** — `P10-11` #602 |

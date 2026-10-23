@@ -159,6 +159,6 @@ lifecycle (India contract); 3PL client GST registrations (WS-169).
 
 | # | File:line | FR | What differs |
 |---|---|---|---|
-| 1 | `warehouse/backend` (no `CROSS_GSTIN_DIRECT_ISSUE` anywhere; no store-issue service yet) | FR-461 | The serving-branch refusal is not built; `P8-10` (store issue, the first stock-consuming document) owns it, under the neutral code `CROSS_GSTIN_DIRECT_ISSUE` |
-| 2 | `warehouse/backend/.../db/migration/` (no inter-company action) | FR-465 | Inter-company demand order + PO in one action is not built (v2, `P1-17`) |
-| 3 | `warehouse/backend/src/main/java/ai/warehouse/service/whputawayrule/WhPutawayRuleEngine.java:126` (capacity advisory, suggestion only); no `warehouse.putaway.capacity_enforcement` key | FR-086 | Capacity enforcement at putaway completion (`D-18` item 5: `BLOCK` default, per-site `WARN`) is not built; `P3-02` owns it (plan §8.2) |
+| 1 | `warehouse/backend` (no `CROSS_GSTIN_DIRECT_ISSUE` anywhere; no store-issue service yet) | FR-461 | The serving-branch refusal is not built; `P8-10` (store issue, the first stock-consuming document) owns it, under the neutral code `CROSS_GSTIN_DIRECT_ISSUE` — **Triage 2026-10-23: CARRIED** — `P8-10` #571 (store issue) |
+| 2 | `warehouse/backend/.../db/migration/` (no inter-company action) | FR-465 | Inter-company demand order + PO in one action is not built (v2, `P1-17`) — **Triage 2026-10-23: FIX-CODE** — owner `P1-17` #133 (v2), reopened |
+| 3 | `warehouse/backend/src/main/java/ai/warehouse/service/whputawayrule/WhPutawayRuleEngine.java:126` (capacity advisory, suggestion only); no `warehouse.putaway.capacity_enforcement` key | FR-086 | Capacity enforcement at putaway completion (`D-18` item 5: `BLOCK` default, per-site `WARN`) is not built; `P3-02` owns it (plan §8.2) — **Triage 2026-10-23: FIX-CODE** — owner `P3-02` #14, reopened |

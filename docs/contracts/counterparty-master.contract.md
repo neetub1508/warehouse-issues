@@ -117,4 +117,4 @@ Supplier evaluation, AVL and approval (`trade-counterparty-evaluation`); counter
 
 | # | File:line | FR | What differs |
 |---|---|---|---|
-| 1 | `warehouse-base/.../V500050__…:159` (`whb_item_supplier_sources`, no `is_authorised_source`); `V500010` (no `SUSPECT` disposition) | FR-455 | Counterfeit control is not built (`P3-24`, v1.1) |
+| 1 | `warehouse-base/.../V500050__…:159` (`whb_item_supplier_sources`, no `is_authorised_source`); `V500010` (no `SUSPECT` disposition) | FR-455 | Counterfeit control is not built (`P3-24`, v1.1) — **Triage 2026-10-23: FIX-CODE** — no open owner — `P3-24` #121 closed not planned on `OD-17`, which covers GS1 only; new finding `W72` |

@@ -97,9 +97,9 @@ None (`MOD-UNR-05`).
 
 | ID | FR says | Code has (grep) | Source |
 |---|---|---|---|
-| MOD-DIV-01 | The fixture has one reservation and one subscriber, and its integration test posts, **reserves, consumes**, reverses and reads back | `WarehouseAdapterExampleModuleConfig` javadoc claims both; no reservation or subscriber code exists (`reserv` 0 hits in service and test; no subscriber class); the test methods are `theAdaptersOwnMigrationsRegisterItsCodesInItsOwnSubBand` and `anAdapterPostsAndReversesItsOwnMovementTypeThroughThePort` | FR-353 |
-| MOD-DIV-02 | `warehouse-adapter-field-service` and `warehouse-adapter-assets` ship in v1.1 | no such module directory in `classic` — **resolved R31**: both FRs withdrawn, `p3-20` / `p3-21` VOID; no divergence remains | FR-363, FR-364 |
-| MOD-DIV-03 | "A released migration is never edited in place" | `D-16` item 4 supersedes it **for warehouse only** (clean rewrite, one DB rebuild); the FR carries no `D-16` note | FR-374 |
+| MOD-DIV-01 | The fixture has one reservation and one subscriber, and its integration test posts, **reserves, consumes**, reverses and reads back | `WarehouseAdapterExampleModuleConfig` javadoc claims both; no reservation or subscriber code exists (`reserv` 0 hits in service and test; no subscriber class); the test methods are `theAdaptersOwnMigrationsRegisterItsCodesInItsOwnSubBand` and `anAdapterPostsAndReversesItsOwnMovementTypeThroughThePort` — **Triage 2026-10-23: FIX-CODE** — owner `P0-14` #110, reopened | FR-353 |
+| MOD-DIV-02 | `warehouse-adapter-field-service` and `warehouse-adapter-assets` ship in v1.1 | no such module directory in `classic` — **resolved R31**: both FRs withdrawn, `p3-20` / `p3-21` VOID; no divergence remains — **Triage 2026-10-23: AMEND-SPEC** — applied R31 (FRs withdrawn); stands as the rule | FR-363, FR-364 |
+| MOD-DIV-03 | "A released migration is never edited in place" | `D-16` item 4 supersedes it **for warehouse only** (clean rewrite, one DB rebuild); the FR carries no `D-16` note — **Triage 2026-10-23: AMEND-SPEC** — rule: for warehouse only, `D-16` item 4 supersedes the never-edit rule once — a clean migration rewrite and one DB rebuild (`P7-13`); every later migration is forward-only again. `FR-374` amended | FR-374 |
 
 ## 7. Out of scope
 

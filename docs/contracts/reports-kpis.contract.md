@@ -154,9 +154,9 @@ The FRD rule is kept; the code is what differs.
 
 | # | File:line | FR | Difference |
 |---|---|---|---|
-| 1 | `warehouse/…/controller/WhPartsKpiController.java:98` | FR-393 | WS-217 is still served at its pre-rename route and permission resource (`wh_rpt_parts_kpis:*`); the rename to Stock KPIs by `P7-11` is pending |
-| 2 | `warehouse/…/repository/WhPartsKpiRepositoryCustomImpl.java:134-137` | FR-393 | four metrics only; the true-turns variant (excluding non-stocked and special-order lines) is absent |
-| 3 | `warehouse-base/…/db/migration/V500048__Create_whb_metric_definitions.sql:159` | FR-394 | ten metric codes seeded, not twenty-nine |
-| 4 | — (no controller for `/warehouse/reports/location-utilisation`) | FR-471 | WS-243 not built — `FR-471` restored by `D-18` item 6; carrier `P8-13` (v3 increment) |
-| 5 | — (no warehouse widget) | FR-399 | WS-228 not built (v3) |
-| 6 | `warehouse/…/controller/WhConsolidatedValuationController.java:52` | FR-397 | the removed WS-222 is still served (`P7-09` removal pending) |
+| 1 | `warehouse/…/controller/WhPartsKpiController.java:98` | FR-393 | WS-217 is still served at its pre-rename route and permission resource (`wh_rpt_parts_kpis:*`); the rename to Stock KPIs by `P7-11` is pending — **Triage 2026-10-23: P7-REMOVES** — `P7-11` #559 (the rename) |
+| 2 | `warehouse/…/repository/WhPartsKpiRepositoryCustomImpl.java:134-137` | FR-393 | four metrics only; the true-turns variant (excluding non-stocked and special-order lines) is absent — **Triage 2026-10-23: FIX-CODE** — owner `P2-21` #141 (`FR-393`), reopened; runs after `P7-11` |
+| 3 | `warehouse-base/…/db/migration/V500048__Create_whb_metric_definitions.sql:159` | FR-394 | ten metric codes seeded, not twenty-nine — **Triage 2026-10-23: FIX-CODE** — owner `P2-21` #141 (`FR-394`), reopened. reviewer-confirm |
+| 4 | — (no controller for `/warehouse/reports/location-utilisation`) | FR-471 | WS-243 not built — `FR-471` restored by `D-18` item 6; carrier `P8-13` (v3 increment) — **Triage 2026-10-23: CARRIED** — `P8-13` #574 |
+| 5 | — (no warehouse widget) | FR-399 | WS-228 not built (v3) — **Triage 2026-10-23: CARRIED** — `P6-10` #138 |
+| 6 | `warehouse/…/controller/WhConsolidatedValuationController.java:52` | FR-397 | the removed WS-222 is still served (`P7-09` removal pending) — **Triage 2026-10-23: P7-REMOVES** — `P7-09` #557 |

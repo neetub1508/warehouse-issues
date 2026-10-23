@@ -561,10 +561,10 @@ is [`grn-bill-match.contract.md`](grn-bill-match.contract.md), which is not a th
 
 | ID | File:line | FR | Difference |
 |---|---|---|---|
-| RQP-DIV-01 | `warehouse/…/db/migration/V510014__Create_wh_goods_receipts_lines_and_line_serials.sql:148-149` | `FR-126` | `receiving_mode` and `grn_timing` are columns on each GRN; no per-warehouse configuration row holds them, and no QC-policy or putaway-automation setting was found by grep |
-| RQP-DIV-02 | — (grep of `warehouse` `src/main` for an ASN reference finds only the cross-dock plan, the GRN and the PO query) | `FR-136` | the ASN drives cross-dock only; dock appointments and pre-allocation do not read it |
-| RQP-DIV-03 | `warehouse/…/service/WhReconciliationCaseService.java:183-201` | `FR-138` | a resolution does not create its document: Resolve requires the user to pick an already-completed document of the resolution's type and records the pointer |
-| RQP-DIV-04 | — (grep of `warehouse` `src/main` for `TYPE_INVOICE`, `TYPE_ASN`, `TYPE_SUPPLIER_RETURN` outside the entity finds no opener) | `FR-138` | cases open by themselves at four variance points only (`RQP-T4-20`); the `INVOICE`, `ASN` and `SUPPLIER_RETURN` types are seeded but nothing opens them |
+| RQP-DIV-01 | `warehouse/…/db/migration/V510014__Create_wh_goods_receipts_lines_and_line_serials.sql:148-149` | `FR-126` | `receiving_mode` and `grn_timing` are columns on each GRN; no per-warehouse configuration row holds them, and no QC-policy or putaway-automation setting was found by grep — **Triage 2026-10-23: FIX-CODE** — owner `P1-13` #113, reopened |
+| RQP-DIV-02 | — (grep of `warehouse` `src/main` for an ASN reference finds only the cross-dock plan, the GRN and the PO query) | `FR-136` | the ASN drives cross-dock only; dock appointments and pre-allocation do not read it — **Triage 2026-10-23: FIX-CODE** — owner `P3-05` #28 (`FR-136`), reopened |
+| RQP-DIV-03 | `warehouse/…/service/WhReconciliationCaseService.java:183-201` | `FR-138` | a resolution does not create its document: Resolve requires the user to pick an already-completed document of the resolution's type and records the pointer — **Triage 2026-10-23: FIX-CODE** — owner `P2-13` #93, reopened |
+| RQP-DIV-04 | — (grep of `warehouse` `src/main` for `TYPE_INVOICE`, `TYPE_ASN`, `TYPE_SUPPLIER_RETURN` outside the entity finds no opener) | `FR-138` | cases open by themselves at four variance points only (`RQP-T4-20`); the `INVOICE`, `ASN` and `SUPPLIER_RETURN` types are seeded but nothing opens them — **Triage 2026-10-23: FIX-CODE** — owner `P2-13` #93, reopened |
 
 ## 12. R30 open rows
 
