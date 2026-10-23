@@ -380,3 +380,4 @@ These existing GitHub reports have no source task file in this batch; listed for
 | #602 | `issues/p10-11.md` | P10-11 · Planning masters — item planning parameters per item × site and demand plans (forecast / MPS-lite) with consumption modes |
 | #603 | `issues/p10-12.md` | P10-12 · MRP — regenerative per-site run, netting with low-level codes, lot sizing and fences, pegged proposals, firm / convert / dismiss, BUY to core replenishment suggestions, exception messages |
 | #604 | `issues/p10-13.md` | P10-13 · Capacity load (infinite, visible) and the manufacturing registers — production, WIP by order, scrap, yield, consumption variance |
+| #605 | `issues/p10-14.md` | P10-14 · Bonded / MOOWR stock to production and to a job worker — bond rules read by the exit guard, the bond register, output in bond, bonded loss, job work under permission, the MOOWR return and SEZ movement lines |
