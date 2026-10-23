@@ -4,6 +4,8 @@
 
 ## Done
 
+- **P7-04 #552 closed 2026-10-23** — Channel accounts, channel order import and stock publishing removed; demand-order payment mode / COD / original item dropped (classic 6592a7c20d + S4 88d987b7eb). Gates: reviewer PASS, functional PASS, tester PASS after two ratchet fixes.
+
 - **P7-03 #551 closed 2026-10-23** — NDR, COD remittances, customer tracking links and the public tracking page removed (classic 99b1767085 + S4 438a5bf4dc); failed delivery maps to EXCEPTION; supports_cod dropped. Gates: reviewer PASS, functional PASS, tester PASS after the floor fix.
 
 - **P7-09 #557 closed 2026-10-23** — accessories coexistence, consolidated valuation and is_dual_eligible removed (classic `1cb82c3e45` + barrier `145ff7fb0b`); reviewer PASS, functional-reviewer PASS, tester PASS (India on/off); ci-gate not run (on request).
