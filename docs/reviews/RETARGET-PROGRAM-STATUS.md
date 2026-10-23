@@ -1,6 +1,6 @@
 # Re-target program (D-16) — status and remaining steps
 
-**Read this first when resuming.** Updated 2026-10-23 (R31 fix wave done). All work happens on `main` only (user rule).
+**Read this first when resuming.** Updated 2026-10-23 (R31 fix wave and tracking fix done). All work happens on `main` only (user rule).
 
 ## Done
 1. R27 (client purchase-to-stores gap) and R28 (re-target impact, decisions `RN-050`…`RN-054`, plan §8c) recorded.
@@ -31,6 +31,7 @@
 5. **File the GitHub issues — done 2026-10-23:** EPICs #545–#548, tasks #549–#604 (see Execution plan step 2).
 6. **BATCH files** in `classic/.claude/tasks/` via `/create-batch` (`BATCH-WAREHOUSE-P7…P10.md`, the same shape as `BATCH-WAREHOUSE-P*.md`, with the mandatory job text).
 7. **Stop for the user's go** before `/run-batch`.
+8. **Tracking — done 2026-10-23.** Every open warehouse work item now sits in exactly one open GitHub issue: 41 closed tasks reopened with a *Reopened scope — R30/R31 (2026-10-23)* section and the `reopened-r31` label; findings `W72` #606 and `W73` #607 filed (`issues/FINDINGS-2026-10-23.md`); the 103 contract-divergence rows triaged (49 FIX-CODE, 32 AMEND-SPEC, 14 CARRIED, 8 P7-REMOVES; 20 FRD rows and WS-144 amended). **Index: [`OPEN-WORK-INDEX.md`](OPEN-WORK-INDEX.md)** — 131 open issues, reconciled with `gh issue list --state open` (empty diff). Order: `P7` first, then the rest (*must run after P7* flag per row).
 
 ## Execution plan (user direction 2026-10-22) — identical to the earlier warehouse and accounting batches
 Reference: `docs/reviews/BATCH-PATTERN-REFERENCE.md`, which summarises `classic/.claude/commands/{create-batch,run-batch}.md`, `classic/.claude/tasks/BATCH-DISPATCH-RULE.md`, `BATCH-STANDARD-PARITY-TEXT.md`, `BATCH-WAREHOUSE-P4.md`, `LANE-BRIEF-WAREHOUSE-P4.md` and `BATCH-ACCOUNTING-P1.md` / `-FR-GAPS.md`.
