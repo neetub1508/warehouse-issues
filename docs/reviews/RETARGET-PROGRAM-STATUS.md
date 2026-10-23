@@ -4,6 +4,8 @@
 
 ## Done
 
+- **P7-10 #558 closed 2026-10-24** — Base catalogues cleaned of dealer/retail rows (source systems 9→4, doc types 13→11, movement types 18→17, reason contexts 11→9, CHANNEL_KIND {B2B}); classic 7f7d298b96. Gates: reviewer PASS, functional PASS, tester PASS.
+
 - **P7-08 #556 closed 2026-10-24** — Trade portal, Warehouse Trade Customer role and the customer persona removed (classic ddd47803a9 + S4 ee8209032d). Gates: reviewer PASS, functional PASS after floor fix, tester PASS (key-absence SQL clean).
 
 - **P7-07 #555 closed 2026-10-24** — OEM obsolescence returns and the OBSOLESCENCE claim type removed; supplier claims keep 4 types (classic b620cfbfd9 + S4 b1877a1410). Gates: reviewer PASS, functional PASS after floor fix, tester PASS.
