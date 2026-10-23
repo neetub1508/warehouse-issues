@@ -658,13 +658,13 @@ Runs **first** among P7–P10: every later phase builds on the cleaned schema an
 | **P7-08** | Remove the trade portal, the Warehouse Trade Customer role and the customer persona in the owner-scope resolver | app · base | delete/rewrite `V510221` `V511209` `V511239` | — | `FR-491` | — |
 | **P7-09** | Remove accessories coexistence — category stocking ownership, external stock snapshots, the coexistence report, consolidated valuation and is_dual_eligible | base · app · india | delete/rewrite `V540130` `V500053` `V511249` `V511262` `V500014` `V500046` `V501000` `V501002` `V501101` | `WS-066` `WS-067` `WS-225` `WS-222` | `FR-492` | P7-01 |
 | **P7-10** | Remove the dealer and retail seeded vocabulary and the dead adapter switches; whb_channels keeps only the B2B kind | base · app | delete/rewrite `V501117` `V500002` `V500003` `V500004` `V500084` `V500010` `V511248` `V511208` | — | `FR-493` `FR-494` `FR-495` | P7-02 P7-09 |
-| **P7-11** | Rename the dual-use codes in storage — LINE_STOP, PRODUCTION_STORE, MANUFACTURER_PART_NUMBER — and Parts KPIs to Stock KPIs on every surface | app · base · 3pl · india | delete/rewrite `V510011` `V510021` `V500012` `V500010` `V511211` `V511241` | `WS-217` | `FR-072` `FR-073` `FR-496` `FR-497` | P7-10 |
+| **P7-11** | Rename the dual-use codes in storage — LINE_STOP, PRODUCTION_STORE, MANUFACTURER_PART_NUMBER — and Parts KPIs to Stock KPIs on every surface | app · base · 3pl · india | delete/rewrite `V510011` `V510021` `V500012` `V500010` `V511211` `V511241` | `WS-217` | `FR-072` `FR-496` `FR-497` | P7-10 |
 | **P7-12** | Bring classic's docs, QA notes, contracts and the ci-gate ledger in line with the removal | app | — | — | — | P7-02 P7-11 |
 | **P7-13** | Rebuild the dev database once on the clean migration set, prove Flyway history and every grep gate, and turn ci-gate green | app | — | — | `FR-498` `FR-499` | P7-01 P7-12 |
 
 ### 2.8.2 · P8 — Manufacturing stores in core `warehouse` · 16 tasks · v1.1 (`D-16`)
 
-After P7, before P9 and P10 — the ports (`p8-01`, `p8-02`, `p8-09`, `p8-15`, `p8-16`) are what TRADE and MFG consume. Requirements: [`frd/FRD-STORES.md`](frd/FRD-STORES.md). `P8-14` and `P8-16` close no FR of their own.
+After P7, before P9 and P10 — the ports (`p8-01`, `p8-02`, `p8-09`, `p8-15`, `p8-16`) are what TRADE and MFG consume. Requirements: [`frd/FRD-STORES.md`](frd/FRD-STORES.md). `P8-16` closes no FR of its own; `P8-14` closes only `FR-073` (re-homed from `P7-11`, 2026-10-24).
 
 | Task | Title | Mod | Migrations | Screens | Closes | Dep |
 |---|---|---|---|---|---|---|
@@ -681,7 +681,7 @@ After P7, before P9 and P10 — the ports (`p8-01`, `p8-02`, `p8-09`, `p8-15`, `
 | **P8-11** | Store return — linked to the issue line, partial, valued at the issue cost, condition decides status and QC, through a new ISSUE_RETURN movement type | app | `V511320` `V501235` `V511410` | `WS-272` `WS-271` | `FR-536` `FR-537` | P8-10 P8-06 P8-03 |
 | **P8-12** | Stores print documents — gate entry slip, RGP/NRGP gate pass, GRN with the bill block, MRN, material requisition, store issue slip, store return note | app | `V511321` `V511411` | `WS-261` `WS-263` `WS-077` `WS-267` `WS-269` `WS-271` `WS-272` | `FR-538` | P2-14 P8-03 P8-04 P8-08 P8-09 P8-10 P8-11 |
 | **P8-13** | Stores registers and performance — RGP pending / overdue, requisitions pending issue, issue register by cost object, consumption by department, stores performance benchmarks | app | `V511412` | `WS-277` | `FR-534` `FR-539` `FR-471` *(v3 increment, restored D-18)* | P8-03 P8-09 P8-10 P8-11 |
-| **P8-14** | Stores menus, settings registry, i18n and filter-scope wave for P8 — within the 8-leaf / 10-section caps | app | `V511413` `V511414` | `WS-260` `WS-277` | — | P8-01 P8-03 P8-09 |
+| **P8-14** | Stores menus, settings registry, i18n and filter-scope wave for P8 — within the 8-leaf / 10-section caps | app | `V511413` `V511414` | `WS-260` `WS-277` | `FR-073` | P8-01 P8-03 P8-09 |
 | **P8-15** | The RMA-creation port for sales-return authorisation, and the supplier-return intent (REPLACE / CREDIT / NO_ACTION) with a dispatched event | app | `V511322` `V511415` | `WS-084` | `FR-506` | P8-01 P8-02 P8-07 P2-12 |
 | **P8-16** | External replenishment suggestions — the MRP supply seam (origin MRP), converted once: to a draft core PO with trade off, to a PR by trade with trade on | app | `V511323` `V511416` | — | — | P8-01 P2-15 |
 

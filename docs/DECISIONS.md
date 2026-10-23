@@ -588,6 +588,8 @@ it where they say so.
      engineering change, built in `V500050`; "counter enquiry" wording dropped) → `P7-11`, which proves them
      unchanged after the renames; `FR-461` (the serving-branch rule, `D-14` core) → `P8-10`, the first live
      stock-consuming document.
+     *Amended 2026-10-24 (decision-p7-11-12 OD1): FR-073's enquiry half was never built; carried to `P8-14` on
+     WS-042. `P7-11` keeps FR-073's regression check (interchange rows bidirectional, cycle refused).*
    - **Withdrawn under `D-16`:** `FR-268` (superseded by `FR-622`…`FR-631`, `RN-032`), `FR-277` and `FR-278`
      (dealer cores and warranty holds), `FR-352` (the two shipped adapters were dealer and services; the
      genericity proof is now `warehouse-adapter-example`, `D-11`), `FR-361` and `FR-362` (dealer job WIP

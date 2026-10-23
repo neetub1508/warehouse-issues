@@ -225,7 +225,7 @@ Every `XXX-DIV-nn` row and every *Code divergences* table row in `docs/contracts
 | `item-master` | §10/§11 row 1 | FIX-CODE | owner `P1-03` #33 (`FR-071`), reopened |
 | `item-master` | §10/§11 row 2 | FIX-CODE | owner `P7-11` #559 (open; `FR-072` re-homed by `D-17` item 5) — acceptance item added |
 | `item-master` | §10/§11 row 3 | AMEND-SPEC | rule: quantity is owned by the packaging row; the identifier row holds a **trigger-maintained** copy of `uom_code` / `pack_quantity` that no caller writes and two AFTER triggers re-derive when the level changes (`IRR-43`). Evidence: `V500016__…:38-40`, `:214`, `:317-327`. `FR-057` amended |
-| `item-master` | §10/§11 row 4 | CARRIED | `P7-11` #559 (`p7-11.md:59`) |
+| `item-master` | §10/§11 row 4 | CARRIED | CARRIED → `P8-14` #575 (re-homed 2026-10-24, OD1) |
 | `lot-serial-status` | §10/§11 row 1 | AMEND-SPEC | rule: the HS / HSN code is an item attribute carried by `whb_items.tax_classification_code` (`P1-03`, snapshotted onto documents), not a lot column — it does not vary by lot. `FR-095` amended. reviewer-confirm |
 | `lot-serial-status` | §10/§11 row 2 | AMEND-SPEC | rule: SSCC allocation is deferred by the product owner's `OD-17` ruling (2026-09-24, #121 closed not planned; `V500056` stays reserved) until a customer brings a GS1 prefix. `FR-452` amended |
 | `lot-serial-status` | §10/§11 row 3 | AMEND-SPEC | rule: EPC is deferred with the GS1 work by `OD-17` (#121). `FR-453` amended |
