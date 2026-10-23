@@ -34,18 +34,18 @@ checker that gets skipped.
 
 | # | Invariant | Authority | The failure it prevents |
 |---|---|---|---|
-| 1 | every `FR-nnn` cited anywhere resolves | `docs/WAREHOUSE-FUNCTIONAL-REQUIREMENTS.md` | see **Why check 1** below — the single most expensive defect the accounting programme shipped |
-| 2 | every `WH-SC-nnn` cited anywhere resolves | `docs/SCENARIO-CATALOGUE.md` | a scenario id that is a *sequential fabrication*: acceptance criteria that name a test nobody wrote |
-| 3 | every `whb_`/`wh_`/`wh3_`/`whin_`/`wha*_` table named in a task file exists | `docs/DATA-MODEL.md` | a task whose DDL nobody has designed, discovered at migration-writing time |
+| 1 | every `FR-nnn` cited anywhere resolves | `docs/WAREHOUSE-FUNCTIONAL-REQUIREMENTS.md` + the `D-16` area files `docs/frd/*.md` | see **Why check 1** below — the single most expensive defect the accounting programme shipped |
+| 2 | every `WH-SC-nnn` cited anywhere resolves | `docs/SCENARIO-CATALOGUE.md` + `docs/frd/*.md` | a scenario id that is a *sequential fabrication*: acceptance criteria that name a test nobody wrote |
+| 3 | every `whb_`/`wh_`/`wh3_`/`whin_`/`wht_`/`whm_`/`wha*_` table named in a task file exists | `docs/DATA-MODEL.md` | a task whose DDL nobody has designed, discovered at migration-writing time |
 | 4 | every Flyway version is claimed by **exactly one** task, inside its module's band | task `Part of …` header lines | a **boot failure**, not a lint warning — see **Why check 4** |
 | 5 | every `#NN` cross-reference resolves | `issues/CREATED.md` | an epic pointing at an issue that does not exist, or at another repository's |
 | 6 | every task file carries `## Scope`, `## Requirements closed`, `## Scenarios closed`, `## Closes`, `## Traps`, `## Acceptance` | the task files | a task that cannot be built, accepted or traced from its own issue |
 | 7 | every finding id (`C-`/`T-`/`E-`/`F-`/`S-`/`P-`/`G-`) resolves in its **owning** review | `docs/reviews/R1`…`R7` | a capability-matrix row number cited as a finding — `DECISIONS.md` §7 rule 4a, and it is live today |
 | 8 | `IMPLEMENTATION-PLAN.md` §2 and `issues/` agree, both ways | the plan and the file glob | a task in the plan with no file (unbuildable) or a file not in the plan (unscheduled) |
-| 9 | every task sits in exactly one phase epic's task region | `issues/0N-EPIC-*.md` | a task nobody's epic tracks — and a `__TASKS__` placeholder `create-issues.sh` would corrupt |
+| 9 | every task sits in exactly one phase epic's task region | `issues/NN-EPIC-*.md` (P0–P10) | a task nobody's epic tracks — and a `__TASKS__` placeholder `create-issues.sh` would corrupt |
 | 10 | every `FR-nnn` is owned by **exactly one** task, both unowned and double-owned | plan §2 `Closes` column + each task's `## Requirements closed` | a requirement that reads as covered and is owned by nobody |
 | 11 | no id is used for two different kinds of thing | the id registers + `DECISIONS.md` §6 | the accounting set's worst structural defect, repeated — see **Why check 11** |
-| 12 | every `WS-nnn` cited resolves | `docs/BUILD-SPEC-SCREENS.md` §1 | a task whose screen was never specced, and a screen id silently allocated twice |
+| 12 | every `WS-nnn` cited resolves | `docs/BUILD-SPEC-SCREENS.md` §1 + `docs/frd/*.md` | a task whose screen was never specced, and a screen id silently allocated twice |
 | 13 | every screen with `G` = Y in §1 carries §9.6's three statements — the `\| key \| label \| type \| sort \| vis \| source \|` table, an `emptyMessage` key, and its statistics tiles or `none` | `docs/BUILD-SPEC-SCREENS.md` §1 `G` column, §9.6, and §9.6.1's shrink-only register | a grid specified as a bare comma list and built anyway — `P2-29` §9.6 was prose that no tool read, so the form it required was applied on the days a reviewer happened to look |
 
 ### Why check 1 — dangling `FR` citations, and the 19 that resolved to the *wrong* requirement
@@ -321,6 +321,12 @@ mirror, and CI fails when the two part company.
 Until the runner exists, run both before every `issues/create-issues.sh --sync`.
 
 ## Current state — re-run 2026-09-02, from the repo root
+
+> **Latest run, 2026-10-23, after the `D-16` re-target (P7–P10, 200 task files, 661 requirements, 478
+> tables): 0 violations across 13 checks**, plus one non-failing advisory block of versions cited in a
+> task body that no task header claims. Flyway bands now include `warehouse-trade` `V550000`–`V559999`
+> and `warehouse-manufacturing` `V560000`–`V569999`; the removed dealer and services adapter blocks
+> `V520000`–`V521999` stay inside the reserved adapter band. The table below is the 2026-09-02 record.
 
 ```
 python3 tools/check-design-set.py --summary        # exit 0

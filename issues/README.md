@@ -1,18 +1,20 @@
 # Issue backlog — the source of truth
 
 The full Classic Warehouse backlog, **filed on GitHub** in `neetub1508/warehouse-issues`:
-**1 master epic + 8 phase epics + 144 task issues = 153 issues**, 17,362 lines of task and epic text.
+**1 master epic + 12 phase epics + 200 task issues = 213 issues**, 38,198 lines in `issues/*.md`.
+**`D-16` (2026-10-22) added P7–P10:** phase epics `#545`–`#548` and 56 tasks `#549`–`#604`; seven P0–P6 tasks
+whose whole scope was dealer or retail are **VOID** (their files stay, with the reason in the header).
 **Round 4 (2026-09-10) filed six more task issues, `#156`–`#161` (`p3-25`, `p5-24`…`p5-28`), and the same
 day folded each into its most similar existing task — no duplicate tasks.** The six are closed as
-duplicates and have no file; the backlog is **144 task files** (round 5 adds `P1-22`, `D-14` item 8) (`GAP-REGISTER-R4.md` §4.6).
+duplicates and have no file; the backlog is **200 task files** — 144 in P0–P6 (round 5 adds `P1-22`, `D-14` item 8) (`GAP-REGISTER-R4.md` §4.6) and 56 in P7–P10.
 
 Every count on this page was computed, not estimated. The command is next to the number, and
 the checker figures are from the run of **2026-09-02 08:25 IST** — the design set is under active
 authoring, so re-run before quoting one.
 
 ```bash
-ls issues/p*.md | wc -l              # 144 tasks (#156–#161 folded into hosts, closed)
-ls issues/0*-EPIC-*.md | wc -l       #   9 epics (1 master + 8 phase)
+ls issues/p*.md | wc -l              # 200 tasks (#156–#161 folded into hosts, closed)
+ls issues/*-EPIC-*.md | wc -l        #  13 epics (1 master + 12 phase)
 ```
 
 Written in the shape the Assets remediation uses in `neetub1508/classic-issues` and the accounting
@@ -24,17 +26,18 @@ checklist → traps → Definition of done; task issues open with
 
 ## The backlog is **filed** — read this before touching anything
 
-All **153** issues exist. `issues/CREATED.md` is written and holds the full
-`Issue | Task file | Title` map; **every one of the 153 files carries an `issue: NN` line** in its
+All **213** issues exist. `issues/CREATED.md` is written and holds the full
+`Issue | Task file | Title` map; **every one of the 213 files carries an `issue: NN` line** in its
 front matter; and `tools/check-design-set.py --check 5` therefore no longer skips — it resolves
 every `#NN` cross-reference against that map.
 
 | | |
 |---|---|
 | Master epic | `#1` |
-| Phase epics | P0 `#3` · P1 `#4` · P2 `#5` · P2-IN `#6` · P3 `#7` · P4 `#8` · P5 `#10` · P6 `#11` |
+| Phase epics | P0 `#3` · P1 `#4` · P2 `#5` · P2-IN `#6` · P3 `#7` · P4 `#8` · P5 `#10` · P6 `#11` · P7 `#545` · P8 `#546` · P9 `#547` · P10 `#548` |
 | The 143 filed tasks | **`#12`–`#154`** |
 | Round 5's task | **`#163`** — `P1-22`, the built-screen correction for `D-14` item 8 |
+| The `D-16` re-target tasks | **`#549`–`#604`** — P7 `#549`–`#561` · P8 `#562`–`#577` · P9 `#578`–`#591` · P10 `#592`–`#604`; each carries one comment listing its R29 findings |
 | Round 4's six task issues | **`#156`–`#161`, closed as duplicates** — `#156`→`#33` · `#157`→ ten hosts, `FR-468` in `#54` · `#158`→`#48` · `#159`→`#133` · `#160`→`#146` · `#161`→`#139`; no task file |
 
 **The six round-4 files were filed, then folded.** `#156`–`#161` were created from `p3-25` and
@@ -156,7 +159,7 @@ Two rules the script enforces, both learned the hard way:
 
 | File | What it is |
 |---|---|
-| `00-EPIC-master.md` | Master epic — the 14 decisions (`D-14` from round 4), five modules, the Flyway bands, the 14 invariants, the version ladder, `OD-1`…`OD-11`, the definition of done |
+| `00-EPIC-master.md` | Master epic — the decisions (`D-14` from round 4; its `D-16` re-target note lists the removed adapters and the two new modules `warehouse-trade` and `warehouse-manufacturing`), five modules, the Flyway bands, the 14 invariants, the version ladder, `OD-1`…`OD-11`, the definition of done |
 | `01-EPIC-p0.md` | **P0** Ledger foundation · `warehouse-base` · 19 migration blocks (3 of them v2 increments) · **v1** |
 | `02-EPIC-p1.md` | **P1** Masters, identity, inbound · base + app · **v1** |
 | `03-EPIC-p2.md` | **P2** Outbound, counting, valuation, returns, printing, reports · **v1** |
@@ -165,6 +168,10 @@ Two rules the script enforces, both learned the hard way:
 | `06-EPIC-p4.md` | **P4** India statutory & compliance · `warehouse-india` wave 2 · **v2** |
 | `07-EPIC-p5.md` | **P5** 3PL, channels and reverse logistics · **v2** |
 | `08-EPIC-p6.md` | **P6** Optimisation, planning and the logistics seam · **v3** |
+| `09-EPIC-p7.md` | **P7** Remove dealer and retail code, rename the dual-use items, rebuild on a clean migration set · `D-16` |
+| `10-EPIC-p8.md` | **P8** Manufacturing stores in core `warehouse` · `D-16` |
+| `11-EPIC-p9.md` | **P9** `warehouse-trade` — purchase and sales, mirrored · `D-16` |
+| `12-EPIC-p10.md` | **P10** `warehouse-manufacturing` — BOM, production, subcontracting, MRP · `D-16` |
 | `p0-01.md` … `p0-17.md` | **17** P0 tasks |
 | `p1-01.md` … `p1-22.md` | **22** P1 tasks |
 | `p2-01.md` … `p2-29.md` | **29** P2 tasks |
@@ -173,6 +180,10 @@ Two rules the script enforces, both learned the hard way:
 | `p4-01.md` … `p4-13.md` | **13** P4 tasks |
 | `p5-01.md` … `p5-23.md` | **23** P5 tasks — round 4's `p5-24`…`p5-28` were folded into existing hosts |
 | `p6-01.md` … `p6-12.md` | **12** P6 tasks |
+| `p7-01.md` … `p7-13.md` | **13** P7 tasks (removal + the one DB rebuild) |
+| `p8-01.md` … `p8-16.md` | **16** P8 tasks |
+| `p9-01.md` … `p9-14.md` | **14** P9 tasks |
+| `p10-01.md` … `p10-13.md` | **13** P10 tasks |
 | `DEFECTS-FOUND.md` | Defects found while authoring the task files — not an issue |
 | `create-issues.sh` | The filing and sync tool |
 
@@ -182,7 +193,7 @@ so the two phases stay separate by construction.
 
 ## Task ids are phase-prefixed, and that is deliberate
 
-`P0-01` … `P6-12`, matching the filenames — **144 ids**, `ls issues/p*.md | wc -l`. The ids must never
+`P0-01` … `P10-13`, matching the filenames — **200 ids**, `ls issues/p*.md | wc -l`. The ids must never
 collide with anything else in this design set. `DECISIONS.md` §6 fixes the namespaces:
 
 > Tasks `P0-01`… · Requirements `FR-001`… · Decisions `D-1`… · Open decisions `OD-1`… · Invariants
@@ -242,13 +253,13 @@ Run these after any change to the backlog. Each audit round of the accounting pr
 the *previous* round's findings were indexed and not traced; indexing feels like closure and is not.
 
 ```bash
-# 144 tasks, and the plan's §2 table agrees in both directions
-ls issues/p*.md | wc -l                                                  # 144
+# 200 tasks, and the plan's §2 table agrees in both directions
+ls issues/p*.md | wc -l                                                  # 200
 python3 tools/check-design-set.py --check 8                              # pass
 
 # every requirement is owned by exactly one task
-grep -ohE '\bFR-[0-9]{3}\b' issues/p*.md | sort -u | wc -l               # 469 of 469
-python3 tools/check-design-set.py --check 10                             # pass once the FRD's §6.28 lands
+grep -ohE '\bFR-[0-9]{3}\b' issues/p*.md | sort -u | wc -l               # 661 of 661 (471 main + 190 in docs/frd/)
+python3 tools/check-design-set.py --check 10                             # pass
 
 # every review finding is cited by the task that closes it
 grep -ohE '\b[CTEFSPG]-[0-9]{3}\b' issues/p*.md | sort -u | wc -l        # 427 of 575  (round 1)
