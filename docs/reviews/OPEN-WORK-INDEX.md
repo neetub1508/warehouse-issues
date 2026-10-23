@@ -5,7 +5,7 @@
 
 **Order (user, 2026-10-23): `P7` first, then the rest.** *Must run after P7* is **true** where a `P7` task edits a file, class, table or permission the item touches, or the item adds a migration or schema change (`P7` rewrites the migration set in place once, `D-16` item 4, and `P7-13` rebuilds on it); all of `P8`–`P10` are true by `P7-13`'s rule. *Scope* says whether the whole task is to build or only its *Reopened scope* items.
 
-**Totals: 131 open issues** — P7 14 · P8 17 · P9 15 · P10 15 · P5/P6 survivors 11 · reopened 41 · new findings 2 · old open findings 4 · other 12.
+**Totals: 129 open issues** — P7 14 · P8 17 · P9 15 · P10 15 · P5/P6 survivors 11 · reopened 41 · new findings 2 · old open findings 4 · other 10 (#539 #543 closed as carried by `P10-14` #605, 2026-10-23).
 
 ## 1. P7 — removal and the clean rebuild (run first) — 14 open
 
@@ -166,22 +166,22 @@
 | #240 | `issues/finding-w46.md` | [Finding] W46 · Optional tax-basis valuation remains deferred | whole task | false | no P7 file in scope |
 | #241 | `issues/finding-w47.md` | [Finding] W47 · Provider-backed operational features require actual connector evidence | whole task | false | no P7 file in scope |
 
-## 9. Other open issues (master epic and follow-ups without a task file) — 12 open
+## 9. Other open issues (master epic and follow-ups without a task file) — 10 open
+
+Dispositions 2026-10-23: none is unbatched. #1 counts via `CLOSE-1` of each batch; #173 #174 #175 are `[!] DEFERRED` (accounting) and #185 #323 #324 #386 #519 #520 `[!] BLOCKED`, all listed in `BATCH-WAREHOUSE-REOPENED-R31.md` § Deferred / blocked. #539 and #543 were **closed (duplicate) as CARRIED** by `P10-14` #605 (`issues/p10-14.md:164` — #539 items 1–2 added as an acceptance item — and `:168`; item 3 and #543 decided by `D-18` item 1). #397 was already closed.
 
 | Issue | Task file | Title | Scope | Must run after P7 | Why |
 |---|---|---|---|---|---|
 | #1 | `issues/00-EPIC-master.md` | EPIC: Warehouse and inventory management — master | epic (checklist of its tasks) | **true** | P7 also edits: `CacheConfiguration`, `filterUtils` |
-| #173 | — (no task file) | Follow-up · Accounting envelope v2 — duty status, lot, serial and exchange rate per line | whole issue | — | no task file — check the issue body |
-| #174 | — (no task file) | Follow-up · The accounting-facing adapter has no home — no module owns WhbAccountingHan… | whole issue | — | no task file — check the issue body |
-| #175 | — (no task file) | Follow-up · Prove INTEGRATED mode end to end — WH-SC-156, WH-SC-157, CONFIG-CASE-07/10 | whole issue | — | no task file — check the issue body |
-| #185 | — (no task file) | RH-010 unmet: WS-215 cannot be scheduled without a platform commit | whole issue | — | no task file — check the issue body |
-| #323 | — (no task file) | [Follow-up W69] Part A-only e-way bill never lapses locally - challan held after the ca… | whole issue | — | no task file — check the issue body |
-| #324 | — (no task file) | [Follow-up W69] Already-live Part A owned by a released bill cannot be reconciled witho… | whole issue | — | no task file — check the issue body |
-| #386 | — (no task file) | F380 · Concurrent posting near-serialised: 10 posters ≈1.3× one poster, 50 posters exce… | whole issue | — | no task file — check the issue body |
-| #519 | — (no task file) | [!] type C, W53 follow-up: production sizing: customer target profile [!1] and deployme… | whole issue | — | no task file — check the issue body |
-| #520 | — (no task file) | W53 follow-up (G9): HTTP concurrent-user load and browser time-to-interactive, owner USER | whole issue | — | no task file — check the issue body |
-| #539 | — (no task file) | F526 follow-up: adviser questions for bonded loss (register entry, bond release, WO scrap) | whole issue | — | no task file — check the issue body |
-| #543 | — (no task file) | F542 follow-up: MOOWR job work of licensed stock is refused everywhere (enablement deci… | whole issue | — | no task file — check the issue body |
+| #173 | — (no task file) | Follow-up · Accounting envelope v2 — duty status, lot, serial and exchange rate per line | whole issue | — | **DEFERRED-ACCOUNTING** — label `deferred-accounting`; `[!] DEFERRED` in `BATCH-WAREHOUSE-REOPENED-R31.md` § Deferred / blocked (receivers accounting #36/#37, adapter P4-01) |
+| #174 | — (no task file) | Follow-up · The accounting-facing adapter has no home — no module owns WhbAccountingHan… | whole issue | — | **DEFERRED-ACCOUNTING** — label `deferred-accounting`; `[!] DEFERRED` in `BATCH-WAREHOUSE-REOPENED-R31.md` § Deferred / blocked (adapter home accounting P4-01) |
+| #175 | — (no task file) | Follow-up · Prove INTEGRATED mode end to end — WH-SC-156, WH-SC-157, CONFIG-CASE-07/10 | whole issue | — | **DEFERRED-ACCOUNTING** — label `deferred-accounting`; `[!] DEFERRED` in `BATCH-WAREHOUSE-REOPENED-R31.md` § Deferred / blocked (needs receiver + #174 adapter) |
+| #185 | — (no task file) | RH-010 unmet: WS-215 cannot be scheduled without a platform commit | whole issue | — | **BLOCKED-EXTERNAL** — platform commit not approved (USER 2026-10-05); `[!] BLOCKED` in `BATCH-WAREHOUSE-REOPENED-R31.md` § Deferred / blocked; also blocks `P5-07` #44 |
+| #323 | — (no task file) | [Follow-up W69] Part A-only e-way bill never lapses locally - challan held after the ca… | whole issue | — | **BLOCKED-EXTERNAL** — India tax adviser lapse ruling; `[!] BLOCKED` in `BATCH-WAREHOUSE-REOPENED-R31.md` § Deferred / blocked |
+| #324 | — (no task file) | [Follow-up W69] Already-live Part A owned by a released bill cannot be reconciled witho… | whole issue | — | **BLOCKED-EXTERNAL** — customer GSP API contract via W47 #241; `[!] BLOCKED` in `BATCH-WAREHOUSE-REOPENED-R31.md` § Deferred / blocked |
+| #386 | — (no task file) | F380 · Concurrent posting near-serialised: 10 posters ≈1.3× one poster, 50 posters exce… | whole issue | — | **BLOCKED-EXTERNAL** — USER ruling 2026-10-05 do not build (ledger owner); `[!] BLOCKED` in `BATCH-WAREHOUSE-REOPENED-R31.md` § Deferred / blocked; `P10-07` #598 only measures |
+| #519 | — (no task file) | [!] type C, W53 follow-up: production sizing: customer target profile [!1] and deployme… | whole issue | — | **BLOCKED-EXTERNAL** — customer profile + deployment sizing; `[!] BLOCKED` in `BATCH-WAREHOUSE-REOPENED-R31.md` § Deferred / blocked |
+| #520 | — (no task file) | W53 follow-up (G9): HTTP concurrent-user load and browser time-to-interactive, owner USER | whole issue | — | **BLOCKED-EXTERNAL** — USER load/TTI environment; `[!] BLOCKED` in `BATCH-WAREHOUSE-REOPENED-R31.md` § Deferred / blocked |
 
 ## 10. Code-divergence triage (2026-10-23) — 103 rows
 
@@ -306,7 +306,9 @@ comm -3 <(gh issue list --repo neetub1508/warehouse-issues --state open --limit 
         <(grep -oE '^\| #[0-9]+ \|' docs/reviews/OPEN-WORK-INDEX.md | tr -dc '0-9\n' | sort -n)
 ```
 
-Result: **empty** — every open issue appears exactly once, nothing is missing (131 open issues on GitHub, 131 distinct rows here, 2026-10-23).
+Result: **empty** — every open issue appears exactly once, nothing is missing (129 open issues on GitHub, 129 distinct rows here, 2026-10-23, after #539/#543 closed as carried by #605).
+
+**Batch reconcile (2026-10-23).** Every open issue has exactly one open batch line (`- [ ]` or `- [!]`) across `BATCH-WAREHOUSE-P4/P6/P7/P8/P9/P10/REOPENED-R31.md` in classic; the §9 follow-ups are the `[!] DEFERRED`/`[!] BLOCKED` lines in `REOPENED-R31.md` § Deferred / blocked, and the epics count via their close-out lines. Issues in no batch: **none**. (#88 also has a ticked `[x]` line in `P4.md`, its pre-reopen close; its one open line is in `REOPENED-R31.md`.)
 
 ## 12. Sweep and batch notes
 
