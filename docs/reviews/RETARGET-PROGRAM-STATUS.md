@@ -28,7 +28,7 @@
 2. **SPINE integration — done 2026-10-22.** DATA-MODEL: P8 numbers renumbered (`V511310`…`V511323`, `V501230`…`V501235`); rows, §7 allocation, §8.1 inventory and §8.4 versions for `wh_port_operations`, `wht_price_list_categories`, `wht_rate_contract_amendment_changes`, the five `wht_so_*` mirror tables, `whm_staging_list_line_postings`, `whm_subcontract_reconciliation_actions`, `wh_fulfilment_policies` and five tables the P5 tasks built (`wh_recall_lots`, `wh_nrv_assessment_lines`, `wh_cogs_recognitions`, `wh_cogs_recognition_policies`, `wh3_billing_run_exclusions`): 459 → 475. IMPLEMENTATION-PLAN §2: renumbered; FR-654/655 → P10-07; FR-483 stays P7-03; P2-15 declares `warehouse-base` for `V500039`. DECISIONS: OD-45 (A) registered in §3.6 (still on the user's ratify list below); R27/R28/R29 in §6. Task exemptions the additions made unnecessary removed (p9-01, p9-06, p10-01, p10-06, p10-10). `FRD-TRADE` + trade contracts: `whb_uom_conversions` → `whb_item_uom_conversions`. The FRD-STORES OD-45 row was updated in the trade alignment (item 1).
 3. **Checker to 0 repo-wide — done 2026-10-22** (69 → 0; 32 stale declarations removed). `V510105` also built `wh_order_edit_rule_actions`, `wh_order_amendments`, `wh_order_amendment_actions`, — added to DATA-MODEL in the trade alignment (item 1).
 4. **Second dual-engine functional review** of the changed areas, to confirm the R29 fixes. Fold anything new.
-5. **File the GitHub issues:** `issues/create-issues.sh --file-tbd` (4 EPICs P7–P10, then the tasks). Write the numbers back, update `CREATED.md`, commit and push.
+5. **File the GitHub issues — done 2026-10-23:** EPICs #545–#548, tasks #549–#604 (see Execution plan step 2).
 6. **BATCH files** in `classic/.claude/tasks/` via `/create-batch` (`BATCH-WAREHOUSE-P7…P10.md`, the same shape as `BATCH-WAREHOUSE-P*.md`, with the mandatory job text).
 7. **Stop for the user's go** before `/run-batch`.
 
@@ -39,9 +39,12 @@ Reference: `docs/reviews/BATCH-PATTERN-REFERENCE.md`, which summarises `classic/
    - Each area FRD's R29 dispositions table maps every review finding to the task that carries it.
    - Confirm that every FR and WH-SC in `docs/frd/*` is closed by exactly one `p7`…`p10` task (IMPLEMENTATION-PLAN §2; the checker's check-10 enforces this).
    - Run the second dual-engine review (Remaining item 4).
-2. **GitHub issues first**, in `neetub1508/warehouse-issues`:
-   - Run `issues/create-issues.sh --file-tbd`: 4 EPICs (P7–P10) first, then the 56 tasks. The numbers are written back to `issue:` and `CREATED.md`.
-   - **Findings are folded into tasks, not filed separately.** That is the standing rule: never a duplicate task. Instead, post each task's own R29 findings (from the dispositions tables) as a comment on its issue, so every finding is traceable on GitHub.
+2. **GitHub issues first — done 2026-10-22**, in `neetub1508/warehouse-issues`:
+   - **Filed:** EPICs P7 #545 · P8 #546 · P9 #547 · P10 #548; tasks **#549–#604** (P7 #549–#561, P8 #562–#577, P9 #578–#591, P10 #592–#604). Numbers written back to `issue:` and `CREATED.md`; the epic checklists and master #1 link them.
+   - **R29 traceability:** one "R29 functional review findings carried by this task" comment on each of the 56 tasks (286 finding rows; P7-01, P8-12, P8-14 carry none).
+   - **VOID (D-16, R28 §8b):** #149, #150, #151, #95, #67, #81, #134 closed as not planned. Commented with the void part and the superseding task: #90, #48, #52, #62, #72, #123, #144, #40, #87, #141, #152, #85, #142. `P2-27` #152 and `P6-11` #142 have wholly VOID headers but were kept open/comment-only, as directed.
+   - **Verified:** `--check` no drift after `--sync`; checker 0 violations; `phase-p7`…`p10` labels 14 · 17 · 15 · 14 (tasks + epic).
+   - **Findings are folded into tasks, not filed separately** (standing rule: never a duplicate task). Each task's R29 findings are on its issue as a comment.
 3. **BATCH files** via `/create-batch`, one per phase: `classic/.claude/tasks/BATCH-WAREHOUSE-P7.md`, `-P8.md`, `-P9.md`, `-P10.md`.
    - Each has the mandatory job text, waves, `[P:lane]` / `[S]` / `[B]` markers, `#issue` on every task line, the OD BLOCKED-BY table, and a `## NEXT` line chaining P7 → P8 → {P9 ∥ P10}.
    - Each needs a lane brief, `LANE-BRIEF-WAREHOUSE-P7…P10.md`.
