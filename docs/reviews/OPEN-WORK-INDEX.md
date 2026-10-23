@@ -5,21 +5,19 @@
 
 **Order (user, 2026-10-23): `P7` first, then the rest.** *Must run after P7* is **true** where a `P7` task edits a file, class, table or permission the item touches, or the item adds a migration or schema change (`P7` rewrites the migration set in place once, `D-16` item 4, and `P7-13` rebuilds on it); all of `P8`–`P10` are true by `P7-13`'s rule. *Scope* says whether the whole task is to build or only its *Reopened scope* items.
 
-**Totals: 128 open issues** — P7 13 · P8 17 · P9 15 · P10 15 · P5/P6 survivors 11 · reopened 41 · new findings 2 · old open findings 4 · other 10 (#539 #543 closed as carried by `P10-14` #605, 2026-10-23).
+**Totals: 126 open issues** — P7 11 · P8 17 · P9 15 · P10 15 · P5/P6 survivors 11 · reopened 41 · new findings 2 · old open findings 4 · other 10 (#539 #543 closed as carried by `P10-14` #605, 2026-10-23).
 
-## 1. P7 — removal and the clean rebuild (run first) — 13 open
+## 1. P7 — removal and the clean rebuild (run first) — 11 open
 
 | Issue | Task file | Title | Scope | Must run after P7 | Why |
 |---|---|---|---|---|---|
 | #545 | `issues/09-EPIC-p7.md` | EPIC: P7 — Remove dealer and retail code, rename the dual-use items, rebuild on a clean… | epic (checklist of its tasks) | false | is P7 |
-| #550 | `issues/p7-02.md` | P7-02 · Remove AWB pools, courier serviceability and rate quotes; keep carrier account … | whole task | false | is P7 |
 | #551 | `issues/p7-03.md` | P7-03 · Remove the NDR workflow, COD remittances, customer tracking links and the publi… | whole task | false | is P7 |
 | #552 | `issues/p7-04.md` | P7-04 · Remove channel accounts, channel order imports and channel publish rules; drop … | whole task | false | is P7 |
 | #553 | `issues/p7-05.md` | P7-05 · Remove RTO consignments and marketplace claims; return receipts post and revers… | whole task | false | is P7 |
 | #554 | `issues/p7-06.md` | P7-06 · Replace the Channels L1 menu with Shipping → Carrier Tracking & Planning and re… | whole task | false | is P7 |
 | #555 | `issues/p7-07.md` | P7-07 · Remove OEM obsolescence returns and the OBSOLESCENCE claim type; supplier claim… | whole task | false | is P7 |
 | #556 | `issues/p7-08.md` | P7-08 · Remove the trade portal, the Warehouse Trade Customer role and the customer per… | whole task | false | is P7 |
-| #557 | `issues/p7-09.md` | P7-09 · Remove accessories coexistence — category stocking ownership, external stock sn… | whole task | false | is P7 |
 | #558 | `issues/p7-10.md` | P7-10 · Remove the dealer and retail seeded vocabulary and the dead adapter switches; w… | whole task | false | is P7 |
 | #559 | `issues/p7-11.md` | P7-11 · Rename the dual-use codes in storage — LINE_STOP, PRODUCTION_STORE, MANUFACTURE… | whole task (+1 tracking item 2026-10-23) | false | is P7 |
 | #560 | `issues/p7-12.md` | P7-12 · Bring classic's docs, QA notes, contracts and the ci-gate ledger in line with t… | whole task | false | is P7 |

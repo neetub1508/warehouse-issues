@@ -4,6 +4,10 @@
 
 ## Done
 
+- **P7-09 #557 closed 2026-10-23** — accessories coexistence, consolidated valuation and is_dual_eligible removed (classic `1cb82c3e45` + barrier `145ff7fb0b`); reviewer PASS, functional-reviewer PASS, tester PASS (India on/off); ci-gate not run (on request).
+
+- **P7-02 #550 closed 2026-10-23** — AWB pools, serviceability and rate quotes removed (classic `f12edccf6f` + barrier `145ff7fb0b`); carrier account scopes kept; reviewer PASS, functional-reviewer PASS, tester PASS; ci-gate not run (on request).
+
 - **P7-01 #549 closed 2026-10-23** — pure move of the four generic helpers (classic `4756b0ba1c`); reviewer PASS, functional-reviewer PASS (Claude+GPT), tester PASS on the p7-verify side stack; ci-gate not run (on request).
 1. R27 (client purchase-to-stores gap) and R28 (re-target impact, decisions `RN-050`…`RN-054`, plan §8c) recorded.
 2. D-16 in DECISIONS.md. Spine docs rewritten; dealer/retail tasks VOID; historical files carry superseded notes.
