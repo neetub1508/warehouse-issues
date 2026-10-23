@@ -18,7 +18,7 @@
 |---|---|
 | **Workflow** | Rule administration → submit opens request → level-by-level steps → approved / rejected / returned → document ladder continues; delegation; escalation alert |
 | **Module** | `warehouse-trade` (`ai.warehousetrade`, `wht_`) |
-| **Domain baseline** | `DECISIONS.md` D-16, `FR-408` (maker–checker), `GLOBAL-SETTINGS-DECISIONS.md` `warehouse.approval.pending_alert_hours` · FRD-TRADE FR-548…FR-555, `TRD-08`, `OD-34` |
+| **Domain baseline** | `DECISIONS.md` D-16, `FR-408` (maker–checker), `GLOBAL-SETTINGS-DECISIONS.md` `warehouse.approval.pending_alert_hours` · FRD-TRADE FR-548…FR-555, `TRD-08`, `TRD-14` (exact condition match), `OD-34` |
 | **Owning task body** | `issues/p9-03.md` |
 | **Primary tables** | `wht_approval_rules` (+ `condition_match_mode`), `wht_approval_rule_conditions`, `wht_approval_rule_levels`, `wht_approval_rule_level_users`, `wht_approval_requests`, `wht_approval_steps`, `wht_approval_delegations` (+ `recorded_by`, `status`, `confirmed_by`) (`V550020`) |
 | **Status columns** | `wht_approval_requests.status`, `wht_approval_steps.status` — no `CHECK` (`D-10`) |
@@ -71,43 +71,43 @@ Each `:approve` depends on the resource's `:view` (`permission_dependencies`, se
 
 ### 1.2 Transitions
 
-| ID | From | Event / action | To | Guard | Actor (permission) | Side effects | Comment | UI |
-|---|---|---|---|---|---|---|---|---|
-| TAM-T1-01 | — / `INACTIVE` | Save / activate a rule | Rule `ACTIVE` | `TAM-GRD-05`, `-06` | `wht_approval_rules:create`/`edit` | audit | no | WS-284 Add / Activate |
-| TAM-T1-02 | `ACTIVE` | Deactivate | `INACTIVE` | open requests keep the rule snapshot they started with | `wht_approval_rules:edit` | audit | no | WS-284 row action |
-| TAM-T1-03 | — | Document submit calls `ApprovalService.open(docType, docId, version, value, qty, currency, conditions)` | Request `PENDING`, first step `PENDING`, rest `WAITING` | `TAM-GRD-01`, `-02`, `-08`, `-09` | the document's `:submit` | rule id, level snapshot, value, currency, condition set and maker frozen on the request (maker per FR-549 for system-drafted documents) | no | the document's Submit |
-| TAM-T1-04 | — | Matched rule has zero levels | Request `APPROVED` by `SYSTEM` | — | system | callback `onApproved` in the submit transaction; a port call it makes uses the submitter as `actingUserId` (`FRD-TRADE §12a`) | no | — |
-| TAM-T1-05 | step `PENDING` | Approve | step `APPROVED`; next step `PENDING`, or request `APPROVED` after the last | `TAM-GRD-03`, `-04` | `wht_<doc>:approve` and member of the level | `onApproved` callback when last; audit | optional | WS-285, document Approve |
-| TAM-T1-06 | level `ALL` | Each member approves | level done when all members approved | `TAM-GRD-03` | same | — | optional | same |
-| TAM-T1-07 | step `PENDING` | Reject | request `REJECTED`, remaining steps `SKIPPED` | `TAM-GRD-03` | same | `onRejected` → document `REJECTED` | **yes** | same |
-| TAM-T1-08 | step `PENDING` | Return for changes | request `RETURNED` | `TAM-GRD-03` | same | `onReturned` → document `DRAFT` | **yes** | same |
-| TAM-T1-08a | `PENDING` | **Input changed** — a document the request depends on changed under it (a quotation revised under a `SUBMITTED` statement, `TRA-T1-08`) | request `RETURNED` by `SYSTEM`, comment *source changed: <ref>* | — | system | `onReturned` → document `DRAFT`, flagged stale | auto | — |
-| TAM-T1-09 | `PENDING` | Maker withdraws before any step acted | `WITHDRAWN` | no step `APPROVED` | document `:submit` holder who is the maker | document → `DRAFT` | no | document *Withdraw* on every trade document screen |
-| TAM-T1-10 | — | Record delegation | own: `ACTIVE`; for another approver: `PENDING_CONFIRMATION` | `TAM-GRD-07` | any approver for themselves; `wht_approval_rules:edit` for others | `recorded_by`; audit | no | WS-285 *Delegate* |
-| TAM-T1-11 | delegation `PENDING_CONFIRMATION` | Confirm | `ACTIVE` | confirmer ≠ recorder ∧ ≠ delegate | `wht_approval_rules:edit` | `confirmed_by`; audit | no | WS-284 *Delegations* tab |
+| ID | From | Event / action | To | Guard | Actor (permission) | Side effects | Comment | UI | Source |
+|---|---|---|---|---|---|---|---|---|---|
+| TAM-T1-01 | — / `INACTIVE` | Save / activate a rule | Rule `ACTIVE` | `TAM-GRD-05`, `-06` | `wht_approval_rules:create`/`edit` | audit | no | WS-284 Add / Activate | FR-548 |
+| TAM-T1-02 | `ACTIVE` | Deactivate | `INACTIVE` | open requests keep the rule snapshot they started with | `wht_approval_rules:edit` | audit | no | WS-284 row action | FR-548 |
+| TAM-T1-03 | — | Document submit calls `ApprovalService.open(docType, docId, version, value, qty, currency, conditions)` | Request `PENDING`, first step `PENDING`, rest `WAITING` | `TAM-GRD-01`, `-02`, `-08`, `-09` | the document's `:submit` | rule id, level snapshot, value, currency, condition set and maker frozen on the request (maker per FR-549 for system-drafted documents) | no | the document's Submit | FR-548, FR-549 |
+| TAM-T1-04 | — | Matched rule has zero levels | Request `APPROVED` by `SYSTEM` | — | system | callback `onApproved` in the submit transaction; a port call it makes uses the submitter as `actingUserId` (`FRD-TRADE §12a`) | no | — | FR-550 |
+| TAM-T1-05 | step `PENDING` | Approve | step `APPROVED`; next step `PENDING`, or request `APPROVED` after the last | `TAM-GRD-03`, `-04` | `wht_<doc>:approve` and member of the level | `onApproved` callback when last; audit | optional | WS-285, document Approve | FR-551 |
+| TAM-T1-06 | level `ALL` | Each member approves | level done when all members approved | `TAM-GRD-03` | same | — | optional | same | FR-548 |
+| TAM-T1-07 | step `PENDING` | Reject | request `REJECTED`, remaining steps `SKIPPED` | `TAM-GRD-03` | same | `onRejected` → document `REJECTED` | **yes** | same | FR-551 |
+| TAM-T1-08 | step `PENDING` | Return for changes | request `RETURNED` | `TAM-GRD-03` | same | `onReturned` → document `DRAFT` | **yes** | same | FR-551 |
+| TAM-T1-08a | `PENDING` | **Input changed** — a document the request depends on changed under it (a quotation revised under a `SUBMITTED` statement, `TRA-T1-08`) | request `RETURNED` by `SYSTEM`, comment *source changed: <ref>* | — | system | `onReturned` → document `DRAFT`, flagged stale | auto | — | FR-551 |
+| TAM-T1-09 | `PENDING` | Maker withdraws before any step acted | `WITHDRAWN` | no step `APPROVED` | document `:submit` holder who is the maker | document → `DRAFT` | no | document *Withdraw* on every trade document screen | FR-551 |
+| TAM-T1-10 | — | Record delegation | own: `ACTIVE`; for another approver: `PENDING_CONFIRMATION` | `TAM-GRD-07` | any approver for themselves; `wht_approval_rules:edit` for others | `recorded_by`; audit | no | WS-285 *Delegate* | FR-552 |
+| TAM-T1-11 | delegation `PENDING_CONFIRMATION` | Confirm | `ACTIVE` | confirmer ≠ recorder ∧ ≠ delegate | `wht_approval_rules:edit` | `confirmed_by`; audit | no | WS-284 *Delegations* tab | FR-552 |
 
 ### 1.3 Guards
 
-| ID | Predicate | Refusal | Lands on |
-|---|---|---|---|
-| TAM-GRD-01 | Rule match: doc type = rule type ∧ company ∧ (site null or =) ∧ (department null or =) ∧ (category null or item category ∈) ∧ currency = ∧ value ∈ [from, to) ∧ qty ∈ [from, to) when set ∧ conditions: **`EXACT`** (default) — rule condition set = document condition set; **`INCLUDES`** — rule set ⊆ document set. **Most specific wins**: specificity = non-null scope dimensions + rule conditions + 1 when `EXACT` | — | — |
-| TAM-GRD-02 | At least one rule matches | `422 TRADE_NO_APPROVAL_RULE` `{documentType, value, currency}` | Submit modal |
-| TAM-GRD-03 | For **both** the actor and, when acting as a delegate, the principal: ≠ document maker (`created_by` and the submitter) ∧ has not acted on another step of this request (in own name or as / through a delegate); and the actor or the principal is a member of the level | `403 TRADE_APPROVAL_SELF` / `403 TRADE_APPROVAL_NOT_MEMBER` | Approve modal |
-| TAM-GRD-04 | Document version = request's frozen version (no edit after submit) | `409 TRADE_APPROVAL_STALE` | Approve modal |
-| TAM-GRD-05 | No other active rule of the same document type, company and currency that **could match the same document** — every scope dimension equal or null on one side, value and quantity bands overlapping, condition sets compatible under both rules' match modes — **with equal specificity** | `422 TRADE_APPROVAL_RULE_AMBIGUOUS` naming the other rule | WS-284 modal |
-| TAM-GRD-06 | Bands `from < to`; ≥ 0 levels; each level ≥ 1 member or a role | field `422` | WS-284 modal |
-| TAM-GRD-07 | Delegate ≠ principal; delegate ≠ recording user unless the recorder is the principal; date range valid; a delegate never acts on a request whose maker is the delegate or the principal (`TAM-GRD-03`) | field `422` | Delegate modal |
-| TAM-GRD-08 | At open: exactly one rule has the highest specificity among the matches (a tie the save guard missed — e.g. after a rule edit — is refused, never broken arbitrarily) | `422 TRADE_APPROVAL_RULE_AMBIGUOUS {ruleIds}` | Submit modal |
-| TAM-GRD-09 | Amendment documents (`*_AMENDMENT`): matched twice, on the new total and on the absolute delta; the request uses the match with more levels, a tie takes the new-total match; levels are never merged | — | — |
+| ID | Predicate | Refusal | Lands on | Source |
+|---|---|---|---|---|
+| TAM-GRD-01 | Rule match: doc type = rule type ∧ company ∧ (site null or =) ∧ (department null or =) ∧ (category null or item category ∈) ∧ currency = ∧ value ∈ [from, to) ∧ qty ∈ [from, to) when set ∧ conditions: **`EXACT`** (default) — rule condition set = document condition set; **`INCLUDES`** — rule set ⊆ document set. **Most specific wins**: specificity = non-null scope dimensions + rule conditions + 1 when `EXACT` | — | — | FR-548 |
+| TAM-GRD-02 | At least one rule matches | `422 TRADE_NO_APPROVAL_RULE` `{documentType, value, currency}` | Submit modal | FR-550 |
+| TAM-GRD-03 | For **both** the actor and, when acting as a delegate, the principal: ≠ document maker (`created_by` and the submitter) ∧ has not acted on another step of this request (in own name or as / through a delegate); and the actor or the principal is a member of the level | `403 TRADE_APPROVAL_SELF` / `403 TRADE_APPROVAL_NOT_MEMBER` | Approve modal | FR-549 |
+| TAM-GRD-04 | Document version = request's frozen version (no edit after submit) | `409 TRADE_APPROVAL_STALE` | Approve modal | FR-553 |
+| TAM-GRD-05 | No other active rule of the same document type, company and currency that **could match the same document** — every scope dimension equal or null on one side, value and quantity bands overlapping, condition sets compatible under both rules' match modes — **with equal specificity** | `422 TRADE_APPROVAL_RULE_AMBIGUOUS` naming the other rule | WS-284 modal | FR-550 |
+| TAM-GRD-06 | Bands `from < to`; ≥ 0 levels; each level ≥ 1 member or a role | field `422` | WS-284 modal | FR-548 |
+| TAM-GRD-07 | Delegate ≠ principal; delegate ≠ recording user unless the recorder is the principal; date range valid; a delegate never acts on a request whose maker is the delegate or the principal (`TAM-GRD-03`) | field `422` | Delegate modal | FR-552 |
+| TAM-GRD-08 | At open: exactly one rule has the highest specificity among the matches (a tie the save guard missed — e.g. after a rule edit — is refused, never broken arbitrarily) | `422 TRADE_APPROVAL_RULE_AMBIGUOUS {ruleIds}` | Submit modal | FR-550 |
+| TAM-GRD-09 | Amendment documents (`*_AMENDMENT`): matched twice, on the new total and on the absolute delta; the request uses the match with more levels, a tie takes the new-total match; levels are never merged | — | — | FR-553 |
 
 ### 1.4 Transitions that must be unreachable
 
-| ID | Forbidden | What makes it unreachable |
-|---|---|---|
-| TAM-UNR-01 | Approval by time, job or bulk script | no job writes a step; `TAM-T3-01` only alerts; the one system write, `TAM-T1-08a`, only **returns** |
-| TAM-UNR-02 | A terminal request moving | terminal in the ladder; resubmit opens a new request |
-| TAM-UNR-03 | Editing a document while its request is `PENDING` | every document service refuses edit when an open request exists (`409 TRADE_APPROVAL_PENDING`) |
-| TAM-UNR-04 | `ADMIN` bypassing `TAM-GRD-03` | the check is not permission-based |
+| ID | Forbidden | What makes it unreachable | Source |
+|---|---|---|---|
+| TAM-UNR-01 | Approval by time, job or bulk script | no job writes a step; `TAM-T3-01` only alerts; the one system write, `TAM-T1-08a`, only **returns** | FR-554 |
+| TAM-UNR-02 | A terminal request moving | terminal in the ladder; resubmit opens a new request | FR-551 |
+| TAM-UNR-03 | Editing a document while its request is `PENDING` | every document service refuses edit when an open request exists (`409 TRADE_APPROVAL_PENDING`) | FR-553 |
+| TAM-UNR-04 | `ADMIN` bypassing `TAM-GRD-03` | the check is not permission-based | FR-549 |
 
 ## 2. T2 — Action × role × state
 
@@ -122,18 +122,18 @@ Each `:approve` depends on the resource's `:view` (`permission_dependencies`, se
 
 ## 3. T3 — Time-driven rules
 
-| ID | Rule | Trigger | Changes | Notified | Job | Once? |
-|---|---|---|---|---|---|---|
-| TAM-T3-01 | Pending escalation | step `PENDING` older than `warehouse.approval.pending_alert_hours` (default 24) | `alert_episode_started_at` on the step | level members + their active delegates — `TRADE_APPROVAL_PENDING` (FRD-TRADE §12b) | `TradeApprovalAlertJob` (hourly, `whb_job_runs`) | once per episode |
-| TAM-T3-02 | Delegation expiry | `valid_to` passed | delegation inactive (derived) | — | computed on read | — |
+| ID | Rule | Trigger | Changes | Notified | Job | Once? | Source |
+|---|---|---|---|---|---|---|---|
+| TAM-T3-01 | Pending escalation | step `PENDING` older than `warehouse.approval.pending_alert_hours` (default 24) | `alert_episode_started_at` on the step | level members + their active delegates — `TRADE_APPROVAL_PENDING` (FRD-TRADE §12b) | `TradeApprovalAlertJob` (hourly, `whb_job_runs`) | once per episode | FR-554 |
+| TAM-T3-02 | Delegation expiry | `valid_to` passed | delegation inactive (derived) | — | computed on read | — | FR-552 |
 
 ## 4. T4 — Cross-entity effects
 
-| ID | When | Then | Enforced in |
-|---|---|---|---|
-| TAM-T4-01 | Request `APPROVED` | document callback `onApproved` runs **in the same transaction** (e.g. PO → `p8-01` port) | `ApprovalService` → `TradeApprovable` bean per doc type |
-| TAM-T4-02 | Request `REJECTED` / `RETURNED` | document `REJECTED` / `DRAFT` | same |
-| TAM-T4-03 | Every action | `whb_audit_events` row (actor, on-behalf-of, comment); the maker is notified `TRADE_APPROVAL_DECIDED` on approve / reject / return | same |
+| ID | When | Then | Enforced in | Source |
+|---|---|---|---|---|
+| TAM-T4-01 | Request `APPROVED` | document callback `onApproved` runs **in the same transaction** (e.g. PO → `p8-01` port) | `ApprovalService` → `TradeApprovable` bean per doc type | FR-548 |
+| TAM-T4-02 | Request `REJECTED` / `RETURNED` | document `REJECTED` / `DRAFT` | same | FR-551 |
+| TAM-T4-03 | Every action | `whb_audit_events` row (actor, on-behalf-of, comment); the maker is notified `TRADE_APPROVAL_DECIDED` on approve / reject / return | same | FR-549, FR-552 |
 
 ## 5. T5 — Screen contract
 
@@ -169,6 +169,7 @@ document preview) · Approve · Reject · Return. Toolbar: Delegate. No export.
 |---|---|---|---|
 | 2026-10-22 | all | v0 derived | TRADE author |
 | 2026-10-22 | §0.1, `TAM-T1-03`, `-04`, `-08a`, `-10`, `-11`, `TAM-GRD-01`, `-03`, `-05`, `-07`…`-09`, T2-06, T3, T4-03, §5 | R29 TP-F8, F9, F12, F26, F28, TS-F8, F9, F12 and contract quality: exact condition match, both-party maker check, intersecting-scope ambiguity, delegation confirmation, approve-verb map, inbox filters and tiles, notifications | R29 |
+| 2026-10-23 | every T1, guard, unreachable, T3 and T4 row | `Source` column added, filled from FRD-TRADE §4, so every rule traces to the FR it proves | R30 `CP-FR-008` |
 
 ## 8. Invariants and scenarios
 

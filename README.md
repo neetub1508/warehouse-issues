@@ -159,7 +159,7 @@ assume a dealer or retail target. Where the re-target stands is
 | | |
 |---|---|
 | Requirements | **661** — **471** `FR-001`…`FR-471` in the main FRD (24 of them **WITHDRAWN by `D-16`**, kept for the record), plus **190** `FR-480`…`FR-669` in the area files [`docs/frd/`](docs/frd/): `FRD-REM` 20 · `FRD-STORES` 40 · `FRD-TRADE` 80 · `FRD-MFG` 50. Each carries its module, version, phase and the findings it closes |
-| Data model | **478 tables** — `whb_` 132 · `wh_` 147 · `wht_` 75 · `whin_` 58 · `whm_` 34 · `wh3_` 26 · adapters 6 (the `whad_`/`whas_` tables are removed) — with the split proof and the migration allocation ([`DATA-MODEL.md`](docs/DATA-MODEL.md) §8.1) |
+| Data model | **486 tables** — `whb_` 132 · `wh_` 147 · `wht_` 75 · `whin_` 66 · `whm_` 34 · `wh3_` 26 · adapters 6 (the `whad_`/`whas_` tables are removed) — with the split proof and the migration allocation ([`DATA-MODEL.md`](docs/DATA-MODEL.md) §8.1) |
 | Scenarios | **668** `WH-SC-nnn` — 411 in the catalogue and 257 in the area files — the acceptance criteria, in Given/When/Then |
 | Screens | **327** build blocks — 255 in the build spec and 72 in the area files — each naming its canonical reference page, gridIdentifier, filter scope, caches and permissions |
 | Contracts | **28** workflow contracts in [`docs/contracts/`](docs/contracts/) — 3 core, 7 stores, 10 trade, 8 manufacturing |

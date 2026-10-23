@@ -1,8 +1,8 @@
 # FRD-TRADE — `warehouse-trade`: manufacturing purchase and sales, mirrored
 
 **Date** 2026-10-22 · **Area** TRADE · **Phase** `P9` · **Status** derived v0, R29 dual-engine review
-folded (§"R29 dispositions") · **ID ranges** `FR-540`–`FR-619`, `WS-280`–`WS-313` (allocated to 319), `WH-SC-480`–`WH-SC-596` (allocated to 599),
-`OD-30`–`OD-39` (`DECISIONS.md` D-16 allocation). Unused numbers stay unused.
+folded (§"R29 dispositions") · **ID ranges** `FR-540`–`FR-619`, `WS-280`–`WS-313` (allocated to 319), `WH-SC-480`–`WH-SC-599`,
+`OD-30`–`OD-39` (`DECISIONS.md` D-16 allocation); lost-sale capture `FR-680` onward, ten ids (`D-17` item 4; `FR-680`, `FR-681` used). Unused numbers stay unused.
 
 **Sources.** `reviews/R27-client-p2p-stores-gap.md` (`RM-001`…`RM-006`, `RM-030`, `RM-040`…`RM-045`) ·
 `reviews/R28-manufacturing-storage-retarget-impact.md` §4 groups A + D, §5 (`RN-030`, `RN-035`), §6,
@@ -221,6 +221,7 @@ Rows use the shape of `WAREHOUSE-FUNCTIONAL-REQUIREMENTS.md` §2. **Module** `tr
 | **FR-599** | **Customer quotation**: versions, valid until (default `warehouse.trade.quotation.validity_days` = 30), currency, terms, lines priced by FR-604 with discount %, lead time / promised date; header charges (code list, recorded amount, allocation basis — the vendor-quotation shape), carried to the won SO; quotation below floor price, or above `warehouse.trade.sales.discount_approval_pct`, carries the approval condition | trade | v1 | P9 | — |
 | **FR-600** | Send/print marks the version `SENT`; a revision (from `SENT` or `EXPIRED`) supersedes it with version n+1; only the latest version can be won or lost; the expiry job marks `EXPIRED` past `valid_until`, and an `EXPIRED` version can still be won when the customer's PO is dated on or before `valid_until`, or lost | trade | v1 | P9 | — |
 | **FR-601** | **Win/loss** per line: the win modal records an outcome for every line — `WON` lines draft an SO (FIXED/OPEN/BLANKET) or a sales rate contract from the quotation; `LOST` lines record loss reason, competitor name and competitor price (optional). The quotation is `WON` when any line is won, else `LOST`. The win/loss analysis (WS-300) shows hit rate and lost value by reason, customer, item and executive, per currency; competitor bids are never compared line by line (§11 R10) | trade | v1 | P9 | — |
+| **FR-680** | **Lost sale from pre-sales** (`D-17` item 4). An enquiry line **regretted**, or an enquiry / quotation line closed **`LOST`**, with a **stock reason** — a code listed in the setting `warehouse.trade.sales.lost_sale_reason_codes` (default `NO_STOCK`, `LEAD_TIME_NOT_MET`, both seeded in `trade_regret_reason`, `trade_loss_reason`, `trade_cancel_reason` and `trade_short_close_reason`; a code list value has no attribute column, so the setting is the classification) — records **one** lost sale in core by calling `WhInsufficientStockLogService.captureLostSale` in the same transaction: dispatch site, item (or the new-item description when the line has none — the *not catalogued* case), house owner, the line's quantity in base UoM, `sourceSystem = WAREHOUSE_TRADE`, `sourceType = TRADE_ENQUIRY_LINE` / `TRADE_QUOTATION_LINE`, `sourceId` = the line id, and core reason `TRADE_STOCK_NOT_AVAILABLE` (context `SHORT_PICK`, `affects_demand_history = true`, seeded by trade). The row reads `captured_manually = true` and `policy_applied = BLOCK` (core sets both: a person's regret or loss act refused the demand). The line keeps `lost_sale_log_id`, so a line captures once; a non-stock reason (price, capacity, competitor) captures nothing. Core keeps the log and the API; this is now the producer of `FR-257` and `WH-SC-283` | trade | v1 | P9 | `FR-257` `D-17` |
 
 ### 4.11 Sales pricing *owner: trade* — contract `trade-rate-contract`
 
@@ -241,6 +242,7 @@ Rows use the shape of `WAREHOUSE-FUNCTIONAL-REQUIREMENTS.md` §2. **Module** `tr
 | **FR-609** | SO cancel / short-close mirror FR-583 / FR-588: cancel after approval is an `SO_CANCEL` request whose approval calls `cancelDemand`; short-close (`SO_SHORT_CLOSE`) cancels unreleased and unpicked schedule lines one by one (`cancelScheduleLine`), and a header short-close ends with `closeDemand`. Auto-close mirrors FR-589: every line complete (shipped ≥ qty × (1 − under tolerance)) or short-closed, no release open, no SRA open; it calls `closeDemand` | trade | v1 | P9 | — |
 | **FR-610** | **Delivery commitment tracking** (twin of expediting): schedule lines due within `warehouse.trade.sales.at_risk_days` that are unreleased or short on ATP; internal follow-up log; customer-informed revised date stored apart from the committed date | trade | v1 | P9 | — |
 | **FR-611** | **Customer schedule revision** for BLANKET: a revised schedule (screen or CSV import with dry-run) becomes an SO amendment; changes inside the sales firm zone (`warehouse.trade.sales.firm_zone_days`, default 14) are flagged and counted for FR-614. Unreleased schedule lines live on the core demand order as `FORECAST` lines, which MRP reads and which never reserve stock (`p8-02`, `POS-UNR-03`; closes `OD-32`) | trade | v1 | P9 | — |
+| **FR-681** | **Lost sale from the sales order** (`D-17` item 4). An SO line or schedule-line quantity that is **cancelled** (`SO_CANCEL`) or **short-closed** (`SO_SHORT_CLOSE`) with a stock reason (the same setting) — including the remainder of a dispatch release the planner released short because ATP was short (`TSO-T4-12`) and the customer would not take later — records one lost sale for the unshipped quantity through `captureLostSale` (`sourceType = TRADE_SO_SCHEDULE_LINE`, `sourceId` = `<scheduleLineId>:<approvalRequestId>`, the same core reason), in the transaction that approves the cancel or short-close — so once per schedule line and request; `wht_so_schedule_lines.lost_sale_quantity` accumulates what was captured. A cancel for any other reason captures nothing; nothing is captured at release itself, since a release is never refused for ATP (`TSO-UNR-05`) | trade | v1 | P9 | `FR-257` `D-17` |
 
 ### 4.13 Returns and customer rating *owner: trade* — contracts `trade-sales-return-authorisation`, `trade-counterparty-evaluation`
 
@@ -305,7 +307,7 @@ so a gap on one side is visible in review. Where no twin makes sense the row say
 
 Reference column: **D** = Department (simple CRUD), **C** = Customer (relations + cascading filters),
 **SV** = Service Vehicle (stateful workflow + bulk import + transition modals). All routes are web only
-(no mobile, user rule 2026-09-11). Menu: trade's own L1 `warehouse_trade` (*Purchase & Sales*), L2
+(no mobile, user rule 2026-09-11). Menu: trade's own L1 `warehouse_purchase_sales` (*Purchase & Sales*; never `warehouse_trade`, the Trade Portal key P7 deletes — R30 `CP-SC-002`), L2
 sections ≤ 8 leaves each (`TRD-07`).
 
 | WS | Screen | Route | Ref | L2 section | Task |
@@ -360,7 +362,7 @@ Both detail pages show the latest published counterparty grade in the header (FR
 Actors: `req1` (department requester, Maintenance), `stores1`, `buyer1`, `pm1` / `pm2` (purchase
 approvers), `sales1`, `sm1` (sales approver), `disp1` (dispatch planner), `adm1` (trade administrator),
 `aud1` (auditor). Company `ACME`, sites `PLANT-1` (stores + FG store `FG-1`), currency INR. Kind:
-happy / edge / error / guard. Scenario numbers after `WH-SC-565` (up to 599 in the allocation) stay unused.
+happy / edge / error / guard. Scenario numbers `WH-SC-597`…`599` were added on 2026-10-23 for the `D-17` lost-sale rows; the range is now full.
 
 ### 7.1 Module and masters
 
@@ -533,6 +535,9 @@ happy / edge / error / guard. Scenario numbers after `WH-SC-565` (up to 599 in t
 | **WH-SC-594** | SO approved on 12-01, acknowledgement not sent; `warehouse.trade.sales.ack_send_alert_days = 1` | Job on 12-02 | One *ack not sent* alert to the sales executive | FR-606 | edge |
 | **WH-SC-595** | Supplier `SUP-BETA` block requested by `buyer1` | `pm1` (holds `wht_supplier_profiles:approve`) approves | Profile blocked; `WH-SC-484` completes; without the permission `pm1` cannot act | FR-542 FR-549 | guard |
 | **WH-SC-596** | FIXED SO approved: schedule 300 on 12-05 | Open WS-305 | The line shows ATP and shortfall but offers no *Release*: core allocates it inside the horizon as a `FIRM` line | FR-605 FR-607 | edge |
+| **WH-SC-597** | Enquiry line 400 `HSG-100` for `CUST-OEM1`; FG-1 holds 0; quotation v1 `SENT` | `sales1` records the line `LOST` with reason `NO_STOCK`; a second line is lost with `PRICE` | One `wh_insufficient_stock_log` row: FG-1, `HSG-100`, 400, `is_lost_sale = true`, reason `TRADE_STOCK_NOT_AVAILABLE`, source `WAREHOUSE_TRADE` / `TRADE_QUOTATION_LINE` / the line id, available 0 read by core; the `PRICE` line captures nothing; recording the outcome again captures nothing more | FR-680, FR-257 | happy |
+| **WH-SC-598** | Enquiry line for a part the plant does not catalogue (no `item_id`, description *Cover 7-B*) | `sales1` regrets the line with `NO_STOCK` | A *not catalogued* lost sale: item description stored, available 0; the regret letter prints as usual (`WH-SC-552` with `NO_CAPACITY` captures nothing) | FR-680, FR-257 | edge |
+| **WH-SC-599** | BLANKET SO line, schedule line 500 due 12-10; FG-1 ATP 320; customer will not wait | `disp1` releases 320 and requests short-close of the remaining 180 with reason `NO_STOCK`; `sm1` approves | Core schedule line cancelled for 180 (`TSO-T4-06`); one lost sale of 180 sourced `TRADE_SO_SCHEDULE_LINE`; a cancel with `CUSTOMER_REQUEST` captures nothing | FR-681, FR-257 | happy |
 
 ## 8. Data model summary (authority for the task files; `DATA-MODEL.md` gains it through SPINE)
 
@@ -568,7 +573,7 @@ audit columns, `company_id` NOT NULL. Status columns `VARCHAR(30)` with **no `CH
 | `TRD-04` | Versions are **snapshot row sets**, not JSON | CLAUDE.md: no JSONB |
 | `TRD-05` | **Trade is the supply-chain owner that `p6-05` / `FR-142` defer to**; it stores scorecards in `wht_`. The core still stores none | `RN-035`; `p6-05` refuses a scorecard **in warehouse core**, and core stays that way |
 | `TRD-06` | **No tax, no FX.** Lines carry the item's tax classification code (recorded); prints say *Taxes extra as applicable*; documents of different currencies are never ranked or summed together | `OD-9` answer (warehouse never computes tax); accounting deferred |
-| `TRD-07` | Trade has its **own L1 menu** (`warehouse_trade`, *Purchase & Sales*) with six L2 sections ≤ 8 leaves | Keeps `warehouse_operations` under its 10-section cap; one toggle hides one tree |
+| `TRD-07` | Trade has its **own L1 menu** (`warehouse_purchase_sales`, *Purchase & Sales*) with six L2 sections ≤ 8 leaves. The key is **not** `warehouse_trade`: P7 removes that L1 (the Trade Portal, FR-491) and `WH-SC-662` asserts its absence; a reused key would also bring back favourites, visit history and grants stored against the portal (R30 `CP-SC-002`) | Keeps `warehouse_operations` under its 10-section cap; one toggle hides one tree |
 | `TRD-08` | **Approval never times out into approval**; zero-level rules are explicit rows | `FR-408` maker–checker |
 | `TRD-09` | **MRP and stores shortages reach trade by pull from core**, never by a sibling call: MFG publishes core replenishment suggestions with origin `MRP` (`p8-16`, `OD-31`), stores writes material requisitions (`p8-09`); trade converts them | FKs point down only; siblings never depend on each other |
 | `TRD-10` | Price precedence: purchase — rate contract → valid awarded quotation → manual; sales — customer RC → category price list → general price list → manual. Last price is reference only | One resolution order per side, testable |
@@ -652,7 +657,7 @@ the job run and notified to the trade administrator). A refusal rolls the trade 
 | Release approved — whole BLANKET line | `releaseSchedule` `firm(scheduleLineId, unitPrice?)` — `unitPrice` = the release price when `AT_RELEASE` (`STO-D19`) | `PO_RELEASE` | `…:PO_RELEASE:<release no>` | `TPO-T4-02` |
 | Release approved — OPEN call-off or BLANKET split | `releaseSchedule` `add(poLineId, FIRM, date, qty, unitPrice)`; the BLANKET `FORECAST` line reduced by `amendOrder` `scheduleChanges` or ended by `cancelScheduleLine` | `PO_RELEASE` + `PO_AMEND` / `PO_CANCEL_SCHEDULE` | `…:PO_RELEASE:<release no>`, `…:PO_AMEND:<release no>`, `…:PO_CANCEL_SCHEDULE:<release no>-<schedule no>` | `TPO-T4-02` |
 | Release cancelled after approval | `unfirmScheduleLine` (whole-firmed BLANKET lines, nothing received; `STO-D19`); `cancelScheduleLine` (added `FIRM` lines) + `amendOrder` restoring a split BLANKET `FORECAST` (`scheduleChanges`, or `newScheduleLines` when it was ended) | `PO_UNFIRM_SCHEDULE`, `PO_CANCEL_SCHEDULE`, `PO_AMEND` | `…:<op>:<release no>-X<n>` | `TPO-T4-09` |
-| Amendment applied (incl. origin `SUPPLIER_RETURN`) | `amendOrder`, added schedule lines as `newScheduleLines` in the same command (`CN-2`), a deliver-to change as `lineChanges.receivingLocationId`; `cancelScheduleLine` | `PO_AMEND`, `PO_CANCEL_SCHEDULE` | `…:PO_AMEND:<amendment no>` (+ `-<n>`) | `TOA-T4-02` |
+| Amendment applied (incl. origin `SUPPLIER_RETURN`) | `amendOrder`, added schedule lines as `newScheduleLines` in the same command (`CN-2`), a deliver-to change as `lineChanges.receivingLocationId`, a tolerance change as `lineChanges.overTolerancePct` / `underTolerancePct` (`CN-8`); `cancelScheduleLine` | `PO_AMEND`, `PO_CANCEL_SCHEDULE` | `…:PO_AMEND:<amendment no>` (+ `-<n>`) | `TOA-T4-02` |
 | Short-close approved | `closeLine`; `cancelScheduleLine` for `FORECAST` / unreleased; header: `closeOrder` | `PO_CLOSE_LINE`, `PO_CANCEL_SCHEDULE`, `PO_CLOSE` | `…:<op>:<request id>-<line / schedule no>` | `TPO-T4-06` |
 | Cancel approved | `cancelOrder` | `PO_CANCEL` | `…:PO_CANCEL:<request id>` | `TPO-T4-06` |
 | Auto-close | `closeOrder` | `PO_CLOSE` | `…:PO_CLOSE:AUTO` | `TPO-T4-10` |
@@ -710,10 +715,10 @@ are resolved at send time; a digest kind sends one message per recipient per run
 | `TRADE_EVALUATION_DRAFTED`, `TRADE_AVL_EXPIRING`, `TRADE_UDYAM_REVIEW`, `TRADE_PART_APPROVAL_EXPIRING` | `TCE-T3-01`…`-04` | trade administrator; sales executive for part approval |
 | `TRADE_JOB_PORT_REFUSED` | any job's port refusal (§12a) | trade administrator |
 
-### 12c. Core changes trade asked of STORES — all resolved 2026-10-22
+### 12c. Core changes trade asked of STORES — `CN-1`…`CN-7` resolved 2026-10-22; `CN-8` open (R30)
 
-STORES made every change below (FRD-STORES *R29 dispositions* → *FRD-TRADE §12c*); the trade rows now call
-the registry as it stands.
+STORES made `CN-1`…`CN-7` (FRD-STORES *R29 dispositions* → *FRD-TRADE §12c*); the trade rows now call
+the registry as it stands. `CN-8` was found by R30 `CP-GB-002` and is asked of STORES (`p8-01`).
 
 | # | Need | Why | Registry row it extends | Resolved (FRD-STORES) |
 |---|---|---|---|---|
@@ -724,6 +729,7 @@ the registry as it stands.
 | CN-5 | `POS-T3-01`'s weekly overdue digest skips POs whose `source_module` is set | trade's `TPO-T3-02` already tells the buyer; core would send a second digest to the port's acting user | `POS-T3-01` | **Resolved** — FR-504; `POS-T3-01`; p8-01 |
 | CN-6 *(recommended → adopted)* | `WhPurchaseOrderPort.unfirmScheduleLine` and an optional `unitPrice` on the `firm` entry | mirror of the demand port: a cancelled BLANKET release could return its line to `FORECAST` instead of cancel + re-add, and an `AT_RELEASE` whole-line release could firm in place | `releaseSchedule` | **Resolved** — `STO-D19`; registry R.2 `unfirmScheduleLine`, `firm(…, unitPrice?)`; `POS-T1-03`, `-03a`; p8-01 |
 | CN-7 *(recommended → adopted)* | a service principal for a sibling's scheduled jobs | `TRD-13` uses the order's buyer for auto-close; registry R.1 knows only acting users | R.1 *Principal* | **Resolved** — `STO-D20`; registry R.1 *Principal*; p8-01 |
+| CN-8 | `AmendPurchaseOrderCommand.lineChanges[]` gains `overTolerancePct?`, `underTolerancePct?`, validated as on create (`POS-GRD-15`) | a trade amendment of change type `TOLERANCE` (`trade-order-amendment` §0) otherwise stays trade-side and core's over-receipt guard keeps the create-time value (FR-582, FR-590). The SO mirror needs nothing: a core demand line has no tolerance and trade reads its own (`TSO-T3-03`) | `amendOrder` | **Resolved 2026-10-23** — STORES `STO-D25`, port registry R.2 (`FRD-STORES.md`), `POS-T1-07` / `POS-GRD-15`; carrier `p8-01`; trade side `TOA-T4-02`, `p9-11` (R30 `CP-GB-002`) |
 
 ## 13. Traceability
 
@@ -742,7 +748,9 @@ the registry as it stands.
 | FR-590–593 | `trade-order-amendment` | p9-11 |
 | FR-594–597, FR-614 | `trade-counterparty-evaluation` | p9-12 |
 | FR-612–613 | `trade-sales-return-authorisation` | p9-13 |
-| FR-615–619 | every contract §5 | p9-14 (print + reports); FR-616–618 in every task |
+| FR-615–619 | every contract §5; WS-312 reports `trade-reports` | p9-14 (print + reports); FR-616–618 in every task |
+| FR-680 | `trade-sales-enquiry-quotation` `TSQ-T4-05` | p9-08 |
+| FR-681 | `trade-sales-order` `TSO-T4-13` | p9-09 (short-close half p9-10) |
 
 ## R29 dispositions
 
@@ -761,7 +769,7 @@ were fixed by STORES. The core changes trade asked for, §12c `CN-1`…`CN-7`, w
 | TP-F4 | Release ladder: reject-revert, cancel before / after approval, close on core events | TPO-T1-10a…-10c, -12, T4-09, -11; p9-07 |
 | TP-F5 | PR header closes when every line is closed short or cancelled, allocation or not | TPR-T1-09, -10; p9-04 |
 | TP-F6 | Port principal = triggering person; a scheduled job calls as trade's service principal (`CN-7` → `STO-D20`); `warehouse:orders:port` granted per task bundle and to the service principal | TRD-13; §12a; every contract §0; p9-01/04/07/09/10/11/13; epic |
-| TP-F7 | OPEN PO without ceiling value carries `open_unbounded`; release with it needs an install rule | FR-575, FR-580; TPO-GRD-07; p9-07; WH-SC-567 |
+| TP-F7 | OPEN PO without ceiling value carries `open_unbounded`; release with it needs an install rule | FR-575, FR-580; TPO-T1-08 (the release carries `open_unbounded`; R30 `CP-FR-015` corrected the pointer from `TPO-GRD-07`); p9-07; WH-SC-567 |
 | TP-F8 | Delegation for another approver needs a second administrator's confirmation | TAM-T1-10, -11, GRD-07; p9-03; WH-SC-569 |
 | TP-F9 | Maker ≠ checker checked for actor and principal, own name or delegate | TAM-GRD-03; FR-549; p9-03 |
 | TP-F10 | Every AVL entry / change is an `AVL` approval request held in `pending_change` | TCE-T1-04; FR-544; p9-02; WH-SC-570 |
@@ -814,7 +822,7 @@ were fixed by STORES. The core changes trade asked for, §12c `CN-1`…`CN-7`, w
 | TS-F22 | Price-list priority; equal-priority overlap refused | TRC-GRD-05, T4-04; p9-06; WH-SC-590 |
 | TS-F23 | Termination / supersession dated; prices end on the date | TRD-15; TRC-T3-04; p9-06 |
 | TS-F24 | No FX: money tiles and reports grouped by currency | FR-616, FR-619; p9-14; WH-SC-591 |
-| TS-F25 | Demand and RMA port rows written to registry names | TSO-T4-*; TSR-T4-*; §12a |
+| TS-F25 | Demand and RMA port rows written to registry names | TSO-T4-01, -02, -06, -09, -10; TSR-T4-01, -03 (R30 `CP-FR-015`: the wildcards resolved); §12a |
 | TS-F26 | Quotation charges specified (fields, screen, carried to SO) | TSQ §0, §5; p9-08 |
 | TS-F27 | Refused: a dispatch release has no print (written refusal) | §5 M32; FR-615 |
 | TS-F28 | Releases / amendments `<order>-Rnn` / `-Dnn` / `-Ann`; release and amendment series removed | FR-547; p9-02 |

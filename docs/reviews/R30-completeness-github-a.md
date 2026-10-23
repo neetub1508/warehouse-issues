@@ -1,5 +1,7 @@
 # R30 — Completeness audit, GitHub part A (#1–#300)
 
+<!-- check-design-set: issue-citations file #2 #9 #155 #162 #164 #266 #267 #268 #269 #270 #271 #272 #273 #274 #275 #276 #277 #278 #279 #280 #281 #282 #283 #284 #286 #287 #288 #289 #290 #291 #292 #293 #294 #295 #296 #297 #298 #299 #300 #543 — R30 audits the whole GitHub range `neetub1508/warehouse-issues` #1–#604, including the follow-up and finding reports and pull requests that `issues/CREATED.md` does not list (its own scope note; regeneration is R30 `CP-GB-014`, carried by `P7-12`). These are real issues of this repository, cited as evidence, not task cross-references -->
+
 Read-only audit, 2026-10-23. Repo `neetub1508/warehouse-issues` @ `main`; code `classic/{warehouse-base,warehouse,warehouse-3pl,warehouse-india}` @ `main` (`65b41be8a6`). Authority: `DECISIONS.md` D-16, `R28` §8b/§8c, `RETARGET-PROGRAM-STATUS.md`, `issues/CREATED.md`.
 
 ## Method

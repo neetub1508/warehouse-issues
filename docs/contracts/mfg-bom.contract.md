@@ -4,7 +4,8 @@
 > (`whm_boms` and children), its maker–checker lifecycle, effectivity and alternative selection, the
 > structure guards (recursion, depth, UoM, phantom), co-/by-product outputs, the optional operation list
 > and work-centre master, and the read-only explosion / where-used / cost roll-up services. It replaces
-> the multi-level-BOM refusal of `FR-268` / `issues/p6-12.md` (`RN-032`).
+> the multi-level-BOM refusal of `FR-268` / `issues/p6-12.md` (`RN-032`); `FR-268` is withdrawn under `D-16` (`D-17` item 5)
+> and superseded by FR-622…FR-631, and `p6-12` is VOID (R30 `CP-FR-002`).
 >
 > **What this is not.** It does not restate the movement writer ([`movement-post-reverse.contract.md`](movement-post-reverse.contract.md),
 > cited by `MPR-*` id). A BOM posts **no movement**. Order creation from a BOM (snapshot, re-explode) is

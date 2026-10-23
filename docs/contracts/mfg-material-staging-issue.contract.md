@@ -24,7 +24,7 @@
 |---|---|
 | **Workflow** | Per component by supply method — `ISSUE`: *Request materials* → MRQ (core) → store issue (core) into `VIRT-PRODUCTION-<site>` → store return (core); `STAGE_BACKFLUSH`: staging list → release → stage (store bin → `LINE_SIDE`) → consumed by receipt backflush / *Unstage*; `BACKFLUSH`: nothing here (consumed at receipt from the supply location). Substitution and unplanned consumption under the order's consumption policy |
 | **Module** | `warehouse-manufacturing`; calls core `WhMaterialRequisitionPort.create/cancel/close` (`p8-09`); implements core `CostObjectResolver` hooks for type `PRODUCTION_ORDER` (`p8-09`/`p8-10`/`p8-11`) |
-| **Domain baseline** | `L-1`, `L-6`, `L-10`, `L-12`, `RN-034`, `STO-D11` (posted store issue is never reversed), `MD-04`, `MD-05` · movement types `PRODUCTION_STAGE`, `PRODUCTION_UNSTAGE` (+ `*_REVERSAL`, `MUST_BALANCE_PER_OWNER_ITEM`, `WEIGHTED_AVERAGE`), document type `STAGING_LIST`, location type `LINE_SIDE`, reason contexts `PRODUCTION_SUBSTITUTION`, `PRODUCTION_DEVIATION`, print kind `STAGING_PICK_LIST`, series `STG-` (`V560001`) · `VIRT-PRODUCTION-<site>` (`V500013:35-47`) |
+| **Domain baseline** | `L-1`, `L-6`, `L-10`, `L-12`, `RN-034`, `STO-D11` (posted store issue is never reversed), `MD-04`, `MD-05`, bonded stock per `mfg-bonded-issue` (FR-670…673, `D-17` item 3) · movement types `PRODUCTION_STAGE`, `PRODUCTION_UNSTAGE` (+ `*_REVERSAL`, `MUST_BALANCE_PER_OWNER_ITEM`, `WEIGHTED_AVERAGE`), document type `STAGING_LIST`, location type `LINE_SIDE`, reason contexts `PRODUCTION_SUBSTITUTION`, `PRODUCTION_DEVIATION`, print kind `STAGING_PICK_LIST`, series `STG-` (`V560001`) · `VIRT-PRODUCTION-<site>` (`V500013:35-47`) |
 | **Seams owed by others** | **SEAM-M1** (`ResolvedCostObject.counterLocationPurpose = PRODUCTION` used by the store-issue post and store return) and **SEAM-M2** (`assertIssuable`, `onIssuePosted`, `onReturnPosted` in the posting transaction), both written into STORES `FR-533` |
 | **Owning tasks** | `issues/p10-06.md`. Depends on `p10-05`, `p8-09`, `p8-10`, `p8-11` |
 | **Primary tables** | `whm_staging_lists`, `whm_staging_list_lines`, `whm_component_substitutions` (`V560040`); rollup columns on `whm_production_order_components` (`V560030`) |
@@ -95,6 +95,7 @@
 | MSI-GRD-08 | Substitution: substitute item active, stock-holding, UoM convertible to its base, ≠ original, not phantom; quantity > 0; original line open quantity ≥ the quantity it replaces; from alternate group: the item is an alternate of that BOM line (priority order offered first) | `422 SUBSTITUTE_INVALID` · `422 SUBSTITUTION_EXCEEDS_OPEN` | — | FR-642 |
 | MSI-GRD-09 | `STRICT` ad-hoc substitution approver ≠ requester | `403 SUBSTITUTION_SELF_APPROVAL` (MD-21) | — | FR-642 |
 | MSI-GRD-10 | Return above net issued | core `422 STORE_RETURN_EXCEEDS_ISSUED` (`SIR-GRD-07`) | CHECK on issue line | FR-641 |
+| MSI-GRD-11 | Stock of a licensed duty status (`BONDED`, `MOOWR`, `SEZ`) issued or backflushed to the order: an active bond rule and an active licence (india, on base's post hook), and one licensed regime per order (`bonded_duty_status`) | `409 BONDED_EXIT_NOT_RECORDED` / `409 BONDED_LICENCE_NOT_ACTIVE` / `409 BONDED_OPERATION_NOT_PERMITTED` · `lines[n].duty_status`; `409 BONDED_REGIME_MIXED` · `lines[n].dutyStatus` | `mfg-bonded-issue` `BND-GRD-01`…`-04` | FR-670, FR-671, FR-673 |
 
 ### 1.4 Unreachable
 
@@ -143,6 +144,7 @@
 | MSI-T4-09 | substitution effective | original line's `required_quantity` reduced by the replaced quantity (never below consumed); a new component line with `substitute_of_line_id`, `substitution_id`, required date and supply method of the original; UoM factor re-resolved and frozen; the original's hold released and re-created for its reduced quantity, a new one made for the substitute (`release` + `create`, no partial release in core; `L-10`); genealogy and cost follow the substitute (`WH-SC-623`) | order service |
 | MSI-T4-10 | deviation recorded (`WARN`) or free (`FLEXIBLE`) | the component line shows required vs consumed variance and `deviation_reason_code_id`; reported in WS-337 consumption variance (`FR-643`) | order service |
 | MSI-T4-11 | order close / cancel | `MSI-T1-14`; staging lists closed / cancelled; any line-side balance blocks close (`CST-GRD-02`) | close service |
+| MSI-T4-12 | store issue or return of licensed-status stock with cost object `PRODUCTION_ORDER` (india on) | india writes one `whin_bonded_operation_lines` row per line (`MANUFACTURE_ISSUE` / `MANUFACTURE_RETURN`); `onIssuePosted` freezes `whm_production_orders.bonded_duty_status` at the first one (`BND-T4-01`, `-03`, MD-43). Staging (`PRODUCTION_STAGE`, store → physical `LINE_SIDE`) is no exit — line-side stock stays in its duty status inside the licensed premises | india recorder; `CostObjectResolver` |
 
 ## 5. T5 — Screen contract
 
@@ -207,6 +209,7 @@ Tool-crib custody; kanban / pull replenishment of line-side; per-unit consumptio
 | 2026-10-22 | v0 derived from FRD-MFG FR-638…FR-643 and FRD-STORES FR-529…FR-533 |
 | 2026-10-22 | R29: one open-to-stage formula (F11); line-side hold always HARD, no "not pickable" type claim (F16); consume-and-recreate hold pattern, no stored reservation ids (F17, MD-36); postings child table (F21); MRQ suppression by `ownsReservations()` (MFG-F12); cancel through the port (F4); cumulative genealogy (F14); `PRO-T1-15` cross-reference (F31); port envelope per the FRD-STORES registry |
 | 2026-10-22 | Consistency pass: late issues/returns on `COMPLETED` (MD-14), single reservation owner via `reservationsFor` (MD-16), no `onIssueReversed` (MD-17), staging close short (MD-22), `CST-` cross-references, `MSI-EC-` edge-case ids |
+| 2026-10-23 | §0, `MSI-GRD-11`, `MSI-T4-12` | Bonded / MOOWR stock to an order allowed under the bond rules; rules in `mfg-bonded-issue` | R30 `CP-GB-001`; `D-17` item 3 |
 
 ## 10. Invariants and scenarios
 

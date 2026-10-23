@@ -66,38 +66,38 @@ junction), `closed_short_quantity`, `close_reason_code`, `line_status` (`OPEN`, 
 
 ### 1.2 Transitions
 
-| ID | From | Action | To | Guard | Actor | Side effects | Comment | UI |
-|---|---|---|---|---|---|---|---|---|
-| TPR-T1-01 | — | Create manual | `DRAFT` | `TPR-GRD-01` | `:create` | estimated rate defaulted (`TPR-T4-04`) | no | WS-286 Add |
-| TPR-T1-02 | — | *Import shortages* (buyer) from core shortfalls / suggestions | `DRAFT`, lines linked | `TPR-GRD-02` | `:create` | qty defaulted to shortfall; each suggestion line → `markConverted` (`TPR-T4-02`) | justification if qty raised | WS-286 toolbar *Import shortages* |
-| TPR-T1-02a | — | **Core hand-off**: core calls `PurchaseRequisitionHandoff.raise(HandoffCommand)` (`ai.warehouse.port.purchase`; envelope `sourceModule = warehouse`, key `MRQ_HANDOFF:<row id>`, `actingUserId` = the stores user) from *Send to purchasing* on a core MR (`MRQ-T1-11`) | PR `SUBMITTED` with one line (source `STORES_SHORTAGE`, linked to the MR line) — created **and submitted** in the call | `TPR-GRD-01`, `-02`, `TAM-GRD-02`; a replayed key returns the same `HandoffRef` | the acting stores user, who must hold `:create` + `:submit` (stores requester bundle); maker = that user | number issued (FR-547); `TAM-T1-03`; returns `HandoffRef('warehouse-trade', 'WHT_PURCHASE_REQUISITION', id, pr_number)`; `status(ref)` → `(line_status, label, Σ allocated to PO lines, received from core, closed)`; a refusal (e.g. `422 TRADE_NO_APPROVAL_RULE`) is thrown to core, which shows it | no | core MR screen (`p8-09`) |
-| TPR-T1-03 | `DRAFT`, `REJECTED` | Submit | `SUBMITTED` | `TPR-GRD-01`, `TAM-GRD-02` | `:submit` | number at first submit; `TAM-T1-03` with value Σ qty × est. rate or qty | no | WS-286 Submit |
-| TPR-T1-04 | `SUBMITTED` | Approved | `APPROVED` | `TAM` | approver | requester notified (`TRADE_APPROVAL_DECIDED`) | — | WS-285 |
-| TPR-T1-05 | `SUBMITTED` | Rejected / returned | `REJECTED` / `DRAFT` | `TAM` | approver | requester notified (`TRADE_APPROVAL_DECIDED`) | yes | WS-285 |
-| TPR-T1-06 | `APPROVED`, `PARTIALLY_ORDERED` | Allocate lines → RFQ / PO / release (one target from N PR lines) | allocation rows; line statuses | `TPR-GRD-03`, `-04` | `wht_requisition_allocations:create` + target's `:create` | `TPR-T4-01` | no | WS-287 *Create RFQ* / *Create PO* / *Add to release* |
-| TPR-T1-07 | target line cancelled / reduced | Release allocation | allocation inactive or reduced | — | system (target service) | `TPR-T4-03` | — | — |
-| TPR-T1-08 | `DRAFT`, `SUBMITTED`(withdraw first), `APPROVED` with zero allocations | Cancel | `CANCELLED` | `TPR-GRD-05` | `:cancel` | source line freed; a converted suggestion is returned by `releaseConversion` (`TPR-T4-02`) | **yes** | WS-286 |
-| TPR-T1-09 | line with open qty, header `APPROVED`/`PARTIALLY_ORDERED` | Close short remainder | line `CLOSED_SHORT` (or `ORDERED` if partially allocated) | open qty > 0 | `:cancel` | requester notified (`TRADE_PR_CLOSED_SHORT`); a line closed short **with no allocation** that converted a suggestion → `releaseConversion` | **yes**, reason code | WS-286 detail |
-| TPR-T1-10 | `APPROVED`, `PARTIALLY_ORDERED`, `ORDERED` | Every line terminal (`ORDERED` with all targets terminal, `CLOSED_SHORT`, `CANCELLED`) | `CLOSED` | — | system (after `-09`, and on target-terminal events from the RFQ / PO services) | — | — | — |
+| ID | From | Action | To | Guard | Actor | Side effects | Comment | UI | Source |
+|---|---|---|---|---|---|---|---|---|---|
+| TPR-T1-01 | — | Create manual | `DRAFT` | `TPR-GRD-01` | `:create` | estimated rate defaulted (`TPR-T4-04`) | no | WS-286 Add | FR-556 |
+| TPR-T1-02 | — | *Import shortages* (buyer) from core shortfalls / suggestions | `DRAFT`, lines linked | `TPR-GRD-02` | `:create` | qty defaulted to shortfall; each suggestion line → `markConverted` (`TPR-T4-02`) | justification if qty raised | WS-286 toolbar *Import shortages* | FR-557 |
+| TPR-T1-02a | — | **Core hand-off**: core calls `PurchaseRequisitionHandoff.raise(HandoffCommand)` (`ai.warehouse.port.purchase`; envelope `sourceModule = warehouse`, key `MRQ_HANDOFF:<row id>`, `actingUserId` = the stores user) from *Send to purchasing* on a core MR (`MRQ-T1-11`) | PR `SUBMITTED` with one line (source `STORES_SHORTAGE`, linked to the MR line) — created **and submitted** in the call | `TPR-GRD-01`, `-02`, `TAM-GRD-02`; a replayed key returns the same `HandoffRef` | the acting stores user, who must hold `:create` + `:submit` (stores requester bundle); maker = that user | number issued (FR-547); `TAM-T1-03`; returns `HandoffRef('warehouse-trade', 'WHT_PURCHASE_REQUISITION', id, pr_number)`; `status(ref)` → `(line_status, label, Σ allocated to PO lines, received from core, closed)`; a refusal (e.g. `422 TRADE_NO_APPROVAL_RULE`) is thrown to core, which shows it | no | core MR screen (`p8-09`) | FR-557 |
+| TPR-T1-03 | `DRAFT`, `REJECTED` | Submit | `SUBMITTED` | `TPR-GRD-01`, `TAM-GRD-02` | `:submit` | number at first submit; `TAM-T1-03` with value Σ qty × est. rate or qty | no | WS-286 Submit | FR-558 |
+| TPR-T1-04 | `SUBMITTED` | Approved | `APPROVED` | `TAM` | approver | requester notified (`TRADE_APPROVAL_DECIDED`) | — | WS-285 | FR-558 |
+| TPR-T1-05 | `SUBMITTED` | Rejected / returned | `REJECTED` / `DRAFT` | `TAM` | approver | requester notified (`TRADE_APPROVAL_DECIDED`) | yes | WS-285 | FR-551 |
+| TPR-T1-06 | `APPROVED`, `PARTIALLY_ORDERED` | Allocate lines → RFQ / PO / release (one target from N PR lines) | allocation rows; line statuses | `TPR-GRD-03`, `-04` | `wht_requisition_allocations:create` + target's `:create` | `TPR-T4-01` | no | WS-287 *Create RFQ* / *Create PO* / *Add to release* | FR-559, FR-560 |
+| TPR-T1-07 | target line cancelled / reduced | Release allocation | allocation inactive or reduced | — | system (target service) | `TPR-T4-03` | — | — | FR-561 |
+| TPR-T1-08 | `DRAFT`, `SUBMITTED`(withdraw first), `APPROVED` with zero allocations | Cancel | `CANCELLED` | `TPR-GRD-05` | `:cancel` | source line freed; a converted suggestion is returned by `releaseConversion` (`TPR-T4-02`) | **yes** | WS-286 | FR-561 |
+| TPR-T1-09 | line with open qty, header `APPROVED`/`PARTIALLY_ORDERED` | Close short remainder | line `CLOSED_SHORT` (or `ORDERED` if partially allocated) | open qty > 0 | `:cancel` | requester notified (`TRADE_PR_CLOSED_SHORT`); a line closed short **with no allocation** that converted a suggestion → `releaseConversion` | **yes**, reason code | WS-286 detail | FR-561 |
+| TPR-T1-10 | `APPROVED`, `PARTIALLY_ORDERED`, `ORDERED` | Every line terminal (`ORDERED` with all targets terminal, `CLOSED_SHORT`, `CANCELLED`) | `CLOSED` | — | system (after `-09`, and on target-terminal events from the RFQ / PO services) | — | — | — | FR-560 |
 
 ### 1.3 Guards
 
-| ID | Predicate | Refusal |
-|---|---|---|
-| TPR-GRD-01 | ≥ 1 line; qty > 0; item active and purchasable (`whb_items` purchase status); `required_by_date ≥ today` (site tz) at submit; department active; cost object valid per `p8-10` | field `422` |
-| TPR-GRD-02 | Source line not linked to another non-cancelled PR line (partial unique index on each source column `WHERE line_status <> 'CANCELLED'`); qty > shortfall needs `justification` | `409 TRADE_SOURCE_LINE_ALREADY_REQUISITIONED`; field `422` |
-| TPR-GRD-03 | Selected PR lines share company, and for a PO also deliver-to site; items match the target line (UoM convertible) | `422 TRADE_ALLOCATION_INCOMPATIBLE` |
-| TPR-GRD-04 | Under `SELECT … FOR UPDATE` on each PR line: Σ active allocations + new ≤ quantity − closed_short | `422 TRADE_ALLOCATION_EXCEEDS_OPEN {open}` |
-| TPR-GRD-05 | No active allocation | `409 TRADE_PR_HAS_ALLOCATIONS` (offer close-short) |
-| TPR-GRD-06 | Requester cannot approve own PR | `TAM-GRD-03` |
+| ID | Predicate | Refusal | Source |
+|---|---|---|---|
+| TPR-GRD-01 | ≥ 1 line; qty > 0; item active and purchasable (`whb_items` purchase status); `required_by_date ≥ today` (site tz) at submit; department active; cost object valid per `p8-10` | field `422` | FR-556 |
+| TPR-GRD-02 | Source line not linked to another non-cancelled PR line (partial unique index on each source column `WHERE line_status <> 'CANCELLED'`); qty > shortfall needs `justification` | `409 TRADE_SOURCE_LINE_ALREADY_REQUISITIONED`; field `422` | FR-557 |
+| TPR-GRD-03 | Selected PR lines share company, and for a PO also deliver-to site; items match the target line (UoM convertible) | `422 TRADE_ALLOCATION_INCOMPATIBLE` | FR-559 |
+| TPR-GRD-04 | Under `SELECT … FOR UPDATE` on each PR line: Σ active allocations + new ≤ quantity − closed_short | `422 TRADE_ALLOCATION_EXCEEDS_OPEN {open}` | FR-560 |
+| TPR-GRD-05 | No active allocation | `409 TRADE_PR_HAS_ALLOCATIONS` (offer close-short) | FR-561 |
+| TPR-GRD-06 | Requester cannot approve own PR | `TAM-GRD-03` | FR-549 |
 
 ### 1.4 Unreachable
 
-| ID | Forbidden | Why |
-|---|---|---|
-| TPR-UNR-01 | Editing an approved PR's quantities | no edit after approval; close-short or a new PR |
-| TPR-UNR-02 | Allocation from a `DRAFT` / `SUBMITTED` / `REJECTED` PR | workbench lists approved open lines only, `TPR-GRD-04` re-checks status |
-| TPR-UNR-03 | Writing core MR / suggestion rows | trade reads them; a converted suggestion is recorded by core through `WhReplenishmentSuggestionPort.markConverted` / `releaseConversion` (`p8-16`), a stores hand-off through core's call of trade's `PurchaseRequisitionHandoff` (`p8-09`) — never a trade repository write (`TRD-09`) |
+| ID | Forbidden | Why | Source |
+|---|---|---|---|
+| TPR-UNR-01 | Editing an approved PR's quantities | no edit after approval; close-short or a new PR | FR-553 |
+| TPR-UNR-02 | Allocation from a `DRAFT` / `SUBMITTED` / `REJECTED` PR | workbench lists approved open lines only, `TPR-GRD-04` re-checks status | FR-560 |
+| TPR-UNR-03 | Writing core MR / suggestion rows | trade reads them; a converted suggestion is recorded by core through `WhReplenishmentSuggestionPort.markConverted` / `releaseConversion` (`p8-16`), a stores hand-off through core's call of trade's `PurchaseRequisitionHandoff` (`p8-09`) — never a trade repository write (`TRD-09`) | FR-557 |
 
 ## 2. T2 — Action × role × state
 
@@ -113,19 +113,19 @@ junction), `closed_short_quantity`, `close_reason_code`, `line_status` (`OPEN`, 
 
 ## 3. T3 — Time-driven rules
 
-| ID | Rule | Trigger | Changes | Notified | Job |
-|---|---|---|---|---|---|
-| TPR-T3-01 | PR ageing | approved line open > `warehouse.trade.pr.ageing_days` (default 7) | none (computed filter `ageingOnly`, report FR-619) | buyers of the site, daily digest `TRADE_PR_AGEING` | `TradePrAgeingJob` |
-| TPR-T3-02 | Required date passed while open | `required_date < today` | `overdue` computed | requester + buyers, `TRADE_PR_OVERDUE`, once per line | same |
+| ID | Rule | Trigger | Changes | Notified | Job | Source |
+|---|---|---|---|---|---|---|
+| TPR-T3-01 | PR ageing | approved line open > `warehouse.trade.pr.ageing_days` (default 7) | none (computed filter `ageingOnly`, report FR-619) | buyers of the site, daily digest `TRADE_PR_AGEING` | `TradePrAgeingJob` | FR-619 |
+| TPR-T3-02 | Required date passed while open | `required_date < today` | `overdue` computed | requester + buyers, `TRADE_PR_OVERDUE`, once per line | same | FR-556 |
 
 ## 4. T4 — Cross-entity effects
 
-| ID | When | Then | Enforced in |
-|---|---|---|---|
-| TPR-T4-01 | Allocation created / released | line `allocated_quantity`, `line_status`, header status recomputed in the same transaction; the requester is notified `TRADE_PR_CONVERTED` on each allocation to a PO / release line (FR-560) | `RequisitionAllocationService` |
-| TPR-T4-02 | PR line created from a suggestion / that line cancelled, deleted with its draft, or closed short unallocated | `WhReplenishmentSuggestionPort.markConverted(suggestionId, 'PURCHASE_REQUISITION', prId, pr_number or DRAFT ref)` / `releaseConversion(suggestionId, prId, reasonCodeId)` (`POS-T1-33`, `-35`) in the same transaction, keys `WHT_PURCHASE_REQUISITION:<prId>:SUGGESTION_CONVERT\|SUGGESTION_RELEASE:<line id>`; a material-requisition shortfall shows *requisitioned by PR-x* through core's `PurchaseRequisitionHandoff.status` read | `PurchaseRequisitionService` (port adapter) |
-| TPR-T4-03 | Target RFQ line not awarded / PO line cancelled / reduced | allocation released back (`TPR-T1-07`) | target service calls `RequisitionAllocationService.release` |
-| TPR-T4-04 | Line saved without estimate | estimate = rate-contract price (`trade-rate-contract` `TRC-T4-02`) else last approved PO rate, source stored | `PurchasePriceResolutionService` (reference mode) |
+| ID | When | Then | Enforced in | Source |
+|---|---|---|---|---|
+| TPR-T4-01 | Allocation created / released | line `allocated_quantity`, `line_status`, header status recomputed in the same transaction; the requester is notified `TRADE_PR_CONVERTED` on each allocation to a PO / release line (FR-560) | `RequisitionAllocationService` | FR-560 |
+| TPR-T4-02 | PR line created from a suggestion / that line cancelled, deleted with its draft, or closed short unallocated | `WhReplenishmentSuggestionPort.markConverted(suggestionId, 'PURCHASE_REQUISITION', prId, pr_number or DRAFT ref)` / `releaseConversion(suggestionId, prId, reasonCodeId)` (`POS-T1-33`, `-35`) in the same transaction, keys `WHT_PURCHASE_REQUISITION:<prId>:SUGGESTION_CONVERT\|SUGGESTION_RELEASE:<line id>`; a material-requisition shortfall shows *requisitioned by PR-x* through core's `PurchaseRequisitionHandoff.status` read | `PurchaseRequisitionService` (port adapter) | FR-557 |
+| TPR-T4-03 | Target RFQ line not awarded / PO line cancelled / reduced | allocation released back (`TPR-T1-07`) | target service calls `RequisitionAllocationService.release` | FR-561 |
+| TPR-T4-04 | Line saved without estimate | estimate = rate-contract price (`trade-rate-contract` `TRC-T4-02`) else last approved PO rate, source stored | `PurchasePriceResolutionService` (reference mode) | FR-558 |
 
 ## 5. T5 — Screen contract
 
@@ -167,6 +167,7 @@ selection; grid export allowed (⊇ grid, incl. `createdByName` / `updatedByName
 |---|---|---|---|
 | 2026-10-22 | all | v0 derived | TRADE author |
 | 2026-10-22 | §0, §1.1, `TPR-T1-02`, `-02a`, `-04`, `-05`, `-08`…`-10`, `TPR-UNR-03`, T3, `TPR-T4-01`, `-02`, §5 | R29 TP-F5, F13, F18, F26, F28, F29: header close whatever the allocation, core hand-off row (created submitted, issued number), `releaseConversion`, `IN_RFQ`, conversion notification, workbench grid contract, *Import shortages* on WS-286 | R29 |
+| 2026-10-23 | every T1, guard, unreachable, T3 and T4 row | `Source` column added, filled from FRD-TRADE §4, so every rule traces to the FR it proves | R30 `CP-FR-008` |
 
 ## 8. Invariants and scenarios
 

@@ -2,12 +2,13 @@
 
 > **Area** MFG · **Module** `warehouse-manufacturing` (`ai.warehousemanufacturing`, band **V560000–V569999**,
 > prefix **`whm_`**) · **Phase** P10 · **Decision record** `D-16` (SPINE) · **Source** R28 §4 group C,
-> §5 `RN-030`…`RN-036`, §8b `RN-050`…`RN-054` · **ID ranges** FR-620–669 · WS-320–339 · WH-SC-600–659 ·
+> §5 `RN-030`…`RN-036`, §8b `RN-050`…`RN-054` · **ID ranges** FR-620–669, FR-670–679 (`D-17` item 3; 670–677 used) · WS-320–339 · WH-SC-600–659, WH-SC-680–699 (allocated 2026-10-23 for `P10-14` and the R30 `CP-FR-011` coverage rows) ·
 > OD-40–44 · **Depends on** `p8-06` (QC polymorphic source), `p8-09` (material requisition +
 > `WhMaterialRequisitionPort` + `CostObjectResolver`), `p8-10` (store issue with cost object), `p8-11`
 > (store return), `p8-02` (demand-order port), `p8-01` (PO schedule lines, for MRP supply), `p8-03` (gate
 > pass), `p9-04` (PR from an `MRP` replenishment suggestion, `OD-31`) · **Supersedes** `FR-268` and
-> `issues/p6-12.md` (the multi-level BOM refusal is reversed by `RN-032`; SPINE marks p6-12 VOID).
+> `issues/p6-12.md` (the multi-level BOM refusal is reversed by `RN-032`; `FR-268` is WITHDRAWN under `D-16` (`D-17` item 5),
+> superseded by FR-622…FR-631 — BOM, work centres and operations; p6-12 is VOID, `D-17` item 6).
 >
 > **Authoring status.** Derived 2026-10-22 from R28, the stores and trade FRDs as landed, the code in
 > `classic` (read-only evidence, cited `WB/`, `WH/`, `WI/` = `warehouse-base`, `warehouse`,
@@ -369,7 +370,7 @@ settlement → one `PRODUCTION_SETTLEMENT`; dispatch → one `SUBCONTRACT_DISPAT
 
 | # | Requirement | Module | Ver | Ph | Closes |
 |---|---|---|---|---|---|
-| **FR-620** | **`warehouse-manufacturing` is its own module** — `ai.warehousemanufacturing`, band `V560000`–`V569999`, prefix `whm_`, flag `enable.warehouse.manufacturing` — requiring `warehouse-base` + `warehouse`; `warehouse-india` and `warehouse-trade` are optional and reached only through core-defined ports with optional beans. FKs point down only; no lower table references `whm_`. Its platform touchpoints (`MODULE-INTEGRATION.md` rows 1–22; mobile rows 23–27 do not apply — no warehouse mobile) are one bootstrap task | mfg | v1.1 | P10 | `RN-053` `RN-032` `D-16` |
+| **FR-620** | **`warehouse-manufacturing` is its own module** — `ai.warehousemanufacturing`, band `V560000`–`V569999`, prefix `whm_`, flag `enable.warehouse.manufacturing` — requiring `warehouse-base` + `warehouse`; `warehouse-india` and `warehouse-trade` are optional and reached only through core-defined ports with optional beans. FKs point down only; no lower table references `whm_`. **Concurrency** (R30 `CP-FR-009`, the MFG twin of trade's FR-618): every state change of an order, receipt, dispatch, settlement or MRP run takes a row lock on its document (`SELECT … FOR UPDATE`) and checks the optimistic `version` — a stale write answers `409 CONCURRENT_MODIFICATION`; every movement post carries an idempotency key `<DOCUMENT_TYPE>:<id>`, so a double-clicked post writes one movement. Its platform touchpoints (`MODULE-INTEGRATION.md` rows 1–22; mobile rows 23–27 do not apply — no warehouse mobile) are one bootstrap task | mfg | v1.1 | P10 | `RN-053` `RN-032` `D-16` |
 | **FR-621** | MFG **owns its registries** (§3.1) — movement, document and location types, code lists, reason contexts, the `REWORK` disposition, print kinds and number series — inserted with the `RL-003` owning-module guard (`V525000:99-122` pattern). Core-seeded `COST_OBJECT_TYPE.PRODUCTION_ORDER` and `QC_SOURCE_TYPE.PRODUCTION_RECEIPT`/`IN_PROCESS` are not re-seeded | mfg | v1.1 | P10 | `RL-003` `RL-006` |
 | **FR-622** | A **BOM** is a versioned header: parent item, usage (`PRODUCTION`/`SUBCONTRACT`/`COSTING`/`ENGINEERING`), type (`STANDARD`/`PHANTOM`), alternative number, version, site scope (null = all), **base quantity + UoM** (the BOM makes N), optional **lot-size range** for alternative selection, **default-alternative** flag, process-loss %, consumption policy, effectivity `[from, to)` as `DATE`s, change reason | mfg | v1.1 | P10 | C1, `RN-032` |
 | **FR-623** | A **BOM line** carries component, quantity per base, UoM (convertible to the component's base, `FR-143` guard reused), **component scrap %**, **fixed (setup) quantity** flag, **supply method** (`ISSUE`/`STAGE_BACKFLUSH`/`BACKFLUSH`), default supply location, operation, lead-time offset, **alternate group + priority** (with alternates in `whm_bom_line_alternates`), *limits output expiry*, line effectivity (engineering change inside a version) and a position/designator text | mfg | v1.1 | P10 | C1a, C3c |
@@ -419,6 +420,14 @@ settlement → one `PRODUCTION_SETTLEMENT`; dispatch → one `SUBCONTRACT_DISPAT
 | **FR-667** | **Exception messages** per run: reschedule in/out, cancel (excess supply), start or due date in the past, below safety stock, no BOM for a MAKE item, no lead time, recursive BOM, demand cancelled — each naming the document, current and suggested dates, acknowledged by the planner, never auto-applied | mfg | v1.1 | P10 | C8a |
 | **FR-668** | **Capacity is infinite and visible.** A **load report** (one rule, owned by `p10-13`, specified in `mfg-mrp.contract.md` §5.1; R29 F25, MD-39) spreads planned setup + remaining run minutes of open operations of `PLANNED`/`RELEASED`/`IN_PROGRESS` orders evenly over the working days of their planned start–end, plus (when included) current-run `OPEN` and live `FIRMED` `MAKE` proposals with operations, per work centre per day, against available minutes × efficiency × parallel units, flagging overload. **No finite scheduling, no automatic rescheduling, no APS** (R-01) | mfg | v1.1 | P10 | C9, C9a |
 | **FR-669** | **Screens, permissions, grids, exports.** Every MFG grid follows its canonical reference (§7), ships `grid_column_definitions` + `filter_definitions` + `grid_preferences` (both default filters and columns) in its table migration, registers its `COMMON_FILTER_CONFIGS` scope, exports a superset of its visible columns, and every verb is a `resource:action` permission with `permission_dependencies` on `:view`. AUDITOR reads, never exports. Menus: L1 **Manufacturing**, ≤ 8 leaves per L2. **No mobile** (user rule 2026-09-11). `en`/`fr`/`hi` in `WarehouseManufacturingSafeTranslation.tsx` | mfg | v1.1 | P10 | CLAUDE.md, `RJ-005` |
+| **FR-670** | **Bonded stock may be issued to production and sent to a job worker, under the bond rules** (`D-17` item 3, R30 `CP-GB-001`, `CP-GA-007`). `warehouse-india` owns a registry **`whin_bonded_exit_rules`** — duty status × movement type × location base type × direction (`RISE`/`FALL`) → operation kind (`MANUFACTURE_ISSUE`, `MANUFACTURE_RETURN`, `MANUFACTURE_OUTPUT`, `JOB_WORK_OUT`, `JOB_WORK_RETURN`, `LOSS`), `is_active` — and `WhinBondedVirtualExitPostGuard` reads it instead of its hard-coded type list: a line rising at a virtual-counterparty location in a licensed duty status is an **accounted exit** when an active rule matches. Seeded for `MOOWR`, `BONDED` and `SEZ`: core `ISSUE` / `ISSUE_RETURN` at a `PRODUCTION` location (store issue and return to an order, `p8-10`/`p8-11`), `PRODUCTION_RECEIPT` at `PRODUCTION` (backflush in, outputs out) and at `JOB_WORKER` (subcontract backflush), `SUBCONTRACT_DISPATCH` / `SUBCONTRACT_RECALL` at `JOB_WORKER`, and `PRODUCTION_RECEIPT` / `SUBCONTRACT_WRITE_OFF` at `SCRAP` (`LOSS`). Every other exit stays refused `409 BONDED_EXIT_NOT_RECORDED` (a store issue of bonded stock to a cost centre, a sale) | india·mfg | v1.1 | P10 | `D-17` `RL-001` |
+| **FR-671** | **The bond rule is checked against an active licence.** An accounted exit also needs a `whin_bonded_licences` row of that duty status at the site, `ACTIVE`, with `valid_from ≤ posting date ≤ valid_to` — else `409 BONDED_LICENCE_NOT_ACTIVE` on `lines[n].duty_status`. A matching rule set `is_active = false` answers `409 BONDED_OPERATION_NOT_PERMITTED` naming the duty status and operation (an install whose `BONDED` licence carries no s.65 permission switches its `BONDED` rows off — **RE-VERIFY**; the enablement calls in GitHub reports 539 and 543 stay with the product owner). The same predicate runs again when a `PENDING` movement is approved (`WhinBondedVirtualExitApprovalGuard`); reversals stay exempt (they restore a posted state) | india | v1.1 | P10 | `D-17` |
+| **FR-672** | **The bond register of operations.** Every line an active rule accounts for writes one **`whin_bonded_operation_lines`** row in the posting transaction (india's `WhinBondedOperationRecorder` on base's post hook, the `WhinBondedLossRecorder` pattern): licence, movement and line, operation kind, item, lot, duty status, base quantity, UoM, document reference (order / dispatch / receipt number), and for `JOB_WORK_OUT` the dispatch's `expected_return_date` and an `open_quantity` that `JOB_WORK_RETURN` rows (subcontract receipt backflush, recall) reduce. A reversal writes a mirror row (`reversal_of_id`), never an update. MFG writes no `whin_` table (FR-620) | india | v1.1 | P10 | `D-17` `L-1` |
+| **FR-673** | **Output of bonded inputs stays in bond.** When an order consumes stock of a licensed duty status, MFG freezes it on the order (`whm_production_orders.bonded_duty_status`, from the ledger line — base data, no india import) and every good output, co-product and by-product of that order is received in that duty status (the resultant goods are warehoused goods, s.65 — **RE-VERIFY**); `DOMESTIC` inputs may be mixed in. Two licensed statuses on one order are refused at the second consumption `409 BONDED_REGIME_MIXED` · `lines[n].dutyStatus`. A subcontract order follows the same rule for its processed item | mfg | v1.1 | P10 | `D-17` |
+| **FR-674** | **Bonded scrap and loss are recorded, never silent.** Production scrap of bonded components (`PRODUCTION_RECEIPT` → `VIRT-SCRAP`) and an approved subcontract write-off (`SUBCONTRACT_WRITE_OFF`) record a `whin_bonded_losses` row `OPEN` through the existing recorder (rule kind `LOSS`), resolved by india as today (ex-bond clearance, duty paid, destruction). Whether normal process loss within the BOM scrap % is a loss or a manufacturing waste is GitHub report 539 (product owner); until decided it is recorded as a loss | india·mfg | v1.1 | P10 | `D-17` `MD-25` |
+| **FR-675** | **Job work of bonded stock.** A subcontract dispatch with a bonded line needs the bond officer's permission reference (`whm_subcontract_dispatches.bond_permission_ref`, `422 BOND_PERMISSION_REF_REQUIRED`) and an `expected_return_date`; both are frozen and passed to india (`JobWorkDispatchPort.registerDispatch`, MD-25). An `OPEN` `JOB_WORK_OUT` register row past its `expected_return_date` raises one india compliance task (`whin_compliance_rules`, `V540180`); recall and receipt close it; a write-off is `FR-674`. Return windows **RE-VERIFY** | india·mfg | v1.1 | P10 | `D-17` `MD-13` |
+| **FR-676** | **The MOOWR return and SEZ movement lines come from the register.** Per licence × month, india generates a **`whin_moowr_returns`** header (`DRAFT` → `FILED`, frozen once filed) with **`whin_moowr_return_lines`** per item: opening, received into bond, issued to manufacture, returned from manufacture, produced, sent for job work, returned from job work, cleared (ex-bond / export), losses, closing — each a backend sum of ledger and register rows, never typed; a regeneration of a `DRAFT` reconciles and lists differences. Register rows of an `SEZ` duty status also write **`whin_sez_movements`**. Return formats **RE-VERIFY** (MOOWR 2019, SEZ Rules) | india | v1.1 | P10 | `D-17` `CP-GA-007` |
+| **FR-677** | **Screens and permissions.** WS-338 *Bonded Operations* (register grid, read-only, export) and WS-339 *MOOWR Returns* (generate, regenerate `DRAFT`, file, print, export), under india's L1; the bond rules show read-only on WS-185 *Bonded Licences* (a *Bond rules* tab, `is_active` toggled with `whin_bonded_exit_rules:edit`). Permissions `whin_bonded_operation_lines:{view,export}`, `whin_moowr_returns:{view,generate,file,export}`, `whin_bonded_exit_rules:{view,edit}`, each depending on `:view`; grids ship config, scope and both default arrays; AUDITOR views, never exports; no mobile | india | v1.1 | P10 | `D-17` |
 
 ---
 
@@ -444,8 +453,8 @@ settlement → one `PRODUCTION_SETTLEMENT`; dispatch → one `SUBCONTRACT_DISPAT
 | WS-335 | MRP Exceptions | `mrp-exceptions` | **Department** (acknowledge) | `whm_mrp_exceptions` · `WAREHOUSE_MFG_MRP_EXCEPTION` | p10-12 |
 | WS-336 | Capacity Load | `capacity-load` | report | `whm_capacity_load` · `WAREHOUSE_MFG_CAPACITY_LOAD` | p10-13 |
 | WS-337 | Manufacturing Registers (production register, WIP by order, scrap register, yield, consumption variance) | `registers` | report (tabbed) | `whm_register_*` · `WAREHOUSE_MFG_REGISTER` | p10-13 |
-| WS-338 | *reserved, unused* | — | — | — | — |
-| WS-339 | *reserved, unused* | — | — | — | — |
+| WS-338 | Bonded Operations (bond register of manufacture and job-work movements) | `/warehouse/india/bonded-operations` (india route, not `/manufacturing`) | report (read-only grid) | `whin_bonded_operation_lines` · `WAREHOUSE_INDIA_BONDED_OPERATION` | p10-14 |
+| WS-339 | MOOWR Returns | `/warehouse/india/moowr-returns` (india route) | **Service Vehicle** (`DRAFT` → `FILED`) | `whin_moowr_returns` · `WAREHOUSE_INDIA_MOOWR_RETURN` | p10-14 |
 
 **Menus (`V561000`).** L1 **Manufacturing**. L2 **Production**: BOMs, Work Centres, Production Orders,
 Staging Lists, Production Receipts, Receipt Reversals, Operation Confirmations, Subcontracting (8). L2
@@ -536,6 +545,8 @@ L2 **Costing & Reports**: Settlements & Close, BOM Explorer, Registers (3). Ever
 | **MD-39** | **One capacity-load rule and column set**, owned by `p10-13`, specified in `mfg-mrp.contract.md` §5.1 (R29 F25); `mfg-production-order.contract.md` §5.3 cites it | Two rules (bucket on start vs spread over working days): two screens disagree on the same day |
 | **MD-40** | **`ACTIVE` demand-plan lines are editable** (`whm_demand_plans:edit`), refused while a run of the site is queued or running (R29 F26) | Edit only in `DRAFT`: a monthly forecast revision forces archive + copy + activate |
 | **MD-41** | **Genealogy attribution is cumulative** (R29 F14): every receipt links every lot issued to the order so far (net of returns) plus its own backflushed lots, because the issued pool is absorbed across all receipts. Over-inclusion is the safe direction for recall | Since-last-receipt attribution (MD-11 as first written): a lot issued before receipt 1 is missing from receipts 2 and 3 — the unsafe direction |
+| **MD-42** | **The *accounted bonded exit* flag is an india registry row, not a base movement-type column** (`D-17` item 3, R30 `CP-GB-001`): `whin_bonded_exit_rules` keys duty status × movement type × location base type × direction, read by `WhinBondedVirtualExitPostGuard` | A boolean on `whb_movement_types` cannot tell a store `ISSUE` to a `PRODUCTION` location (accounted) from the same type to a `CUSTOMER` (an exit with no customs record); a base column would also make base know a customs concept (D-8). The guard no longer hard-codes a type list |
+| **MD-43** | **The bonded regime of an order is frozen at its first bonded consumption** (`whm_production_orders.bonded_duty_status`, `V560120`); outputs take it; a second licensed regime is refused | Reading the regime per receipt from the pool would let one receipt land in bond and the next outside it for the same consumed inputs |
 
 ## 10. Refusals (`RM-043` — every absence is stated)
 
@@ -568,14 +579,14 @@ L2 **Costing & Reports**: Settlements & Close, BOM Explorer, Registers (3). Ever
 
 ---
 
-## 12. Scenarios (WH-SC-600 … WH-SC-659)
+## 12. Scenarios (WH-SC-600 … WH-SC-659, WH-SC-680 … WH-SC-699)
 
 Cast: plant `PLT1` (site), stores `PLT1-RM`, line-side `PLT1-LS-A` (type `LINE_SIDE`), FG store
 `PLT1-FG`; FG `PUMP-100`; sub-assembly `MOTOR-ASSY` (stocked, own BOM); phantom `SEAL-KIT`
 (components `ORING-30` ×2, `GASKET-31` ×1); components `CASING-01` ×1, `IMPELLER-02` ×1, `SHAFT-03` ×1,
 `BOLT-M8` ×8 (`BACKFLUSH`); alternate `IMPELLER-02B`; batch case `RESIN-A` (main) with co-product
 `RESIN-B` (30 %) and by-product `SOLVENT-REC` (NRV ₹12/L); job worker `JW-0044` (plating) returning
-`SHAFT-03P` for sent `SHAFT-03`; users `eng1`, `appr1`, `planner1`, `sup1`, `stores1`, `qc1`, `mgr1`.
+`SHAFT-03P` for sent `SHAFT-03`; users `eng1`, `appr1`, `planner1`, `sup1`, `stores1`, `qc1`, `mgr1`. India-on scenarios (680–687) add MOOWR licence `MOOWR-PLT1-01` and site `PLT2`.
 
 | ID | Given | When | Then | FR | Inv | Mod | Ver·Ph | Kind |
 |---|---|---|---|---|---|---|---|---|
@@ -639,24 +650,45 @@ Cast: plant `PLT1` (site), stores `PLT1-RM`, line-side `PLT1-LS-A` (type `LINE_S
 | **WH-SC-657** | Open order due 2026-11-10 but demand moved to 2026-11-25 | run | `RESCHEDULE_OUT` exception naming the order and both dates; nothing changes until the planner acts | FR-667 | — | mfg | v1.1·P10 | edge |
 | **WH-SC-658** | Two MRP runs for `PLT1` requested at once | second request | `409 MRP_RUN_IN_PROGRESS`; the first completes and supersedes the previous run's `OPEN` proposals; `FIRMED` stay | FR-664, FR-666 | — | mfg | v1.1·P10 | negative |
 | **WH-SC-659** | Work centre `WC-ASSY` 480 min/day, eff. 90 %; released orders need 610 min on 2026-11-03 | open capacity load | 2026-11-03 shows 141 % with overload; nothing is rescheduled | FR-668 | — | mfg | v1.1·P10 | happy |
+| **WH-SC-680** | India on; `PLT1` holds MOOWR licence `MOOWR-PLT1-01` `ACTIVE` 2026-04-01…2027-03-31; 100 imported `CASING-01` in `MOOWR` at `PLT1-RM`; order `PRD-PLT1-0044` for `PUMP-100` × 40 | `stores1` posts the store issue of 40 `CASING-01` (supply `ISSUE`) | posts: 40 `MOOWR` rises at `VIRT-PRODUCTION-PLT1` (rule `MOOWR`·`ISSUE`·`PRODUCTION`·`RISE` → `MANUFACTURE_ISSUE`); one `whin_bonded_operation_lines` row; the order's `bonded_duty_status` = `MOOWR` | FR-670, FR-672, FR-673 | `D-17` | india·mfg | v1.1·P10 | happy |
+| **WH-SC-681** | As 680, but the licence `valid_to` is 2026-09-30; a second site with only a `BONDED` licence and its `BONDED` rules switched off | post the issue on 2026-11-03; post a `BONDED` issue at the second site | `409 BONDED_LICENCE_NOT_ACTIVE` on `lines[0].duty_status`; `409 BONDED_OPERATION_NOT_PERMITTED` naming `BONDED` and `MANUFACTURE_ISSUE`; nothing posts | FR-671 | `D-17` | india | v1.1·P10 | negative |
+| **WH-SC-682** | Order of 680 consumed 40 `MOOWR` `CASING-01` and `DOMESTIC` `BOLT-M8`; receipt 38 good, 2 scrapped `MATERIAL_DEFECT` | post the production receipt | 38 `PUMP-100` received in `MOOWR` (`MANUFACTURE_OUTPUT` register row); 2 `CASING-01` → `VIRT-SCRAP` write one `whin_bonded_losses` row `OPEN`; a later issue of `BONDED` stock to the same order → `409 BONDED_REGIME_MIXED` | FR-673, FR-674 | `MD-43` | india·mfg | v1.1·P10 | happy |
+| **WH-SC-683** | 20 `SHAFT-03` in `MOOWR`; subcontract order to `JW-0044` | dispatch with `bond_permission_ref` `BO/PLT1/2026/118`, return by 2026-12-15; then receive 18 `SHAFT-03P` + 2 scrap retained | dispatch posts (`JOB_WORK_OUT`, open 20); receipt writes `JOB_WORK_RETURN` 20 (18 consumed into `VIRT-PRODUCTION`, 2 → `LOSS`); 18 `SHAFT-03P` received in `MOOWR`; open 0 | FR-670, FR-672, FR-675 | `D-17` | india·mfg | v1.1·P10 | happy |
+| **WH-SC-684** | As 683 | dispatch without a `bond_permission_ref` | `422 BOND_PERMISSION_REF_REQUIRED` · `bondPermissionRef`; a dispatch of `DOMESTIC` stock needs none | FR-675 | — | mfg | v1.1·P10 | negative |
+| **WH-SC-685** | `JOB_WORK_OUT` open 20 with `expected_return_date` 2026-12-15 | the compliance job runs on 2026-12-16 | one india compliance task naming the dispatch, licence and 20 open; running again creates no second task; a recall of 20 closes it | FR-675 | — | india | v1.1·P10 | edge |
+| **WH-SC-686** | November 2026 at `MOOWR-PLT1-01`: opening 100 `CASING-01`, issued 40, produced 38 `PUMP-100`, loss 2, ex-bond clearance 10 `PUMP-100` | generate the MOOWR return for 2026-11 | one `DRAFT` header; `CASING-01` line opening 100, issued to manufacture 40, closing 58 (loss 2 shown); `PUMP-100` line produced 38, cleared 10, closing 28; *File* freezes it; regenerating a `FILED` return is refused | FR-676 | `D-17` | india | v1.1·P10 | happy |
+| **WH-SC-687** | 10 `MOOWR` `CASING-01` | `stores1` posts a store issue to cost centre `MAINT` (counter location `CONSUMED`) | `409 BONDED_EXIT_NOT_RECORDED`: no rule covers `ISSUE` at a `CONSUMED` location; the same stock issued to an order posts (680) | FR-670 | `MD-42` | india | v1.1·P10 | negative |
+| **WH-SC-688** | `enable.warehouse.manufacturing = false`; `warehouse-india` jar absent | start the stack | no `whm_` object, no *Manufacturing* menu, core unchanged; with the flag on and india still absent the module starts and dispatch takes the gate-pass path; two concurrent releases of one order → the second `409 CONCURRENT_MODIFICATION` | FR-620 | `RN-053` | mfg | v1.1·P10 | edge |
+| **WH-SC-689** | A scratch DB where `PRODUCTION_RECEIPT` already exists in `whb_movement_types` with `owning_module = 'warehouse'` | run `V560001` | `RAISE EXCEPTION 'V560001 (RL-003)…'` naming the code; nothing inserted; on a clean DB every movement type has its `*_REVERSAL` twin and every series exists per site | FR-621 | `RL-003` | mfg | v1.1·P10 | negative |
+| **WH-SC-690** | `PUMP-100` BOM v1 base quantity 10, effective [2026-11-01, 2026-12-01); v2 effective from 2026-12-01 | create orders planned to start 2026-11-15 and 2026-12-05 | the first snapshots v1, the second v2; a v3 overlapping v2's effectivity for the same alternative is refused | FR-622 | — | mfg | v1.1·P10 | edge |
+| **WH-SC-691** | `RESIN-A` BOM with co-product `RESIN-B` 70 % | add a second co-product at 40 %; add `CASING-01` as both component and output | `422 BOM_COST_SHARE_EXCEEDS_100`; `422 BOM_OUTPUT_IS_COMPONENT` | FR-624 | — | mfg | v1.1·P10 | negative |
+| **WH-SC-692** | Work centre `WC-ASSY` 480 min/day, efficiency 90 %, 2 parallel units, cost rate ₹900/h | create a `PUMP-100` order from a BOM with no operations, and one from a BOM with operations 10 (`WC-ASSY`, setup 30, run 6/unit) and 20 | the first releases with no operations; the second copies both operations; the cost rate shows on reports only and is never posted | FR-630, FR-631 | `OD-43` | mfg | v1.1·P10 | happy |
+| **WH-SC-693** | A `STANDARD` order for `PUMP-100` | save with priority 6; save with owner `OWN-C1` (3PL client) | `422` on `priority` (1–5); `422 OWNER_NOT_HOUSE` while `OD-42` is not adopted | FR-632 | `OD-42` | mfg | v1.1·P10 | negative |
+| **WH-SC-694** | Two orders created at `PLT1`, one at `PLT2` on the same day | create, then print the traveller | `PRD-PLT1-0045`, `PRD-PLT1-0046`, `PRD-PLT2-0001` with no gap; the traveller lists header, barcode, demand ref, components with required / issued and supply method, operations with QC checkpoints, output lots | FR-636 | — | mfg | v1.1·P10 | happy |
+| **WH-SC-695** | Order needing `CASING-01` (`ISSUE`), `IMPELLER-02` (`STAGE_BACKFLUSH`), `BOLT-M8` (`BACKFLUSH`) | issue, stage, then post a receipt of 10 | `CASING-01` lands in `VIRT-PRODUCTION-PLT1` at issue; `IMPELLER-02` sits countable at `PLT1-LS-A` until the receipt consumes it; `BOLT-M8` is consumed at the receipt from `PLT1-RM`; WIP value = issued + backflushed − returned − absorbed | FR-638 | `MD-04` | mfg | v1.1·P10 | happy |
+| **WH-SC-696** | A posted receipt of 38 `PUMP-100` lot `P-2611-01` with 2 scrapped and a QC reference | print the FG receipt note | receipt and order numbers, outputs with lot, expiry, status and location, scrap with reasons, consumed components and the QC reference | FR-650 | — | mfg | v1.1·P10 | happy |
+| **WH-SC-697** | Any MFG movement posted (receipt of 695) | read `whb_accounting_handovers` | one handover row with the standard envelope per movement; no GL account, journal, debit or credit note anywhere in MFG | FR-657 | `RN-054` | mfg | v1.1·P10 | edge |
+| **WH-SC-698** | `IMPELLER-02` × `PLT1`: make/buy `BUY`, lot sizing `FIXED` 500, safety 50, purchase lead time empty; priority-1 supplier source lead time 12 days | save the planning parameters; run MRP | saved; MRP offsets the BUY by 12 days (fallback to the supplier source), never 0 | FR-662 | — | mfg | v1.1·P10 | edge |
+| **WH-SC-699** | `aud1` (AUDITOR) on WS-323; `planner1` on the same grid | open, export | the grid ships its column, filter and both default arrays; `aud1` sees no *Export*; `planner1`'s export carries every visible column plus `createdByName` / `updatedByName` | FR-669 | — | mfg | v1.1·P10 | edge |
 
 ## 13. Traceability
 
 | Task | FR | WS | WH-SC | Contract |
 |---|---|---|---|---|
-| p10-01 bootstrap | FR-620, FR-669 (menus, settings) | — | — | — |
-| p10-02 registries | FR-621 | — | — | all |
-| p10-03 BOM | FR-622…629 | WS-320, WS-321 | 600–609 | `mfg-bom` |
-| p10-04 work centres, operations | FR-630, FR-631 | WS-322 | — (none; operations are exercised by 637 and 659) | `mfg-bom` |
-| p10-05 production order | FR-632…637 | WS-323, WS-324 | 610–617, 644 | `mfg-production-order` |
-| p10-06 staging, issue, return, substitution | FR-638…643 | WS-325 | 618–624 | `mfg-material-staging-issue` |
-| p10-07 receipt, backflush, scrap, genealogy, reversal | FR-644…650, FR-654, FR-655 (owner; per-receipt absorption and split, MD-37) | WS-326, WS-327 | 625–635, 639, 640 | `mfg-production-receipt`, `mfg-costing-close` §1.5 |
+| p10-01 bootstrap | FR-620, FR-669 (menus, settings) | — | 688, 699 | — |
+| p10-02 registries | FR-621 | — | 689 | all |
+| p10-03 BOM | FR-622…629 | WS-320, WS-321 | 600–609, 690, 691 | `mfg-bom` |
+| p10-04 work centres, operations | FR-630, FR-631 | WS-322 | 692 (operations are also exercised by 637 and 659) | `mfg-bom` |
+| p10-05 production order | FR-632…637 | WS-323, WS-324 | 610–617, 644, 693, 694 | `mfg-production-order` |
+| p10-06 staging, issue, return, substitution | FR-638…643 | WS-325 | 618–624, 695 | `mfg-material-staging-issue` |
+| p10-07 receipt, backflush, scrap, genealogy, reversal | FR-644…650, FR-654, FR-655 (owner; per-receipt absorption and split, MD-37) | WS-326, WS-327 | 625–635, 639, 640, 696 | `mfg-production-receipt`, `mfg-costing-close` §1.5 |
 | p10-08 confirmations, QC, rework | FR-651…653 | WS-328 | 636–638 | `mfg-qc-rework` |
-| p10-09 settlement, close, cost sheet | FR-656, FR-657 (FR-654 / FR-655 moved to p10-07 in `IMPLEMENTATION-PLAN.md` §2) | WS-329 | 638 (cost half), 641–643 | `mfg-costing-close` |
+| p10-09 settlement, close, cost sheet | FR-656, FR-657 (FR-654 / FR-655 moved to p10-07 in `IMPLEMENTATION-PLAN.md` §2) | WS-329 | 638 (cost half), 641–643, 697 | `mfg-costing-close` |
 | p10-10 subcontracting / job work | FR-658…661 | WS-330 | 645–649 | `mfg-subcontracting` |
-| p10-11 planning masters | FR-662, FR-663 | WS-331, WS-332 | 653 | `mfg-mrp` |
+| p10-11 planning masters | FR-662, FR-663 | WS-331, WS-332 | 653, 698 | `mfg-mrp` |
 | p10-12 MRP | FR-664…667 | WS-333…335 | 650–652, 654–658 | `mfg-mrp` |
 | p10-13 capacity load + registers | FR-668 | WS-336, WS-337 | 659 | `mfg-production-order` §5 |
+| p10-14 bonded issue and job work (`warehouse-india` + MFG hooks) | FR-670…677 | WS-338, WS-339 | 680–687 | `mfg-bonded-issue` |
 
 ## R29 dispositions
 
@@ -704,3 +736,17 @@ QRW = qc-rework, CST = costing-close, SUB = subcontracting, MRP = mrp, BOM = bom
 | F32 | a site created later refuses `409 NUMBER_SERIES_NOT_CONFIGURED`; admin adds the series | §3.1; `PRO-T4-08`; p10-02 |
 | F33 | `classic/CLAUDE.md` MODULES row for `warehouse-manufacturing` (V560000–V569999) and `WarehouseManufacturingSafeTranslation.tsx` — **not edited here**; listed for the user (also `p10-01` touchpoint 21) | report only |
 | — | stale P8 numbers: `COST_OBJECT_TYPE` seed `V501233`, `QC_SOURCE_TYPE` seed `V501231`, MRQ schema `V511318`, QC source columns `V511315` | §3.1; QRW §0; p10-01, p10-02 |
+
+## R30 dispositions (2026-10-23)
+
+| Finding | Change | Where |
+|---|---|---|
+| `CP-GB-001`, `CP-GA-007` | Bonded / MOOWR issue to production and job work allowed under the bond rules: india registry `whin_bonded_exit_rules` read by the exit guard, active-licence check, bond register, output in bond, loss, job-work permission and window, MOOWR return and SEZ lines | FR-670…677, MD-42, MD-43, WS-338, WS-339, WH-SC-680…687; `mfg-bonded-issue`; `p10-14` |
+| `CP-FR-002` | `FR-268` withdrawn under `D-16` (`D-17` item 5), superseded by FR-622…631 | header; `mfg-bom` §0 note; `p10-03` |
+| `CP-FR-009` | MFG concurrency clause | FR-620; `PRO-GRD-21`, `PRC-GRD-18` cite it; `PRC-UNR-06` cites FR-644, FR-649 |
+| `CP-FR-011` | One scenario for each MFG FR that had none | WH-SC-688…699 (FR-620, 621, 622, 624, 630/631, 632, 636, 638, 650, 657, 662, 669) |
+| `CP-FR-014` | `MD-38` cited in a contract | `mfg-production-order` §0 |
+| `CP-GA-004` | Master-merge open-document provider per MFG document | acceptance rows in `p10-03`, `-05`, `-06`, `-07`, `-10`, `-11`, `-12`, `-14` |
+| `CP-GA-005` | `statutory_category` seeded on every MFG reason code a movement carries; india's `LOSS_HEADS` and the heads of the reasonless MFG movement types | `p10-02` (seed) · `p10-14` (india classifier) |
+| `CP-GB-008` | P10-10 waits for the india job-work / delivery-challan contracts to be ratified | `p10-10` *Depends on* |
+

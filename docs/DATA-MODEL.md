@@ -380,7 +380,7 @@ The same PostgreSQL rule applies: the partition key is in every primary and uniq
 | `whb_outbox_deliveries` | `attempted_at` | `(id, attempted_at)` | `V500040` |
 | `whb_inbound_messages` | `received_at` | `(id, received_at)` | `V500041` |
 | `whb_movement_batch_results` | `received_at` — its batch's, carried for the purpose | `(id, received_at)` | `V500041` |
-| `whb_audit_events` | `occurred_at` | `(sequence_no, occurred_at)` | `V500043` |
+| `whb_audit_events` | `occurred_at` | `(sequence_no, occurred_at)` | `V501011` (was `V500043`) |
 | `whb_stock_position_snapshots` | `snapshot_date` — **non-zero positions only** | `(id, snapshot_date)` | `V500045` |
 
 `wh_shipment_tracking_events` (v2) is partitioned the same way at build (`P5-11`).
@@ -1679,6 +1679,13 @@ snapshot, warehouse legal identity, `duty_status`).
 | `whin_bonded_licences` | The site as a licensed object with a validity | `FR-323` | v2 |
 | `whin_warehousing_bonds` · `whin_bond_utilisations` | A bond with a **running utilisation balance** | `FR-323` | v2 |
 | `whin_ex_bond_clearances` | Ex-bond Bill of Entry consuming **identified bonded quantity** — which is only possible because `duty_status` was on the line from v1 | `FR-323` `IRR-12` | v2 |
+| `whin_bonded_losses` | An `OPEN` loss of bonded / MOOWR stock (scrap, write-off) awaiting remission, duty payment or destruction; written by `WhinBondedLossRecorder` in the posting transaction, never typed. **Built** (`V541156`, already in code) and given its row here by R30 | `FR-323` `FR-674` | v2 |
+| `whin_bonded_exit_rules` | **Registry** (`owning_module`): duty status × movement type × location base type × direction → operation kind (`MANUFACTURE_ISSUE` … `LOSS`), `is_active`; read by `WhinBondedVirtualExitPostGuard` instead of a hard-coded type list (`D-17` item 3, `MD-42`). `movement_type_code` has **no FK** — a rule for an absent MFG type is inert | `FR-670` `FR-671` | v1.1 |
+| `whin_bonded_operation_lines` | The **bond register of operations**: one append-only row per line an active rule accounts for (licence, movement line, operation kind, item, lot, duty status, base quantity, document reference; `JOB_WORK_OUT` carries `expected_return_date`, `bond_permission_ref`, `open_quantity`); a reversal writes a mirror row (`reversal_of_id`) | `FR-672` `FR-675` | v1.1 |
+| `whin_moowr_returns` · `whin_moowr_return_lines` | The **MOOWR return** per licence × month (`DRAFT` → `FILED`, frozen by trigger once filed) and its per-item lines, opening → closing, each a backend sum of ledger and register rows | `FR-676` | v1.1 |
+| `whin_sez_movements` | One row per register line of an `SEZ` duty status — the SEZ movement lines | `FR-676` | v1.1 |
+| `whin_packaged_commodity_declarations` | The **Legal Metrology declaration set** per item × packaging level: consumer-care line, unit sale price basis, manufacturer / packer counterparty; net quantity, MRP and month of manufacture are read from the packaging level and the lot, never copied. Read by core's `WarehouseDeclarationDataProvider` SPI (`P8-12`) for the FG / packed-goods label (`P10-07`, R30 `CP-GA-006`) | `FR-321` | v1.1 |
+| `whin_mrp_revisions` | **MRP revision history** per item × packaging level — previous and new MRP, effective date, reason; append-only. The label prints the MRP in force on the lot's pack date (`P10-07`, R30 `CP-GA-006`) | `FR-321` | v1.1 |
 | `whin_approval_dispatches` · `whin_approval_clocks` | Goods on approval / sale-or-return: a stock state at the customer that is still our asset, on a challan, with a deemed-supply clock | `FR-322` | v2 |
 | `whin_epr_categories` · `whin_epr_returns` · `whin_epr_return_lines` | Extended-producer-responsibility reporting for batteries, e-waste, tyres and plastic packaging — pure reporting over quantities already in the ledger | `FR-324` | v2 |
 | `whin_retention_policies` | **Two retention clocks on the same rows** — the Companies Act's financial years and the GST period — with per-item shelf-life-based overrides | `FR-329` | v2 |
@@ -2000,7 +2007,7 @@ per-unit `DECIMAL(19,6)`, extended `DECIMAL(19,4)`, `*_percent` `DECIMAL(9,6)`. 
 
 | Table | Purpose | Key columns | Keys / indexes | FKs | FR | Ver |
 |---|---|---|---|---|---|---|
-| `whm_production_orders` | The order (`PLANNED`/`RELEASED`/`IN_PROGRESS`/`COMPLETED`/`CLOSED`/`CANCELLED`, hold flag), BOM version frozen at create; carries the MTO link, rework and subcontract fields | `order_number` (`PRD-`, gapless per site, issued at create), `order_type` (`STANDARD`/`REWORK`/`SUBCONTRACT`), `item_id`, `bom_id` (frozen; null only for `REWORK` without a rework BOM), `owner_id`, `planned_quantity`, `uom_code`, `base_quantity`, `conversion_factor_used`, `received/scrapped/rejected_quantity` (rollups), `priority` 1..5, `planned_start_date`, `planned_end_date`, `actual_start_at/end_at`, `status`, `is_on_hold`, `hold_reason_code_id`, `consumption_policy`, `over/under_receipt_percent`, `receipt_location_id`, `line_side_location_id`, `work_centre_id`, `planned_lot_code`, `demand_source_type/id/line_id/ref`, `reserve_output_for_demand`, `mrp_proposal_id` (bare), `parent_order_id`, `rework_of_inspection_id` (bare), `subcontractor_counterparty_id`, `subcontract_location_id`, `service_po_ref` (frozen), `planned_cost` `DECIMAL(19,4)`, `released/release_approved/completed_by/at`, `closed_at`, `settlement_id`, `cancel_reason_code_id`, `close_short_reason_code_id` | uk(`warehouse_id`,`order_number`) | `bom_id → whm_boms`; `parent_order_id → self`; `work_centre_id → whm_work_centres`; ↓base `item_id`, `owner_id → whb_owners`, `subcontractor_counterparty_id → whb_counterparties`, `subcontract_location_id`/`receipt_location_id`/`line_side_location_id → whb_locations`, reason codes; `mrp_proposal_id`, `rework_of_inspection_id` bare | `FR-632` `FR-634` `FR-635` `FR-636` `FR-637` `FR-653` `FR-658` | v1 |
+| `whm_production_orders` | The order (`PLANNED`/`RELEASED`/`IN_PROGRESS`/`COMPLETED`/`CLOSED`/`CANCELLED`, hold flag), BOM version frozen at create; carries the MTO link, rework and subcontract fields | `order_number` (`PRD-`, gapless per site, issued at create), `order_type` (`STANDARD`/`REWORK`/`SUBCONTRACT`), `item_id`, `bom_id` (frozen; null only for `REWORK` without a rework BOM), `owner_id`, `planned_quantity`, `uom_code`, `base_quantity`, `conversion_factor_used`, `received/scrapped/rejected_quantity` (rollups), `priority` 1..5, `planned_start_date`, `planned_end_date`, `actual_start_at/end_at`, `status`, `is_on_hold`, `hold_reason_code_id`, `consumption_policy`, `over/under_receipt_percent`, `receipt_location_id`, `line_side_location_id`, `work_centre_id`, `planned_lot_code`, `demand_source_type/id/line_id/ref`, `reserve_output_for_demand`, **`bonded_duty_status`** (FK `whb_duty_statuses.code`, null = none consumed; frozen at the first bonded consumption — `V560120`, `p10-14`, MD-43), `mrp_proposal_id` (bare), `parent_order_id`, `rework_of_inspection_id` (bare), `subcontractor_counterparty_id`, `subcontract_location_id`, `service_po_ref` (frozen), `planned_cost` `DECIMAL(19,4)`, `released/release_approved/completed_by/at`, `closed_at`, `settlement_id`, `cancel_reason_code_id`, `close_short_reason_code_id` | uk(`warehouse_id`,`order_number`) | `bom_id → whm_boms`; `parent_order_id → self`; `work_centre_id → whm_work_centres`; ↓base `item_id`, `owner_id → whb_owners`, `subcontractor_counterparty_id → whb_counterparties`, `subcontract_location_id`/`receipt_location_id`/`line_side_location_id → whb_locations`, reason codes; `mrp_proposal_id`, `rework_of_inspection_id` bare | `FR-632` `FR-634` `FR-635` `FR-636` `FR-637` `FR-653` `FR-658` | v1 |
 | `whm_production_order_components` | Component requirements snapshotted from the BOM (scaled, scrap applied, phantoms exploded) with issue / stage / consume rollups | `order_id`, `line_no`, `bom_line_id` (bare, provenance), `item_id`, `required_quantity`, `uom_code`, `conversion_factor_used`, `required_base_quantity`, `supply_method`, `supply_location_id`, `operation_seq`, `required_date`, `issued_quantity`, `returned_quantity`, `staged_quantity`, `unstaged_quantity`, `consumed_quantity`, `substitute_of_line_id`, `substitution_id`, `is_unplanned`, `deviation_reason_code_id`, `phantom_path`, `line_status` (`OPEN`/`PARTIAL`/`COMPLETE`/`CLOSED`, derived on write) | uk(`order_id`,`line_no`) | `order_id → whm_production_orders`; `substitute_of_line_id → self`; ↓base item, location | `FR-633` `FR-638` `FR-641` `FR-643` | v1 |
 | `whm_production_order_outputs` | Output snapshot (sequence 1 = `MAIN`, then co-/by-products) | `order_id`, `sequence`, `item_id`, `output_type`, `planned_quantity`, `received_quantity`, `cost_share_percent`, `by_product_unit_value` | — (not stated) | `order_id → whm_production_orders`; ↓base item | `FR-633` `FR-644` `FR-655` | v1 |
 | `whm_production_order_operations` | Operation snapshot with confirmation rollups (`OPEN`/`STARTED`/`CONFIRMED`) | `order_id`, `operation_seq`, `work_centre_id`, `description`, `planned_setup_minutes`, `planned_run_minutes`, `confirmed_good/scrap/rework_quantity`, `actual_minutes`, `is_qc_checkpoint`, `status` | — (not stated) | `order_id → whm_production_orders`; `work_centre_id → whm_work_centres` | `FR-633` `FR-651` `FR-668` | v1 |
@@ -2042,7 +2049,7 @@ per-unit `DECIMAL(19,6)`, extended `DECIMAL(19,4)`, `*_percent` `DECIMAL(9,6)`. 
 
 | Table | Purpose | Key columns | Keys / indexes | FKs | FR | Ver |
 |---|---|---|---|---|---|---|
-| `whm_subcontract_dispatches` | Dispatch of components to the job worker — one `SUBCONTRACT_DISPATCH` movement store → job-worker location (`DRAFT`/`DISPATCHED`/`CANCELLED`); India challan / registration refs are **frozen text**, never FKs | `dispatch_number` (`SCD-`), `order_id` (type `SUBCONTRACT`), `to_location_id` (type `JOB_WORKER`), `job_worker_counterparty_id`, `status`, `gate_pass_id` (bare, `p8-03`), `challan_ref`, `jobwork_registration_ref`, `movement_id`, `dispatched_at` | — (not stated) | `order_id → whm_production_orders`; ↓base `to_location_id`, `job_worker_counterparty_id → whb_counterparties`, movement; `gate_pass_id` bare | `FR-658` `FR-659` `FR-660` | v1 |
+| `whm_subcontract_dispatches` | Dispatch of components to the job worker — one `SUBCONTRACT_DISPATCH` movement store → job-worker location (`DRAFT`/`DISPATCHED`/`CANCELLED`); India challan / registration refs are **frozen text**, never FKs | `dispatch_number` (`SCD-`), `order_id` (type `SUBCONTRACT`), `to_location_id` (type `JOB_WORKER`), `job_worker_counterparty_id`, `status`, `gate_pass_id` (bare, `p8-03`), `challan_ref`, `jobwork_registration_ref`, `movement_id`, `dispatched_at`, **`expected_return_date DATE`** (MD-26, `V560080`), **`bond_permission_ref VARCHAR(60)`** (required on a licensed line — `V560120`, `p10-14`, FR-675) | — (not stated) | `order_id → whm_production_orders`; ↓base `to_location_id`, `job_worker_counterparty_id → whb_counterparties`, movement; `gate_pass_id` bare | `FR-658` `FR-659` `FR-660` | v1 |
 | `whm_subcontract_dispatch_lines` | Dispatched component lot | `component_line_id`, `item_id`, `lot_id`, `quantity`, `base_quantity`, `job_work_type` (`INPUTS`/`CAPITAL_GOODS`), `movement_line_id` | — (not stated) | → `whm_subcontract_dispatches`; `component_line_id → whm_production_order_components`; ↓base item, lot, movement line | `FR-659` `FR-660` | v1 |
 | `whm_subcontract_reconciliations` | Per order × item × lot balance at the job worker; resolved by recall or write-off | `order_id`, `item_id`, `lot_id`, `sent_base_quantity`, `consumed_base_quantity`, `scrap_retained_base_quantity`, `recalled_base_quantity`, `written_off_base_quantity`, `open_base_quantity` (derived on write), `resolution` (`RECALL`/`WRITE_OFF`/`NONE`), `resolution_movement_id`, `resolved_by/at` | — (not stated) | `order_id → whm_production_orders`; ↓base item, lot, movement | `FR-661` | v1 |
 | `whm_subcontract_reconciliation_actions` | Recall or write-off of a job-worker balance, requested then approved; posting writes one movement (MD-26, MD-32) | `action_number` (`SCR-`), `reconciliation_id`, `kind` (`RECALL`/`WRITE_OFF`), `base_quantity`, `value` `DECIMAL(19,4)`, `reason_code_id`, `note`, `status` (`REQUESTED`/`POSTED`/`REJECTED`), `requested_by/at`, `approved_by/at`, `movement_id` | uk(`action_number`) | `→ whm_subcontract_reconciliations`; `reason_code_id ↓base whb_reason_codes`; `movement_id` ↓base | `FR-661` | v1 |
@@ -3880,7 +3887,7 @@ Every one of these is covered by a test, and the tests are named in the task fil
 | WHB-40 | `V500040` | `whb_event_types` (registry 17) + seed; `whb_outbox` (`PC-36`'s columns, no `payload`; `PARTITION BY RANGE (recorded_at)`, PK `(cursor, recorded_at)`), `whb_outbox_subscriptions` (`accepted_event_version`), `whb_outbox_deliveries` (partitioned) + the cursor sequence | v1 |
 | WHB-41 | `V500041` | `whb_inbound_messages`, `whb_movement_batches`, `whb_movement_batch_results` — the first and last partitioned (`RL-011`) | v1 |
 | WHB-42 | `V500042` | `whb_accounting_handovers` (`envelope_version`; `VOIDED` in the ladder), `whb_gl_posting_rules` | v1 |
-| WHB-43 | `V500043` | `whb_audit_events` (partitioned by `occurred_at`, PK `(sequence_no, occurred_at)`), `whb_audit_event_changes`, `whb_job_runs` | v1 |
+| WHB-43 | `V501011` (was `V500043`, R30 `CP-GA-015`) | `whb_audit_events` (partitioned by `occurred_at`, PK `(sequence_no, occurred_at)`), `whb_audit_event_changes`, `whb_job_runs` | v1 |
 | WHB-44 | `V500044` | `whb_owner_grants` | v1 |
 | WHB-45 | `V500045` | `whb_stock_position_snapshots` (partitioned by `snapshot_date`, non-zero positions only), `whb_position_drift_findings` ★ **PNR-3 for the snapshot job's start date** — occupancy on each past day cannot be cheaply reconstructed, so storage billing, ageing, days-on-hand and obsolescence all begin on the day the job was switched on ★ | v1 |
 | WHB-46 | `V500046` | `whb_import_batches`, `whb_import_batch_rows` | v1 |
@@ -4109,7 +4116,11 @@ table and **never** widens a base `CHECK`; it inserts a row.
 | WIN-21 | `V540180` | `whin_compliance_tasks`, `whin_compliance_rules`, `whin_compliance_rule_conditions` | v2 |
 | WIN-22 | `V540181` | `whin_form3cd_runs`, `whin_form3cd_lines` (`P4-09`) — the first number of the correction reserve | v2 |
 | WIN-23 | `V540183` | `whin_licence_types`, `whin_entity_licences`, `whin_counterparty_licences`, `whin_licence_quantity_ceilings`, `whin_schedule_h1_register`, `whin_recall_notifications` (`P4-13`); config (permissions, the Regulated Goods menu section, five grids, the `REGULATED_LICENCE_TYPE` / `SCHEDULE_H1` attribute keys and the `LICENCE_RENEWAL_DUE` alert) at `V541122`. **Claimed 2026-09-26 at `V540183`, not `V540182`**: `V540182` was taken by `P4-10`'s *Keep superseded whin_form3cd runs on regeneration* and is applied (`X-066`); `V540183` is the first of the declared correction reserve (the `WIN-22` / `V540181` precedent). `whin_licence_types` ships **empty** (`X-067`) | v2 |
-| — | `V540183`–`V540999` | Reserved for corrections | — |
+| WIN-24 | `V540191` | `whin_bonded_exit_rules` (+ seed), `whin_bonded_operation_lines` (`P10-14`, `D-17` item 3); permissions, leaves and the `BONDED_JOB_WORK_OVERDUE` rule at `V541160` | v1.1 |
+| WIN-25 | `V540192` | `whin_moowr_returns`, `whin_moowr_return_lines`, `whin_sez_movements` (`P10-14`) | v1.1 |
+| WIN-26 | `V540193` | `whin_packaged_commodity_declarations`, `whin_mrp_revisions` (`P10-07`, R30 `CP-GA-006`); permissions and the WS-185-adjacent leaf at `V541161`. `whin_instrument_verifications` (`FR-223`, `P5-17`) stays unowned (`DESIGN-SET-DEFECTS.md` `R-5`) | v1.1 |
+| — | `V541156` | `whin_bonded_losses` — **already built** (config-range migration in code; recorded here by R30, not re-allocated) | v2 |
+| — | `V540183`–`V540999` | Reserved for corrections (`V540190`–`V540193` taken by `P10-10`, `P10-14`, `P10-07`) | — |
 | WIN-30 | `V541000`–`V541199` | Permissions, `permission_dependencies`, menus, grid configuration, `admin_settings` | v1/v2 |
 | — | `V541200`–`V549999` | Reserved | — |
 
@@ -4198,6 +4209,7 @@ names them; the `wht_so_*` mirror set is named by `trade-order-amendment.contrac
 | `V560080` | `P10-10` | `whm_subcontract_dispatches`, `whm_subcontract_dispatch_lines`, `whm_subcontract_reconciliations`, `whm_subcontract_reconciliation_actions` |
 | `V560090` | `P10-11` | `whm_item_planning_params`, `whm_demand_plans`, `whm_demand_plan_lines` |
 | `V560100` | `P10-12` | `whm_mrp_runs`, `whm_mrp_proposals`, `whm_mrp_pegging`, `whm_mrp_exceptions` |
+| `V560120` | `P10-14` | no table — `whm_production_orders.bonded_duty_status`, `whm_subcontract_dispatches.bond_permission_ref` |
 
 ## 8. Grand total
 
@@ -4524,7 +4536,10 @@ whb_warehouses
 whin_approval_clocks
 whin_approval_dispatches
 whin_bond_utilisations
+whin_bonded_exit_rules
 whin_bonded_licences
+whin_bonded_losses
+whin_bonded_operation_lines
 whin_compliance_api_logs
 whin_compliance_auth_sessions
 whin_compliance_credential_specs
@@ -4566,10 +4581,15 @@ whin_job_work_dispatch_lines
 whin_job_work_registrations
 whin_licence_quantity_ceilings
 whin_licence_types
+whin_moowr_return_lines
+whin_moowr_returns
+whin_mrp_revisions
+whin_packaged_commodity_declarations
 whin_recall_notifications
 whin_retention_policies
 whin_sac_master
 whin_schedule_h1_register
+whin_sez_movements
 whin_stock_account_lines
 whin_stock_account_periods
 whin_tax_components
@@ -4747,14 +4767,14 @@ built that §2 never listed (`wh_recall_lots`, `wh_nrv_assessment_lines`, `wh_co
 `wh_cogs_recognition_policies`, `wh3_billing_run_exclusions`), and `wh_fulfilment_policies`, which `V510105` built and
 `FRD-REM.md` names. 459 + 16 = **475**. **Re-run 2026-10-22 after the trade alignment** added the three other tables
 `V510105` built (`wh_order_edit_rule_actions`, `wh_order_amendments`, `wh_order_amendment_actions`) to §2, §7, §8.1
-and §8.4: 475 + 3 = **478**:
+and §8.4: 475 + 3 = **478**. **Re-run 2026-10-23 after the R30 wave-1 reconciliation** added eight `whin_` names to §2.4.2, §7.6, §8.1 and §8.4: `P10-14`'s five (`whin_bonded_exit_rules`, `whin_bonded_operation_lines`, `whin_moowr_returns`, `whin_moowr_return_lines`, `whin_sez_movements`), `whin_bonded_losses` (built at `V541156`, never listed), and `P10-07`'s two Legal Metrology tables (`whin_packaged_commodity_declarations`, `whin_mrp_revisions`, R30 `CP-GA-006`): 478 + 8 = **486**:
 
 | Module | Prefix | Tables | Band | Ships |
 |---|---|---:|---|---|
 | `warehouse-base` | `whb_` | **132** | V500000–V509999 | v1 · v1.1 · v2 · v3 |
 | `warehouse` | `wh_` | **147** | V510000–V519999 | v1 · v1.1 · v2 |
 | `warehouse-trade` | `wht_` | **75** | V550000–V559999 | v1 (P9) |
-| `warehouse-india` | `whin_` | **58** | V540000–V549999 | v1 wave · v2 wave |
+| `warehouse-india` | `whin_` | **66** | V540000–V549999 | v1 wave · v2 wave |
 | `warehouse-manufacturing` | `whm_` | **34** | V560000–V569999 | v1 (P10) |
 | `warehouse-3pl` | `wh3_` | **26** | V530000–V539999 | v2 · v3 |
 | `warehouse-adapter-dealer` | `whad_` | ~~10~~ **0** — removed (`D-16`) | V520000–V520999 | — |
@@ -4762,10 +4782,10 @@ and §8.4: 475 + 3 = **478**:
 | `warehouse-adapter-field-service` | `whaf_` | **3** | V522000–V522999 | v1.1 |
 | `warehouse-adapter-assets` | `whaa_` | **2** | V523000–V523999 | v1.1 |
 | `warehouse-adapter-example` | `whae_` | **1** | V525000–V525999 | v1 |
-| **Total** | | **478** | | |
+| **Total** | | **486** | | |
 
 **Cross-check: `0` tables without an allocated migration** (the third command above, re-run
-2026-09-10 after the round-4 additions, and 2026-10-22 after `D-16` and again after the SPINE integration and the trade alignment — 478
+2026-09-10 after the round-4 additions, and 2026-10-22 after `D-16` and again after the SPINE integration and the trade alignment, and 2026-10-23 after the R30 reconciliation — 486
 tables, 0 without).
 
 ### 8.3 What the total is not
@@ -5139,7 +5159,10 @@ whb_warehouses v1
 whin_approval_clocks v2
 whin_approval_dispatches v2
 whin_bond_utilisations v2
+whin_bonded_exit_rules v1.1
 whin_bonded_licences v2
+whin_bonded_losses v2
+whin_bonded_operation_lines v1.1
 whin_compliance_api_logs v1
 whin_compliance_auth_sessions v1
 whin_compliance_credential_specs v1
@@ -5181,10 +5204,15 @@ whin_job_work_dispatch_lines v2
 whin_job_work_registrations v2
 whin_licence_quantity_ceilings v2
 whin_licence_types v2
+whin_moowr_return_lines v1.1
+whin_moowr_returns v1.1
+whin_mrp_revisions v1.1
+whin_packaged_commodity_declarations v1.1
 whin_recall_notifications v2
 whin_retention_policies v2
 whin_sac_master v2
 whin_schedule_h1_register v2
+whin_sez_movements v1.1
 whin_stock_account_lines v2
 whin_stock_account_periods v2
 whin_tax_components v2

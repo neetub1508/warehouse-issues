@@ -2,6 +2,8 @@ TITLE: [Warehouse] [Finding] W59 · Advanced operational features must remain ex
 LABELS: task,warehouse,warehouse-base
 issue: 253
 ---
+> **PARTIALLY VOID — `D-16` (R30 `CP-GA-011`, `CP-GA-014`).** "Manufacturing routings", planning and forecasting are no longer outside the product: `warehouse-manufacturing` builds work centres and routings (`P10-04`), demand plans (`P10-11`) and MRP (`P10-12`). They stay outside **core**. `INSTALL.md` §16 is amended by `P7-12`.
+
 Part of #1 · Audit **warehouse-only readiness, 2026-10-01** · Finding **W59** · Module **`warehouse-base`, `warehouse`** · Migrations **none allocated by this audit; reserve only if implementation requires one** · Screens **existing affected surfaces identified below; no new screen IDs allocated**
 
 **Priority:** P2 (audit recommendation, not a programme phase). **Evidence class:** Intentional scope limit. **Applies to:** Customer/package selection.

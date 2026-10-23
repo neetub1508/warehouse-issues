@@ -322,7 +322,7 @@ Until the runner exists, run both before every `issues/create-issues.sh --sync`.
 
 ## Current state — re-run 2026-09-02, from the repo root
 
-> **Latest run, 2026-10-23, after the `D-16` re-target (P7–P10, 200 task files, 661 requirements, 478
+> **Latest run, 2026-10-23, after the `D-16` re-target and the R30 reconciliation (P7–P10, 201 task files, 486
 > tables): 0 violations across 13 checks**, plus one non-failing advisory block of versions cited in a
 > task body that no task header claims. Flyway bands now include `warehouse-trade` `V550000`–`V559999`
 > and `warehouse-manufacturing` `V560000`–`V569999`; the removed dealer and services adapter blocks

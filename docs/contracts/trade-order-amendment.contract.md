@@ -57,37 +57,37 @@ customer), `TOLERANCE`), `line_id`, `schedule_line_id`, `field_name`, `old_value
 | `REJECTED` | `TAM` | edit → `DRAFT`, `-05` (as every trade document, FR-551) | active |
 | `CANCELLED` | `-05`, `TOA-GRD-10` | none | terminal |
 
-| ID | From | Action | To | Guard | Actor | Side effects | Comment | UI |
-|---|---|---|---|---|---|---|---|---|
-| TOA-T1-01 | — | Draft — manual; from ack (`TPO-T1-11`, maker = the buyer who chose *Accept changes*); from a customer schedule import (`TSO-T1-15`); from a supplier return (`TPO-T4-07`, system-drafted, maker = the buyer who submits it) | `DRAFT` | `TOA-GRD-01`, `-09`, `-10` | `:create` + order `:amend` (system for `SUPPLIER_RETURN`) | change rows computed against the current version | reason code | order row action *Amend* |
-| TOA-T1-02 | `DRAFT`, `REJECTED` | Submit | `SUBMITTED` | `TOA-GRD-02`, `-03`, `-05` | `:submit` | number at first submit; `TAM-T1-03` doc `PO_AMENDMENT`/`SO_AMENDMENT`, matched on `value_after` and on the absolute `value_delta` (`TAM-GRD-09`: the match with more levels is used, a tie takes `value_after`); conditions `manual_rate`, `below_floor_price` re-evaluated on changed lines; origin `SUPPLIER_RETURN` carries only `supplier_return_replacement` (seeded zero-level `EXACT` rule) | no | Submit |
-| TOA-T1-02a | `SUBMITTED` | Withdraw (`TAM-T1-09`) | `DRAFT` | no step acted | maker | — | no | *Withdraw* |
-| TOA-T1-03 | `SUBMITTED` | Approved | `APPLIED` | `TOA-GRD-06` (re-check at apply) | approver / `SYSTEM` | `TOA-T4-01`…`-04` in one transaction | — | WS-285 |
-| TOA-T1-04 | `SUBMITTED` | Rejected / returned | `REJECTED` / `DRAFT` | `TAM` | approver | ack-with-changes origin → follow-up logged | yes | WS-285 |
-| TOA-T1-05 | `DRAFT`, `REJECTED` | Cancel | `CANCELLED` | — | maker | origin `SUPPLIER_RETURN`: the quantity returns to the PO line's `replacement_pending_quantity` and the buyer is told | no | row action |
+| ID | From | Action | To | Guard | Actor | Side effects | Comment | UI | Source |
+|---|---|---|---|---|---|---|---|---|---|
+| TOA-T1-01 | — | Draft — manual; from ack (`TPO-T1-11`, maker = the buyer who chose *Accept changes*); from a customer schedule import (`TSO-T1-15`); from a supplier return (`TPO-T4-07`, system-drafted, maker = the buyer who submits it) | `DRAFT` | `TOA-GRD-01`, `-09`, `-10` | `:create` + order `:amend` (system for `SUPPLIER_RETURN`) | change rows computed against the current version | reason code | order row action *Amend* | FR-590 |
+| TOA-T1-02 | `DRAFT`, `REJECTED` | Submit | `SUBMITTED` | `TOA-GRD-02`, `-03`, `-05` | `:submit` | number at first submit; `TAM-T1-03` doc `PO_AMENDMENT`/`SO_AMENDMENT`, matched on `value_after` and on the absolute `value_delta` (`TAM-GRD-09`: the match with more levels is used, a tie takes `value_after`); conditions `manual_rate`, `below_floor_price` re-evaluated on changed lines; origin `SUPPLIER_RETURN` carries only `supplier_return_replacement` (seeded zero-level `EXACT` rule) | no | Submit | FR-553 |
+| TOA-T1-02a | `SUBMITTED` | Withdraw (`TAM-T1-09`) | `DRAFT` | no step acted | maker | — | no | *Withdraw* | FR-551 |
+| TOA-T1-03 | `SUBMITTED` | Approved | `APPLIED` | `TOA-GRD-06` (re-check at apply) | approver / `SYSTEM` | `TOA-T4-01`…`-04` in one transaction | — | WS-285 | FR-592 |
+| TOA-T1-04 | `SUBMITTED` | Rejected / returned | `REJECTED` / `DRAFT` | `TAM` | approver | ack-with-changes origin → follow-up logged | yes | WS-285 | FR-551 |
+| TOA-T1-05 | `DRAFT`, `REJECTED` | Cancel | `CANCELLED` | — | maker | origin `SUPPLIER_RETURN`: the quantity returns to the PO line's `replacement_pending_quantity` and the buyer is told | no | row action | FR-590 |
 
 ### 1.3 Guards
 
-| ID | Predicate | Refusal |
-|---|---|---|
-| TOA-GRD-01 | Order status ∈ PO {`APPROVED`, `ISSUED`, `ACKNOWLEDGED`} / SO {`APPROVED`, `ISSUED`}; no other amendment `DRAFT`/`SUBMITTED`/`REJECTED` for the order (partial unique index) — except `-10` | `409 TRADE_AMENDMENT_OPEN` |
-| TOA-GRD-02 | Per line: new qty ≥ received (PO) / shipped (SO) + in-flight (open gate entry, unposted GRN, released-not-received — PO; picked-not-shipped, released-not-picked — SO) read from core; schedule qty ≥ released on that schedule line; BLANKET Σ schedule = new line qty | `422 TRADE_AMEND_BELOW_COMMITTED {received, inFlight}` |
-| TOA-GRD-03 | Not amendable: `po_type`/`so_type`, counterparty, company, currency, **site** (deliver-to / dispatch site — `STO-D15`; another site is cancel + new order), item of an existing line (cancel + add instead); `DELIVER_TO` must name a receiving location inside the order's site; `SHIP_TO` an active address of the same customer | `422 TRADE_FIELD_NOT_AMENDABLE` |
-| TOA-GRD-04 | While an amendment is open: a release, release cancel or line short-close on a **schedule line the amendment changes** (or on any schedule line of a line it adds, cancels or re-prices) is refused; a header short-close or cancel of the order is refused. Releases of untouched schedule lines proceed (`TPO-GRD-14`, `TSO-GRD-14`) | `409 TRADE_AMENDMENT_OPEN` |
-| TOA-GRD-05 | Rate change applies to un-received / unshipped quantity only (`OD-36`): the change row records `effective_quantity`; a rate change on a fully received line is refused | `422 TRADE_RATE_CHANGE_NOTHING_OPEN` |
-| TOA-GRD-06 | At apply: base version still current and committed quantities still satisfy `TOA-GRD-02` (a receipt may have landed since submit) | `409 TRADE_AMENDMENT_STALE` — amendment returned to `DRAFT` with recomputed figures |
-| TOA-GRD-07 | Counterparty not blocked when the amendment increases quantity or adds a line | `422 TRADE_SUPPLIER_BLOCKED` / `TRADE_CUSTOMER_BLOCKED` |
-| TOA-GRD-08 | Validity extension keeps rate-contract validity (contract still approved on the new dates) or the line is re-priced manually (`manual_rate`) | field `422` |
-| TOA-GRD-09 | Origin `SUPPLIER_RETURN`: only `SCHEDULE_ADD` (and, on a FIXED line, the matching `LINE_QTY`) of the returned quantity on the original line, at its rate; no other change type | `422 TRADE_FIELD_NOT_AMENDABLE` |
-| TOA-GRD-10 | A new origin-`CUSTOMER_SCHEDULE` amendment while one of the same origin is `DRAFT`: the draft is `CANCELLED` and replaced in the same transaction; while it is `SUBMITTED` the import is refused | `409 TRADE_AMENDMENT_OPEN` |
+| ID | Predicate | Refusal | Source |
+|---|---|---|---|
+| TOA-GRD-01 | Order status ∈ PO {`APPROVED`, `ISSUED`, `ACKNOWLEDGED`} / SO {`APPROVED`, `ISSUED`}; no other amendment `DRAFT`/`SUBMITTED`/`REJECTED` for the order (partial unique index) — except `-10` | `409 TRADE_AMENDMENT_OPEN` | FR-590 |
+| TOA-GRD-02 | Per line: new qty ≥ received (PO) / shipped (SO) + in-flight (open gate entry, unposted GRN, released-not-received — PO; picked-not-shipped, released-not-picked — SO) read from core; schedule qty ≥ released on that schedule line; BLANKET Σ schedule = new line qty | `422 TRADE_AMEND_BELOW_COMMITTED {received, inFlight}` | FR-591 |
+| TOA-GRD-03 | Not amendable: `po_type`/`so_type`, counterparty, company, currency, **site** (deliver-to / dispatch site — `STO-D15`; another site is cancel + new order), item of an existing line (cancel + add instead); `DELIVER_TO` must name a receiving location inside the order's site; `SHIP_TO` an active address of the same customer | `422 TRADE_FIELD_NOT_AMENDABLE` | FR-590 |
+| TOA-GRD-04 | While an amendment is open: a release, release cancel or line short-close on a **schedule line the amendment changes** (or on any schedule line of a line it adds, cancels or re-prices) is refused; a header short-close or cancel of the order is refused. Releases of untouched schedule lines proceed (`TPO-GRD-14`, `TSO-GRD-14`) | `409 TRADE_AMENDMENT_OPEN` | FR-591 |
+| TOA-GRD-05 | Rate change applies to un-received / unshipped quantity only (`OD-36`): the change row records `effective_quantity`; a rate change on a fully received line is refused | `422 TRADE_RATE_CHANGE_NOTHING_OPEN` | FR-591 |
+| TOA-GRD-06 | At apply: base version still current and committed quantities still satisfy `TOA-GRD-02` (a receipt may have landed since submit) | `409 TRADE_AMENDMENT_STALE` — amendment returned to `DRAFT` with recomputed figures | FR-591, FR-618 |
+| TOA-GRD-07 | Counterparty not blocked when the amendment increases quantity or adds a line | `422 TRADE_SUPPLIER_BLOCKED` / `TRADE_CUSTOMER_BLOCKED` | FR-585 |
+| TOA-GRD-08 | Validity extension keeps rate-contract validity (contract still approved on the new dates) or the line is re-priced manually (`manual_rate`) | field `422` | FR-590 |
+| TOA-GRD-09 | Origin `SUPPLIER_RETURN`: only `SCHEDULE_ADD` (and, on a FIXED line, the matching `LINE_QTY`) of the returned quantity on the original line, at its rate; no other change type | `422 TRADE_FIELD_NOT_AMENDABLE` | FR-613 |
+| TOA-GRD-10 | A new origin-`CUSTOMER_SCHEDULE` amendment while one of the same origin is `DRAFT`: the draft is `CANCELLED` and replaced in the same transaction; while it is `SUBMITTED` the import is refused | `409 TRADE_AMENDMENT_OPEN` | FR-611 |
 
 ### 1.4 Unreachable
 
-| ID | Forbidden | Why |
-|---|---|---|
-| TOA-UNR-01 | Editing an order outside an amendment after approval | no edit path (`TAM-UNR-03`, `TPO-UNR-03`) |
-| TOA-UNR-02 | Overwriting or deleting a version snapshot | append-only; trigger refuses UPDATE/DELETE |
-| TOA-UNR-03 | Applying an amendment without the port push succeeding | same transaction (`TOA-T4-02`) |
+| ID | Forbidden | Why | Source |
+|---|---|---|---|
+| TOA-UNR-01 | Editing an order outside an amendment after approval | no edit path (`TAM-UNR-03`, `TPO-UNR-03`) | FR-553 |
+| TOA-UNR-02 | Overwriting or deleting a version snapshot | append-only; trigger refuses UPDATE/DELETE | FR-592 |
+| TOA-UNR-03 | Applying an amendment without the port push succeeding | same transaction (`TOA-T4-02`) | FR-592 |
 
 ## 2. T2 — Action × role × state
 
@@ -105,14 +105,14 @@ None of its own; pending approval escalation is `TAM-T3-01`.
 
 ## 4. T4 — Cross-entity effects
 
-| ID | When | Then | Enforced in |
-|---|---|---|---|
-| TOA-T4-01 | Applied | changes written to the order; `version_no` + 1; snapshot rows for the new version (version 1 was written at approval) | `OrderAmendmentService.apply` |
-| TOA-T4-02 | Applied | **PO:** `WhPurchaseOrderPort.amendOrder(AmendPurchaseOrderCommand{ envelope(key 'WHT_PURCHASE_ORDER:<poId>:PO_AMEND:<amendment no>'), poId, expectedRevisionNo, amendmentReason, lineChanges[poLineId, orderedQuantity?, unitPrice?, expectedDeliveryDate?, receivingLocationId?], scheduleChanges[scheduleLineId, quantity?, scheduledDate?, unitPrice?], newScheduleLines[poLineId, kind, scheduledDate, quantity, unitPrice?, releaseRef], newLines[], validTo?, receiptCutoffDate? })` (`POS-T1-07`) on the PO's one core PO — every `SCHEDULE_ADD` goes as `newScheduleLines` in the same command, so a FIXED line's `LINE_QTY` increase and its added schedule line are checked together (`POS-GRD-02`; FRD-TRADE §12c `CN-2`, resolved), and a `DELIVER_TO` change goes as `lineChanges.receivingLocationId` (`POS-GRD-15`); `cancelScheduleLine` for removed unreceived schedule lines (`…:PO_CANCEL_SCHEDULE:<amendment no>-<n>`). **SO:** `WhDemandOrderPort.amendDemand` (`…:DEMAND_AMEND:<amendment no>`; a `SHIP_TO` change as `shipToAddressId`, re-snapshotted by core — `POS-GRD-16`, FRD-TRADE §12c `CN-3`, resolved), `cancelLine` (`LINE_CANCEL`), `cancelScheduleLine` (`SCHEDULE_CANCEL`), `releaseSchedule` with `FORECAST` entries for added schedule lines (`POS-T1-11`, `-11c`, `-12`) on the SO's one core demand order — firm and `FORECAST` schedule kept equal to the trade schedule. Core's `POS-GRD-09` (never below received / allocated + cancelled + backordered; site immutable) is the backstop of `TOA-GRD-02`, `-03` | same transaction; refusal rolls back (`TPO-T4-03` pattern) |
-| TOA-T4-03 | Applied | ack status → `PENDING` (PO: supplier must re-acknowledge, `TPO-T3-04` restarts; SO: *Re-send acknowledgement* is due, `TSO-T1-11`, `TSO-T3-04`); rate-contract consumption adjusted (`TRC-T4-01`); PR allocations adjusted for cancelled lines (`TPR-T1-07`); origin `SUPPLIER_RETURN`: `replacement_pending_quantity` cleared and the line shows *replacement due* | same |
-| TOA-T4-04 | Applied | print `PURCHASE_ORDER` / `SALES_ORDER_ACK` with banner *Amendment No. n dated d — supersedes version n−1* and a change summary | renderer |
-| TOA-T4-05 | Compare | backend diff of any two snapshots (header, lines, schedule), field by field | `OrderVersionService` |
-| TOA-T4-06 | SO amendment of origin `CUSTOMER_SCHEDULE` | changes inside `warehouse.trade.sales.firm_zone_days` (default 14) of the schedule date set `in_firm_zone = true` and are counted for `SCHEDULE_VOLATILITY` (`TCE-T4-03`); a replaced `DRAFT` (`TOA-GRD-10`) is not counted | evaluation run reads change rows of `APPLIED` amendments |
+| ID | When | Then | Enforced in | Source |
+|---|---|---|---|---|
+| TOA-T4-01 | Applied | changes written to the order; `version_no` + 1; snapshot rows for the new version (version 1 was written at approval) | `OrderAmendmentService.apply` | FR-592 |
+| TOA-T4-02 | Applied | **PO:** `WhPurchaseOrderPort.amendOrder(AmendPurchaseOrderCommand{ envelope(key 'WHT_PURCHASE_ORDER:<poId>:PO_AMEND:<amendment no>'), poId, expectedRevisionNo, amendmentReason, lineChanges[poLineId, orderedQuantity?, unitPrice?, expectedDeliveryDate?, receivingLocationId?, overTolerancePct?, underTolerancePct?], scheduleChanges[scheduleLineId, quantity?, scheduledDate?, unitPrice?], newScheduleLines[poLineId, kind, scheduledDate, quantity, unitPrice?, releaseRef], newLines[], validTo?, receiptCutoffDate? })` (`POS-T1-07`) on the PO's one core PO — every `SCHEDULE_ADD` goes as `newScheduleLines` in the same command, so a FIXED line's `LINE_QTY` increase and its added schedule line are checked together (`POS-GRD-02`; FRD-TRADE §12c `CN-2`, resolved), a `DELIVER_TO` change goes as `lineChanges.receivingLocationId` (`POS-GRD-15`), and a `TOLERANCE` change as `lineChanges.overTolerancePct` / `underTolerancePct`, so core's over-receipt guard (`POS-GRD-15`) enforces the amended value, never the create-time one (FRD-TRADE §12c `CN-8`, R30 `CP-GB-002`, carried by `p8-01`); `cancelScheduleLine` for removed unreceived schedule lines (`…:PO_CANCEL_SCHEDULE:<amendment no>-<n>`). **SO:** `WhDemandOrderPort.amendDemand` (`…:DEMAND_AMEND:<amendment no>`; a `SHIP_TO` change as `shipToAddressId`, re-snapshotted by core — `POS-GRD-16`, FRD-TRADE §12c `CN-3`, resolved), `cancelLine` (`LINE_CANCEL`), `cancelScheduleLine` (`SCHEDULE_CANCEL`), `releaseSchedule` with `FORECAST` entries for added schedule lines (`POS-T1-11`, `-11c`, `-12`) on the SO's one core demand order — firm and `FORECAST` schedule kept equal to the trade schedule. An SO `TOLERANCE` change pushes nothing: a core demand line holds no tolerance (`CreateDemandCommand` carries none), and the SO's completeness reads trade's own `under_tolerance_pct` (`TSO-T3-03`) — the mirror check of `CN-8` (R30 `CP-GB-002`). Core's `POS-GRD-09` (never below received / allocated + cancelled + backordered; site immutable) is the backstop of `TOA-GRD-02`, `-03` | same transaction; refusal rolls back (`TPO-T4-03` pattern) | FR-592 |
+| TOA-T4-03 | Applied | ack status → `PENDING` (PO: supplier must re-acknowledge, `TPO-T3-04` restarts; SO: *Re-send acknowledgement* is due, `TSO-T1-11`, `TSO-T3-04`); rate-contract consumption adjusted (`TRC-T4-01`); PR allocations adjusted for cancelled lines (`TPR-T1-07`); origin `SUPPLIER_RETURN`: `replacement_pending_quantity` cleared and the line shows *replacement due* | same | FR-592 |
+| TOA-T4-04 | Applied | print `PURCHASE_ORDER` / `SALES_ORDER_ACK` with banner *Amendment No. n dated d — supersedes version n−1* and a change summary | renderer | FR-592 |
+| TOA-T4-05 | Compare | backend diff of any two snapshots (header, lines, schedule), field by field | `OrderVersionService` | FR-593 |
+| TOA-T4-06 | SO amendment of origin `CUSTOMER_SCHEDULE` | changes inside `warehouse.trade.sales.firm_zone_days` (default 14) of the schedule date set `in_firm_zone = true` and are counted for `SCHEDULE_VOLATILITY` (`TCE-T4-03`); a replaced `DRAFT` (`TOA-GRD-10`) is not counted | evaluation run reads change rows of `APPLIED` amendments | FR-611 |
 
 ## 5. T5 — Screen contract
 
@@ -140,6 +140,8 @@ amendments.* **Versions tab** on the order: list of versions, *Compare* (two pic
 | 2026-10-22 | all | v0 derived | TRADE author |
 | 2026-10-22 | §0 fields, §1, `TOA-T1-01`…`-05`, `TOA-GRD-01`, `-03`, `-04`, `-09`, `-10`, T2, `TOA-T4-02`, `-03`, `-06`, §5 | R29 TP-F17, F23, F24, TS-F10, F19, F29 and contract quality: registry-exact port commands and keys, origin `SUPPLIER_RETURN`, site immutable / deliver-to inside the site / ship-to, lock only on changed schedule lines, newer import replaces a draft, withdraw row, `REJECTED` editable like every trade document, deterministic dual-band match, sales firm-zone setting named | R29 |
 | 2026-10-22 | `TOA-T4-02` | Aligned to the updated core registry: `SCHEDULE_ADD` as `amendOrder` `newScheduleLines` (`CN-2`); `DELIVER_TO` as `lineChanges.receivingLocationId`; `SHIP_TO` as `amendDemand` `shipToAddressId` (`CN-3`) | TRADE author |
+| 2026-10-23 | every T1, guard, unreachable, T3 and T4 row | `Source` column added, filled from FRD-TRADE §4, so every rule traces to the FR it proves | R30 `CP-FR-008` |
+| 2026-10-23 | `TOA-T4-02` | PO `TOLERANCE` goes to core as `lineChanges.overTolerancePct` / `underTolerancePct` (`CN-8`); SO `TOLERANCE` stays trade-side by design (no core tolerance on a demand line) | R30 `CP-GB-002` |
 
 ## 8. Invariants and scenarios
 

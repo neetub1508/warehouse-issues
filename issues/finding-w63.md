@@ -2,6 +2,8 @@ TITLE: [Warehouse] [Finding] W63 · Carrier and shipment lifecycle has recorded 
 LABELS: task,warehouse,warehouse-base
 issue: 257
 ---
+> **PARTIALLY VOID — `D-16` (R30 `CP-GA-014`).** AWB auto-void and AWB-to-tracking mapping read on AWB pools, which `P7-02` removes; the label void path (`FR-197`) and tracking events stand.
+
 Part of #1 · Audit **warehouse-only readiness, 2026-10-01** · Finding **W63** · Module **`warehouse-base`, `warehouse`** · Migrations **none allocated by this audit; reserve only if implementation requires one** · Screens **existing affected surfaces identified below; no new screen IDs allocated**
 
 **Priority:** P1 (audit recommendation, not a programme phase). **Evidence class:** Reported closed-issue carry-forward. **Applies to:** Carrier-integrated shipping.

@@ -78,37 +78,37 @@ counterparty; the evaluation stores `excluded_metrics`. A counterparty with no m
 
 ## 1. T1 — State machine
 
-| ID | From | Action | To | Guard | Actor | Side effects | Comment | UI |
-|---|---|---|---|---|---|---|---|---|
-| TCE-T1-01 | — | Create / edit profile | profile active | `TCE-GRD-01`, `-02` | `:create`/`:edit` | — | no | WS-280 / WS-281 |
-| TCE-T1-02 | not blocked / blocked | Request block / request unblock | `BLOCK_PENDING` / `UNBLOCK_PENDING` | no request already pending | `:block` | `TAM` doc `PROFILE_BLOCK` (side recorded) | **yes**, reason code | row action |
-| TCE-T1-03 | `BLOCK_PENDING` / `UNBLOCK_PENDING` | Approved / rejected | blocked / unblocked; on reject back to the previous state | `TAM` (`TAM-GRD-03`: the requester cannot approve) | `wht_supplier_profiles:approve` / `wht_customer_profiles:approve` | `blocked_at/by`; audit | yes | WS-285 |
-| TCE-T1-04 | — | AVL entry / status or date change (maker) | `approval_state PENDING`; request `AVL` opened | `TCE-GRD-03` | `wht_approved_vendor_items:create`/`edit` | the change is held in `pending_change`; nothing is effective until approval | reason | WS-282 |
-| TCE-T1-04a | `PENDING` | Approved / rejected / returned (`TAM`) | `APPROVED` (change effective, `approved_by/at`) / `REJECTED` (no effect; a new entry needs a new request) / back to editable | `TAM-GRD-03` → `403 TRADE_APPROVAL_SELF` for the maker | `wht_approved_vendor_items:approve` | audit | on reject / return | WS-285 |
-| TCE-T1-05 | — | Customer item ref create / status change | row | uk (company, customer, item, revision); `TCE-GRD-06` | `wht_customer_item_refs:*` | — | no | WS-283 |
-| TCE-T1-06 | — | Run evaluation for scheme × period | run `DRAFT` | `TCE-GRD-04`, `-05` | `wht_evaluation_runs:create` | scores computed (`TCE-T4-03`) | no | WS-297 / WS-309 *Run* |
-| TCE-T1-07 | `DRAFT` | Publish | `PUBLISHED`; prior published run for the same scheme × period `SUPERSEDED` | — | `:publish` (≠ creator: maker–checker) | `latest_grade_code` on profiles; `TCE-T4-05` | no | *Publish* |
-| TCE-T1-08 | `DRAFT` | Discard | deleted | — | creator | — | no | — |
+| ID | From | Action | To | Guard | Actor | Side effects | Comment | UI | Source |
+|---|---|---|---|---|---|---|---|---|---|
+| TCE-T1-01 | — | Create / edit profile | profile active | `TCE-GRD-01`, `-02` | `:create`/`:edit` | — | no | WS-280 / WS-281 | FR-542, FR-543 |
+| TCE-T1-02 | not blocked / blocked | Request block / request unblock | `BLOCK_PENDING` / `UNBLOCK_PENDING` | no request already pending | `:block` | `TAM` doc `PROFILE_BLOCK` (side recorded) | **yes**, reason code | row action | FR-542, FR-543 |
+| TCE-T1-03 | `BLOCK_PENDING` / `UNBLOCK_PENDING` | Approved / rejected | blocked / unblocked; on reject back to the previous state | `TAM` (`TAM-GRD-03`: the requester cannot approve) | `wht_supplier_profiles:approve` / `wht_customer_profiles:approve` | `blocked_at/by`; audit | yes | WS-285 | FR-542, FR-543 |
+| TCE-T1-04 | — | AVL entry / status or date change (maker) | `approval_state PENDING`; request `AVL` opened | `TCE-GRD-03` | `wht_approved_vendor_items:create`/`edit` | the change is held in `pending_change`; nothing is effective until approval | reason | WS-282 | FR-544 |
+| TCE-T1-04a | `PENDING` | Approved / rejected / returned (`TAM`) | `APPROVED` (change effective, `approved_by/at`) / `REJECTED` (no effect; a new entry needs a new request) / back to editable | `TAM-GRD-03` → `403 TRADE_APPROVAL_SELF` for the maker | `wht_approved_vendor_items:approve` | audit | on reject / return | WS-285 | FR-544 |
+| TCE-T1-05 | — | Customer item ref create / status change | row | uk (company, customer, item, revision); `TCE-GRD-06` | `wht_customer_item_refs:*` | — | no | WS-283 | FR-545 |
+| TCE-T1-06 | — | Run evaluation for scheme × period | run `DRAFT` | `TCE-GRD-04`, `-05` | `wht_evaluation_runs:create` | scores computed (`TCE-T4-03`) | no | WS-297 / WS-309 *Run* | FR-595 |
+| TCE-T1-07 | `DRAFT` | Publish | `PUBLISHED`; prior published run for the same scheme × period `SUPERSEDED` | — | `:publish` (≠ creator: maker–checker) | `latest_grade_code` on profiles; `TCE-T4-05` | no | *Publish* | FR-595 |
+| TCE-T1-08 | `DRAFT` | Discard | deleted | — | creator | — | no | — | FR-595 |
 
 ### 1.3 Guards
 
-| ID | Predicate | Refusal |
-|---|---|---|
-| TCE-GRD-01 | Counterparty has role `SUPPLIER` (supplier profile) / `CUSTOMER` (customer profile); one profile per counterparty × company × side | `422 TRADE_COUNTERPARTY_ROLE_MISSING` / `409` duplicate |
-| TCE-GRD-02 | Udyam number matches the pattern when MSME category is `MICRO`/`SMALL`/`MEDIUM`; payment terms days ≥ 0 | field `422` |
-| TCE-GRD-03 | AVL: `item_id` xor `item_category_id`; `valid_from ≤ valid_to`; no overlapping row for the same company × item/category × supplier (`EXCLUDE`) | field `422` / `TRADE_AVL_OVERLAP` |
-| TCE-GRD-04 | Scheme active; Σ weights = 100 (checked at scheme save too); ≥ 2 grade bands, strictly decreasing `min_score` | `422 TRADE_WEIGHTS_NOT_100` |
-| TCE-GRD-05 | Period ended (`period_to < today`); no `DRAFT` run open for the same scheme × period | `422` / `409` |
-| TCE-GRD-06 | Customer item ref `APPROVED` only with the customer's approval document attached; the status records the customer's decision, so no internal approval request (FR-545, §5 M2) | `422` on `document` |
+| ID | Predicate | Refusal | Source |
+|---|---|---|---|
+| TCE-GRD-01 | Counterparty has role `SUPPLIER` (supplier profile) / `CUSTOMER` (customer profile); one profile per counterparty × company × side | `422 TRADE_COUNTERPARTY_ROLE_MISSING` / `409` duplicate | FR-541 |
+| TCE-GRD-02 | Udyam number matches the pattern when MSME category is `MICRO`/`SMALL`/`MEDIUM`; payment terms days ≥ 0 | field `422` | FR-542 |
+| TCE-GRD-03 | AVL: `item_id` xor `item_category_id`; `valid_from ≤ valid_to`; no overlapping row for the same company × item/category × supplier (`EXCLUDE`) | field `422` / `TRADE_AVL_OVERLAP` | FR-544 |
+| TCE-GRD-04 | Scheme active; Σ weights = 100 (checked at scheme save too); ≥ 2 grade bands, strictly decreasing `min_score` | `422 TRADE_WEIGHTS_NOT_100` | FR-594 |
+| TCE-GRD-05 | Period ended (`period_to < today`); no `DRAFT` run open for the same scheme × period | `422` / `409` | FR-595 |
+| TCE-GRD-06 | Customer item ref `APPROVED` only with the customer's approval document attached; the status records the customer's decision, so no internal approval request (FR-545, §5 M2) | `422` on `document` | FR-545 |
 
 ### 1.4 Unreachable
 
-| ID | Forbidden | Why |
-|---|---|---|
-| TCE-UNR-01 | Automatic AVL suspension or supplier block from a grade | `FR-596`; advisory task only |
-| TCE-UNR-02 | Editing a published evaluation | immutable; re-run supersedes |
-| TCE-UNR-03 | Credit limit, bank details, payment history on a profile | FRD §11 R1, R4 |
-| TCE-UNR-04 | A second supplier / customer master | `FR-541` |
+| ID | Forbidden | Why | Source |
+|---|---|---|---|
+| TCE-UNR-01 | Automatic AVL suspension or supplier block from a grade | `FR-596`; advisory task only | FR-596 |
+| TCE-UNR-02 | Editing a published evaluation | immutable; re-run supersedes | FR-595 |
+| TCE-UNR-03 | Credit limit, bank details, payment history on a profile | FRD §11 R1, R4 | FR-542 |
+| TCE-UNR-04 | A second supplier / customer master | `FR-541` | FR-541 |
 
 ## 2. T2 — Action × role × state
 
@@ -122,23 +122,23 @@ counterparty; the evaluation stores `excluded_metrics`. A counterparty with no m
 
 ## 3. T3 — Time-driven rules
 
-| ID | Rule | Trigger | Changes | Notified | Job |
-|---|---|---|---|---|---|
-| TCE-T3-01 | Period-end run proposal | first day after period end | a `DRAFT` run per active scheme (computation only; publish stays manual) | trade administrator, `TRADE_EVALUATION_DRAFTED` | `TradeEvaluationJob` monthly |
-| TCE-T3-02 | AVL expiry alert | `valid_to − 30` | none | trade administrator, `TRADE_AVL_EXPIRING` | `TradeContractJob` |
-| TCE-T3-03 | Udyam re-classification reminder | `msme_classified_on` older than 1 year (classification limits change — April 2025 revision) | none | trade administrator, `TRADE_UDYAM_REVIEW` | `TradeEvaluationJob`, yearly pass |
-| TCE-T3-04 | Part approval expiry | customer item ref `valid_to − 30` | none | the customer's sales executives, `TRADE_PART_APPROVAL_EXPIRING` | `TradeContractJob` |
+| ID | Rule | Trigger | Changes | Notified | Job | Source |
+|---|---|---|---|---|---|---|
+| TCE-T3-01 | Period-end run proposal | first day after period end | a `DRAFT` run per active scheme (computation only; publish stays manual) | trade administrator, `TRADE_EVALUATION_DRAFTED` | `TradeEvaluationJob` monthly | FR-595 |
+| TCE-T3-02 | AVL expiry alert | `valid_to − 30` | none | trade administrator, `TRADE_AVL_EXPIRING` | `TradeContractJob` | FR-544 |
+| TCE-T3-03 | Udyam re-classification reminder | `msme_classified_on` older than 1 year (classification limits change — April 2025 revision) | none | trade administrator, `TRADE_UDYAM_REVIEW` | `TradeEvaluationJob`, yearly pass | FR-542 |
+| TCE-T3-04 | Part approval expiry | customer item ref `valid_to − 30` | none | the customer's sales executives, `TRADE_PART_APPROVAL_EXPIRING` | `TradeContractJob` | FR-545 |
 
 ## 4. T4 — Cross-entity effects
 
-| ID | When | Then |
-|---|---|---|
-| TCE-T4-01 | PO submit for a MICRO/SMALL supplier with terms > 45 days | `TPO-GRD-01` requires `msme_acknowledged` |
-| TCE-T4-02 | RFQ invite / award / PO / release / rate contract line | AVL check per FR-544 (`TRA-GRD-02`, `TPO-GRD-01`, `TRC-GRD-04`) |
-| TCE-T4-03 | Run computed | metrics per catalogue from core facts (read-only, FK down) and trade documents; stored numerator / denominator so every score is reproducible |
-| TCE-T4-04 | Quotation / SO line | part approval per FR-545 (`TSQ-GRD-02`, `TSO-GRD-18`) |
-| TCE-T4-05 | Publish with grade ≤ `warehouse.trade.evaluation.review_grade` | a `whb_tasks` row of task type `TRADE_AVL_REVIEW` (seeded by trade) for the trade administrator, linked to the supplier / customer |
-| TCE-T4-06 | Published grade | shown on CS (`TRA-T4-01`), PO header, AVL, customer profile, SO header |
+| ID | When | Then | Source |
+|---|---|---|---|
+| TCE-T4-01 | PO submit for a MICRO/SMALL supplier with terms > 45 days | `TPO-GRD-01` requires `msme_acknowledged` | FR-542 |
+| TCE-T4-02 | RFQ invite / award / PO / release / rate contract line | AVL check per FR-544 (`TRA-GRD-02`, `TPO-GRD-01`, `TRC-GRD-04`) | FR-544 |
+| TCE-T4-03 | Run computed | metrics per catalogue from core facts (read-only, FK down) and trade documents; stored numerator / denominator so every score is reproducible | FR-595, FR-614 |
+| TCE-T4-04 | Quotation / SO line | part approval per FR-545 (`TSQ-GRD-02`, `TSO-GRD-18`) | FR-545 |
+| TCE-T4-05 | Publish with grade ≤ `warehouse.trade.evaluation.review_grade` | a `whb_tasks` row of task type `TRADE_AVL_REVIEW` (seeded by trade) for the trade administrator, linked to the supplier / customer | FR-596 |
+| TCE-T4-06 | Published grade | shown on CS (`TRA-T4-01`), PO header, AVL, customer profile, SO header | FR-597 |
 
 ## 5. T5 — Screen contract
 
@@ -199,6 +199,7 @@ actions View · Edit · New version · Versions.
 |---|---|---|---|
 | 2026-10-22 | all | v0 derived | TRADE author |
 | 2026-10-22 | §0, metric catalogue, `TCE-T1-02`…`-05`, `TCE-GRD-06`, T2, T3, §5 | R29 TP-F10, F11, F26, F27, F28, TS-F29, MA-12: AVL through the engine with reject, profile `:approve`, part-approval refusal recorded, OTIF over FIXED and released lines, sales firm zone named, notifications, every screen specified | R29 |
+| 2026-10-23 | every T1, guard, unreachable, T3 and T4 row | `Source` column added, filled from FRD-TRADE §4, so every rule traces to the FR it proves | R30 `CP-FR-008` |
 
 ## 8. Invariants and scenarios
 

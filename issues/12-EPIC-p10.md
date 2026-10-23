@@ -48,6 +48,7 @@ close.** Run in order on a clean database:
 8. **`WH-SC-645` → `WH-SC-647` → `WH-SC-648`** — subcontract dispatch, processed-item receipt, reconciliation (`WH-SC-646`/`647` again with india on).
 9. **`WH-SC-650` → `WH-SC-654` → `WH-SC-655` → `WH-SC-656` → `WH-SC-658`** — MRP run, MAKE conversion, BUY with trade on and off, concurrency.
 10. **`WH-SC-659`** — capacity load; and an AUDITOR reads every MFG screen and exports nothing.
+11. India on: **`WH-SC-680` → `WH-SC-682` → `WH-SC-683` → `WH-SC-686` → `WH-SC-687`** — MOOWR stock issued to the order, output received in bond with scrap as a bonded loss, bonded job work under permission, the MOOWR return, and a non-production exit still refused (`p10-14`, `D-17` item 3).
 
 ## The invariants and properties this phase establishes
 
@@ -92,6 +93,7 @@ That command is the authority; re-run it after any header change.
 | `V560030` · `V561030` | production orders, components, outputs, operations, events · permissions, leaf | p10-05 |
 | `V560040` · `V561040` | staging lists + lines, component substitutions · permissions, leaf | p10-06 |
 | `V560050` · `V561050` | production receipts, outputs (+ serials), consumptions, reversals · permissions, leaves | p10-07 |
+| **`V540193`** · **`V541161`** (`warehouse-india`) | Legal Metrology declarations, MRP revisions + grids · permissions, leaf (R30 `CP-GA-006`) | p10-07 |
 | `V560060` · `V561060` | operation confirmations · permissions, leaf | p10-08 |
 | `V560070` · `V561070` | settlements + lines · permissions, leaf | p10-09 |
 | `V560080` · `V561080` | subcontract dispatches + lines, reconciliations, reconciliation actions (recall / write-off) · permissions, leaf | p10-10 |
@@ -99,10 +101,14 @@ That command is the authority; re-run it after any header change.
 | `V560090` · `V561090` | item planning parameters, demand plans + lines · permissions, leaves | p10-11 |
 | `V560100` · `V561100` | MRP runs, proposals, pegging, exceptions · permissions, leaves | p10-12 |
 | `V561110` | report grids (capacity load, registers) — no table · permissions, leaves | p10-13 |
+| `V560120` | `whm_production_orders.bonded_duty_status`, `whm_subcontract_dispatches.bond_permission_ref` | p10-14 |
+| **`V540191`** · **`V540192`** · **`V541160`** (`warehouse-india`) | bond rules registry + bond register of operations + grid · MOOWR returns + lines, SEZ movements · permissions, leaves, compliance rule (`D-17` item 3) | p10-14 |
 
 **Collision check (2026-10-22):** no `V56xxxx` file exists in `classic/warehouse*/backend` and no other
 `issues/*.md` claims a version in `V560000–V569999`. The india seam is **`V540190`** (free in code and in
 every issue; `V540150` is `p4-06`'s approval dispatches) — FRD-MFG §3 and SEAM-M5 carry it (MD-28).
+**Re-checked 2026-10-23** for `p10-14`: `V540191`, `V540192`, `V541160` and `V560120` are in no file in `classic`
+and claimed by no other issue (the last india files are `V540184` and `V541159`). Same check for `p10-07`'s `V540193` and `V541161`: free.
 
 ## Tasks
 
@@ -123,9 +129,10 @@ __TASKS__
 | [`p10-11`](p10-11.md) | Planning masters — item planning parameters, demand plans | p10-03 |
 | [`p10-12`](p10-12.md) | MRP — run, netting, lot sizing, proposals, pegging, conversion, exceptions | p10-05, p10-11, `p8-01`, `p8-02`, `p8-16`, `p9-04` (runtime) |
 | [`p10-13`](p10-13.md) | Capacity load and manufacturing registers | p10-04, p10-09, p10-12 |
+| [`p10-14`](p10-14.md) | Bonded / MOOWR stock to production and to a job worker — bond rules, bond register, output in bond, MOOWR return, SEZ lines (`D-17` item 3) | p10-06, p10-07, p10-10, india `p4-07` |
 
 Parallel lanes after p10-04: {p10-05 → p10-06 → p10-07 → {p10-08 → p10-09 → p10-10}}, {p10-11}; p10-12
-joins after p10-05 and p10-11; p10-13 last. Shared-registry edits (`filterUtils.ts`,
+joins after p10-05 and p10-11; p10-13 last; p10-14 after p10-10 (parallel with p10-11…p10-13). Shared-registry edits (`filterUtils.ts`,
 `CacheConfiguration.java`, `WarehouseManufacturingSafeTranslation.tsx`, i18n) serialize at the barrier.
 
 ## Dependencies outside the phase
@@ -191,9 +198,9 @@ confirm the PO-line reference). Each has an adopted default (FRD-MFG §11). Also
 Per __MASTER__, with these phase-specific additions:
 
 - [ ] Every task merged with reviewer + functional-reviewer clean against its contract rows
-- [ ] The exit criterion's ten steps pass in order on a clean database (and steps 8–9 again with india and trade on)
-- [ ] FRD-MFG §13 traceability: every FR-620…FR-669 closed by a merged task; every WH-SC-600…659 cited in a test name
-- [ ] The eight `mfg-*` contracts exist and every row is implemented or refused
-- [ ] `OD-40`…`OD-44` resolved or their defaults ratified in `DECISIONS.md` by SPINE; MD-14…MD-41 (FRD-MFG §9) honoured by every task
+- [ ] The exit criterion's eleven steps pass in order on a clean database (and steps 8–9 again with india and trade on)
+- [ ] FRD-MFG §13 traceability: every FR-620…FR-677 closed by a merged task; every WH-SC-600…659 and WH-SC-680…699 cited in a test name
+- [ ] The nine `mfg-*` contracts (with `mfg-bonded-issue`) exist and every row is implemented or refused
+- [ ] `OD-40`…`OD-44` resolved or their defaults ratified in `DECISIONS.md` by SPINE; MD-14…MD-43 (FRD-MFG §9) honoured by every task
 - [ ] Every port call matches the FRD-STORES "Port & seam registry (authoritative)"; FRD-MFG "R29 dispositions" rows all closed
 - [ ] No mobile; no accounting posting

@@ -26,7 +26,7 @@
 |---|---|
 | **Workflow** | Order `PLANNED → RELEASED → IN_PROGRESS → COMPLETED → CLOSED`; `CANCELLED`; unrelease; reopen; hold flag; MTO link; traveller; events; capacity load and registers |
 | **Module** | `warehouse-manufacturing` (`whm_`); calls `WhbReservationService` (create/release/`releaseByHolder`), `WhbDocumentNumberIssuer.resolveSiteSeries` (`PRD-`), `WhDemandOrderPort` read (`p8-02`), `WarehousePrintDataProvider` (`PRODUCTION_ORDER_TRAVELLER`) |
-| **Domain baseline** | FRD-MFG §3.1 registries, §4 order tables, §5 ladder, `MD-02`, `MD-12`; `DECISIONS.md` `L-6` (allocatable), `L-10` (reservation holder quad), `L-14` (non-own never valued); `RJ-005` (one verb per transition) |
+| **Domain baseline** | FRD-MFG §3.1 registries, §4 order tables, §5 ladder, `MD-02`, `MD-12`, `MD-38` (MFG ships in v1.1 with the P8 seams); `DECISIONS.md` `L-6` (allocatable), `L-10` (reservation holder quad), `L-14` (non-own never valued); `RJ-005` (one verb per transition) |
 | **Owning task bodies** | `p10-05` (`V560030` · `V561030`) · `p10-13` (`V561110` report grids). Depends on `p10-02`, `p10-03`, `p8-02` |
 | **Primary tables** | `whm_production_orders`, `whm_production_order_components`, `_outputs`, `_operations`, `_events` |
 | **Status columns** | `whm_production_orders.status` (`PLANNED`/`RELEASED`/`IN_PROGRESS`/`COMPLETED`/`CLOSED`/`CANCELLED`) + flag `is_on_hold`; component `line_status`, operation `status` derived on write — **no `CHECK`** (`D-10`) |
@@ -123,7 +123,7 @@ Every transition appends one `whm_production_order_events` row (`event_type`, `f
 | PRO-GRD-18 | Same company: item, BOM, locations, counterparty belong to the order's company | `422 COMPANY_MISMATCH` · the field | — | — | `MPR-GRD-08` (same rule) |
 | PRO-GRD-19 | Demand line: exists via `WhDemandOrderPort`, open (not cancelled/fulfilled), same site, same item; Σ live orders' planned for that line ≤ its open quantity (warn above) | `422 DEMAND_LINE_INVALID` *(proposed)* · `demandSourceLineId` | names SO/line state | — | FR-637 |
 | PRO-GRD-20 | `priority ∈ 1..5` | `422` · `priority` | — | CHECK | FR-632 |
-| PRO-GRD-21 | Concurrency: release / unrelease / cancel / complete / close lock the order row (`FOR UPDATE`) and check `version` | `409 CONCURRENT_MODIFICATION` · banner | — | `@Version` | — |
+| PRO-GRD-21 | Concurrency: release / unrelease / cancel / complete / close lock the order row (`FOR UPDATE`) and check `version` | `409 CONCURRENT_MODIFICATION` · banner | — | `@Version` | FR-620 (concurrency clause, R30 `CP-FR-009`) |
 | PRO-GRD-22 | Record scope: the order's site is in the user's allowed warehouses | `404` | — | `WHERE` in every query | `D-14` |
 | PRO-GRD-23 | Edit / Re-explode while the release is pending approval (`PLANNED`, `released_at` set, `release_approved_at` null) is refused — the approver must approve the request as made; reject it first (R29 F22) | `409 RELEASE_PENDING_APPROVAL` *(proposed)* · banner | names the requester and `released_at` | — | FR-634, FR-635 |
 

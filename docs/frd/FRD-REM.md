@@ -77,6 +77,8 @@ Applied as defaults. The user confirms them at the final review. Each one closes
 | **REM-D17** | Historical artefacts stay untouched: `.claude/tasks/reports/warehouse-p5-*` (49 files), `.claude/.reviewer/codex/*`, `ci-gate/results/**` (untracked). The batch drivers `BATCH-WAREHOUSE-*.md` get a superseded note only | They are evidence of past runs, not instructions |
 | **REM-D18** | **"Rebuild once" is measured, not assumed.** `P7-13` first counts warehouse rows in `flyway_schema_history`. Where the count is 0 (the git dev stack on 2026-10-22), enabling the modules applies the clean set and no volume is dropped. Where it is non-zero, the volume is dropped and rebuilt, **after the user's explicit go**. Fresh-install proofs run on a disposable side stack | Dropping a volume destroys platform data too. That cost is worth paying only where warehouse state actually exists. Flyway repair is never a substitute, because it leaves removed DDL in place |
 | **REM-D19** | **Two named grep-gate exceptions, and nothing else** (`R29` F6). (1) `WB/V500200__Allow_warehouse_in_platform_module_check_constraints.sql:75` keeps `'ACCESSORIES'`: it is the **platform module list** behind a global-settings CHECK, naming the accessories *module*, not the removed source system; GATE-3 excludes this one file. (2) `WarehouseBaseCouplingTest.java` keeps the reserved-band ratchet (`REM-D3`), whose fixtures name `warehouse-adapter-dealer`/`-services` bands and `whad_` tables; GATE-6 already excludes this one file, and its `ACCESSORIES` fixtures leave with `ReservedAccessoriesRule` in `P7-10`. The kept carrier-account `payment_mode` (`REM-D12`) needs **no** exception: GATE-3 is anchored to the demand-order and wave tokens instead of the bare word | A gate that cannot pass without editing a fenced or generic file is a broken gate, not a licence for a silent allowlist. Each exception is one file, named here with its reason |
+| **REM-D20** | **Drop-ship stays in core, as B2B direct ship** (R30 `CP-GA-009`). `WhDropShipService`, `WhDropShipController`, `WhDropShipGuard` and the drop-ship wiring in `WhGoodsReceiptPostingService` / `WhDemandOrderService` (`OD-18`: demand line + GRN ceiling linked) are generic: a supplier ships straight to a manufacturer's customer. No `P7` task removes them; `INSTALL.md` keeps them gated off as v2. A trade sales order that needs direct ship uses this seam (`P9-09` decides whether it does). Default, for the user's confirmation at the final review |
+| **REM-D21** | **The L1 menu name `warehouse_trade` is retired with the Trade Portal and never reused** (R30 `CP-SC-002`). Re-using it would bring back favourites, visit history and role grants stored against the old key and would fail `WH-SC-662`. `P7-08` deletes the L1/L2 rows and, in the same migration, every `menu_permissions`, role-menu, favourite and visit-history row that names them; a later module chooses a new key (`warehouse-trade` → e.g. `warehouse_purchase_sales`, owned by `P9-01` / `FRD-TRADE` `TRD-07`) |
 
 ## 3. Open decisions (OD)
 
@@ -126,7 +128,7 @@ Run against the rebuilt dev DB (`P7-13`) unless the row says otherwise. `psql` m
 |---|---|---|---|---|---|---|---|---|
 | **WH-SC-660** | Empty postgres volume; `ENABLE_WAREHOUSE_BASE/WAREHOUSE/3PL/INDIA=true`; image rebuilt from the `P7` tree | the backend boots | Flyway applies every warehouse version with no failure and no `FLYWAY_REPAIR_APPLIED` log line; `to_regclass` is NULL for every table in Appendix D.1 (24 tables) | `FR-498` | — | all | v1·P7 | happy |
 | **WH-SC-661** | the install of 660 | `SELECT count(*) FROM permissions WHERE name ~ '^(wh_(awb_pools|shipment_ndrs|cod_remittances|channel_accounts|channel_order_imports|channel_publish_rules|tracking_links|marketplace_claims|rto_consignments|carrier_serviceability|rate_quotes|obsolescence_returns|trade_portal|trade_portal_users|rpt_coexistence|rpt_consolidated_valuation|rpt_parts_kpis)|whb_(category_stocking_ownership|external_stock_snapshots)):'` | **0**, and `roles` has no `Warehouse Trade Customer` | `FR-480`…`FR-492` `FR-497` | — | app | v1·P7 | happy |
-| **WH-SC-662** | the install of 660 | query `menus` for the 17 removed `route_path`s (Appendix D.3) and the names `warehouse_channels` at L1, `warehouse_channels_fulfilment`, `warehouse_channels_carriers`, `warehouse_trade`, `warehouse_trade_customers` | **0 rows**. `warehouse_channels` exists **once, at L3** (the Channels master). Cross-dock Plans, Working Calendars, Tracking Events and Carrier Status Mappings each exist once with their old route and prefix, under `warehouse_shipping_planning` (4 children) in L1 `warehouse_shipping` | `FR-488` `FR-495` | — | app | v1·P7 | happy |
+| **WH-SC-662** | the install of 660 — the `P7` exit install, before any `P9` migration runs (R30 `CP-SC-002`: the name check below is a `P7`-exit assertion; the route check holds on every later install) | query `menus` for the 17 removed `route_path`s (Appendix D.3) and the names `warehouse_channels` at L1, `warehouse_channels_fulfilment`, `warehouse_channels_carriers`, `warehouse_trade`, `warehouse_trade_customers` | **0 rows**. `warehouse_channels` exists **once, at L3** (the Channels master). Cross-dock Plans, Working Calendars, Tracking Events and Carrier Status Mappings each exist once with their old route and prefix, under `warehouse_shipping_planning` (4 children) in L1 `warehouse_shipping` | `FR-488` `FR-495` | — | app | v1·P7 | happy |
 | **WH-SC-663** | the install of 660 | `SELECT grid_identifier FROM grid_preferences` ∪ `grid_column_definitions` ∪ `filter_definitions` for the 18 removed grid ids (Appendix D.4) | 0 rows each; `wh_rpt_stock_kpis` has 9 columns and 7 filters; no `wh_rpt_parts_kpis` row | `FR-497` | — | app | v1·P7 | happy |
 | **WH-SC-664** | the install of 660 | query `whb_source_systems`, `whb_document_types`, `whb_code_list_values` (`RETURN_TYPE`, `CHANNEL_KIND`, `IDENTIFIER_TYPE`, `WAREHOUSE_TYPE`), `whb_reason_codes`, `whb_movement_types`, `whb_event_types`, `whb_attribute_keys`, `whb_number_series`, `admin_settings` for the Appendix D.5 codes | none present; `CHANNEL_KIND` = `{B2B}`; `RETURN_TYPE` count = 8; `IDENTIFIER_TYPE` has `MANUFACTURER_PART_NUMBER`, not `OEM_PART_NUMBER`; `WAREHOUSE_TYPE` has `PRODUCTION_STORE`, not `WORKSHOP`; no reason with context `RTO`, `NDR` or `AWB_VOID` | `FR-494` `FR-496` | `I-18` | base | v1·P7 | happy |
 | **WH-SC-665** | the install of 660 | `\d wh_demand_orders`, `\d wh_carriers`, `\d wh_carrier_services`, `\d whb_item_categories` | no `payment_mode`, `cod_amount`, `channel_account_id`; no `ndr_response_hours`, `ndr_auto_rto_grace_hours`, `cod_remittance_days`; no `supports_cod` (`OD-22` default); no `is_dual_eligible`; `channel_id` with `fk_wh_demand_orders_channel` **present** | `FR-483` `FR-484` `FR-492` `FR-495` | — | app · base | v1·P7 | happy |
@@ -463,6 +465,31 @@ Frontend total: **140** files.
 
 ---
 
+### A.4 Kept files edited for residue (R30 `CP-CODE-*`, file:line in `classic` @ `65b41be8a6`)
+
+Kept files, not deletes. Each line is mandatory in its task; a `P7-13` gate failure on one is fixed in the task named here (`§6`). Re-read the line before editing (numbers drift by 1–10).
+
+| R30 | File:line | Edit | Task |
+|---|---|---|---|
+| `CP-CODE-001` BLOCKER | `LGX/V910031__logix_wh_outbound.sql:37-46` | drop `supports_cod` from the `wh_carrier_services` column list and `v.cod` from every value row (fresh logix install fails otherwise) | `P7-03` |
+| `CP-CODE-002` | `WB/V500001:51` · `WB/V500002:41` · `W/V510101:319` · `IN/V540000:33` · `IN/V541000:165` | reword the adapter / Parts Counter / Workshop Parts comments (GATE-6) | `P7-10` |
+| `CP-CODE-003` | `warehouseBase.json:7878` `help.sourceSystems.overview` (en, fr, hi) + `warehouseBaseHelp.ts:2898` fallback | describe the post-`P7` source systems (no dealer, services, field-service or assets adapter rows) | `P7-10` |
+| `CP-CODE-003` | `warehouse-base/frontend/src/__tests__/warehouseMobileDecisionGate.test.ts:773,800,813` (GATE 3 fixtures; `:813` is the anti-false-positive case) and `:781-783` (pins `INSTALL.md` §16) | update the fixtures with the new wording; co-edit the §16 pin with `P7-12` | `P7-10`, `P7-12` |
+| `CP-CODE-004` | `warehouseBase.json` `outboxEvent.eventTypeByCode.channel` (nested, en/fr/hi) | delete the subtree; `jq` proof in acceptance | `P7-04` |
+| `CP-CODE-005` | `warehouseBase.json` `reasonCode.byCode.{CUSTOMER_REFUSED,ADDRESS_INCOMPLETE,PREMISES_CLOSED,COD_NOT_READY,FUTURE_DELIVERY_REQUESTED,CARRIER_REPORTED}` | delete (seeded only by deleted `W/V510206`) | `P7-03` |
+| `CP-CODE-005` | `warehouseBase.json` `reasonCode.byCode.CARRIER_REJECTED` | delete (seeded only by deleted `W/V510205`) | `P7-02` |
+| `CP-CODE-006` | `warehouse/frontend/src/types/whCarrierService.ts:19,35,44,52` (incl. `supportsCodCount`) · `components/whCarrierService/WhCarrierServiceFilter.tsx:26,126,128` · i18n `carrierService.statistics.supportsCod` · `W/V510044:417` comment · `help.carrierServices.{flow1,flow2,purposeDescription}` COD prose | drop the field / filter / label; reword the prose | `P7-03` |
+| `CP-CODE-007` | `shipment.hints.trackingEvents`, `help.shipmentDetail.{flow3,rule3}`, `help.carriers.{flow2,rule3}` (tracking link) · `WhShipmentTrackingEventRepositoryCustom:59` (NDR) · `WhWorkingCalendarService:43,248` (NDR response clock) | reword | `P7-03` |
+| `CP-CODE-007` | `WhOrderEditRuleValidationService:50,82` ("the answer is a return or an RTO" — user-facing) · `rma.placeholders.externalRef` (marketplace) · `WhEvidencePhotoStore:22` · `W/V511294:26` · 3PL `Wh3plBillableEventVocabulary:15` | reword ("the answer is a return") | `P7-05` |
+| `CP-CODE-007` | `help.supplierClaims.flow1`, `supplierClaim.hints.headerExplainer` (obsolescence return) | reword | `P7-07` |
+| `CP-CODE-007` | `WhbItemIdentifier:88` ("Set for a marketplace listing") | reword | `P7-10` |
+| `CP-CODE-008` | `WarehouseBaseModuleConfig:28-29` javadoc · `WarehousePrintDataProvider:12` · `WhPrintRenderer:27` · `WhHoldQueryService:284` · `whHold.ts:15` · `WhHold.java:35` (cites `dealer/V20735`) · `WhbCompanyOptionResponse:11` · `WhbItemSiteSetting:27` · `WB/V500048:57` · `W/V510090:493` · `WarehouseDocumentDisplayRegistryTest:87-155` (`dealerSalesOrderResolver` / `PDI_JOB` fixtures → a neutral resolver name) | reword the dealer persona / adapter residue | `P7-10` |
+| `CP-CODE-008` | `NonFunctionalFoundationsTest:169` + `warehouse-base/INSTALL.md:2177` ("20,000 ledger rows per day (dealer parts department)") | change together to the `FR-534` envelope wording (no dealer sizing row) | `P7-10` (test), `P7-12` (INSTALL) |
+| `CP-CODE-009` | `BATCH-WAREHOUSE-{P1,P4,P6}.md`, `WAVE-STATE-WAREHOUSE-P4.md` (one removed-feature hit each) · `shared/scripts/ci-gate/20-warehouse.def:792-794` (comment for the deleted `WhbOwnerScopeResolverCustomerPersonaTest`) | superseded note / prune | `P7-12` |
+| `CP-GA-010` | `W/V510040` `wh_demand_order_lines.original_item_id` + `WhDemandOrderLine.java:135-136` + the read in `WhDemandOrderRepositoryCustomImpl:132` | drop the column in the clean rewrite (`RN-052`); it has no writer since the dealer counter is gone | `P7-04` |
+
+**User decisions, not edits (R30):** `CP-CODE-010` (the logix outbound demo stays a D2C dataset — rename the `d2c` flag to a neutral *parcel* flag, or re-seed it as B2B distributor orders; a re-seed is new scope) and `CP-CODE-011` (base item types `CORE`, `TYRE` and demand type `JOB_ISSUE` — default **keep all three**, optionally reword `CORE`'s description; a removal would be `P7-10`). Both are in `RETARGET-PROGRAM-STATUS.md` pending items.
+
 ## Appendix B — migrations
 
 `WB` = `warehouse-base/backend/src/main/resources/db/migration`, `W` = `warehouse/…`, `IN` = `warehouse-india/…`, `LGX` = `platform/backend/src/main/resources/db/client/logix`.
@@ -536,12 +563,12 @@ Line numbers are at `65b41be8a6`. **Re-read each file immediately before editing
 | `W/V510011` + `W/V510021` | `chk_wh_purchase_orders_order_source` `'VOR'` → `'LINE_STOP'` (`:127-128`); assertion `V510021:89-104` | `P7-11` |
 | `WB/V500012` | `:199` `WORKSHOP` → `PRODUCTION_STORE`, name `Production store / shop floor`; guard `:212` | `P7-11` |
 | `W/V511211` + `W/V511241` | `wh_rpt_parts_kpis` → `wh_rpt_stock_kpis` everywhere (perms `:121-124`, grants, leaf `:268-270` → `warehouse_stock_kpis` `/dashboard/warehouse/reports/stock-kpis`, translations `:301-303` → *Stock KPIs* / *Indicateurs de stock* / *स्टॉक केपीआई*, IN-lists, grid `:402-406,513-521,627-633`, verification `:658-664`, description `:235`; `V511241:56,83`) | `P7-11` |
-| Comment-only (optional, in the owning task) | `W/V510043:213`, `V510105:378-380`, `V510202:21,196`, `V511265:47`, `V511303:28`, `IN/V540010:433`, `WB/V501110:134`, `WB/V500051:27`, `WB/V500017:49` | each |
-| `LGX/V910031` | `:24-34` drop `ndr_response_hours`, `ndr_auto_rto_grace_hours`, `cod_remittance_days` (FAILS, `P7-03`); `:433,448-449` `payment_mode`/`cod_amount` (`P7-04`) | `P7-03`, `P7-04` |
+| Comment-only (optional, in the owning task) | `W/V510043:213`, `V510105:378-380`, `V510202:21,196`, `V511265:47`, `V511303:28`, `IN/V540010:433`, `WB/V501110:134`, `WB/V500051:27`, `WB/V500017:49`; **R30 `CP-CODE-002` (GATE-6 hits, mandatory, `P7-10`):** `WB/V500001:51`, `WB/V500002:41`, `W/V510101:319`, `IN/V540000:33`, `IN/V541000:165` | each; the R30 five → `P7-10` |
+| `LGX/V910031` | `:24-34` drop `ndr_response_hours`, `ndr_auto_rto_grace_hours`, `cod_remittance_days` (FAILS, `P7-03`); **`:37-46` `INSERT INTO wh_carrier_services (…, supports_cod, …)` — drop the `supports_cod` column from the column list and the `v.cod` value from every `VALUES` row (FAILS, `P7-03`, R30 `CP-CODE-001`)**; `:433,448-449` `payment_mode`/`cod_amount` (`P7-04`) | `P7-03`, `P7-04` |
 | `LGX/V910032`, `LGX/V910033` | `:96`, `:306` `payment_mode` | `P7-04` |
 | `LGX/V910021` | `:139` `COD` series (`P7-03`), `:141` `OBR` series (`P7-07`) | `P7-03`, `P7-07` |
 
-**Fresh-install hazards that must be fixed in the same task as their cause:** `V511248:298`, `V511268:304`, `V511268:371`, `V500010:811`, `V510050:945`, `V500002:461` (9 → 4), `V500002:464` (13 → 11), `V500002:468-470`, `V500003:429` (18 → 17), `V500003:432` (18 → 17), `V500004:342` (11 → 9) (`R29` F4), `V511273:194-202` (`P7-02`) and `V511271:214-223` (`P7-03`, `P7-04`) (`R29` F1), `V510216:403-459` and `:809-827`, `V511275:97-150`, `V511306`, `V511308`, `V511272:58-60`, `V511273:167-176`, `LGX/V910031:24-34`.
+**Fresh-install hazards that must be fixed in the same task as their cause:** `V511248:298`, `V511268:304`, `V511268:371`, `V500010:811`, `V510050:945`, `V500002:461` (9 → 4), `V500002:464` (13 → 11), `V500002:468-470`, `V500003:429` (18 → 17), `V500003:432` (18 → 17), `V500004:342` (11 → 9) (`R29` F4), `V511273:194-202` (`P7-02`) and `V511271:214-223` (`P7-03`, `P7-04`) (`R29` F1), `V510216:403-459` and `:809-827`, `V511275:97-150`, `V511306`, `V511308`, `V511272:58-60`, `V511273:167-176`, `LGX/V910031:24-34`, `LGX/V910031:37-46` (`supports_cod`, `P7-03`, R30 `CP-CODE-001`).
 
 ## Appendix C — seams in kept code
 
@@ -650,15 +677,18 @@ That is 17 leaves. Containers: L1 `warehouse_channels`, L2 `warehouse_channels_f
   - `disposition.returnTypeByCode.{RTO,MARKETPLACE}`
   - `channel.channelKindByCode.{MARKETPLACE,OWN_STORE,POS}`
   - `reasonCode.byCode.NDR_*` (5)
+  - `reasonCode.byCode.{CUSTOMER_REFUSED,ADDRESS_INCOMPLETE,PREMISES_CLOSED,COD_NOT_READY,FUTURE_DELIVERY_REQUESTED,CARRIER_REPORTED}` — seeded only by `W/V510206` (`P7-03`, R30 `CP-CODE-005`)
+  - `reasonCode.byCode.CARRIER_REJECTED` — seeded only by `W/V510205` (`P7-02`, R30 `CP-CODE-005`). `SHIPMENT_CANCELLED`, `CARRIER_CHANGED` and `LABEL_DAMAGED` are also seeded by kept `W/V510103` / `V510060` and **stay**
   - `reasonCode.byCode.CARRIER_INITIATED` (`:477`; `P7-03`, with `V511276`, `R29` F11)
   - `movementType.byCode.RTO_RECEIPT*` (2)
-  - `outboxEvent.eventTypeByCode["channel.inventory.published"]`
+  - the **nested** subtree `outboxEvent.eventTypeByCode.channel` (it holds only `inventory.published`; R30 `CP-CODE-004` — the key is nested, not the flat `["channel.inventory.published"]` this list once named, so a flat delete is a no-op). Proof: `jq -e '.outboxEvent.eventTypeByCode | has("channel") | not'` on en/fr/hi (`P7-04`)
   - the `isDualEligible` keys
   - text edits: `itemExternalRef.hints.sourceModule`, `help.itemExternalRefs.overview`, `help.channels.*`
 - `warehouse.json`:
   - `returnReceipt.returnTypes.{MARKETPLACE,RTO}`
   - `supplierClaim.claimTypes.OBSOLESCENCE`, `supplierClaim.sourceDocumentTypes.OBSOLESCENCE_RETURN`
   - 8 carrier clock keys
+  - `carrierService.statistics.supportsCod` and the COD prose in `help.carrierServices.{flow1,flow2,purposeDescription}` (`P7-03`, R30 `CP-CODE-006`)
   - `trackingEvent.statistics.ndr`
   - `demandOrder.fields.{paymentMode,codAmount}`, `demandOrder.paymentModes.*`, and the wave-criterion label `PAYMENT_MODE` (`:5219`) (`P7-04`, `R29` F11)
   - `carrierStatusMapping`/`trackingEvent` `normalisedStatuses.{NDR,RTO_*}` (8)
@@ -734,3 +764,24 @@ Review [`R29-functional-review-rem.md`](../reviews/R29-functional-review-rem.md)
 | **F17** MINOR | `P8-02` states that `(channel_id, external_order_ref)` uniqueness does not come back. Port dedup is the `(source_module, idempotency_key)` uk plus a partial unique index on the source document. `P7-04`'s trap points to it | `issues/p8-02.md` Rules (one line); `P7-04` traps |
 
 **For the user (not edited, needs approval):** `CLAUDE.md` still lists the non-existent `WarehouseAdapterDealerSafeTranslation.tsx` in its SafeTranslation files line (Appendix F, §7).
+
+## R30 dispositions
+
+R30 completeness audit (2026-10-23, `reviews/R30-completeness-{github-a,github-b,requirements,screens,code}.md`; decisions `DECISIONS.md` `D-17`). Items whose carrier is a `P7` task or this file:
+
+| Finding | What changed | Where |
+|---|---|---|
+| `CP-CODE-001` BLOCKER | `LGX/V910031:37-46` `supports_cod` named in B.2, the hazard list and A.4 | `P7-03` |
+| `CP-CODE-002`…`-009` | every kept-file line named with its task | Appendix A.4, B.2 comment-only row, Appendix E; `P7-02`/`-03`/`-04`/`-05`/`-07`/`-10`/`-12` acceptance |
+| `CP-CODE-010`, `-011`, `-013` | user decisions, recorded | A.4 footer; status file |
+| `CP-GA-001` | `P7-12` puts the superseded note on `BATCH-WAREHOUSE-P6.md` too and marks `P6-02`/`P6-11`/`P6-12` VOID there; `INSTALL.md:1638` | `P7-12` |
+| `CP-GA-002`, `CP-GA-014`, `CP-GA-015`, `CP-GB-014` | D-16 / D-17 headers added to the task and finding files; `--sync` and `CREATED.md` regeneration before the P7 batch | `P7-12` acceptance; `issues/p0-13`, `p2-10`, `p2-15`, `p6-02`, `p6-12`, `finding-w59`, `finding-w63` |
+| `CP-GA-009` | drop-ship stays core | `REM-D20` |
+| `CP-GA-010` | `original_item_id` dropped | A.4; `P7-04` |
+| `CP-GA-011` | `INSTALL.md` §16 offer boundary amended for `P10` planning / routings; `P6-02` VOID | `P7-12` |
+| `CP-GA-012` | `MPR-OPEN-18` narrowed in the clean rewrite | `P7-13` |
+| `CP-GB-009` | the dated live FIFO check re-created after the rebuild | `P7-13` |
+| `CP-GB-015` | dependency lines | `P7-02`, `P7-08` |
+| `CP-FR-014` | `REM-D19` exceptions named in `P7-13`; `REM-D8` cited by every removing task; `REM-D18` cited | `P7-03`/`-05`/`-07`/`-09`/`-11`/`-13` |
+| `CP-SC-002` (P7 side) | `WH-SC-662` scoped to the P7-exit install; the key is retired | `REM-D21`; `P7-08` |
+| `CP-SC-004`, `-007`, `-008` | `BUILD-SPEC-SCREENS.md` index, routes and §0.8 corrected in the design set; `P7-13` re-checks | `BUILD-SPEC-SCREENS.md`; `P7-13` |

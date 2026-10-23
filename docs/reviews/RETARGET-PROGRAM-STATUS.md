@@ -1,6 +1,6 @@
 # Re-target program (D-16) — status and remaining steps
 
-**Read this first when resuming.** Updated 2026-10-22. All work happens on `main` only (user rule).
+**Read this first when resuming.** Updated 2026-10-23 (R30 fix wave 1). All work happens on `main` only (user rule).
 
 ## Done
 1. R27 (client purchase-to-stores gap) and R28 (re-target impact, decisions `RN-050`…`RN-054`, plan §8c) recorded.
@@ -24,7 +24,7 @@
 ## Remaining (in order)
 1. **Core changes trade needs (CN-1…CN-7) — done 2026-10-22.** STORES made CN-1…CN-5 and adopted CN-6 (`STO-D19`) and CN-7 (`STO-D20`); the FRD-STORES port registry and `po-schedule-port` carry them.
    - **Trade alignment — done 2026-10-22.** FRD-TRADE §12a/§12c, `TRD-13`, R29 rows TP-F6/F14/F24, TS-F1; contracts `TPO-T4-01`/`-02`/`-09`, `TSO-T4-01`, `TOA-T4-02`, `TPO-OPEN-01`, `TSO-OPEN-01`; `p9-01` (seeds trade's service principal), `p9-07`, `p9-09`, `p9-10`, `p9-11`, `11-EPIC-p9`. Create carries tolerances, receiving location and ship-to; amend uses `newScheduleLines`; release cancel uses `unfirmScheduleLine`; whole-line release uses `firm(…, unitPrice)`; jobs call as the service principal. FRD-STORES OD-45 row updated. DATA-MODEL: rows for the three other `V510105` tables (`wh_order_edit_rule_actions`, `wh_order_amendments`, `wh_order_amendment_actions`), 475 → 478. Checker: 0 violations.
-   - **Open for STORES:** the trade amendment change type `TOLERANCE` (PO line over/under tolerance) has no field on core `amendOrder` `lineChanges`, so an amended tolerance stays trade-side and core's receipt guard keeps the create-time value.
+   - ~~**Open for STORES:** the trade amendment change type `TOLERANCE` has no field on core `amendOrder` `lineChanges`.~~ **Resolved 2026-10-23** (R30 `CP-GB-002`): `CN-8` / `STO-D25` — `lineChanges[]` carries `overTolerancePct?` / `underTolerancePct?` (FRD-STORES port registry R.2, `POS-T1-07`, `POS-GRD-15`, `p8-01`, `TOA-T4-02`, `p9-11`); the SO mirror pushes nothing by design (`TSO-T3-03`).
 2. **SPINE integration — done 2026-10-22.** DATA-MODEL: P8 numbers renumbered (`V511310`…`V511323`, `V501230`…`V501235`); rows, §7 allocation, §8.1 inventory and §8.4 versions for `wh_port_operations`, `wht_price_list_categories`, `wht_rate_contract_amendment_changes`, the five `wht_so_*` mirror tables, `whm_staging_list_line_postings`, `whm_subcontract_reconciliation_actions`, `wh_fulfilment_policies` and five tables the P5 tasks built (`wh_recall_lots`, `wh_nrv_assessment_lines`, `wh_cogs_recognitions`, `wh_cogs_recognition_policies`, `wh3_billing_run_exclusions`): 459 → 475. IMPLEMENTATION-PLAN §2: renumbered; FR-654/655 → P10-07; FR-483 stays P7-03; P2-15 declares `warehouse-base` for `V500039`. DECISIONS: OD-45 (A) registered in §3.6 (still on the user's ratify list below); R27/R28/R29 in §6. Task exemptions the additions made unnecessary removed (p9-01, p9-06, p10-01, p10-06, p10-10). `FRD-TRADE` + trade contracts: `whb_uom_conversions` → `whb_item_uom_conversions`. The FRD-STORES OD-45 row was updated in the trade alignment (item 1).
 3. **Checker to 0 repo-wide — done 2026-10-22** (69 → 0; 32 stale declarations removed). `V510105` also built `wh_order_edit_rule_actions`, `wh_order_amendments`, `wh_order_amendment_actions`, — added to DATA-MODEL in the trade alignment (item 1).
 4. **Second dual-engine functional review** of the changed areas, to confirm the R29 fixes. Fold anything new.
@@ -62,6 +62,17 @@ Reference: `docs/reviews/BATCH-PATTERN-REFERENCE.md`, which summarises `classic/
    - Mobile: none (user rule).
 5. **Stop for the user's go** before step 4 starts.
 
+## R30 completeness audit (2026-10-23)
+- **Audit — done.** `docs/reviews/R30-completeness-{github-a,github-b,requirements,screens,code}.md`.
+- **User decisions — done.** `DECISIONS.md` **`D-17`** (contract rule per active FR; 12 mobile FRs DEFERRED; bonded/MOOWR issue = new `P10-14`, rule per location type `MD-42`; lost sale → trade sales; 7 VOID-owned FRs withdrawn, `FR-072`/`073` → `P7-11`, `FR-461` → `P8-10`; MFG ids `FR-670`…`679`, `WH-SC-680`…`699`; TRADE `FR-680`…`689`).
+- **Fix wave 1 — done**, two agents plus a reconciler. Dispositions: `FRD-REM` §"R30 dispositions" (+ Appendix A.4), `FRD-STORES` §"R30 dispositions" (`STO-D21`…`STO-D25`), FRD-TRADE / FRD-MFG R30 tables. Reconciled: `P10-14` in plan §2 and the epic; DATA-MODEL 478 → **486** tables (`P10-14`'s five `whin_` tables, `whin_bonded_losses`, `P10-07`'s two Legal Metrology tables `V540193`/`V541161`; `bonded_duty_status`, `bond_permission_ref`, `expected_return_date`); `CN-8` resolved; Rule 56 classes owned once (store reasons `P8-10`/`P8-11`, MFG reasons `P10-02`, india classifier `P10-14`); `BATCH-WAREHOUSE-P6.md` `P6-02`/`P6-11`/`P6-12` marked `[!] VOID`. Checker 0.
+- **Remaining, in order:**
+  1. **Contract wave** — `CP-FR-007`: contracts for all **377** uncovered active FRs (+ 81 weak-only; the R30 26-row table names each contract), plus a checker check that **fails on an active FR with no contract rule** (R30 proposed checks 14–18). A live task's FRs are covered before its S1 pre-review.
+  2. **Second dual-engine functional review** of the changed areas (R29 + R30 fixes). Also ratify or drop the 20 *(proposed)* MFG refusal codes (`CP-FR-009`; acceptance rows in `p10-05`, `p10-07`).
+  3. **GitHub sync** — `create-issues.sh --sync` for the 42+ drifted bodies; file `p10-14`; post the R30 comments; close #142 and #144 as not planned (`P7-12`).
+  4. **BATCH files** — `BATCH-WAREHOUSE-P7…P10.md` via `/create-batch` (Remaining 6 above), then stop for the user's go.
+- Outside the program (platform): `CP-GB-010` (`ObjectStorageService.java:932` fallback list lacks `.csv`), `CP-GB-011` (server refusal text and platform toasts English in fr/hi).
+
 ## Pending user items (do not act without approval)
 - `classic/CLAUDE.md`:
   - The SafeTranslation list names a non-existent `WarehouseAdapterDealerSafeTranslation.tsx`.
@@ -73,4 +84,11 @@ Reference: `docs/reviews/BATCH-PATTERN-REFERENCE.md`, which summarises `classic/
   - OD-45: (A), the demand header reopens to OPEN until `closeDemand`.
   - MD-25: no SCRAP stock status; scrap goes to VIRT-SCRAP.
   - The P7-13 DB drop only with an explicit go.
+- R30 decisions for the user (defaults applied, confirm at the final review):
+  - `REM-D20`: drop-ship stays in core as B2B direct ship (`CP-GA-009`).
+  - `REM-D21` / `STO-D21`: `warehouse_trade` key retired; stores get their own L1 `warehouse_stores` (`CP-SC-001`, `-002`).
+  - `CP-CODE-010`: logix outbound demo stays D2C — rename the `d2c` flag, or re-seed as B2B (new scope).
+  - `CP-CODE-011`: keep `CORE`, `TYRE`, `JOB_ISSUE` (optionally reword `CORE`).
+  - `CP-FR-012`: segment calls on `FR-443`–`FR-445` (style/variant) and `FR-456`/`FR-457` (pharma, `S-035`).
+  - `CP-GB-008`: ratify `warehouse-india` job-work / delivery-challan contracts (before `P10-10`) and `goods-receipt.contract.md` (before `P8-04`/`P8-05`); the H1, regulated-items G7, registration-change G4, scan and lot/serial contracts are a ratification backlog.
 - `classic` `fix/issue-105` (dealer migration `V20819` collides): left for a separate dealer task.

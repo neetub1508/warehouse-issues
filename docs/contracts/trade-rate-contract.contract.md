@@ -77,38 +77,38 @@ order line qty, `OD-35`). Amendment: `amendment_number` (`<contract number>-Ann`
 
 ### 1.2 Transitions
 
-| ID | From | Action | To | Guard | Actor | Side effects | Comment | UI |
-|---|---|---|---|---|---|---|---|---|
-| TRC-T1-01 | — | Create | `DRAFT` | — | `:create` | — | no | Add |
-| TRC-T1-02 | `DRAFT`/`REJECTED` | Submit | `SUBMITTED` | `TRC-GRD-01`, `-02` (pre-check) | `:submit` | number; `TAM-T1-03` doc type `PRC`/`SRC`/`PRICE_LIST`, value = Σ ceiling × rate if ceilings else quantity-free rule | no | Submit |
-| TRC-T1-03 | `SUBMITTED` | Approved | `APPROVED` | `TRC-GRD-02` (DB `EXCLUDE` is the final word) | approver | price rows become effective | — | WS-285 |
-| TRC-T1-04 | `SUBMITTED` | Rejected / returned | `REJECTED` / `DRAFT` | `TAM` | approver | — | yes | WS-285 |
-| TRC-T1-05 | contract `APPROVED`, no other amendment open | Draft amendment (price revision, validity extension, add line, ceiling change, terms, termination) → submit | amendment `DRAFT` → `SUBMITTED` | `TRC-GRD-03` | `:amend`, then `:submit` | number at submit; `TAM-T1-03` doc `PRC_AMENDMENT` / `SRC_AMENDMENT` / `PRICE_LIST_AMENDMENT` (condition `termination` when it terminates; value = Σ ceiling × new rate, `TAM-GRD-09`) | reason code | row action *Amend* / *Terminate* |
-| TRC-T1-05a | amendment `SUBMITTED` | Approved | `APPLIED` | `TRC-GRD-02`, `-03` re-checked; DB `EXCLUDE` | approver | new price row from `effective_from`, previous row's `effective_to` set to it; header fields updated; `contract_version` + 1 | — | WS-285 |
-| TRC-T1-05b | amendment `SUBMITTED` | Rejected / returned | `REJECTED` / `DRAFT` | `TAM` | approver | nothing applied | yes | WS-285 |
-| TRC-T1-06 | — | (alias) price revision = `-05` with only a `PRICE` change | — | — | — | — | — | — |
-| TRC-T1-07 | amendment with `TERMINATE` `APPLIED` | Termination recorded | contract stays `APPROVED`, *Ending on d*; `terminates_on = d` | `termination_date ≥ today` | approver (via `-05a`) | every price row's `effective_to` = `min(effective_to, d)`; `TRC-T3-04` sets `TERMINATED` on d; orders with `price_basis = AGREEMENT` keep their rate; `AT_RELEASE` releases from d resolve no contract price (`TRC-T4-03`) | **yes** | — |
-| TRC-T1-08 | `DRAFT` | Cancel | `CANCELLED` | — | `:cancel` | — | no | row action |
-| TRC-T1-09 | `APPROVED` | A new contract for the same counterparty marked *supersedes* is approved | stays `APPROVED`, `superseded_on` = successor's `valid_from` | new `valid_from` ≥ today and ≤ old's `valid_to` + 1 day | system (in the successor's approval) | old price rows end on `superseded_on`; `TRC-T3-04` sets `SUPERSEDED` on that date | — | — |
+| ID | From | Action | To | Guard | Actor | Side effects | Comment | UI | Source |
+|---|---|---|---|---|---|---|---|---|---|
+| TRC-T1-01 | — | Create | `DRAFT` | — | `:create` | — | no | Add | FR-570, FR-602, FR-603 |
+| TRC-T1-02 | `DRAFT`/`REJECTED` | Submit | `SUBMITTED` | `TRC-GRD-01`, `-02` (pre-check) | `:submit` | number; `TAM-T1-03` doc type `PRC`/`SRC`/`PRICE_LIST`, value = Σ ceiling × rate if ceilings else quantity-free rule | no | Submit | FR-570, FR-603 |
+| TRC-T1-03 | `SUBMITTED` | Approved | `APPROVED` | `TRC-GRD-02` (DB `EXCLUDE` is the final word) | approver | price rows become effective | — | WS-285 | FR-570, FR-603 |
+| TRC-T1-04 | `SUBMITTED` | Rejected / returned | `REJECTED` / `DRAFT` | `TAM` | approver | — | yes | WS-285 | FR-551 |
+| TRC-T1-05 | contract `APPROVED`, no other amendment open | Draft amendment (price revision, validity extension, add line, ceiling change, terms, termination) → submit | amendment `DRAFT` → `SUBMITTED` | `TRC-GRD-03` | `:amend`, then `:submit` | number at submit; `TAM-T1-03` doc `PRC_AMENDMENT` / `SRC_AMENDMENT` / `PRICE_LIST_AMENDMENT` (condition `termination` when it terminates; value = Σ ceiling × new rate, `TAM-GRD-09`) | reason code | row action *Amend* / *Terminate* | FR-572 |
+| TRC-T1-05a | amendment `SUBMITTED` | Approved | `APPLIED` | `TRC-GRD-02`, `-03` re-checked; DB `EXCLUDE` | approver | new price row from `effective_from`, previous row's `effective_to` set to it; header fields updated; `contract_version` + 1 | — | WS-285 | FR-572 |
+| TRC-T1-05b | amendment `SUBMITTED` | Rejected / returned | `REJECTED` / `DRAFT` | `TAM` | approver | nothing applied | yes | WS-285 | FR-551 |
+| TRC-T1-06 | — | (alias) price revision = `-05` with only a `PRICE` change | — | — | — | — | — | — | FR-572 |
+| TRC-T1-07 | amendment with `TERMINATE` `APPLIED` | Termination recorded | contract stays `APPROVED`, *Ending on d*; `terminates_on = d` | `termination_date ≥ today` | approver (via `-05a`) | every price row's `effective_to` = `min(effective_to, d)`; `TRC-T3-04` sets `TERMINATED` on d; orders with `price_basis = AGREEMENT` keep their rate; `AT_RELEASE` releases from d resolve no contract price (`TRC-T4-03`) | **yes** | — | FR-574 |
+| TRC-T1-08 | `DRAFT` | Cancel | `CANCELLED` | — | `:cancel` | — | no | row action | FR-570 |
+| TRC-T1-09 | `APPROVED` | A new contract for the same counterparty marked *supersedes* is approved | stays `APPROVED`, `superseded_on` = successor's `valid_from` | new `valid_from` ≥ today and ≤ old's `valid_to` + 1 day | system (in the successor's approval) | old price rows end on `superseded_on`; `TRC-T3-04` sets `SUPERSEDED` on that date | — | — | FR-574 |
 
 ### 1.3 Guards
 
-| ID | Predicate | Refusal |
-|---|---|---|
-| TRC-GRD-01 | `valid_from ≤ valid_to`; ≥ 1 line; rate ≥ 0; slabs strictly increasing `from_quantity`, first slab from 0 or the line has a base rate; counterparty profile exists and is not blocked; currency set; price list applicability set | field `422` |
-| TRC-GRD-02 | No approved price row of another contract overlaps for (company, counterparty, item, UoM) — service pre-check names the clashing contract; the `EXCLUDE` is the last word | `422 TRADE_RATE_OVERLAP {contractNumber}` |
-| TRC-GRD-03 | Revision `effective_from ≥ today` (no retro price, `OD-36`); extension keeps `EXCLUDE`; ceiling ≥ consumed; one open amendment per contract; termination date ≥ today and ≤ `valid_to` | field `422` / `409 TRADE_AMENDMENT_OPEN` |
-| TRC-GRD-04 | Purchase only: line item on AVL (FR-544) when the item has AVL rows | `TRADE_SUPPLIER_NOT_ON_AVL` |
-| TRC-GRD-05 | Price list: no other effective price list of the same company, currency and **priority** whose applicability intersects (`ALL` intersects everything; categories intersect when they share one) prices the same item × UoM on an overlapping date range — service check at approval, under a lock on the company's price-list set | `422 TRADE_PRICE_LIST_OVERLAP {listCode}` |
+| ID | Predicate | Refusal | Source |
+|---|---|---|---|
+| TRC-GRD-01 | `valid_from ≤ valid_to`; ≥ 1 line; rate ≥ 0; slabs strictly increasing `from_quantity`, first slab from 0 or the line has a base rate; counterparty profile exists and is not blocked; currency set; price list applicability set | field `422` | FR-570 |
+| TRC-GRD-02 | No approved price row of another contract overlaps for (company, counterparty, item, UoM) — service pre-check names the clashing contract; the `EXCLUDE` is the last word | `422 TRADE_RATE_OVERLAP {contractNumber}` | FR-571 |
+| TRC-GRD-03 | Revision `effective_from ≥ today` (no retro price, `OD-36`); extension keeps `EXCLUDE`; ceiling ≥ consumed; one open amendment per contract; termination date ≥ today and ≤ `valid_to` | field `422` / `409 TRADE_AMENDMENT_OPEN` | FR-572 |
+| TRC-GRD-04 | Purchase only: line item on AVL (FR-544) when the item has AVL rows | `TRADE_SUPPLIER_NOT_ON_AVL` | FR-544 |
+| TRC-GRD-05 | Price list: no other effective price list of the same company, currency and **priority** whose applicability intersects (`ALL` intersects everything; categories intersect when they share one) prices the same item × UoM on an overlapping date range — service check at approval, under a lock on the company's price-list set | `422 TRADE_PRICE_LIST_OVERLAP {listCode}` | FR-602 |
 
 ### 1.4 Unreachable
 
-| ID | Forbidden | Why |
-|---|---|---|
-| TRC-UNR-01 | Updating a price row's rate in place | rows are append-only by amendment |
-| TRC-UNR-02 | A price column on `whb_item_supplier_sources` | `RN-030`, `FR-119` |
-| TRC-UNR-03 | Pricing a line from an expired, terminated (on or after `terminates_on`), superseded, unapproved or other-currency contract | `TRC-T4-02` filters on the price row's date range |
-| TRC-UNR-04 | A termination or supersession taking prices away before its date | price rows end on the date; the status flips only on the date (`TRD-15`) |
+| ID | Forbidden | Why | Source |
+|---|---|---|---|
+| TRC-UNR-01 | Updating a price row's rate in place | rows are append-only by amendment | FR-572 |
+| TRC-UNR-02 | A price column on `whb_item_supplier_sources` | `RN-030`, `FR-119` | FR-119 |
+| TRC-UNR-03 | Pricing a line from an expired, terminated (on or after `terminates_on`), superseded, unapproved or other-currency contract | `TRC-T4-02` filters on the price row's date range | FR-573, FR-574 |
+| TRC-UNR-04 | A termination or supersession taking prices away before its date | price rows end on the date; the status flips only on the date (`TRD-15`) | FR-574 |
 
 ## 2. T2 — Action × role × state
 
@@ -123,21 +123,21 @@ order line qty, `OD-35`). Amendment: `amendment_number` (`<contract number>-Ann`
 
 ## 3. T3 — Time-driven rules
 
-| ID | Rule | Trigger | Changes | Notified | Job |
-|---|---|---|---|---|---|
-| TRC-T3-01 | Expiry alert | `valid_to − warehouse.trade.contract.expiry_alert_days` (default 30) | `expiry_alert_sent_at` | contract owner (buyer / sales exec), `TRADE_CONTRACT_EXPIRING` | `TradeContractJob` daily, notify once |
-| TRC-T3-02 | Expiry | `valid_to < today` | none — *Expired* is derived | — | — |
-| TRC-T3-03 | Ceiling alert | consumed ≥ 90 % of ceiling | none | owner, `TRADE_CONTRACT_CEILING` | same job, once per threshold |
-| TRC-T3-04 | Dated end | today ≥ `terminates_on` / `superseded_on` | status `TERMINATED` / `SUPERSEDED` | owner, `TRADE_CONTRACT_ENDED` | same job, once |
+| ID | Rule | Trigger | Changes | Notified | Job | Source |
+|---|---|---|---|---|---|---|
+| TRC-T3-01 | Expiry alert | `valid_to − warehouse.trade.contract.expiry_alert_days` (default 30) | `expiry_alert_sent_at` | contract owner (buyer / sales exec), `TRADE_CONTRACT_EXPIRING` | `TradeContractJob` daily, notify once | FR-574 |
+| TRC-T3-02 | Expiry | `valid_to < today` | none — *Expired* is derived | — | — | FR-574 |
+| TRC-T3-03 | Ceiling alert | consumed ≥ 90 % of ceiling | none | owner, `TRADE_CONTRACT_CEILING` | same job, once per threshold | FR-570 |
+| TRC-T3-04 | Dated end | today ≥ `terminates_on` / `superseded_on` | status `TERMINATED` / `SUPERSEDED` | owner, `TRADE_CONTRACT_ENDED` | same job, once | FR-574 |
 
 ## 4. T4 — Cross-entity effects
 
-| ID | When | Then | Enforced in |
-|---|---|---|---|
-| TRC-T4-01 | A FIXED / BLANKET PO or SO line, or an OPEN release / dispatch release, is **approved** pricing from a contract line | `consumed_quantity` += line qty (release qty for OPEN; the agreed line qty for BLANKET at order approval); on cancel, release cancel or reject-revert, short-close or amendment decrease it is reduced. Refused if it would exceed the ceiling (`422 TRADE_CEILING_EXCEEDED`) | `RateContractConsumptionService`, row lock on the contract line |
-| TRC-T4-02 | **Purchase resolution** `resolve(company, supplier, item, uom, qty, date, currency)` | 1 the approved contract price row with `is_effective` and `effective_from ≤ date < effective_to` (same currency; UoM via `whb_item_uom_conversions`, factor frozen on the order line; no conversion → contract skipped with reason) → slab for `qty` → `price_source = RATE_CONTRACT`; else 2 latest awarded valid quotation of that supplier → `QUOTATION`; else 3 none → caller requires manual entry → `MANUAL` + `manual_rate` condition. Returns last approved PO rate as a separate reference field | `PurchasePriceResolutionService` |
-| TRC-T4-03 | Revision approved, or a release priced `AT_RELEASE` | approved orders untouched; OPEN/BLANKET with `price_basis = AT_RELEASE` price each new release on its release date (that price travels to core on the release's schedule line, `TPO-T4-02`); `AGREEMENT` keeps the order rate; when no contract price resolves on the release date (expired, terminated, superseded), the release needs a manual price and carries `release_price_manual` | release service calls resolution with the release date |
-| TRC-T4-04 | **Sales resolution** `resolve(company, customer, item, uom, qty, date, currency)` | customer contract → price lists whose applicability includes the customer's category, lowest `priority` first → general (`ALL`) price lists, lowest `priority` first → manual; `below_floor_price` when net < floor (from the contract line, else the price list that priced it) | `SalesPriceResolutionService` |
+| ID | When | Then | Enforced in | Source |
+|---|---|---|---|---|
+| TRC-T4-01 | A FIXED / BLANKET PO or SO line, or an OPEN release / dispatch release, is **approved** pricing from a contract line | `consumed_quantity` += line qty (release qty for OPEN; the agreed line qty for BLANKET at order approval); on cancel, release cancel or reject-revert, short-close or amendment decrease it is reduced. Refused if it would exceed the ceiling (`422 TRADE_CEILING_EXCEEDED`) | `RateContractConsumptionService`, row lock on the contract line | FR-570, FR-603 |
+| TRC-T4-02 | **Purchase resolution** `resolve(company, supplier, item, uom, qty, date, currency)` | 1 the approved contract price row with `is_effective` and `effective_from ≤ date < effective_to` (same currency; UoM via `whb_item_uom_conversions`, factor frozen on the order line; no conversion → contract skipped with reason) → slab for `qty` → `price_source = RATE_CONTRACT`; else 2 latest awarded valid quotation of that supplier → `QUOTATION`; else 3 none → caller requires manual entry → `MANUAL` + `manual_rate` condition. Returns last approved PO rate as a separate reference field | `PurchasePriceResolutionService` | FR-573 |
+| TRC-T4-03 | Revision approved, or a release priced `AT_RELEASE` | approved orders untouched; OPEN/BLANKET with `price_basis = AT_RELEASE` price each new release on its release date (that price travels to core on the release's schedule line, `TPO-T4-02`); `AGREEMENT` keeps the order rate; when no contract price resolves on the release date (expired, terminated, superseded), the release needs a manual price and carries `release_price_manual` | release service calls resolution with the release date | FR-572 |
+| TRC-T4-04 | **Sales resolution** `resolve(company, customer, item, uom, qty, date, currency)` | customer contract → price lists whose applicability includes the customer's category, lowest `priority` first → general (`ALL`) price lists, lowest `priority` first → manual; `below_floor_price` when net < floor (from the contract line, else the price list that priced it) | `SalesPriceResolutionService` | FR-604 |
 
 ## 5. T5 — Screen contract
 
@@ -167,6 +167,7 @@ Approvals. Empty state: *No contracts yet.* Export ⊇ grid incl. `createdByName
 |---|---|---|---|
 | 2026-10-22 | all | v0 derived | TRADE author |
 | 2026-10-22 | §0 fields, §1.1, `TRC-T1-05`…`-09`, `TRC-GRD-03`, `-05`, `TRC-UNR-03`, `-04`, T2-04, `TRC-T3-04`, `TRC-T4-01`…`-04`, §5 | R29 TP-F14, F20, TS-F17, F22, F23 and contract quality: amendment and termination ladder with approval doc types, dated termination and supersession, `AT_RELEASE` after the end, SO release consumption, price-list priority, inclusive validity vs exclusive price-row end, the task's `is_effective` form | R29 |
+| 2026-10-23 | every T1, guard, unreachable, T3 and T4 row | `Source` column added, filled from FRD-TRADE §4, so every rule traces to the FR it proves | R30 `CP-FR-008` |
 
 ## 8. Invariants and scenarios
 

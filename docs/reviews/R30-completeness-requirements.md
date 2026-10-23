@@ -1,5 +1,7 @@
 # R30 — Completeness audit, part FR: requirements → task → functional contract
 
+<!-- check-design-set: fr-citations file FR-472 FR-479 — this audit reports that FR ids 472–479 were never allocated (`CP-FR-006`, `DECISIONS.md` `D-17` item 7); the ids are named to state the gap, never as requirements -->
+
 **Date** 2026-10-23 · **Mode** read-only (this file is the only write; nothing committed) · **Base** `main`
 **Read first:** `DECISIONS.md` D-16, `reviews/RETARGET-PROGRAM-STATUS.md`.
 **Inputs:** `WAREHOUSE-FUNCTIONAL-REQUIREMENTS.md` (FR-001…471), `frd/FRD-{REM,STORES,TRADE,MFG}.md`

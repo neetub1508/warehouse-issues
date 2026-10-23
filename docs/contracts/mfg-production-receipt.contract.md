@@ -107,7 +107,7 @@
 | PRC-GRD-15 | Approve / return a `PENDING_APPROVAL` receipt: actor ≠ the submitter (`posted_by` candidate / `updated_by` at submit) | `403 RECEIPT_SELF_APPROVAL` *(MD-21)* · banner | names submitter | — | FR-646, `WH-SC-631` |
 | PRC-GRD-16 | Output location physical, stock-holding, at the order's site (default `receipt_location_id`); not a phantom item (`BOM-GRD-12`) | `422 RECEIPT_LOCATION_INVALID` · `outputs[n].toLocationId`; `422 PHANTOM_ITEM_NOT_STOCKABLE` | — | validator | FR-644, FR-627 |
 | PRC-GRD-17 | `posting_date` period `OPEN` (or soft-close override held) and `occurred_at ≤ now` | per `MPR-GRD-05`, `-09`, `-10` | as cited | ledger | `L-8`, `L-13` |
-| PRC-GRD-18 | Rollups and tolerance read under `SELECT … FOR UPDATE` on the order row; two concurrent receipts serialise | `409 CONCURRENT_MODIFICATION` · banner | — | `@Version` | — |
+| PRC-GRD-18 | Rollups and tolerance read under `SELECT … FOR UPDATE` on the order row; two concurrent receipts serialise | `409 CONCURRENT_MODIFICATION` · banner | — | `@Version` | FR-620 (concurrency clause, R30 `CP-FR-009`) |
 | PRC-GRD-19 | One movement per receipt: idempotency key `PRODUCTION_RECEIPT:<receiptId>`; a replay returns the same movement | per `MPR-GRD-03`/`-04` | — | uk `(source_system, idempotency_key)` | §5, `I-1` |
 | PRC-GRD-20 | Non-own order is never valued (unit costs 0, `L-14`); v1 refuses non-own at create (`PRO-GRD-17`) | — (predicate asserted by test) | — | — | FR-654 |
 | PRC-GRD-21 | Reversal: receipt `POSTED`; no reversal of it in `REQUESTED`/`APPROVED`/`POSTED` | `409 RECEIPT_REVERSAL_EXISTS` *(proposed)* · `receiptId` | names `PRV-` | uk `receipt_id` while not `REJECTED` | FR-649 |
@@ -127,7 +127,7 @@
 | PRC-UNR-03 | More than one movement per receipt, or a receipt `POSTED` with null `movement_id` | `PRC-GRD-19`; deferred constraint trigger | §5 |
 | PRC-UNR-04 | Partial reversal | whole-movement mirror (`MPR-GRD-14`) | FR-649 |
 | PRC-UNR-05 | Deleting or updating a `whb_transformations` row on reversal | append-only sealed trigger; a reversing row is recorded instead | FR-649, `L-12` |
-| PRC-UNR-06 | `CANCELLED`/`REVERSED` receipt, `POSTED`/`REJECTED` reversal → anything | terminal | — |
+| PRC-UNR-06 | `CANCELLED`/`REVERSED` receipt, `POSTED`/`REJECTED` reversal → anything | terminal | FR-644, FR-649 |
 | PRC-UNR-07 | Reversal posted by the approver's verb | `RJ-005` — `:post` ≠ `:approve` | `RJ-005` |
 | PRC-UNR-08 | Setting order `COMPLETED` from a non-final receipt | only `is_final` or manual Complete | FR-647 |
 

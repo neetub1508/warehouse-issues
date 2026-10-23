@@ -22,9 +22,9 @@
 |---|---|
 | **Workflow** | Create `SUBCONTRACT` order (BOM usage `SUBCONTRACT`, job worker, `JOB_WORKER` location) → release → dispatch(es) → stock at job-worker location → subcontract receipt(s) → reconcile open balance (recall / write-off) → close |
 | **Module** | `warehouse-manufacturing`; calls core `ai.warehouse.port.jobwork.JobWorkDispatchPort` when the india bean exists (SEAM-M5), else core gate pass (`p8-03`). The port is **not** a STORES port (FRD-STORES defines none): `p10-10` declares it in core and ships the india bean; `V540190` (processed-form return, scrap, return reversal, loss on job-work lines) ships in `warehouse-india`, owned by `p10-10` (MD-25, MD-28) |
-| **Domain baseline** | FRD-MFG FR-632, FR-658…FR-661, §3.1 (`SUBCONTRACT_DISPATCH`, `SUBCONTRACT_RECALL`, `SUBCONTRACT_WRITE_OFF`), §3.2 SEAM-M5, MD-13 · `DECISIONS.md` `L-1`, `L-10`, `L-11`, `L-14` · `MPR-T1-01`, `-04`, `-05`, `MPR-GRD-15`, `-16`, `-19`, `-35` · `issues/p4-02.md`, `issues/p8-03.md` |
+| **Domain baseline** | FRD-MFG FR-632, FR-658…FR-661, FR-670…FR-675 (bonded job work, `mfg-bonded-issue`, `D-17` item 3), §3.1 (`SUBCONTRACT_DISPATCH`, `SUBCONTRACT_RECALL`, `SUBCONTRACT_WRITE_OFF`), §3.2 SEAM-M5, MD-13 · `DECISIONS.md` `L-1`, `L-10`, `L-11`, `L-14` · `MPR-T1-01`, `-04`, `-05`, `MPR-GRD-15`, `-16`, `-19`, `-35` · `issues/p4-02.md`, `issues/p8-03.md` |
 | **Owning task bodies** | `p10-10` (FRD §13; body not yet written). Depends on `p10-05`, `p10-07`, `p8-03`, `p4-02`; SEAM-M5 is a cross-module change inside `p10-10` |
-| **Primary tables** | `whm_subcontract_dispatches`, `_lines`, `whm_subcontract_reconciliations` (`V560080`); subcontract fields on `whm_production_orders` (`subcontractor_counterparty_id`, `subcontract_location_id`, `service_po_ref`) |
+| **Primary tables** | `whm_subcontract_dispatches` (+ `bond_permission_ref`, `V560120`), `_lines`, `whm_subcontract_reconciliations` (`V560080`); subcontract fields on `whm_production_orders` (`subcontractor_counterparty_id`, `subcontract_location_id`, `service_po_ref`) |
 | **Status columns** | `whm_subcontract_dispatches.status` (`DRAFT`/`DISPATCHED`/`CANCELLED`); `whm_subcontract_reconciliations.resolution` (derived `NONE`/`PARTIAL`/`RESOLVED`); `whm_subcontract_reconciliation_actions.status` (`REQUESTED`/`POSTED`/`REJECTED`) — no `CHECK` (`D-10`) |
 | **Permission resources** | `whm_subcontract_dispatches:{view,create,edit,export,dispatch,cancel,recall,write_off,approve_write_off}` (MD-20) · receipt `whm_production_receipts:{create,post}` · close `whm_production_orders:close` |
 | **Routes** | `/warehouse/manufacturing/subcontracting` (WS-330, tabs Dispatches · Reconciliation) · WS-323/WS-324 for the order · **mobile: none** |
@@ -95,6 +95,7 @@
 | SUB-GRD-14 | **Close guard**: every reconciliation row of the order `open_base_quantity = 0` and no write-off pending; no `DRAFT` dispatch | `409 SUBCONTRACT_BALANCE_OPEN` · `orderId` (lists item/lot/qty); `409 SUBCONTRACT_DISPATCH_DRAFT_OPEN` · `orderId` | `WH-SC-648`: lists 4 `SHAFT-03` | — | FR-656, FR-661 |
 | SUB-GRD-15 | Recall / write-off q ≤ `open_base_quantity` − pending write-off of that row | `422 RECONCILIATION_QUANTITY_EXCEEDS_OPEN` · `quantity` | — | — | FR-661 |
 | SUB-GRD-16 | Write-off reason of context `SUBCONTRACT_WRITE_OFF` | `422 REASON_REQUIRED` · `reasonCodeId` | — | `MPR-GRD-11` | FR-661 |
+| SUB-GRD-17 | A dispatch with any line in a licensed duty status carries `bond_permission_ref` and `expected_return_date`; the bond rule and licence hold at post (india guard) | `422 BOND_PERMISSION_REF_REQUIRED` · `bondPermissionRef`; `422 EXPECTED_RETURN_DATE_REQUIRED` · `expectedReturnDate`; `409 BONDED_LICENCE_NOT_ACTIVE` / `409 BONDED_OPERATION_NOT_PERMITTED` · `lines[n].duty_status` | names the duty status and licence | india guard | FR-671, FR-675 |
 
 ### 1.4 Transitions that must be unreachable
 
@@ -161,6 +162,7 @@
 | SUB-T4-08 | Recall | india: return of the same item unprocessed; generic: gate-pass return line (`wh_gate_pass_returns`); value restored through `costSourceLineId` (`SUB-T1-08`) | recall service |
 | SUB-T4-10 | Write-off approve, india bean present | `registerLoss(dispatchRef, itemId, lotId, qty, reasonCode)` — india records the loss at the job worker for ITC-04 (MD-25); the written-off value leaves the pool (`CST-T4-12`) | port, same transaction |
 | SUB-T4-09 | Order close | `SUB-GRD-14` read by `CST-GRD-04` | settlement service |
+| SUB-T4-11 | Dispatch / receipt / recall / write-off of licensed-status stock, india bean present | `bond_permission_ref` and `expected_return_date` passed in `registerDispatch`; india writes `JOB_WORK_OUT` / `JOB_WORK_RETURN` register rows and, for a write-off or retained scrap, a `whin_bonded_losses` row; the processed item is received in the order's `bonded_duty_status` (`mfg-bonded-issue` `BND-T4-03`…`-06`) | port, same transaction; india recorder |
 
 ## 5. T5 — Screen contract (web only)
 
@@ -205,6 +207,7 @@
 | 2026-10-22 | all | v0 derived from `docs/frd/FRD-MFG.md`; not ratified | contract derivation (design set) |
 | 2026-10-22 | `SUB-T1-03`, `-08`, `-10`, `SUB-T4-01`, `-07`, `-08`, `-10`, `SUB-UNR-02`, `-06` | R29: dispatch consumes holds and re-reserves nothing (F3, MD-31); dispatched value in the pool, recall by `costSourceLineId`, write-off value out (F6, MD-32); MFG post guard (F5, MD-35); duplicate `SUB-T4-08` renumbered — the write-off India row is now `SUB-T4-10` (F31) | `R29-functional-review-mfg.md` |
 | 2026-10-22 | T4, §9 | Consistency pass: MD-20, MD-21, MD-25, MD-26, MD-28; generic-path RGP sourced on the dispatch (MD-29) | FRD-MFG §9 |
+| 2026-10-23 | §0, `SUB-GRD-17`, `SUB-T4-11` | Bonded / MOOWR job work allowed under the bond rules (permission reference, return date, register, loss); rules in `mfg-bonded-issue` | R30 `CP-GB-001`, `CP-GA-007`; `D-17` item 3 |
 
 ## 8. Invariants and scenarios this workflow must not break
 

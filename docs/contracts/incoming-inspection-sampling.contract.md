@@ -132,6 +132,7 @@
 | **Modal** | header + editable band grid (`lotFrom`, `lotTo` (blank = and above), `sampleSize` **or** `samplePercent`, `acceptNumber`, `rejectNumber`); live *coverage check* message; in-modal refusal |
 | **View** | `ViewModalBase` with *Bands* table and *Used by plans* |
 | **Export** | header + bands sheet + audit |
+| **Row actions** *(R30 `CP-SC-006`)* | View (gray) · Edit (primary, `IIS-T1-02`/`-03`; only when `canEdit && isActive`) · Deactivate (warning, `IIS-T1-03a`) / Activate (success). `default_columns` = the columns above less audit; `default_filters` = `search`, `isActive` (`STO-D22`) |
 
 ### 5.2 WS-265 Inspection Plan Assignments (reference: **Customer** — cascading filters)
 

@@ -75,46 +75,46 @@ partial uk among statements not `REJECTED`), `status`, `prepared_by`, `is_stale`
 
 ### 1.2 Transitions
 
-| ID | From | Action | To | Guard | Actor | Side effects | Comment | UI |
-|---|---|---|---|---|---|---|---|---|
-| TRA-T1-01 | — | Create RFQ (manual or from WS-287) | `DRAFT` | — | `wht_rfqs:create` | PR allocations (`TPR-T1-06`) | no | WS-288 Add |
-| TRA-T1-02 | `DRAFT` | Add / remove invitee | invitee rows | `TRA-GRD-02` | `:edit` | AVL warning stored if WARN | no | RFQ modal tab *Suppliers* |
-| TRA-T1-03 | `DRAFT` | Issue | `ISSUED` | `TRA-GRD-01`, `-02`, `-03` | `wht_rfqs:issue` | number; one print job per invitee (`RFQ` template, own name only); `sent_at` | no | Issue |
-| TRA-T1-04 | `DRAFT`, `ISSUED`, `BIDS_CLOSED`, `EVALUATION` | Cancel | `CANCELLED` | no CS `SUBMITTED` (withdraw it first, `TAM-T1-09`); `DRAFT` statements are cancelled with it | `:cancel` | PR allocations released (`TPR-T1-07`); invitees notified (print *RFQ cancelled*) | **yes**, reason code | row action |
-| TRA-T1-05 | `ISSUED` | Close bids | `BIDS_CLOSED` | — | `:issue` | invitees still `INVITED` → `NO_RESPONSE` | no | row action |
-| TRA-T1-06 | invitee `INVITED` | Record decline | `DECLINED` | — | `:edit` | — | reason code | Suppliers tab |
-| TRA-T1-07 | — | Capture quotation (against RFQ or unsolicited) | VQ `DRAFT` → `SUBMITTED` | `TRA-GRD-04`, `-05` | `wht_vendor_quotations:create` | number; invitee `RESPONDED` | no | WS-289 Add / RFQ *Capture response* |
-| TRA-T1-08 | VQ `SUBMITTED`, `EXPIRED` | Revise (incl. a validity extension) | new version `SUBMITTED`; old `REVISED` | RFQ not `CLOSED`/`CANCELLED`; not after award approved for that line | `:edit` | `supersedes_id`; a `DRAFT` statement using it is flagged stale (`TRA-T4-02`); a `SUBMITTED` one has its request returned by `TAM-T1-08a` and goes back to `DRAFT`, stale | no | *Revise* |
-| TRA-T1-09 | VQ `SUBMITTED` | Withdraw | `WITHDRAWN` | not awarded | `:edit` | removed from CS | yes | row action |
-| TRA-T1-10 | RFQ `BIDS_CLOSED` (or `ISSUED` when all invitees answered, or `EVALUATION` for another currency) | Prepare CS for a currency | CS `DRAFT` | `TRA-GRD-06`; no other non-rejected CS for the RFQ × currency | `wht_comparative_statements:create` | matrix computed (`TRA-T4-01`); preparer recorded as `prepared_by` | no | WS-290 *Prepare* (currency picker) |
-| TRA-T1-11 | CS `DRAFT` | Recommend + submit | `SUBMITTED`; RFQ `EVALUATION` | `TRA-GRD-07`…`-10`; not stale (`TRA-T4-02`) | `:submit` | `TAM-T1-03` value Σ awarded × landed price in the statement's currency, conditions `non_l1_award` when any | reason on non-L1 | WS-290 detail |
-| TRA-T1-12 | RFQ `AWARDED`/`PARTIALLY_AWARDED` | Every award target past `DRAFT` or deleted | `CLOSED` | — | system | — | — | — |
-| TRA-T1-13 | CS `SUBMITTED` | Rejected (`TAM-T1-07`) | CS `REJECTED`; RFQ → `BIDS_CLOSED` when no other statement of it is `SUBMITTED`/`APPROVED` | — | approver | award rows void; a new statement for the currency may be prepared (`-10`) | **yes** | WS-285 |
-| TRA-T1-14 | CS `SUBMITTED` | Returned (`TAM-T1-08`, `-08a`) | CS `DRAFT`; RFQ → `BIDS_CLOSED` under the same rule | — | approver / system | award rows kept for editing | **yes** | WS-285 |
+| ID | From | Action | To | Guard | Actor | Side effects | Comment | UI | Source |
+|---|---|---|---|---|---|---|---|---|---|
+| TRA-T1-01 | — | Create RFQ (manual or from WS-287) | `DRAFT` | — | `wht_rfqs:create` | PR allocations (`TPR-T1-06`) | no | WS-288 Add | FR-559, FR-562 |
+| TRA-T1-02 | `DRAFT` | Add / remove invitee | invitee rows | `TRA-GRD-02` | `:edit` | AVL warning stored if WARN | no | RFQ modal tab *Suppliers* | FR-562 |
+| TRA-T1-03 | `DRAFT` | Issue | `ISSUED` | `TRA-GRD-01`, `-02`, `-03` | `wht_rfqs:issue` | number; one print job per invitee (`RFQ` template, own name only); `sent_at` | no | Issue | FR-562, FR-563 |
+| TRA-T1-04 | `DRAFT`, `ISSUED`, `BIDS_CLOSED`, `EVALUATION` | Cancel | `CANCELLED` | no CS `SUBMITTED` (withdraw it first, `TAM-T1-09`); `DRAFT` statements are cancelled with it | `:cancel` | PR allocations released (`TPR-T1-07`); invitees notified (print *RFQ cancelled*) | **yes**, reason code | row action | FR-562 |
+| TRA-T1-05 | `ISSUED` | Close bids | `BIDS_CLOSED` | — | `:issue` | invitees still `INVITED` → `NO_RESPONSE` | no | row action | FR-563 |
+| TRA-T1-06 | invitee `INVITED` | Record decline | `DECLINED` | — | `:edit` | — | reason code | Suppliers tab | FR-563 |
+| TRA-T1-07 | — | Capture quotation (against RFQ or unsolicited) | VQ `DRAFT` → `SUBMITTED` | `TRA-GRD-04`, `-05` | `wht_vendor_quotations:create` | number; invitee `RESPONDED` | no | WS-289 Add / RFQ *Capture response* | FR-564 |
+| TRA-T1-08 | VQ `SUBMITTED`, `EXPIRED` | Revise (incl. a validity extension) | new version `SUBMITTED`; old `REVISED` | RFQ not `CLOSED`/`CANCELLED`; not after award approved for that line | `:edit` | `supersedes_id`; a `DRAFT` statement using it is flagged stale (`TRA-T4-02`); a `SUBMITTED` one has its request returned by `TAM-T1-08a` and goes back to `DRAFT`, stale | no | *Revise* | FR-564, FR-569 |
+| TRA-T1-09 | VQ `SUBMITTED` | Withdraw | `WITHDRAWN` | not awarded | `:edit` | removed from CS | yes | row action | FR-564 |
+| TRA-T1-10 | RFQ `BIDS_CLOSED` (or `ISSUED` when all invitees answered, or `EVALUATION` for another currency) | Prepare CS for a currency | CS `DRAFT` | `TRA-GRD-06`; no other non-rejected CS for the RFQ × currency | `wht_comparative_statements:create` | matrix computed (`TRA-T4-01`); preparer recorded as `prepared_by` | no | WS-290 *Prepare* (currency picker) | FR-566 |
+| TRA-T1-11 | CS `DRAFT` | Recommend + submit | `SUBMITTED`; RFQ `EVALUATION` | `TRA-GRD-07`…`-10`; not stale (`TRA-T4-02`) | `:submit` | `TAM-T1-03` value Σ awarded × landed price in the statement's currency, conditions `non_l1_award` when any | reason on non-L1 | WS-290 detail | FR-567 |
+| TRA-T1-12 | RFQ `AWARDED`/`PARTIALLY_AWARDED` | Every award target past `DRAFT` or deleted | `CLOSED` | — | system | — | — | — | FR-568 |
+| TRA-T1-13 | CS `SUBMITTED` | Rejected (`TAM-T1-07`) | CS `REJECTED`; RFQ → `BIDS_CLOSED` when no other statement of it is `SUBMITTED`/`APPROVED` | — | approver | award rows void; a new statement for the currency may be prepared (`-10`) | **yes** | WS-285 | FR-551 |
+| TRA-T1-14 | CS `SUBMITTED` | Returned (`TAM-T1-08`, `-08a`) | CS `DRAFT`; RFQ → `BIDS_CLOSED` under the same rule | — | approver / system | award rows kept for editing | **yes** | WS-285 | FR-551, FR-569 |
 
 ### 1.3 Guards
 
-| ID | Predicate | Refusal |
-|---|---|---|
-| TRA-GRD-01 | invitees ≥ `warehouse.trade.rfq.min_suppliers` ∨ limited-source reason + note; `response_due_date ≥ issue_date`; ≥ 1 line | field `422` |
-| TRA-GRD-02 | Invitee has a supplier profile, not purchase-blocked; for each RFQ item with any AVL row: status `APPROVED`/`PROVISIONAL` on the date, else REFUSE (or WARN per setting); `SUSPENDED`/`DISQUALIFIED` always refused | `422 TRADE_SUPPLIER_BLOCKED` / `TRADE_SUPPLIER_NOT_ON_AVL` |
-| TRA-GRD-03 | Print templates exist for kind `RFQ` | `422 TRADE_TEMPLATE_MISSING` |
-| TRA-GRD-04 | `valid_until ≥ quote_date`; price ≥ 0; price = 0 only with free-of-charge reason; discount ∈ [0,100); offered UoM convertible to RFQ UoM | field `422` |
-| TRA-GRD-05 | A line with an item ≠ RFQ line item is `is_alternative = true` | `422` on `isAlternative` |
-| TRA-GRD-06 | Sealed mode on ⇒ RFQ `BIDS_CLOSED` or due date passed; prices hidden in reads for everyone but the capturer until then | `409 TRADE_RFQ_SEALED` |
-| TRA-GRD-07 | Σ awarded per RFQ line over **every** non-rejected statement of the RFQ ≤ RFQ line qty; awarded ≤ offered qty; awarded ≥ MOQ unless note | `422 TRADE_AWARD_EXCEEDS_RFQ_QTY` |
-| TRA-GRD-08 | Award to a rank ≠ 1 ⇒ `award_reason_code` + note; alternative-item award ⇒ reason | field `422` |
-| TRA-GRD-09 | At approval: each awarded quotation `valid_until ≥ today`; supplier still not blocked; AVL still valid | `422 TRADE_QUOTATION_EXPIRED` / blocked |
-| TRA-GRD-10 | Every awarded quotation line is in the statement's currency (other-currency quotations are shown unranked and awardable only on their own currency's statement) | `422 TRADE_CS_MIXED_CURRENCY` |
+| ID | Predicate | Refusal | Source |
+|---|---|---|---|
+| TRA-GRD-01 | invitees ≥ `warehouse.trade.rfq.min_suppliers` ∨ limited-source reason + note; `response_due_date ≥ issue_date`; ≥ 1 line | field `422` | FR-562 |
+| TRA-GRD-02 | Invitee has a supplier profile, not purchase-blocked; for each RFQ item with any AVL row: status `APPROVED`/`PROVISIONAL` on the date, else REFUSE (or WARN per setting); `SUSPENDED`/`DISQUALIFIED` always refused | `422 TRADE_SUPPLIER_BLOCKED` / `TRADE_SUPPLIER_NOT_ON_AVL` | FR-544 |
+| TRA-GRD-03 | Print templates exist for kind `RFQ` | `422 TRADE_TEMPLATE_MISSING` | FR-563, FR-615 |
+| TRA-GRD-04 | `valid_until ≥ quote_date`; price ≥ 0; price = 0 only with free-of-charge reason; discount ∈ [0,100); offered UoM convertible to RFQ UoM | field `422` | FR-564 |
+| TRA-GRD-05 | A line with an item ≠ RFQ line item is `is_alternative = true` | `422` on `isAlternative` | FR-564 |
+| TRA-GRD-06 | Sealed mode on ⇒ RFQ `BIDS_CLOSED` or due date passed; prices hidden in reads for everyone but the capturer until then | `409 TRADE_RFQ_SEALED` | FR-565 |
+| TRA-GRD-07 | Σ awarded per RFQ line over **every** non-rejected statement of the RFQ ≤ RFQ line qty; awarded ≤ offered qty; awarded ≥ MOQ unless note | `422 TRADE_AWARD_EXCEEDS_RFQ_QTY` | FR-567 |
+| TRA-GRD-08 | Award to a rank ≠ 1 ⇒ `award_reason_code` + note; alternative-item award ⇒ reason | field `422` | FR-567 |
+| TRA-GRD-09 | At approval: each awarded quotation `valid_until ≥ today`; supplier still not blocked; AVL still valid | `422 TRADE_QUOTATION_EXPIRED` / blocked | FR-569 |
+| TRA-GRD-10 | Every awarded quotation line is in the statement's currency (other-currency quotations are shown unranked and awardable only on their own currency's statement) | `422 TRADE_CS_MIXED_CURRENCY` | FR-566 |
 
 ### 1.4 Unreachable
 
-| ID | Forbidden | Why |
-|---|---|---|
-| TRA-UNR-01 | An RFQ print showing another supplier's name or price | per-invitee render; template data contains one invitee |
-| TRA-UNR-02 | Ranking across currencies | `OD-34`: foreign-currency quotations shown unranked |
-| TRA-UNR-03 | Editing a `SUBMITTED` quotation in place | revise creates a version |
-| TRA-UNR-04 | An award target created without CS approval | targets are drafted only in the `onApproved` callback |
+| ID | Forbidden | Why | Source |
+|---|---|---|---|
+| TRA-UNR-01 | An RFQ print showing another supplier's name or price | per-invitee render; template data contains one invitee | FR-563 |
+| TRA-UNR-02 | Ranking across currencies | `OD-34`: foreign-currency quotations shown unranked | FR-566 |
+| TRA-UNR-03 | Editing a `SUBMITTED` quotation in place | revise creates a version | FR-564 |
+| TRA-UNR-04 | An award target created without CS approval | targets are drafted only in the `onApproved` callback | FR-568 |
 
 ## 2. T2 — Action × role × state
 
@@ -130,20 +130,20 @@ partial uk among statements not `REJECTED`), `status`, `prepared_by`, `is_stale`
 
 ## 3. T3 — Time-driven rules
 
-| ID | Rule | Trigger | Changes | Notified | Job |
-|---|---|---|---|---|---|
-| TRA-T3-01 | Response reminder | `response_due_date − warehouse.trade.rfq.reminder_days` (default 2), invitees `INVITED` | none | the RFQ's buyer, `TRADE_RFQ_REMINDER` | `TradeRfqJob` daily |
-| TRA-T3-02 | Due date passed | `response_due_date < today` (site tz) | RFQ stays `ISSUED`; *sealed* lifts; CS may be prepared | the RFQ's buyer, `TRADE_RFQ_DUE` | same |
-| TRA-T3-03 | Quotation expiry | `valid_until < today` | VQ `EXPIRED` unless awarded (still revisable, `-08`) | the RFQ's buyer, `TRADE_VQ_EXPIRED` | same |
+| ID | Rule | Trigger | Changes | Notified | Job | Source |
+|---|---|---|---|---|---|---|
+| TRA-T3-01 | Response reminder | `response_due_date − warehouse.trade.rfq.reminder_days` (default 2), invitees `INVITED` | none | the RFQ's buyer, `TRADE_RFQ_REMINDER` | `TradeRfqJob` daily | FR-563 |
+| TRA-T3-02 | Due date passed | `response_due_date < today` (site tz) | RFQ stays `ISSUED`; *sealed* lifts; CS may be prepared | the RFQ's buyer, `TRADE_RFQ_DUE` | same | FR-563 |
+| TRA-T3-03 | Quotation expiry | `valid_until < today` | VQ `EXPIRED` unless awarded (still revisable, `-08`) | the RFQ's buyer, `TRADE_VQ_EXPIRED` | same | FR-569 |
 
 ## 4. T4 — Cross-entity effects
 
-| ID | When | Then | Enforced in |
-|---|---|---|---|
-| TRA-T4-01 | CS prepared / refreshed | matrix: per RFQ line × latest submitted quotation version — net = price × (1 − disc); landed = net + charges allocated by basis; rank by landed within currency; plus lead time, payment days, MOQ, vendor grade (`TCE`), last PO rate, contract rate (`TRC-T4-02`) | `ComparativeStatementService` (backend) |
-| TRA-T4-02 | Quotation revised while a CS using it is `DRAFT` (or returned to `DRAFT` by `TAM-T1-08a`) | CS flagged *stale*; submit refused until refreshed (`409 TRADE_CS_STALE`) | same |
-| TRA-T4-03 | Award approved | per awarded supplier × target type, one draft target document prefilled (lines, price `price_source = QUOTATION`, terms, charges); `target_document_id` stored; **maker (`created_by`) = the statement's `prepared_by`**, never the approver (FR-549), so the approver may approve the target | `AwardService.onApproved` |
-| TRA-T4-04 | Award approved | PR allocations move RFQ line → target line for the awarded qty on FIXED_PO / BLANKET targets; **RATE_CONTRACT and OPEN_PO targets release all** (they hold no quantity; the buyer later allocates to releases, `TPR-T1-06` *Add to release*); unawarded qty released to PR (`TPR-T1-07`); VQ statuses set; RFQ `AWARDED`/`PARTIALLY_AWARDED`/`NOT_AWARDED` once no statement is pending | same transaction |
+| ID | When | Then | Enforced in | Source |
+|---|---|---|---|---|
+| TRA-T4-01 | CS prepared / refreshed | matrix: per RFQ line × latest submitted quotation version — net = price × (1 − disc); landed = net + charges allocated by basis; rank by landed within currency; plus lead time, payment days, MOQ, vendor grade (`TCE`), last PO rate, contract rate (`TRC-T4-02`) | `ComparativeStatementService` (backend) | FR-566 |
+| TRA-T4-02 | Quotation revised while a CS using it is `DRAFT` (or returned to `DRAFT` by `TAM-T1-08a`) | CS flagged *stale*; submit refused until refreshed (`409 TRADE_CS_STALE`) | same | FR-569 |
+| TRA-T4-03 | Award approved | per awarded supplier × target type, one draft target document prefilled (lines, price `price_source = QUOTATION`, terms, charges); `target_document_id` stored; **maker (`created_by`) = the statement's `prepared_by`**, never the approver (FR-549), so the approver may approve the target | `AwardService.onApproved` | FR-568 |
+| TRA-T4-04 | Award approved | PR allocations move RFQ line → target line for the awarded qty on FIXED_PO / BLANKET targets; **RATE_CONTRACT and OPEN_PO targets release all** (they hold no quantity; the buyer later allocates to releases, `TPR-T1-06` *Add to release*); unawarded qty released to PR (`TPR-T1-07`); VQ statuses set; RFQ `AWARDED`/`PARTIALLY_AWARDED`/`NOT_AWARDED` once no statement is pending | same transaction | FR-560, FR-568 |
 
 ## 5. T5 — Screen contract
 
@@ -188,6 +188,7 @@ L1 cell highlighted; other-currency quotations in a separate unranked band; per 
 |---|---|---|---|
 | 2026-10-22 | all | v0 derived | TRADE author |
 | 2026-10-22 | §0, §1.1, `TRA-T1-04`, `-08`, `-10`, `-11`, `-13`, `-14`, `TRA-GRD-07`, `-10`, T3, `TRA-T4-02`…`-04`, §5.2, §5.3 | R29 TP-F2, F3, F16, F25, F26, F28 and *in code, not in contract*: rejected/returned statement exits, cancel from `BIDS_CLOSED`/`EVALUATION`, revise from `EXPIRED`, one statement per currency, OPEN-PO targets release allocations, target maker, `:award` dropped, screen contracts | R29 |
+| 2026-10-23 | every T1, guard, unreachable, T3 and T4 row | `Source` column added, filled from FRD-TRADE §4, so every rule traces to the FR it proves | R30 `CP-FR-008` |
 
 ## 8. Invariants and scenarios
 

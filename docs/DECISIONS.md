@@ -523,12 +523,78 @@ dealer or retail target.
    STORES `FR-500`…`539`, `WS-260`…`279`, `WH-SC-420`…`479`, `OD-25`…`29`; TRADE `FR-540`…`619`,
    `WS-280`…`319`, `WH-SC-480`…`599`, `OD-30`…`39`; MFG `FR-620`…`669`, `WS-320`…`339`,
    `WH-SC-600`…`659`, `OD-40`…`44`. STORES also holds `OD-45`, outside every range and registered in §3.6.
+   *Extended 2026-10-23 by `D-17`:* MFG also holds `FR-670`…`679` and `WH-SC-680`…`699`; TRADE also holds
+   `FR-680`…`689`, and its lost-sale scenarios are `WH-SC-597`…`599`, the last of its own range.
    Requirements for P7–P10 live in `docs/frd/FRD-<AREA>.md`.
 9. **What it withdraws.** FRs `FR-074`, `FR-279`, `FR-358`, `FR-359`, `FR-360`, `FR-365`, `FR-419`,
-   `FR-420` and `FR-422` are **WITHDRAWN** (kept, marked, never deleted). Tasks whose whole scope is dealer
+   `FR-420` and `FR-422` are **WITHDRAWN** (kept, marked, never deleted). *Amended 2026-10-23 by `D-17`
+   (R30 `CP-FR-005`):* the FRD withdrew fourteen more in the same edit — `FR-200`–`FR-205`,
+   `FR-208`–`FR-210`, `FR-276`, `FR-368`–`FR-370` and `FR-464` — so this decision withdraws **23**, the
+   list in the `WAREHOUSE-FUNCTIONAL-REQUIREMENTS.md` re-target header. `D-17` item 5 withdraws seven more
+   (30 in all). A withdrawn FR stays in its owner's plan §2 `Closes` cell, suffixed *(withdrawn D-16)*, so
+   the record of who once owned it survives; it is built by nobody. Tasks whose whole scope is dealer
    or retail are **VOID** (header note in each file). `DATA-MODEL.md` §2.5.1 (`whad_`) and
    `BUILD-SPEC-SCREENS.md` `WS-194`…`WS-198` are removed. R28 §8c item 1 names this decision "D-15"; that
    number was already taken, so it is **D-16**.
+
+### D-17 · R30 decisions — every FR has a contract rule; mobile is deferred; bonded issue and lost sales get owners
+
+**User decisions, 2026-10-23**, on the R30 completeness audit
+(`reviews/R30-completeness-{github-a,github-b,requirements,screens,code}.md`). They read with `D-16` and amend
+it where they say so.
+
+1. **(a) Every active FR is covered by a functional contract rule.** "Covered" means a guard, transition,
+   time-rule (T3), cross-entity-effect (T4), screen (T5) or `UNR` row whose `Source` cell names the FR — a
+   citation only in a contract's §0, *Out of scope*, *Amendments* or *Open/Resolved* rows is not coverage
+   (R30 `CP-FR-007`, `CP-FR-008`). The design-set checker will enforce it (R30 requirements §3, proposed
+   checks 14–18: VOID/WITHDRAWN-aware ownership, contract `Source` + FR coverage, FR→scenario coverage,
+   decision-id resolution, residue vocabulary). Until those checks exist the coordinator runs the R30 count
+   before each phase batch starts. **The backlog is R30 `CP-FR-007`'s 26-row table** (377 FRs, plus the 81
+   weak-only ones): each row names the contract to extend or write. A live `P7`…`P10` task's FRs are
+   covered **before that task's S1 pre-review**; base FRs owned by closed `P0`…`P6` tasks are covered by
+   the contract wave the table lists, which runs before the P8 batch. A withdrawn or deferred FR needs no
+   rule. A non-functional FR (`FR-423`…`442`) is covered by a ci-gate / performance tag instead, and says so
+   in its contract-of-record line.
+2. **(b) The twelve mobile FRs are DEFERRED, not withdrawn** — `FR-047`, `FR-192`, `FR-217`, `FR-218`,
+   `FR-219`, `FR-220`, `FR-221`, `FR-222`, `FR-382`, `FR-424`, `FR-430`, `FR-431` (R30 `CP-FR-013`). Reason:
+   the user scope rule of 2026-09-11 and `D-16` item 7 — warehouse ships no mobile app in v1. The mobile
+   half of each is **post-v1** (`mobile` module, a later release); where the module column also names
+   `base`, `app` or `platform`, that half stands and is already built by its closed owner. Each row is
+   marked **DEFERRED by `D-17`** in place; its plan §2 owner keeps it, suffixed *(deferred D-17)*, and no live
+   `P7`…`P10` task builds a mobile screen. `D-13` is read subject to this item. The web screens stay the v1
+   execution surface (v1 creates and completes tasks in the same web request, `FR-212`).
+3. **(c) Bonded / MOOWR issue to production and dispatch to a subcontractor is a new task `P10-14`**, with
+   new MFG requirements in the id block **670–679** (`FR-` prefix; outside `D-16` item 8's MFG range,
+   allocated here, defined in `FRD-MFG.md`). Scope (R30
+   `CP-GB-001`, `CP-GA-007`): an *accounted bonded exit* rule in an india registry, keyed duty status ×
+   movement type × **location base type** × direction (`MD-42`, `whin_bonded_exit_rules`) — **per location
+   type, not a flag on the movement type**, because the same `ISSUE` is accounted into a `PRODUCTION`
+   location and refused into a cost-centre one — so `WhinBondedVirtualExitPostGuard` reads the registry
+   instead of a hard-coded type list; a BONDED issue to
+   production and a BONDED subcontract dispatch both post; the MOOWR return and SEZ movement lines the P4
+   tasks left unowned (`p4-07.md` acceptance) are produced from those movements. The enablement calls in
+   GitHub reports 539 and 543 stay with the product owner; `P10-14` cites them. Its scenarios take
+   **`WH-SC-680`…`699`**, allocated here to MFG (outside `D-16` item 8's `WH-SC-600`…`659`; REM ends at 679).
+4. **(d) Lost-sale capture moves to `warehouse-trade` sales**, with new TRADE requirements in
+   the id block **680–689** (`FR-` prefix; allocated here, defined in `FRD-TRADE.md`). The dealer and services adapters that once produced it are removed
+   (`D-16`), so the core `captureLostSale` API (`WhInsufficientStockLogService`) has no producer (R30
+   `CP-GA-003`). Trade enquiry and sales-order lines closed `LOST` / `REGRETTED` for stock reasons, and a
+   shortfall at sales-order release, call it; `FR-257` and `WH-SC-283` are reached through trade. Core keeps
+   the log and the API; no core screen records a lost sale by hand.
+5. **Disposition of the nine active FRs whose only owner is VOID** (R30 `CP-FR-001`, `CP-FR-002`):
+   - **Re-homed:** `FR-072` and `FR-073` (supersession stock/demand treatment and interchange — core
+     engineering change, built in `V500050`; "counter enquiry" wording dropped) → `P7-11`, which proves them
+     unchanged after the renames; `FR-461` (the serving-branch rule, `D-14` core) → `P8-10`, the first live
+     stock-consuming document.
+   - **Withdrawn under `D-16`:** `FR-268` (superseded by `FR-622`…`FR-631`, `RN-032`), `FR-277` and `FR-278`
+     (dealer cores and warranty holds), `FR-352` (the two shipped adapters were dealer and services; the
+     genericity proof is now `warehouse-adapter-example`, `D-11`), `FR-361` and `FR-362` (dealer job WIP
+     and vehicle fitment; the plant equivalent is `FR-654`), `FR-421` (accessories absorption, `RN-023`).
+6. **Task-state markers.** A task header says **VOID** (whole scope gone) or **PARTIALLY VOID** (some of it
+   gone). "SUPERSEDED" is not a third state: a task superseded by a later one is VOID with the superseding
+   task named. `P6-02`, `P6-11` and `P6-12` are VOID.
+7. **Numbering.** FR ids 472–479 were never allocated and are never used (R30 `CP-FR-006`); the main FRD
+   ends at `FR-471` and REM starts at `FR-480`.
 
 ---
 
@@ -672,7 +738,7 @@ Per **D-12**, nothing is left undefined. Phases are the delivery unit; versions 
 |---|---|---|---|
 | **v1** | **P0** ledger foundation · **P1** masters, identity, inbound · **P2** outbound, counting, valuation, returns, printing, reports | The stock ledger and inventory control: multi-site/bin stock at full grain, items & UoM, lots/expiry/serials, receiving & QC & putaway, allocation & pick/pack/dispatch, transfers with in-transit, adjustments, cycle & physical counts, costing & valuation, reorder, **basic returns**, **printing**, **the India movement documents**, the reports. *(D-16: the dealer-parts and services adapters once listed here are removed)* | On a **standalone** install (platform + `warehouse-base` + `warehouse`, no vertical, no accounting) a storekeeper creates a site, generates a bin grid, imports an item master and opening stock, receives against a purchase document, puts away, allocates and picks an order, ships it with a printed pick list and delivery document, takes a customer return back into stock, transfers stock to a second site through in-transit, counts a zone and posts the variance, and produces a stock ledger, a position report and a valuation report **that reconcile to each other and to a full ledger rebuild** |
 | **v1.1** | **P3** execution & mobile | The warehouse floor: RF/handheld task flows, task management & priority, wave planning & release, batch/cluster/zone picking, packing & cartonisation, the print server & device management, dock appointments, van stock, the field-service and assets adapters | An operator completes a full receive→putaway→pick→pack→ship cycle **entirely on a handheld**, and a wave of 200 order lines releases, picks and ships with task interleaving |
-| **v2** | **P4** India statutory & compliance · **P5** 3PL, channels & reverse logistics | Sellable as a compliance product and to a 3PL: job work & ITC-04, the Rule 56 stock account, MRP & Legal Metrology, bonded/MOOWR, the regulated-goods packs; owner-of-goods billing, rate cards, storage & handling meters, the client portal, carrier integration, full reverse logistics. *(D-16: channel/marketplace order intake and NDR/RTO/COD are removed)* | A 3PL bills a client for a month of storage and handling from metered events, and a customer files ITC-04 and the Rule 56 stock account from warehouse data |
+| **v2** | **P4** India statutory & compliance · **P5** 3PL, channels & reverse logistics | Sellable as a compliance product and to a 3PL: job work & ITC-04, the Rule 56 stock account, MRP & Legal Metrology (declaration tables owned with the MFG FG label, `P10-07`, and the core seam `P8-12` — R30 `CP-GA-006`), bonded/MOOWR (issue to production and the MOOWR return: `P10-14`, `D-17` item 3), the regulated-goods packs; owner-of-goods billing, rate cards, storage & handling meters, the client portal, carrier integration, full reverse logistics. *(D-16: channel/marketplace order intake and NDR/RTO/COD are removed)* | A 3PL bills a client for a month of storage and handling from metered events, and a customer files ITC-04 and the Rule 56 stock account from warehouse data |
 | **v3** | **P6** optimisation, planning & the logistics seam | Slotting, replenishment optimisation, labour standards, ABC/XYZ & velocity, demand & reorder planning, supplier scorecards, EPCIS/GS1 event capture, automation interfaces, control-tower analytics — **and the `logistics` module itself**, consuming `warehouse-base` through the port with zero commits to it | The `logistics` module ships trips, ePOD and freight settlement, moves stock through the port, and `warehouse-base` has not been edited to allow it |
 
 **Sibling schedule (D-16):** `P7` removal and renames first · `P8` core stores additions · then
@@ -705,13 +771,13 @@ That cannot happen here.
 | Kind | Namespace | Authority |
 |---|---|---|
 | Tasks | **`P0-01` … `P10-nn`** (P7–P10 added by D-16) | `issues/pN-nn.md` — the file glob is the count |
-| Requirements | **`FR-001` …** | `WAREHOUSE-FUNCTIONAL-REQUIREMENTS.md` · and, since `D-16`, the area files `docs/frd/` `FRD-REM.md`, `FRD-STORES.md`, `FRD-TRADE.md`, `FRD-MFG.md` (ranges in `D-16` item 8) |
+| Requirements | **`FR-001` …** | `WAREHOUSE-FUNCTIONAL-REQUIREMENTS.md` · and, since `D-16`, the area files `docs/frd/` `FRD-REM.md`, `FRD-STORES.md`, `FRD-TRADE.md`, `FRD-MFG.md` (ranges in `D-16` item 8, extended by `D-17` items 3–4: MFG `FR-670`…`679` and `WH-SC-680`…`699`, TRADE `FR-680`…`689` and `WH-SC-597`…`599`) |
 | Decisions | **`D-1` …** | this file |
 | Open decisions | **`OD-1` …** | this file · and, since `D-16`, the area files `docs/frd/` `FRD-REM.md`, `FRD-STORES.md`, `FRD-TRADE.md`, `FRD-MFG.md` (ranges in `D-16` item 8) |
 | Invariants | **`L-1` … `L-14`** — plus **`L-15`, allocated 2026-09-03** by `OD-14` and **owed into §4**, which still stops at `L-14`. The row is written verbatim in [`OPEN-DECISIONS-RESOLVED.md`](OPEN-DECISIONS-RESOLVED.md) §2 so the later wave transcribes rather than re-derives it | this file |
 | Enforceable constraints | **`I-1` … `I-20`** — plus **`I-21`, allocated 2026-09-03** by `OD-14` as `L-15`'s database guard and **owed into `DATA-MODEL.md` §6.3**, which still stops at `I-20`. Allocating it here rather than there is deliberate: §6 is the allocation, and an id claimed in two places is the collision this table exists to prevent. **`I-22`, `I-23`, `I-24`** were **allocated 2026-09-10** by `GAP-REGISTER-R4.md` §4.0 and are owed into §6.3 after `I-21`: `I-22`, a movement at an instant with no `REGISTERED` link is refused (`V500030`); `I-23`, the `REGISTERED` history is exclusive and append-only (`V500037`); `I-24`, a rule row that a reservation or task references is immutable (`V500031`, `V500033`, `V510017`) | `DATA-MODEL.md` §invariants-as-SQL |
 | Irreversible rows | **`IRR-01` … `IRR-63`** — plus **`IRR-64` … `IRR-67`, allocated 2026-09-10** by `GAP-REGISTER-R4.md` §4.0 and owed into `IRREVERSIBLE.md` §2: registration history, v1 junction history, the outbox event schema, and non-ledger partitioning at `CREATE`. The next free is `IRR-68` | `IRREVERSIBLE.md` §2 |
-| Scenarios | **`WH-SC-001` …** | `SCENARIO-CATALOGUE.md` · and, since `D-16`, the area files `docs/frd/` `FRD-REM.md`, `FRD-STORES.md`, `FRD-TRADE.md`, `FRD-MFG.md` (ranges in `D-16` item 8) |
+| Scenarios | **`WH-SC-001` …** | `SCENARIO-CATALOGUE.md` · and, since `D-16`, the area files `docs/frd/` `FRD-REM.md`, `FRD-STORES.md`, `FRD-TRADE.md`, `FRD-MFG.md` (ranges in `D-16` item 8, extended by `D-17` items 3–4: MFG `FR-670`…`679` and `WH-SC-680`…`699`, TRADE `FR-680`…`689` and `WH-SC-597`…`599`) |
 | Screens | **`WS-001` … `WS-237`** — **`WS-238`** *Warehouse Grants* was **allocated 2026-09-11** to round 3's `RA-001` (`P1-18`). The same day's second fold (lane `W0-1b`) allocated **`WS-239`** *Item Prices* (`RA-002`, `P2-25`), **`WS-243`** *Location Utilisation* (`RC-009`, `P6-02`) and **`WS-244`** *Metric Targets* (`RC-007`, `P2-21`), and **reserved `WS-242`** for `P5-13`'s marketplace-claim queue. **`WS-240`** *Trade Portal* and **`WS-241`** *Approval Levels* were **allocated 2026-09-10** by `GAP-REGISTER-R4.md` §4.0. **`WS-245`** *Master Merge Log* was **allocated 2026-09-16** by `P1-21` | `BUILD-SPEC-SCREENS.md` §1 — the index is the allocation; the next free is `WS-246` · and, since `D-16`, the area files `docs/frd/` `FRD-REM.md`, `FRD-STORES.md`, `FRD-TRADE.md`, `FRD-MFG.md` (ranges in `D-16` item 8) |
 | Findings — R1 codebase reality | **`C-001` … `C-050`** | `reviews/R1` |
 | Findings — R2 tier-1 WMS | **`T-001` … `T-097`** | `reviews/R2` |
@@ -742,6 +808,7 @@ That cannot happen here.
 | Findings — R27 client purchase-to-stores gap | **`RM-001` … `RM-045`** | `reviews/R27` |
 | Findings — R28 manufacturing + storage re-target impact | **`RN-001` … `RN-054`** | `reviews/R28` (§8b `RN-050`…`RN-054` are `D-16`) |
 | Findings — R29 dual-engine functional review of the `D-16` areas, 2026-10-22 | **file-local** `F1` … per file (plus `TS-`/`MA-` row ids in the trade files), 145 in all: REM 17 · STORES 36 · TRADE purchase 30 · TRADE sales 29 · MFG 33 — not a design-set register, so cite them with their file | `reviews/R29-functional-review-{rem,stores,trade-purchase,trade-sales,mfg}.md`; dispositions in each area FRD §"R29 dispositions" |
+| Findings — R30 completeness audit (GitHub #1–#604, requirements, screens, classic code), 2026-10-23 | **`CP-GA-001` … `CP-GA-015`** · **`CP-GB-001` … `CP-GB-015`** · **`CP-FR-001` … `CP-FR-016`** · **`CP-SC-001` … `CP-SC-008`** · **`CP-CODE-001` … `CP-CODE-013`** — file-local per part, cite them with their file | `reviews/R30-completeness-{github-a,github-b,requirements,screens,code}.md`; decisions in `D-17`; dispositions in each carrier task and in `FRD-REM` / `FRD-STORES` §"R30 dispositions" |
 | Traps — R1 §8 | **`T-1` … `T-18`**, unpadded | `reviews/R1` §8 |
 
 `P-` (prior art) and `Pn-nn` (tasks) are distinguishable because a task id always carries a phase digit
