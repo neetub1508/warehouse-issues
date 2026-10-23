@@ -1187,7 +1187,7 @@ this document records it as closed.**
 | `whb_cost_layers` | A receipt layer with a **remaining quantity**. The thing FIFO consumes and specific identification identifies | `company_id`, **`owner_id`**, `item_id`, `warehouse_id`, `lot_id`, `serial_id`, `duty_status` (`VARCHAR(40)` → `whb_duty_statuses(code)`, `RL-001`), `receipt_movement_line_id` (**bare**), `receipt_occurred_at`, `layer_date`, `quantity_in`, `quantity_remaining`, `unit_cost`, `layer_value`, **`currency_code`**, **`exchange_rate`**, `cost_basis` (incl. **`RETURN_UNMATCHED`**: an unmatched return takes the site's current method cost and is reported; a matched return reverses the consumption; a return to vendor with `origin_grn_id` relieves that receipt's layer, `RJ-010`; and **`ESTIMATED`**: the negative layer an issue writes when it finds nothing open under a negative-stock `ALLOW` policy, consumed first by the covering receipt with the estimate-versus-actual difference posted as a cost variance, `RF-002`), **`unit_cost_source`** (`VARCHAR(40)`, open vocabulary, `NULL` unless a fallback was used — **where an `ESTIMATED` layer's `unit_cost` came from**: `LAST_RECEIPT`, then `STANDARD_COST`, then `ZERO`, in that order, recorded **on the row** per `RF-002`), `is_open` | idx(`company_id`,`owner_id`,`item_id`,`warehouse_id`,`layer_date`) `WHERE is_open`; idx(`receipt_movement_line_id`) | masters as named; `duty_status → whb_duty_statuses(code)`; the movement-line reference is a **bare pair** (§1.9) | `FR-234` `FR-245` `IRR-38` `OD-6` | v1 |
 | `whb_cost_layer_consumptions` | **Which layer fed which issue** — what a credit note needs in order to restore the original layer | `cost_layer_id`, `issue_movement_line_id` (**bare**), `issue_occurred_at`, `quantity_consumed`, `unit_cost`, `value_consumed`, `reversal_of_consumption_id` | idx(`cost_layer_id`); idx(`issue_movement_line_id`) | `cost_layer_id → whb_cost_layers`; self | `FR-234` `IRR-38` | v1 |
 | `whb_gl_posting_rules` | GL posting rules as **data**, resolved most-specific-first | `company_id`, `movement_type_code`, `reason_code_id`, `item_category_id`, `warehouse_id`, `owner_type_code`, `specificity` (computed, for ordering), `debit_account_ref`, `credit_account_ref`, `effective_from`, `effective_to` | uk on the full wildcard tuple + `effective_from`, `NULLS NOT DISTINCT`; idx(`company_id`,`specificity` DESC) | catalogues as named; `*_account_ref` are **VARCHAR account codes, not FKs** — the account lives in `acc_accounts`, which base must never reference (§3.4 defect **X-1**) | `FR-246` | v1 (table) · v2 (full rule set) |
-| `whb_accounting_handovers` | One envelope per posting-relevant event, plus the **rejected-handover queue**. **`REJECTED → VOIDED`** via `whb_accounting_handovers:void`, approver ≠ requester, only when the movement is reversed or reclassified `NOT_APPLICABLE`; reversing a never-posted movement voids both envelopes, and `VOIDED` is outside the period-close guard (`RJ-011`) | `movement_id` (**bare**), `occurred_at`, `company_id`, `envelope_kind`, **`envelope_version`** (`SMALLINT NOT NULL`, so a stored v1 envelope replays as v1, `RL-002`), `idempotency_key`, `payload` **`TEXT`**, `payload_hash`, `status` (`PENDING`/`SENT`/`POSTED`/`REJECTED`/**`VOIDED`**), `attempt_count`, `last_attempt_at`, `rejection_code`, `rejection_message`, `external_document_ref`, `alert_raised_at` (the queue alert's episode stamp on `REJECTED` rows - `P2-22`, `V501071`; `VOIDED` leaves the count) | uk(`idempotency_key`); idx(`status`,`last_attempt_at`) `WHERE status IN ('PENDING','REJECTED')`; idx(`movement_id`); idx(`alert_raised_at`) `WHERE alert_raised_at IS NOT NULL` (`V501071`; serves the every-tick status-agnostic clear and the active-episode check, the `REJECTED` count and stamp use idx(`status`)) | `company_id → whb_companies` | `FR-232` `FR-233` `FR-248` `IRR-41` | v1 |
+| `whb_accounting_handovers` | One envelope per posting-relevant event, plus the **rejected-handover queue**. **`REJECTED → VOIDED`** via `whb_accounting_handovers:void`, approver ≠ requester, only when the movement is reversed (the reclassify-to-`NOT_APPLICABLE` branch is removed, R31 `AHO-OPEN-04`); reversing a never-posted movement voids both envelopes, and `VOIDED` is outside the period-close guard (`RJ-011`) | `movement_id` (**bare**), `occurred_at`, `company_id`, `envelope_kind`, **`envelope_version`** (`SMALLINT NOT NULL`, so a stored v1 envelope replays as v1, `RL-002`), `idempotency_key`, `payload` **`TEXT`**, `payload_hash`, `status` (`PENDING`/`SENT`/`POSTED`/`REJECTED`/`BLOCKED`/`DISCARDED`/**`VOIDED`** — the seven built values, R31 `AHO-OPEN-12`), `predecessor_handover_id` (the `BLOCKED` edge), `voided_at`, `voided_by`, `void_reason` (`V500042:175-178`), `attempt_count`, `last_attempt_at`, `rejection_code`, `rejection_message`, `external_document_ref`, `alert_raised_at` (the queue alert's episode stamp on `REJECTED` rows - `P2-22`, `V501071`; `VOIDED` leaves the count) | uk(`idempotency_key`); idx(`status`,`last_attempt_at`) `WHERE status IN ('PENDING','REJECTED')`; idx(`movement_id`); idx(`alert_raised_at`) `WHERE alert_raised_at IS NOT NULL` (`V501071`; serves the every-tick status-agnostic clear and the active-episode check, the `REJECTED` count and stamp use idx(`status`)) | `company_id → whb_companies` | `FR-232` `FR-233` `FR-248` `IRR-41` | v1 |
 
 **`whb_accounting_handovers.payload` is `TEXT`, not JSONB**, for the same reason
 `acc_source_documents.payload` is: the envelope must be stored **verbatim** for replay and hash
@@ -1455,7 +1455,7 @@ decides the money. Stated so it is not proposed again.
 | Table | Purpose | Key columns | FKs | FR | Ver |
 |---|---|---|---|---|---|
 | `wh_landed_cost_documents` | Duty, freight, insurance, clearing and port handling arriving **weeks after the goods, on a different document** | `document_number`, `grn_id` (nullable and **derived** — a multi-GRN freight bill is associated through `wh_landed_cost_allocations.grn_line_id`, `RG-019`), `charge_kind`, `counterparty_id`, `amount`, `currency_code`, **`apportionment_basis`** (`VALUE`/`QUANTITY`/`WEIGHT`/`VOLUME`/`MANUAL`), `applied_at`, `apply_movement_id` (bare), `status` | ↓base | `FR-238` `FR-239` `FR-345` | v1 |
-| `wh_landed_cost_allocations` | The per-receipt-line apportionment, retained so the revaluation is reproducible | `landed_cost_document_id`, `grn_line_id`, `basis_value`, `allocated_amount`, `quantity_remaining_at_apply`, `amount_to_layer`, `amount_to_cogs` — `CHECK (amount_to_layer + amount_to_cogs = allocated_amount)`; a charge on a partly-consumed layer splits here (`RF-003`) | as named | `FR-238` | v1 |
+| `wh_landed_cost_allocations` | The per-receipt-line apportionment, retained so the revaluation is reproducible | `landed_cost_document_id`, `grn_line_id`, `basis_value`, `allocated_amount`, `quantity_remaining_at_apply`, `amount_to_layer`, `amount_to_cogs` — `CHECK (amount_to_layer + amount_to_cogs = allocated_amount)`; a charge on a partly-consumed layer splits here (`RF-003`). **`V511324` (`p8-09`, FRD-TRADE `CN-14` (c), owed):** `grn_id` / `grn_line_id` become nullable and `cost_object_type`, `cost_object_id`, `lot_id`, `cost_layer_id` are added, CHECK exactly one target (GRN line, or cost-object lot) — so a subcontract charge lands on lots a production receipt created | as named | `FR-238` | v1 |
 | `wh_revaluations` | **Revaluation is a document, not an `UPDATE`** — zero quantity, non-zero value | `revaluation_number`, `warehouse_id`, `owner_id`, `reason_code_id`, `effective_date`, `approved_by`, `approved_at`, `total_value_change`, `movement_id` (bare), `status` | ↓base | `FR-240` | v1 |
 | `wh_revaluation_lines` | | `revaluation_id`, `item_id`, `lot_id`, `cost_layer_id`, `old_unit_cost`, `new_unit_cost`, `quantity`, `value_change` | ↓base `cost_layer_id` | `FR-240` | v1 |
 | `wh_nrv_assessments` | **A register, not a one-way provision column** — including **the reversal** when NRV recovers | `assessment_number`, `item_id`, `lot_id`, `warehouse_id`, `assessed_nrv`, `basis`, `assessor_user_id`, `assessed_at`, `write_down_amount`, `reversal_of_assessment_id`, `movement_id` (bare) | ↓base; self | `FR-241` | v2 |
@@ -1907,6 +1907,7 @@ header / line) and `is_effective` (true once the contract or its amendment is ap
 | `wht_purchase_orders` | Trade PO (`FIXED` / `OPEN` / `BLANKET`); one core PO created at approval through the `p8-01` port | `po_type` (immutable after submit), supplier, validity (OPEN/BLANKET), ceilings, terms, T&C version, MSME acknowledgement, `core_po_id`, `status`; fulfilment derived, never stored | per contract §0 | `core_po_id → wh_purchase_orders` (FK down) | `FR-575` `FR-576` `FR-577` `FR-583` `FR-585` `FR-618` | v1 |
 | `wht_purchase_order_lines` | PO line; no received quantity stored (`TPO-UNR-05`) | item, qty (`OPEN` = NULL, not 0), unit price, discount %, `price_source`, tolerance, `core_po_line_id` | per contract §0 | `→ wht_purchase_orders`; `core_po_line_id →` core PO lines | `FR-576` `FR-582` | v1 |
 | `wht_po_schedule_lines` | Dated schedule lines (FIXED / BLANKET) | delivery date `DATE`, qty | per contract §0 | `→ wht_purchase_order_lines` | `FR-575` `FR-579` | v1 |
+| `wht_po_service_confirmations` | Service confirmation against a subcontract service PO line (`D-18` item 3, `TPO-T1-18`/`-19`); the processing charge is posted by core in the same transaction | number `<po_number>-Cnn`, line, quantity, job worker's bill no / date, status `POSTED` / `REVERSED`, reversal reason | per contract §0 | `→ wht_purchase_order_lines` | `FR-686` `FR-687` | v1 |
 | `wht_po_releases` | Release / call-off document (`-Rnn`); proposals are `PROPOSED`, never released by the job | release number, release date, `status` | per contract §0 | `→ wht_purchase_orders` | `FR-578` `FR-579` `FR-580` | v1 |
 | `wht_po_release_lines` | Released schedule line or call-off item × qty × date | per contract §0 | per contract §0 | `→ wht_po_releases` | `FR-580` | v1 |
 | `wht_po_charges` | PO header charges | charge type | per contract §0 | `→ wht_purchase_orders` | `FR-576` | v1 |
@@ -4192,7 +4193,7 @@ names them; the `wht_so_*` mirror set is named by `trade-order-amendment.contrac
 | `V550030` | `P9-04` | `wht_purchase_requisitions`, `wht_purchase_requisition_lines`, `wht_requisition_allocations` |
 | `V550040` | `P9-05` | `wht_rfqs`, `wht_rfq_lines`, `wht_rfq_suppliers`, `wht_vendor_quotations`, `wht_vendor_quotation_lines`, `wht_vendor_quotation_charges`, `wht_comparative_statements`, `wht_comparative_statement_awards` |
 | `V550050` | `P9-06` | `wht_purchase_rate_contracts`, `wht_purchase_rate_contract_lines`, `wht_purchase_rate_contract_prices`, `wht_purchase_rate_contract_slabs`, `wht_price_lists`, `wht_price_list_categories`, `wht_price_list_prices`, `wht_price_list_slabs`, `wht_sales_rate_contracts`, `wht_rate_contract_amendments`, `wht_rate_contract_amendment_changes` |
-| `V550060` | `P9-07` | `wht_purchase_orders`, `wht_purchase_order_lines`, `wht_po_schedule_lines`, `wht_po_releases`, `wht_po_release_lines`, `wht_po_charges` |
+| `V550060` | `P9-07` | `wht_purchase_orders`, `wht_purchase_order_lines`, `wht_po_schedule_lines`, `wht_po_service_confirmations`, `wht_po_releases`, `wht_po_release_lines`, `wht_po_charges` |
 | `V550070` | `P9-08` | `wht_sales_enquiries`, `wht_sales_enquiry_lines`, `wht_customer_quotations`, `wht_customer_quotation_lines`, `wht_customer_quotation_charges` |
 | `V550080` | `P9-09` | `wht_sales_orders`, `wht_sales_order_lines`, `wht_so_schedule_lines`, `wht_so_dispatch_releases`, `wht_so_dispatch_release_lines`, `wht_so_charges` |
 | `V550090` | `P9-10` | `wht_po_acknowledgements`, `wht_po_ack_lines`, `wht_po_followups`, `wht_so_acknowledgements`, `wht_so_commitment_followups` |
@@ -4664,6 +4665,7 @@ wht_po_release_lines
 wht_po_releases
 wht_po_schedule_line_versions
 wht_po_schedule_lines
+wht_po_service_confirmations
 wht_price_list_categories
 wht_price_list_prices
 wht_price_list_slabs
@@ -4767,13 +4769,13 @@ built that §2 never listed (`wh_recall_lots`, `wh_nrv_assessment_lines`, `wh_co
 `wh_cogs_recognition_policies`, `wh3_billing_run_exclusions`), and `wh_fulfilment_policies`, which `V510105` built and
 `FRD-REM.md` names. 459 + 16 = **475**. **Re-run 2026-10-22 after the trade alignment** added the three other tables
 `V510105` built (`wh_order_edit_rule_actions`, `wh_order_amendments`, `wh_order_amendment_actions`) to §2, §7, §8.1
-and §8.4: 475 + 3 = **478**. **Re-run 2026-10-23 after the R30 wave-1 reconciliation** added eight `whin_` names to §2.4.2, §7.6, §8.1 and §8.4: `P10-14`'s five (`whin_bonded_exit_rules`, `whin_bonded_operation_lines`, `whin_moowr_returns`, `whin_moowr_return_lines`, `whin_sez_movements`), `whin_bonded_losses` (built at `V541156`, never listed), and `P10-07`'s two Legal Metrology tables (`whin_packaged_commodity_declarations`, `whin_mrp_revisions`, R30 `CP-GA-006`): 478 + 8 = **486**:
+and §8.4: 475 + 3 = **478**. **Re-run 2026-10-23 after the R30 wave-1 reconciliation** added eight `whin_` names to §2.4.2, §7.6, §8.1 and §8.4: `P10-14`'s five (`whin_bonded_exit_rules`, `whin_bonded_operation_lines`, `whin_moowr_returns`, `whin_moowr_return_lines`, `whin_sez_movements`), `whin_bonded_losses` (built at `V541156`, never listed), and `P10-07`'s two Legal Metrology tables (`whin_packaged_commodity_declarations`, `whin_mrp_revisions`, R30 `CP-GA-006`): 478 + 8 = **486**. **Re-run 2026-10-23 after the R31 fix wave** added `P9-07`'s `wht_po_service_confirmations` (`D-18` item 3, FR-686) to §2.6, §7.9, §8.1 and §8.4: 486 + 1 = **487**:
 
 | Module | Prefix | Tables | Band | Ships |
 |---|---|---:|---|---|
 | `warehouse-base` | `whb_` | **132** | V500000–V509999 | v1 · v1.1 · v2 · v3 |
 | `warehouse` | `wh_` | **147** | V510000–V519999 | v1 · v1.1 · v2 |
-| `warehouse-trade` | `wht_` | **75** | V550000–V559999 | v1 (P9) |
+| `warehouse-trade` | `wht_` | **76** | V550000–V559999 | v1 (P9) |
 | `warehouse-india` | `whin_` | **66** | V540000–V549999 | v1 wave · v2 wave |
 | `warehouse-manufacturing` | `whm_` | **34** | V560000–V569999 | v1 (P10) |
 | `warehouse-3pl` | `wh3_` | **26** | V530000–V539999 | v2 · v3 |
@@ -4782,10 +4784,10 @@ and §8.4: 475 + 3 = **478**. **Re-run 2026-10-23 after the R30 wave-1 reconcili
 | `warehouse-adapter-field-service` | `whaf_` | **3** | V522000–V522999 | v1.1 |
 | `warehouse-adapter-assets` | `whaa_` | **2** | V523000–V523999 | v1.1 |
 | `warehouse-adapter-example` | `whae_` | **1** | V525000–V525999 | v1 |
-| **Total** | | **486** | | |
+| **Total** | | **487** | | |
 
 **Cross-check: `0` tables without an allocated migration** (the third command above, re-run
-2026-09-10 after the round-4 additions, and 2026-10-22 after `D-16` and again after the SPINE integration and the trade alignment, and 2026-10-23 after the R30 reconciliation — 486
+2026-09-10 after the round-4 additions, and 2026-10-22 after `D-16` and again after the SPINE integration and the trade alignment, and 2026-10-23 after the R30 reconciliation and the R31 fix wave — 487
 tables, 0 without).
 
 ### 8.3 What the total is not
@@ -5287,6 +5289,7 @@ wht_po_release_lines v1
 wht_po_releases v1
 wht_po_schedule_line_versions v1
 wht_po_schedule_lines v1
+wht_po_service_confirmations v1
 wht_price_list_categories v1
 wht_price_list_prices v1
 wht_price_list_slabs v1

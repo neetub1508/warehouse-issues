@@ -55,7 +55,8 @@
 
 | ID | From | Event | To | Guard | Actor | Side effects | Reason? | Source |
 |---|---|---|---|---|---|---|---|---|
-| IGL-T1-01 | — | Upload a file for an import kind and validate (small path: the platform wizard; above `bulk_import_max_rows`: upload to platform documents, then server-side validate) | `VALIDATING` → `VALIDATED` | `IGL-GRD-01`, `-02` | `whb_import_batches:create` | per-row results with a per-cell error preview; progress on the batch row | no | FR-416, FR-418 |
+| IGL-T1-01 | — | **Validate** a file for an import kind (small path `POST /validate`; above `bulk_import_max_rows`: `POST /documents` upload, then `POST /documents/{id}/validate`, 202, polled on `GET /validations/{token}`) | no batch (nothing stored) | `IGL-GRD-01`, `-02` | `whb_import_batches:create` | **persists nothing** — per-row results with a per-cell error preview are returned, not stored (`WhbImportBatchController.java:51-54`) | no | FR-416, FR-418 |
+| IGL-T1-01a | — | **Store the dry run** (small path `POST /`; server path `POST /documents/{id}`, 202 background) | `VALIDATING` → `VALIDATED` | `IGL-GRD-01`, `-02` | `whb_import_batches:create` | the batch row and its row results are stored — this is the dry run Apply later re-validates and writes; progress on the batch row | no | FR-416, FR-417 |
 | IGL-T1-02 | `VALIDATED` · `FAILED` | Apply (re-validates every row against the database as it is now) | `APPLYING` → `APPLIED` / `FAILED` | `IGL-GRD-03` | `:apply` | the handler writes in batches; a failed apply leaves nothing and the batch is re-runnable | no | FR-416 |
 | IGL-T1-03 | `APPLIED` | **Reverse** | `REVERSED` | `IGL-GRD-04` | `:reverse` | the handler's reversal undoes what the batch applied | **yes** | FR-416 |
 | IGL-T1-04 | `VALIDATED` · `FAILED` | Discard | `DISCARDED` | — | `:apply` | nothing applied | no | FR-416 |
@@ -85,7 +86,7 @@
 
 | ID | Must never happen | Why it cannot | Source |
 |---|---|---|---|
-| IGL-UNR-01 | A validate or dry-run call that persists rows (the duplicate-rows-on-real-import defect) | `WhbImportRunner` validates read-only for the validate endpoints; on the server path validation writes only the batch's own progress | FR-417 |
+| IGL-UNR-01 | A validate or dry-run call that persists rows (the duplicate-rows-on-real-import defect) | `WhbImportRunner` validates read-only for the validate endpoints (`IGL-T1-01`, which store nothing); only the dry-run endpoints (`IGL-T1-01a`) store a batch, and they write the batch and its row results, never target rows | FR-417 |
 | IGL-UNR-02 | Opening stock loaded by a script or as an unexplained opening figure | it is a document that posts `OPENING_BALANCE` movements (`AHO-RPT-02`) | FR-411 |
 | IGL-UNR-03 | An import that cannot be reversed | every handler supplies a reversal; the batch keeps what it applied | FR-416 |
 | IGL-UNR-04 | Raising the global `bulk_import_max_rows` to fit a large file | large files take the server-side path | FR-416 |
@@ -136,6 +137,7 @@ The platform's client-side `ImportButton` wizard itself (platform); demand forec
 | Date | Change |
 |---|---|
 | 2026-10-23 | v0 derived (R30 `CP-FR-007` row 23) |
+| 2026-10-23 | R31 `F-CB-017`: validate (`IGL-T1-01`, stores nothing) split from the stored dry run (`IGL-T1-01a`); `IGL-UNR-01` restated; `IGL-OPEN-01` decided |
 
 ## 8. Invariants and scenarios
 
@@ -145,7 +147,7 @@ The platform's client-side `ImportButton` wizard itself (platform); demand forec
 
 | ID | Question | Default |
 |---|---|---|
-| IGL-OPEN-01 | Does anything refuse a movement at the site inside the freeze window, or is the window a record only? | record only, as built (`FR-413` "anything that moves between is manual") |
+| IGL-OPEN-01 | Does anything refuse a movement at the site inside the freeze window, or is the window a record only? | **DECIDED R31 (2026-10-23):** default stands — record only, as built; the runbook captures movements made during the window (`FR-413` "anything that moves between is manual") |
 
 ## 10. Code divergences
 

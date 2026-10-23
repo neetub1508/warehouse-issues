@@ -102,22 +102,23 @@ Permission for each is `<grid id>:view` / `:export`.
 | RKP-T5-09 | WS-216 Operational KPIs · `/kpis` · `wh_rpt_kpis` | `metricCode`, `metricName`, `warehouseName`, `ownerName`, `periodLabel`, `value`, `unit`, `target`, `variance` | `warehouseId` → `ownerId` → `metricCode` · `periodFrom`/`To` · `granularity` (day / week / month) | dock-to-stock, order cycle time, on-time ship, inventory record accuracy from counts, dwell time and putaway cycle time, each from lifecycle timestamps; the twenty-nine-metric list computed from the ledger | FR-392, FR-394 |
 | RKP-T5-10 | WS-217 Stock KPIs · `/stock-kpis` · `wh_rpt_stock_kpis` | `fillRate`, `inventoryTurns`, `obsolescencePct`, `daysSupply`, by `warehouseName` and period | as WS-216 | frozen definitions shown in the metric explainer: **fill rate** = filled demand hits ÷ (filled + no-stock lost-sale hits); **inventory turns** = annualised issue value at cost ÷ average inventory value, with a true-turns variant excluding non-stocked and special-order lines; **obsolescence** = value with no outward movement in twelve months ÷ total inventory value; **days supply** = on-hand ÷ average daily demand over the policy window; a zero denominator gives a blank | FR-393 |
 | RKP-T5-11 | WS-218 Traceability · `/traceability` · `wh_rpt_traceability` | *forward*: lot → every shipment and consignee that received it; *backward*: shipment or serial → supplier lot and receipt | `direction` (required) · `lotId` / `serialNumber` / `shipmentId` (one required) · `warehouseId` · `occurredFrom`/`To` | walks movements and `whb_transformations` for the full retention period (`L-12`) | FR-396 |
-| RKP-T5-12 | WS-243 Location Utilisation · `/location-utilisation` · `wh_rpt_location_utilisation` | `locationCode`, `rollupLevel` (location / rack / aisle / zone / site), `warehouseName`, weight / volume / unit / LPN capacity and occupied, `utilisationPct` | `warehouseId` → `zoneLocationId` · `rollupLevel` · `utilisationOver` | occupied against capacity from `whb_locations`' capacity block and `whb_stock_positions`, rolled up the hierarchy | FR-471 *(withdrawn D-16)* — **not built, §10 row 4** |
+| RKP-T5-12 | WS-243 Location Utilisation · `/location-utilisation` · `wh_rpt_location_utilisation` | `locationCode`, `rollupLevel` (location / rack / aisle / zone / site), `warehouseName`, weight / volume / unit / LPN capacity and occupied, `utilisationPct` | `warehouseId` → `zoneLocationId` · `rollupLevel` · `utilisationOver` | occupied against capacity from `whb_locations`' capacity block and `whb_stock_positions`, rolled up the hierarchy | FR-471 *(restored `D-18` item 6, carrier `P8-13`, v3)* — **not built, §10 row 4** |
 | RKP-T5-13 | WS-228 Operations Dashboard · `/dashboard` | real-time operations widgets | — | on the platform widget framework, once `widget_definitions.chk_module` admits `warehouse` (BUILD-SPEC §8.1) | FR-399 — **not built, §10 row 5** |
 | RKP-T5-14 | WS-244 Metric Targets · `/metric-targets` · `wh_metric_targets` | `metricCode`, `metricName`, `warehouseName`, `ownerName`, `periodGrain`, `targetValue`, `unit`, `effectiveFrom`, `effectiveTo`, audit names | `metricCode` (from `whb_metric_definitions`) · `warehouseId` · `ownerId` · `periodGrain` | a target per metric × optional warehouse × optional owner × period grain, effective-dated; WS-216's `target` / `variance` read the effective row; no row ⇒ blank variance. `whb_metric_definitions` (code, name, unit, definition text key, owning module, direction) has no `CHECK`, so a module registers a metric by `INSERT` | FR-470 |
-| RKP-T5-15 | Consolidated valuation across both inventories (WS-222) | per FRD: tagged by source system, the differing-method caveat rendered on the report | — | **WS-222 is REMOVED by `D-16` (`RN-051`, `P7-09`)**; the FRD row is not marked withdrawn (`RKP-OPEN-01`) | FR-397 |
+| RKP-T5-15 | Consolidated valuation across both inventories (WS-222) | per FRD: tagged by source system, the differing-method caveat rendered on the report | — | **WS-222 is REMOVED by `D-16` (`RN-051`, `P7-09`)**; `FR-397` is withdrawn in the FRD (`D-17`; `D-18` item 6 keeps it withdrawn) — this row records the removal only (`RKP-OPEN-01`) | FR-397 |
 
 ## 6. Out of scope
 
-WS-219 Stock-to-GL (`accounting-handover`), WS-220 in-transit ageing, WS-221 expiry register, WS-223 health,
+WS-219 Stock-to-GL (`accounting-handover`), WS-220 in-transit ageing, WS-221 expiry register,
 WS-224 stock as-at (their FRs sit in other sections); trade reports (`trade-reports`); the coexistence
-reconciliation (removed, `D-16`).
+reconciliation (removed, `D-16`). WS-223 health is **in** scope through `RKP-T3-02` only (R31 `F-CB-021`).
 
 ## 7. Amendments
 
 | Date | Change |
 |---|---|
 | 2026-10-23 | v0 derived (R30 `CP-FR-007` row 21) |
+| 2026-10-23 | R31: `F-CB-021` (`RKP-T5-15`; WS-223 out of §6); `FR-471` restored (`D-18` item 6: `RKP-T5-12`, §10 row 4, `RKP-OPEN-01`); `RKP-OPEN-02` decided with §9.1 dispositions |
 
 ## 8. Invariants and scenarios
 
@@ -128,8 +129,24 @@ reconciliation (removed, `D-16`).
 
 | ID | Question | Default |
 |---|---|---|
-| RKP-OPEN-01 | **CLOSED 2026-10-23.** `FR-397` (the accessories consolidated view, WS-222 REMOVED) and `FR-471` (location utilisation, only owner `P6-02` VOID) | both **withdrawn under `D-16`** in the FRD and plan §2 (`D-17` items 5–6); `P7-09` still removes the served WS-222 (§10 row 6) |
-| RKP-OPEN-02 | `FR-394` names a twenty-nine-metric list; the catalogue seeds ten. Which are placed later or refused in writing (`p2-21.md` acceptance)? | ten as seeded |
+| RKP-OPEN-01 | **CLOSED 2026-10-23.** `FR-397` (the accessories consolidated view, WS-222 REMOVED) and `FR-471` (location utilisation, only owner `P6-02` VOID) | both **withdrawn under `D-16`** in the FRD and plan §2 (`D-17` items 5–6); `P7-09` still removes the served WS-222 (§10 row 6). **Amended R31 (2026-10-23), `D-18` item 6:** `FR-471` is **restored** (carrier `P8-13`, v3 increment); `FR-397` stays withdrawn |
+| RKP-OPEN-02 | `FR-394` names a twenty-nine-metric list; the catalogue seeds ten. Which are placed later or refused in writing (`p2-21.md` acceptance)? | **DECIDED R31 (2026-10-23):** the ten seeded metrics stand; every listed metric has a written disposition in §9.1 |
+
+### 9.1 `FR-394` metric dispositions (`RKP-OPEN-02`)
+
+The only enumeration of the list is the prior-art column at `reviews/R6-prior-art-triage.md:308`, which names 21 metric columns of the deleted product's table; the rest of the twenty-nine are not named anywhere in this design set and are **refused until named with a fact source**. The ten seeded codes are `V500048__Create_whb_metric_definitions.sql:159-205`.
+
+| Metric | Disposition |
+|---|---|
+| `DOCK_TO_STOCK`, `PUTAWAY_CYCLE_TIME`, `ORDER_CYCLE_TIME`, `ON_TIME_SHIP`, `DWELL_TIME`, `INVENTORY_RECORD_ACCURACY`, `FILL_RATE`, `INVENTORY_TURNS`, `OBSOLESCENCE`, `DAYS_SUPPLY` | **seeded** (v1, `p2-21`); prior-art `dock_to_stock_hours_avg`, `putaway_cycle_time_hours`, `inventory_accuracy_pct`, `order_fill_rate_pct` and `dead_stock_pct` are these |
+| `location_utilization_pct` | **placed** — WS-243 (`RKP-T5-12`, `FR-471` restored), carrier `P8-13` |
+| `total_sku_count`, `total_stock_units`, `total_stock_value_cost` | **refused as metric codes** — stock totals, not rates; read from the stock and valuation reports |
+| `total_stock_value_retail` | **refused** — warehouse holds no retail price (`D-16`) |
+| `vor_fill_rate_pct`, `vor_response_time_hours`, `core_return_rate_pct` | **refused** — dealer-parts facts (VOR, cores) leave the warehouse with the dealer adapter (`D-16`) |
+| `perfect_order_rate_pct` | **refused** — no damage-free or documentation-accuracy fact exists (R18 `RC-007`) |
+| `pick_accuracy_pct` | **refused** — no mis-pick record; scan verification `FR-192` is deferred (`D-17`) |
+| `backorder_rate_pct`, `same_day_ship_rate_pct` | **refused as separate codes** — the complement of `FILL_RATE` and a bound on `ORDER_CYCLE_TIME` |
+| `shrinkage_value`, `receiving_accuracy_pct`, `return_processing_hours`, `return_to_stock_rate_pct` | **refused in v1, no carrier** — the facts exist (reason-coded write-offs, receipt variances, return timestamps), but no task places them; re-open with a task |
 
 ## 10. Code divergences
 
@@ -140,6 +157,6 @@ The FRD rule is kept; the code is what differs.
 | 1 | `warehouse/…/controller/WhPartsKpiController.java:98` | FR-393 | WS-217 is still served at its pre-rename route and permission resource (`wh_rpt_parts_kpis:*`); the rename to Stock KPIs by `P7-11` is pending |
 | 2 | `warehouse/…/repository/WhPartsKpiRepositoryCustomImpl.java:134-137` | FR-393 | four metrics only; the true-turns variant (excluding non-stocked and special-order lines) is absent |
 | 3 | `warehouse-base/…/db/migration/V500048__Create_whb_metric_definitions.sql:159` | FR-394 | ten metric codes seeded, not twenty-nine |
-| 4 | — (no controller for `/warehouse/reports/location-utilisation`) | FR-471 | WS-243 not built |
+| 4 | — (no controller for `/warehouse/reports/location-utilisation`) | FR-471 | WS-243 not built — `FR-471` restored by `D-18` item 6; carrier `P8-13` (v3 increment) |
 | 5 | — (no warehouse widget) | FR-399 | WS-228 not built (v3) |
 | 6 | `warehouse/…/controller/WhConsolidatedValuationController.java:52` | FR-397 | the removed WS-222 is still served (`P7-09` removal pending) |

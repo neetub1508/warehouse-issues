@@ -51,7 +51,7 @@
 | ID | From | Event / action | To | Guard | Actor (permission) | Side effects | Source |
 |---|---|---|---|---|---|---|---|
 | TEP-T1-01 | — | A receipt line or a pick line is created / released | `CREATED` | `TEP-GRD-01` | system (the document's service) | one task per line, `source_document_type` / `_id` | `FR-212` |
-| TEP-T1-02 | `CREATED` · `EXCEPTION` | **Push** — a supervisor assigns a queue | `ASSIGNED` | `TEP-GRD-02` | `whb_tasks:assign` / `:reassign` | `assigned_to`, `assigned_at` | `FR-214`, `FR-215` |
+| TEP-T1-02 | `CREATED` · `EXCEPTION` | **Push** — a supervisor assigns a queue (`POST /push`), or assigns one task (`PATCH /{id}/assign`) / reassigns it | `ASSIGNED` | `TEP-GRD-02` | queue push `whb_tasks:assign` (`WhbTaskController.java:262-263`); single-task assign `whb_tasks:edit` (`:204-205`, weaker — `TEP-DIV-03`); reassign `whb_tasks:reassign` (`:215-216`) | `assigned_to`, `assigned_at` | `FR-214`, `FR-215` |
 | TEP-T1-03 | `CREATED` | **Pull** — an operator asks for the next task | `ASSIGNED` | `TEP-GRD-02`, `-03` | `whb_tasks:claim` | the claimed task, `assigned_at` | `FR-214` |
 | TEP-T1-04 | `CREATED` · `ASSIGNED` · `EXCEPTION` | Complete (in the same web request; v1 has no RF gun) | `COMPLETED` | the document's completion guards | the document's `:complete` | `TEP-T4-01` | `FR-212`, `FR-213` |
 | TEP-T1-05 | `CREATED` · `ASSIGNED` · `EXCEPTION` | Complete with exception | `COMPLETED` | `TEP-GRD-04` | `whb_tasks:edit` | exception code kept | `FR-216` |
@@ -97,7 +97,7 @@
 
 | ID | Action | Permission | Allowed from | Extra | Source |
 |---|---|---|---|---|---|
-| TEP-T2-01 | Assign / reassign / claim / cancel / complete with exception | `whb_tasks:{assign,reassign,claim,edit}` | as §1.2 | assignee qualified | `FR-214`, `FR-215` |
+| TEP-T2-01 | Assign / reassign / claim / cancel / complete with exception | `whb_tasks:{assign,reassign,claim,edit}` — push `:assign`, single-task assign / cancel / complete with exception `:edit`, reassign `:reassign`, pull `:claim` | as §1.2 | assignee qualified | `FR-214`, `FR-215` |
 | TEP-T2-02 | Exception console | no permission of its own — the union of its sources' view permissions | — | — | `FR-216` |
 | TEP-T2-03 | Templates / jobs / printers / routing | `wh_print_templates:{create,edit,publish}` · `wh_print_jobs:{create,void}` · `wh_printers:{create,edit,delete,test_print}` · `wh_print_routing_rules:{create,edit,delete,test_routing}` | — | — | `FR-224` |
 | TEP-T2-04 | Labour; weighing instruments | `wh_labour_tasks:record` · `wh_weighing_instruments:{create,edit}` · `wh_weighing_records:{create,acknowledge}` | — | — | `FR-223`, `FR-227` |
@@ -137,6 +137,7 @@
 | Date | Change |
 |---|---|
 | 2026-10-23 | v0 derived for `D-17` item 1 (R30 `CP-FR-007` row 11); mobile FRs deferred by `D-17` item 2 |
+| 2026-10-23 | R31 `F-CA-005`: `TEP-T1-02` actor corrected to the built permissions, `TEP-DIV-03` added; `TEP-OPEN-01` decided |
 
 ## 7. Invariants and scenarios
 
@@ -148,11 +149,12 @@
 |---|---|---|---|
 | TEP-DIV-01 | `warehouse-base/…/entity/WhbTaskType.java:79`; `V500010__Create_whb_code_lists_task_types_dispositions_attribute_keys.sql:250` | `FR-228` | a `labour_standard_minutes` column is stored per task type; the FRD forbids claiming an engineered standard before a year of actual data — the column must stay a manually entered reference that nothing computes or pays from |
 | TEP-DIV-02 | `warehouse-base/…/service/whbtask/WhbTaskCompletedEvents.java` (`EVENT_TASK_COMPLETED`, `ACTOR_TYPE_USER`) | `FR-229` | the only task event emitted is `task.completed` with a `USER` actor; the published task-event contract an automation vendor integrates against does not exist yet (v3, `P6-04`) |
+| TEP-DIV-03 | `warehouse-base/…/controller/WhbTaskController.java:204-205` | `FR-214`, `FR-215` | single-task Assign needs only `whb_tasks:edit`, weaker than the queue push's `whb_tasks:assign` (`:262-263`), so an editor without `:assign` can assign. The permission decision is `P0-10`'s (acceptance item added) |
 
 ## 9. Open rows
 
 | ID | Question | Missing decision | Default until decided | Source |
 |---|---|---|---|---|
-| TEP-OPEN-01 | The published task-event contract: which events (created, assigned, started, completed, exception), their payload and version | `FR-229` names the contract, not its content | `task.completed` only | `FR-229` |
+| TEP-OPEN-01 | The published task-event contract: which events (created, assigned, started, completed, exception), their payload and version | **DECIDED R31 (2026-10-23):** v1 publishes `task.completed`; the `FR-229` v3 contract (owner `P6-04`) adds versioned created, assigned, started and exception events carrying the `DEVICE` actor | `task.completed` only | `FR-229` |
 
 <!-- v0 2026-10-23. Amend with /functional-contract: every change references a row id and adds a §7 row. -->

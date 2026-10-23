@@ -68,7 +68,7 @@
 | MRA-GRD-02 | at least one GRN line has `MRN_PENDING` quantity not on a live MRN line | `409 MRN_NOTHING_PENDING` | partial uk on lines `(grn_line_id, mrn_id)`; service sum check | FR-527 |
 | MRA-GRD-03 | authoriser ≠ `created_by` and ≠ `submitted_by` | `403 MRN_SELF_APPROVAL` (the core `<DOCUMENT>_SELF_APPROVAL` convention, `WhSupplierReturnValidationService.java:40`, R29 F26) | — | FR-408 |
 | MRA-GRD-04 | authoriser ≠ any user who dispositioned a line of the GRN to release, unless `mrn_authoriser_may_be_inspector = true` | `403 MRN_AUTHORISER_IS_INSPECTOR` | — | FR-527 |
-| MRA-GRD-05 | for each line, the `MRN_PENDING` on-hand traceable to the GRN line (receipt and release movements' `source_document_*`, at lot/LPN/serial grain) ≥ `quantity_authorisable`; else the line authorises the lower figure and the response names the difference | `409 MRN_PENDING_QUANTITY_CHANGED` only when every line is zero | — | FR-527 |
+| MRA-GRD-05 | for each line, the `MRN_PENDING` on-hand traceable to the GRN line (receipt and release movements' `source_document_*`, at lot/LPN/serial grain — the QC release movement is `source_document_type = 'QCINSP'` (`WhQualityInspectionRepository.DOCUMENT_TYPE`, `:36`) with `source_document_id` = the inspection, joined to the GRN line through `wh_quality_inspection_lines.grn_line_id` (`WhQualityInspectionLine.java:70`); the GRN posting is `GRN` (`WhGoodsReceiptPostingService.java:121`); R31 F-SR-005) ≥ `quantity_authorisable`; else the line authorises the lower figure and the response names the difference | `409 MRN_PENDING_QUANTITY_CHANGED` only when every line is zero | — | FR-527 |
 | MRA-GRD-06 | nothing in `MRN_PENDING` is reservable, allocatable, issuable or transferable | refused by the existing allocatable/issuable checks (`FR-129`) — no new code path | `whb_stock_statuses.is_allocatable = false` | FR-527 |
 | MRA-GRD-07 | a receipt reversal of the GRN is refused while a `SUBMITTED` MRN exists (`RQP-GRD-24` extended) | `409 RECEIPT_MRN_SUBMITTED` | — | FR-527 |
 | MRA-GRD-08 | **the only path from `MRN_PENDING` into an allocatable status is MRN authorisation**: a `STATUS_CHANGE` out of `MRN_PENDING` into a status with `is_allocatable = true` is refused unless its `source_document_type = MATERIAL_RECEIPT_NOTE`; moves into non-allocatable statuses (`QUARANTINE` by a recall, `REJECTED`, `DAMAGED`) stay allowed | `409 MRN_PENDING_RELEASE_REQUIRES_MRN` | a core `WhbMovementPostGuard` bean on `STATUS_CHANGE` | FR-527 |
@@ -135,6 +135,7 @@ MRN for non-purchase receipts; value-based authorisation limits (`OD-29`-style m
 |---|---|
 | 2026-10-22 | v0 derived. Amends `RQP-T1-24` (putaway trigger) and `RQP-T1-20` (release target) under the setting |
 | 2026-10-22 | R29 dispositions: scope pair; MRN keyed on pending stock (setting change never strands it); MRN scope = every GRN; self-approval code on authorise and reject; `MRA-GRD-08` single exit; recall quarantine path stated |
+| 2026-10-23 | R31: QC lineage names `QCINSP` and the inspection-line → GRN-line join (`MRA-GRD-05`, F-SR-005); `OD-26` keyed to `PRODUCTION_STORE` (`MRA-OPEN-01`, F-SR-016); `MRA-OPEN-01`…`-03` resolved (`R31-decisions`) |
 
 ## 8. Invariants and scenarios
 
@@ -144,6 +145,6 @@ MRN for non-purchase receipts; value-based authorisation limits (`OD-29`-style m
 
 | ID | Question | Default |
 |---|---|---|
-| MRA-OPEN-01 | OD-26 default of `mrn_required` | on for production/raw-material stores |
-| MRA-OPEN-02 | Should putaway be allowed **before** authorisation (stock in the bin but still `MRN_PENDING`)? | **No** in v1.1 — the stock stays at receiving/QC staging; a site that wants bin-first runs with the setting off |
-| MRA-OPEN-03 | A recall (`WhRecallService`) moves `MRN_PENDING` stock to `QUARANTINE` (allowed, `MRA-GRD-08`); does the recall's release later restore it to `MRN_PENDING` or to the status it had before? | `P8-08` verifies the recall release target in code; it must restore the **prior** status (`MRN_PENDING`), never `AVAILABLE` — `MRA-GRD-08` refuses the latter |
+| MRA-OPEN-01 | OD-26 default of `mrn_required` | on for a new site of `WAREHOUSE_TYPE` **`PRODUCTION_STORE`** (the `P7-11` rename of `WORKSHOP`; no raw-material type is seeded), off otherwise; per-site override (R31 F-SR-016). **RESOLVED (DEFAULT), 2026-10-23** (`R31-decisions`). The type only seeds the new site's setting row — a recorded exception to *"a label, not a behaviour"* (`V500012:191`): nothing at runtime reads the type |
+| MRA-OPEN-02 | Should putaway be allowed **before** authorisation (stock in the bin but still `MRN_PENDING`)? | **No** in v1.1 — the stock stays at receiving/QC staging; a site that wants bin-first runs with the setting off **RESOLVED (DEFAULT), 2026-10-23** (`R31-decisions`). |
+| MRA-OPEN-03 | A recall (`WhRecallService`) moves `MRN_PENDING` stock to `QUARANTINE` (allowed, `MRA-GRD-08`); does the recall's release later restore it to `MRN_PENDING` or to the status it had before? | `P8-08` verifies the recall release target in code; it must restore the **prior** status (`MRN_PENDING`), never `AVAILABLE` — `MRA-GRD-08` refuses the latter **RESOLVED (DEFAULT), 2026-10-23** (`R31-decisions`). Restore the prior status; `P8-08` verifies. |

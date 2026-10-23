@@ -9,7 +9,7 @@
 > **Status.** Derived 2026-10-23 (v0) from [`frd/FRD-REM.md`](../frd/FRD-REM.md) `FR-480`…`FR-499`,
 > `REM-D1`…`REM-D21`, `OD-22`…`OD-24`, §6 grep gates and Appendices A–F. Every pattern below was run
 > against `classic` @ `74102d8d04` on 2026-10-23 and **matches today** (the artefact exists, so the check is
-> not vacuous). Not ratified.
+> not vacuous) — **in its runnable, unescaped form of §1.7**; the table cells escape `|` for markdown (R31 F-SR-009). Not ratified.
 
 ---
 
@@ -29,7 +29,7 @@
 
 | # | Expects | Delivered by |
 |---|---|---|
-| A1 | Every removed feature is absent on every surface (`WH-SC-660`, `-661`, `-663`, `-675`) | `RMV-UNR-01`…`-12` |
+| A1 | Every removed feature is absent on every surface (`WH-SC-660`, `-661`, `-663`, `-675`) | `RMV-UNR-01`…`-12`, `RMV-UNR-26`; run as §1.7 |
 | A2 | No dead vocabulary, adapter switch or public endpoint remains (`WH-SC-664`, `-674`) | `RMV-UNR-13`…`-21` |
 | A3 | The three dual-use codes and Parts KPIs are renamed in storage and on screen (`WH-SC-664`, `-671`, `-672`) | `RMV-REN-01`…`-04` |
 | A4 | Generic shipping, channels, the category picker and the menu re-home still work (`WH-SC-662`, `-666`…`-670`, `-673`) | `RMV-KEEP-01`…`-07` |
@@ -63,7 +63,7 @@ are the whole-tree sweeps that catch a surface a feature row missed.
 | RMV-UNR-14 | **Dealer / retail seeded vocabulary**: document types `JOB_CARD`, `POS_SHIFT`, `CHANNEL_PUBLISH_RUN`; identifier type `MARKETPLACE_LISTING`; return types `RTO`, `MARKETPLACE`; channel kinds `MARKETPLACE`, `OWN_STORE`, `POS`; the 23 RTO / NDR / `AWB_VOID` reasons and `CARRIER_INITIATED` (`V500004`, `V510205`, `V510206`, `V511276`); movement types `RTO_RECEIPT`, `RTO_RECEIPT_REVERSAL`. Every seed migration's own count / verification assertion matches the trimmed set | GATE-3 vocabulary arm `JOB_CARD\|POS_SHIFT\|MARKETPLACE_LISTING\|CHANNEL_PUBLISH_RUN\|RTO_RECEIPT\|NDR_[A-Z_]+\|CARRIER_INITIATED\|AWB_VOID\|OWN_STORE`; GATE-4 `'(RTO\|NDR\|COD\|POS\|MARKETPLACE\|OBR)'` and the double-quoted form; `psql` over `whb_document_types`, `whb_code_list_values`, `whb_reason_codes`, `whb_movement_types` for the `FRD-REM` D.5 codes = 0 (`WH-SC-664`) | `P7-10` | FR-494 |
 | RMV-UNR-15 | **Removed tables** — the 24 of `FRD-REM` D.1 | `SELECT to_regclass('<t>')` is NULL for each (`WH-SC-660`); GATE-2 over `$W $P` | `P7-13` | FR-498 |
 | RMV-UNR-16 | **Removed permissions and the role** — the 103 rows of D.2, their role grants (ADMIN, AUDITOR, ADMIN_GROUP, the Warehouse Storekeeper / Supervisor / Stock Controller / Manager / Finance Controller bundles, Branch Admin) and their `permission_dependencies`; role `Warehouse Trade Customer`. The deleted names are never re-used (`FRD-REM` §7) | `SELECT count(*) FROM permissions WHERE name ~ '^(wh_(awb_pools\|shipment_ndrs\|cod_remittances\|channel_accounts\|channel_order_imports\|channel_publish_rules\|tracking_links\|marketplace_claims\|rto_consignments\|carrier_serviceability\|rate_quotes\|obsolescence_returns\|trade_portal\|trade_portal_users\|rpt_coexistence\|rpt_consolidated_valuation\|rpt_parts_kpis)\|whb_(category_stocking_ownership\|external_stock_snapshots)):'` = **0** (`WH-SC-661`) | `P7-13` | FR-480, FR-481, FR-482, FR-483, FR-484, FR-485, FR-486, FR-487, FR-490, FR-491, FR-492, FR-497 |
-| RMV-UNR-17 | **Removed menus** — the 17 leaves of D.3 (`outbound/{rto,channel-accounts,channel-imports,publish-rules,tracking-links,rate-quotes,serviceability,awb-pools,ndr,cod-remittances,trade-portal}`, `inbound/{obsolescence-returns,marketplace-claims}`, `reports/{coexistence,consolidated-valuation}`, `masters/category-ownership`, `platform/external-snapshots`) and the containers L1 `warehouse_channels`, L2 `warehouse_channels_fulfilment`, L2 `warehouse_channels_carriers`, L1 `warehouse_trade`, L2 `warehouse_trade_customers`; with them every `menu_permissions`, role-menu, favourite and visit-history row naming them (`REM-D21`); freed slots 60 / 70 are not re-used | `SELECT 1 FROM menus WHERE route_path IN (<the 17>)` = 0 on every install; the container names = 0 at the `P7` exit, except `warehouse_channels` exactly once **at L3** (`RMV-KEEP-03`, `WH-SC-662`); GATE-5 | `P7-06`, `P7-08` | FR-488, FR-491 |
+| RMV-UNR-17 | **Removed menus** — the 17 leaves of D.3 (`outbound/{rto,channel-accounts,channel-imports,publish-rules,tracking-links,rate-quotes,serviceability,awb-pools,ndr,cod-remittances,trade-portal}`, `inbound/{obsolescence-returns,marketplace-claims}`, `reports/{coexistence,consolidated-valuation}`, `masters/category-ownership`, `platform/external-snapshots`) and the containers L1 `warehouse_channels`, L2 `warehouse_channels_fulfilment`, L2 `warehouse_channels_carriers`, L1 `warehouse_trade`, L2 `warehouse_trade_customers`; with them every `menu_permissions`, role-menu, favourite and visit-history row naming them (`REM-D21`); freed slots 60 / 70 are not re-used | §1.7 `RMV-UNR-17` (the literal 17 `route_path` values) = 0 on every install; the container names = 0 at the `P7` exit, except `warehouse_channels` exactly once **at L3** (`RMV-KEEP-03`, `WH-SC-662`); GATE-5 | `P7-06`, `P7-08` | FR-488, FR-491 |
 | RMV-UNR-18 | **Removed grids** — the 18 of D.4 (293 `grid_column_definitions` + 87 `filter_definitions` rows); the `isDualEligible` column / filter on item categories and `supportsCod` on carrier services | `SELECT 1 FROM grid_preferences / grid_column_definitions / filter_definitions WHERE grid_identifier IN (<the 18>)` = 0 each (`WH-SC-663`) | `P7-13` | FR-497, FR-492, FR-483 |
 | RMV-UNR-19 | **Removed catalogue rows** — D.5: the source systems, document types, `MARKETPLACE_CLAIM_TYPE`, the `RETURN_TYPE` / `CHANNEL_KIND` / `IDENTIFIER_TYPE` values, `CHANNEL_ORDER_ID`, the RTO movement types, the 23 reasons, `channel.inventory.published`, series `COD` / `OBR`, the four `admin_settings` keys, the 8 `wh_tracking_notification_rules` rows | `psql` per D.5 list = 0; `CHANNEL_KIND` = `{B2B}`; `RETURN_TYPE` count = 8 (`WH-SC-664`); logix client seeds create no `COD` / `OBR` series (`WH-SC-678`) | `P7-13` | FR-494, FR-484, FR-486, FR-490 |
 | RMV-UNR-20 | **Removed i18n sections** — every section of `FRD-REM` Appendix E, in **en, fr and hi**, in the same task that removes its code (`REM-D8` waives the no-delete rule for warehouse only) | GATE-8: `jq -e 'has("awbPool") or has("shipmentNdr") or has("codRemittance") or has("channelAccount") or has("channelOrderImport") or has("publishRule") or has("trackingLink") or has("marketplaceClaim") or has("rtoConsignment") or has("carrierServiceability") or has("rateQuote") or has("obsolescenceReturn") or has("tradePortal") or has("coexistence") or has("inventorySeparation") or has("consolidatedValuation") or has("partsKpis")'` on each `warehouse/frontend/src/i18n/locales/{en,fr,hi}/warehouse.json` → `false`; `has("categoryStockingOwnership") or has("externalStockSnapshot")` on each `warehouseBase.json` → `false`; the `help.*` keys of Appendix E likewise | each `P7-02`…`P7-11` for its own sections | REM-D8, FR-499 |
@@ -72,6 +72,7 @@ are the whole-tree sweeps that catch a surface a feature row missed.
 | RMV-UNR-23 | **A history row for a deleted version, or a repaired checksum** in the rebuilt dev DB; a volume dropped without the user's explicit go when warehouse rows exist (`REM-D18`) | `SELECT version FROM flyway_schema_history WHERE version IN (<Appendix B.1 versions>)` = 0 and `WHERE type = 'DELETE' OR description LIKE '%repair%'` = 0; one history row per present file with matching checksum (`WH-SC-679`); `P7-13` records the pre-rebuild warehouse-row count and, if non-zero, the go | `P7-13` | FR-499, REM-D18 |
 | RMV-UNR-24 | **A grep-gate exception beyond the two of `REM-D19`** — any other excluded file, path or silent allowlist in GATE-1…GATE-8, or a gate that passes only by editing a fenced module | the gate commands in `P7-13` carry exactly `--exclude=V500200__Allow_warehouse_in_platform_module_check_constraints.sql` (GATE-3) and `--exclude=WarehouseBaseCouplingTest.java` (GATE-6); a legitimate kept use is recorded in `FRD-REM` §2 before merge | `P7-13` | REM-D19, FR-499 |
 | RMV-UNR-25 | **Docs, QA notes, contracts and descriptors in `classic` describing a removed feature as present** (Appendix F); `ci-gate` naming a deleted test class | `warehouse/docs/contracts/shipment-carrier-lifecycle.contract.md` has no AWB-pool / NDR / RTO guard or transition; `order-flow-retry.contract.md` no trade-portal row; the `.claude/testing/descriptors` of Appendix F deleted / trimmed / renamed; `shared/scripts/ci-gate/20-warehouse.def` names no deleted test class (`WH-SC-676`) | `P7-12` | FR-499 |
+| RMV-UNR-26 | **Any file of `FRD-REM` Appendix A** (478 paths) — by exact path, so a deletion target whose content matches no semantic pattern (e.g. `WhTrackingEventRequest.java`, `FRD-REM.md:263`) cannot survive the proof (R31 F-SR-010) | §1.7 `RMV-UNR-26`: the generated list has 478 lines and no `STILL PRESENT` line prints | `P7-13` | FR-498 |
 
 ### 1.5 Renames — stored code and every surface (`REM-D5`)
 
@@ -96,6 +97,82 @@ are the whole-tree sweeps that catch a surface a feature row missed.
 | RMV-KEEP-08 | **CI stays green and the reserved-band ratchet stays** (`WarehouseBaseCouplingTest`, `REM-D3`) | `shared/scripts/ci-gate.sh ratchets warehouse` and `integration warehouse` exit 0 (`WH-SC-676`) | `P7-13` | FR-499, FR-493 |
 | RMV-KEEP-09 | **Drop-ship stays in core as B2B direct ship** (`REM-D20`): `WhDropShipService`, `WhDropShipController`, `WhDropShipGuard` and the wiring in `WhGoodsReceiptPostingService` / `WhDemandOrderService`; `INSTALL.md` keeps them gated off as v2 | no `P7` task deletes them; `ls warehouse/backend/src/main/java/ai/warehouse/service/WhDropShipService.java` exists after `P7` | — | FR-489 |
 | RMV-KEEP-10 | **The kept shipping terms**: `wh_carrier_accounts.payment_mode` (`CREDIT` / `PREPAID` / `TO_PAY`) and the shipping uses of "AWB" / "waybill" as the carrier's tracking-number word (`REM-D12`) | `WhCarrierAccount.PAYMENT_MODE_*` present; GATE-3 is anchored to the demand-order and wave tokens, so it never matches them | `P7-03`, `P7-04` | FR-483, FR-480 |
+
+### 1.7 Runnable form of the checks (R31 F-SR-009, F-SR-010)
+
+Inside the §1.4 table a `\|` is **markdown escaping** for a pipe, not grep syntax: in ERE (GNU grep, ugrep) and in PostgreSQL `~`, `\|` is a *literal* pipe, so a cell copied as written matches nothing and passes vacuously. **Run the checks from this block, never from a table cell.** Each line below is the cell's command with the escaping removed; `RMV-UNR-14` uses `FRD-REM` §6 GATE-3 / GATE-4 as written there (unescaped); `RMV-UNR-17` is expanded to the literal route list. Run from the classic root with `$W` / `$P` as in §0.
+
+```bash
+W="warehouse-base warehouse warehouse-3pl warehouse-india"
+P="platform/frontend/src/utils/filterUtils.ts platform/backend/src/main/java/ai/platform/config/CacheConfiguration.java platform/backend/src/main/resources/db/client/logix shared/scripts/ci-gate"
+X="--exclude-dir=target --exclude-dir=node_modules --exclude-dir=.next --exclude-dir=results"
+# RMV-UNR-01
+grep -rIE $X 'WhAwb|AwbPool|wh_awb_|AWB_VOID|SHIPMENT_TRACKING_NOT_CLAIMED_AWB|WAREHOUSE_AWB_POOL_LOW|WH_AWB_POOL_TOP_UP|outbound/awb-pools' $W $P
+# RMV-UNR-02
+grep -rIE $X 'CarrierServiceability|RateQuote|RateShop|wh_carrier_serviceability|wh_rate_quote|WH_CARRIER_SERVICEABILITY|outbound/(serviceability|rate-quotes)|fetchAwbBlock' $W $P
+# RMV-UNR-03
+grep -rIE $X 'ShipmentNdr|WhNdr|wh_shipment_ndrs|wh_ndr_actions|WH_NDR_|WAREHOUSE_NDR|RTO_INITIATED|RTO_IN_TRANSIT|RTO_DELIVERED|ndr_response_hours|ndr_auto_rto_grace_hours|outbound/ndr' $W $P
+# RMV-UNR-04
+grep -rIE $X 'CodRemittance|WhCod[A-Z]|wh_cod_remittance|cod_remittance_days|supports_cod|supportsCod|DO_PAYMENT_MODE|DO_COD_AMOUNT|PAYMENT_(PREPAID|COD)\b|WhDemandOrder\.PAYMENT_MODES|outbound/cod-remittances' $W $P
+# RMV-UNR-05
+grep -rIE $X 'ChannelAccount|ChannelOrderImport|ChannelPublish|wh_channel_account|wh_channel_order_import|wh_channel_publish|channel\.inventory\.published|CHANNEL_PUBLISH_RUN|CHANNEL_ORDER_ID|channel_account_id|dropdown\.whChannel|outbound/(channel-accounts|channel-imports|publish-rules)' $W $P
+# RMV-UNR-06
+grep -rIE $X 'TrackingLink|TrackingNotification|TrackingPublic|wh_tracking_link|wh_tracking_notification|/public/warehouse|outbound/tracking-links' $W $P
+# RMV-UNR-07
+grep -rIE $X 'MarketplaceClaim|wh_marketplace_claim|MARKETPLACE_CLAIM_TYPE|warehouse\.marketplace_claims|WH_MARKETPLACE_CLAIM_WINDOW|WhClaimSettlementRequest|inbound/marketplace-claims' $W $P
+# RMV-UNR-08
+grep -rIE $X 'RtoConsignment|RtoReceipt|wh_rto_consignment|RTO_RECEIPT|rtoBegun|outbound/rto\b' $W $P
+# RMV-UNR-09
+grep -rIE $X 'ObsolescenceReturn|ObsolescenceCandidate|ObsolescenceWindow|wh_obsolescence_return|OBSOLESCENCE_RETURN|TYPE_OBSOLESCENCE|warehouse\.obsolescence_returns|inbound/obsolescence-returns' $W $P
+# RMV-UNR-10
+grep -rIE $X 'TradePortal|TradeCustomer|CustomerPersona|wh_trade_portal|permittedCustomers|requireCustomerPermitted|CustomerScope|ForCustomer\b|toCustomerResponses|createTradePortalDraft|outbound/trade-portal' $W $P
+# RMV-UNR-11
+grep -rIE $X 'Coexistence|CategoryStockingOwnership|ExternalStockSnapshot|StockingSystem|InventorySeparation|whb_category_stocking_ownership|whb_external_stock_snapshot|wh_rpt_coexistence|is_dual_eligible|isDualEligible|masters/category-ownership|platform/external-snapshots|reports/coexistence' $W $P
+# RMV-UNR-12
+grep -rIE $X 'ConsolidatedValuation|wh_rpt_consolidated_valuation|reports/consolidated-valuation' $W $P
+# RMV-UNR-13
+grep -rIE $X 'adapter\.dealer|adapter\.services|warehouse-adapter-(dealer|services)|warehouseadapter(dealer|services)|Parts Counter|Workshop Parts|WAREHOUSE_(DEALER|SERVICES)_|whad_|whas_' $W platform/frontend/src/utils/filterUtils.ts --exclude=WarehouseBaseCouplingTest.java
+# RMV-UNR-21
+grep -nE 'WAREHOUSE_(CATEGORY_STOCKING_OWNERSHIP|EXTERNAL_STOCK_SNAPSHOT|RPT_COEXISTENCE|TRADE_PORTAL_USER|RATE_QUOTE|CARRIER_SERVICEABILITY|AWB_POOL|CHANNEL_ACCOUNT|CHANNEL_ORDER_IMPORT|CHANNEL_PUBLISH_RULE|TRACKING_LINK|RTO|NDR|COD_REMITTANCE|OBSOLESCENCE_RETURN|MARKETPLACE_CLAIM|RPT_CONSOLIDATED_VALUATION|RPT_PARTS_KPI)\b' platform/frontend/src/utils/filterUtils.ts
+# RMV-UNR-21
+grep -n 'dropdown.whChannel' platform/backend/src/main/java/ai/platform/config/CacheConfiguration.java
+```
+
+```sql
+-- RMV-UNR-16 (expect 0)
+SELECT count(*) FROM permissions WHERE name ~ '^(wh_(awb_pools|shipment_ndrs|cod_remittances|channel_accounts|channel_order_imports|channel_publish_rules|tracking_links|marketplace_claims|rto_consignments|carrier_serviceability|rate_quotes|obsolescence_returns|trade_portal|trade_portal_users|rpt_coexistence|rpt_consolidated_valuation|rpt_parts_kpis)|whb_(category_stocking_ownership|external_stock_snapshots)):';
+-- RMV-UNR-17 (expect 0): the 17 leaves of FRD-REM D.3, literal
+SELECT count(*) FROM menus WHERE route_path IN (
+  '/dashboard/warehouse/outbound/rto',
+  '/dashboard/warehouse/outbound/channel-accounts',
+  '/dashboard/warehouse/outbound/channel-imports',
+  '/dashboard/warehouse/outbound/publish-rules',
+  '/dashboard/warehouse/outbound/tracking-links',
+  '/dashboard/warehouse/outbound/rate-quotes',
+  '/dashboard/warehouse/outbound/serviceability',
+  '/dashboard/warehouse/outbound/awb-pools',
+  '/dashboard/warehouse/outbound/ndr',
+  '/dashboard/warehouse/outbound/cod-remittances',
+  '/dashboard/warehouse/outbound/trade-portal',
+  '/dashboard/warehouse/inbound/obsolescence-returns',
+  '/dashboard/warehouse/inbound/marketplace-claims',
+  '/dashboard/warehouse/reports/coexistence',
+  '/dashboard/warehouse/reports/consolidated-valuation',
+  '/dashboard/warehouse/masters/category-ownership',
+  '/dashboard/warehouse/platform/external-snapshots');
+-- RMV-UNR-17 containers (expect 1: warehouse_channels at menu_level 3 only, RMV-KEEP-03)
+SELECT name, menu_level FROM menus WHERE name IN ('warehouse_channels','warehouse_channels_fulfilment','warehouse_channels_carriers','warehouse_trade','warehouse_trade_customers');
+```
+
+```bash
+# RMV-UNR-26 (expect no output): every Appendix A path is gone - exact paths, generated from FRD-REM
+awk '/^## Appendix A/{p=1;next} /^## Appendix B/{p=0} p && /^- `[^`]*\/` — /{d=$2; gsub(/`/,"",d); n=split($0,a,"`"); for(i=4;i<=n;i+=2) print d a[i]}' \
+  ../warehouse-issues/docs/frd/FRD-REM.md > /tmp/rem-appendix-a.txt
+test "$(wc -l < /tmp/rem-appendix-a.txt)" -eq 478 || echo 'APPENDIX A PARSE: expected 478 paths'
+while read -r f; do [ -e "$f" ] && echo "STILL PRESENT: $f"; done < /tmp/rem-appendix-a.txt
+```
+
+**Anti-vacuous step (required before the exit run).** Run every command of this block against the **pre-`P7` tree** (`classic` @ `74102d8d04`, or the `P7` branch point) and the pre-rebuild DB, and require a **match** from each: ≥ 1 file for every grep, a non-zero count for `RMV-UNR-16` / `-17`, all 478 paths present for `RMV-UNR-26`. A check that finds nothing before `P7` proves nothing after it and is fixed before the exit run. Re-run on 2026-10-23 with the escaping removed, every grep above matched (`RMV-UNR-01` 62 files … `RMV-UNR-13` 17, `RMV-UNR-21` 19 lines) and all 478 Appendix A paths exist.
 
 ## 2. T2 — Action × role × state
 
@@ -131,6 +208,7 @@ reported to the user, not edited.
 | Date | Change |
 |---|---|
 | 2026-10-23 | v0 derived from `FRD-REM` §4–§6 and Appendices A–F (R30 `CP-FR-007` group 25); every check pattern run against `classic` @ `74102d8d04` and found matching today |
+| 2026-10-23 | R31 (`R31-functional-review-stores-rem.md`): §1.7 runnable unescaped checks, literal `RMV-UNR-17` route list and the anti-vacuous pre-`P7` step (F-SR-009); `RMV-UNR-26` exact-path absence of Appendix A (F-SR-010); `RMV-OPEN-01`…`-04` resolved (`R31-decisions`, `D-18` item 4) |
 
 ## 8. Invariants and scenarios
 
@@ -140,7 +218,7 @@ reported to the user, not edited.
 
 | ID | Question | Default |
 |---|---|---|
-| RMV-OPEN-01 | `OD-22`: does `wh_carrier_services.supports_cod` stay? | drop it (`RMV-UNR-04`); reversing re-adds one boolean |
-| RMV-OPEN-02 | `OD-23`: which `RETURN_TYPE` values does a manufacturer keep? | keep `REFUSED_DELIVERY`, `CANCELLED_IN_TRANSIT`, `EXCHANGE`; drop `RTO`, `MARKETPLACE` — 8 values (`RMV-UNR-08`, `RMV-KEEP-05`) |
-| RMV-OPEN-03 | `OD-24`: what meters 3PL freight once rate quotes are gone? | `P7-02` rewrites the `Wh3plFreightBillingService` comment to "no metering source; see OD-24" and changes no behaviour |
-| RMV-OPEN-04 | `REM-D4`: which existing carrier exception status does a B2B failed delivery map to once `NDR` is gone? `FRD-REM` defers the list to `V510203` while writing `P7-03` | `P7-03` names it in its acceptance; until then `RMV-UNR-03` checks only the absence |
+| RMV-OPEN-01 | `OD-22`: does `wh_carrier_services.supports_cod` stay? | drop it (`RMV-UNR-04`); reversing re-adds one boolean **RESOLVED (DEFAULT), 2026-10-23** (`R31-decisions`). |
+| RMV-OPEN-02 | `OD-23`: which `RETURN_TYPE` values does a manufacturer keep? | keep `REFUSED_DELIVERY`, `CANCELLED_IN_TRANSIT`, `EXCHANGE`; drop `RTO`, `MARKETPLACE` — 8 values (`RMV-UNR-08`, `RMV-KEEP-05`) **RESOLVED (DEFAULT), 2026-10-23** (`R31-decisions`). |
+| RMV-OPEN-03 | `OD-24`: what meters 3PL freight once rate quotes are gone? | `P7-02` rewrites the `Wh3plFreightBillingService` comment to "no metering source; see OD-24" and changes no behaviour **RESOLVED — user decision `D-18` item 4, 2026-10-23:** 3PL freight is **quoted from the 3PL's own tariff at despatch and trued up when the carrier invoice arrives** (`FR-295` kept; the difference is an adjusting billable event, `TPB-OPEN-03`). `P7-02`'s comment-only change stays as interim cleanup and now cites `D-18`. |
+| RMV-OPEN-04 | `REM-D4`: which existing carrier exception status does a B2B failed delivery map to once `NDR` is gone? `FRD-REM` defers the list to `V510203` while writing `P7-03` | `P7-03` names it in its acceptance; until then `RMV-UNR-03` checks only the absence **RESOLVED (default replaced), 2026-10-23** (`R31-decisions`): a B2B failed delivery maps to `EXCEPTION`, keeping the raw carrier status (`V510203:79-82`); `P7-03` states it in its acceptance. |

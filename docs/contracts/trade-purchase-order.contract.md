@@ -24,7 +24,7 @@
 |---|---|
 | **Workflow** | Draft (manual, from PR workbench, from award) → submit → approve (core PO via port, every type) → issue to supplier → acknowledgement → releases (OPEN call-offs, BLANKET schedule releases; FIXED needs none, `TRD-12`) → execution in core (gate entry, GRN + bill, QC, MRN) → complete / short-close → closed (core PO closed with it); cancel before execution; expediting throughout |
 | **Module** | `warehouse-trade`; core `warehouse` through `WhPurchaseOrderPort` (`ai.warehouse.port.purchase`; [po-schedule-port](po-schedule-port.contract.md) `POS-*`) and read-only queries |
-| **Domain baseline** | FRD-TRADE FR-575…FR-589, FR-542 (MSME), FR-544 (AVL), FR-585, `TRD-01`, `TRD-02` (separate tables per side, same shape — the SO twin is `trade-sales-order`), `TRD-03`, `TRD-11`…`-13`, `OD-30`, `OD-38`, `OD-39` · R27 `RM-003`…`RM-010` · `FR-123` layered truth |
+| **Domain baseline** | FRD-TRADE FR-575…FR-589, FR-682…FR-689 (subcontract service PO, `D-18` item 3, §1.5), FR-542 (MSME), FR-544 (AVL), FR-585, `TRD-01`, `TRD-02` (separate tables per side, same shape — the SO twin is `trade-sales-order`), `TRD-03`, `TRD-11`…`-13`, `OD-30`, `OD-38`, `OD-39` · R27 `RM-003`…`RM-010` · `FR-123` layered truth |
 | **Owning task bodies** | `issues/p9-07.md` (types, schedule, releases, port, cancel) · `issues/p9-10.md` (acknowledgement, expediting, short-close, auto-close) |
 | **Primary tables** | `wht_purchase_orders`, `wht_purchase_order_lines`, `wht_po_schedule_lines`, `wht_po_releases`, `wht_po_release_lines`, `wht_po_charges` (`V550060`); `wht_po_acknowledgements`, `wht_po_ack_lines`, `wht_po_followups` (`V550090`) |
 | **Permission resources** | `wht_purchase_orders:view/create/edit/export/submit/approve/cancel/issue/acknowledge/short_close/amend` · `wht_po_releases:view/create/submit/approve/cancel/export` · `wht_po_followups:view/create/export`. The buyer and purchase-approver bundles also hold core **`warehouse:orders:port`** (`TRD-13`, seeded in `V551070`) |
@@ -39,7 +39,7 @@ core PO as `source_document_ref`, `OD-30`), `po_type` (`FIXED`/`OPEN`/`BLANKET`)
 (OPEN/BLANKET, optional, ≥ `valid_to`), `ceiling_value` (OPEN; null ⇒ `open_unbounded`), `price_basis`
 (`AGREEMENT`/`AT_RELEASE`), `terms_template_version_id`, `msme_acknowledged` + by/at, `status`, `core_po_id` ↓
 `wh_purchase_orders` (one core PO per trade PO, every type), `issued_at`, `ack_status`, `closed_at`,
-`short_close_reason_code`. Line: `line_no`, item, `supplier_part_number`, description, `uom_code`,
+`short_close_reason_code`, `po_purpose` (`STOCK` / `SUBCONTRACT`, FR-682). Line: `line_no`, `line_kind` (`STOCK` / `SUBCONTRACT_SERVICE`), `subcontract_order_id` (bare UUID of `whm_production_orders.id`, no FK) + `subcontract_order_ref`, item, `supplier_part_number`, description, `uom_code`,
 `conversion_factor_used`, `quantity` (FIXED/BLANKET > 0; OPEN null), `ceiling_quantity` (OPEN line, optional),
 `unit_price`, `discount_percent`, `net_price` (computed in backend), `price_source`, `rate_contract_line_id`,
 `over_tolerance_pct`, `under_tolerance_pct`, `tax_classification_code` (recorded), `is_free_of_charge` (FIXED /
@@ -70,6 +70,7 @@ line: `po_line_id`, `schedule_line_id` (BLANKET) or null (OPEN call-off), qty, d
 | A11 | Auto-close closes the core PO too, and waits for QC holds and supplier returns (`WH-SC-540`, `-577`) | `TPO-T3-03`, `TPO-T4-10` |
 | A12 | A release can be cancelled, a rejected one gives its quantity back, and a release closes by its own core lines (`WH-SC-567`) | `TPO-T1-10a`…`-10c`, `-12` |
 | A13 | `AT_RELEASE` prices reach core per release (`WH-SC-517`, `-571`) | `TPO-T4-02`, `TRC-T4-03` |
+| A14 | A subcontract service PO links one MFG subcontract order per line through core, creates no core PO, and lands its processing charge on the processed item by service confirmation (`D-18` item 3; `WH-SC-700`…`707`, range `WH-SC-700`…`719` allocated in `DECISIONS.md` §6) | §1.5, `TPO-T4-13`, `-14` |
 
 ## 1. T1 — State machine
 
@@ -111,9 +112,9 @@ line: `po_line_id`, `schedule_line_id` (BLANKET) or null (OPEN call-off), qty, d
 | TPO-T1-08 | OPEN, `APPROVED`/`ISSUED`/`ACKNOWLEDGED` | Create and submit a call-off release | release `DRAFT` → `SUBMITTED` | `TPO-GRD-06`, `-07`, `-08`, `-14` | `wht_po_releases:create` / `:submit` | number `<po>-Rnn`; price by `price_basis` (`TRC-T4-03`); `TAM` doc `PO_RELEASE` (seeded zero-level `EXACT` rule; `open_unbounded` / `release_price_manual` need an install rule), value Σ qty × price; `pending_release_quantity` += qty | no | WS-293 Releases tab, WS-294 *New call-off* | FR-578, FR-580 |
 | TPO-T1-09 | BLANKET, same states | Release schedule line(s) — whole or split | release `SUBMITTED` | `TPO-GRD-06`…`-08`, `-14`; release qty ≤ schedule open (qty − released − pending) | `wht_po_releases:create` / `:submit` | as `-08`; schedule `pending_release_quantity` | no | WS-294 (proposals + manual *Release*) | FR-579, FR-580 |
 | TPO-T1-10 | release `SUBMITTED` | Approved | `RELEASED` | `TPO-GRD-15` (all release guards re-checked under a lock on the PO header), `-12` | approver / `SYSTEM` (submitter is the port's `actingUserId`) | **`releaseSchedule`** (`POS-T1-06`) in the same transaction (`TPO-T4-02`); pending → `released_quantity`; RC consumption (OPEN); print `SCHEDULE_RELEASE` available | — | — | FR-580 |
-| TPO-T1-10a | release `SUBMITTED` | Rejected / returned | `REJECTED` / `DRAFT` | `TAM` | approver | `pending_release_quantity` −= qty — the schedule quantity is open again | **yes** | WS-285 | FR-580 |
-| TPO-T1-10b | release `DRAFT`, `REJECTED`; `SUBMITTED` after withdraw (`TAM-T1-09`) | Cancel | `CANCELLED` | — | `wht_po_releases:cancel` | pending quantity reverted; nothing sent to core | **yes**, reason code | WS-294 / WS-293 | FR-580 |
-| TPO-T1-10c | release `RELEASED`, some of it unreceived | Cancel the unreceived part | `CANCELLED` (or `CLOSED` when part was received) | `TPO-GRD-09` per release line (no open gate entry or unposted GRN on its core lines); `TPO-GRD-14` | `wht_po_releases:cancel` | **`cancelScheduleLine`** on its unreceived `FIRM` lines; a BLANKET quantity returns to the trade schedule as unreleased and to core as `FORECAST` (`TPO-T4-09`); RC consumption reduced | **yes**, reason code | WS-294 / WS-293 | FR-583 |
+| TPO-T1-10a | release `SUBMITTED` | Rejected / returned | `REJECTED` / `DRAFT` | `TAM` | approver | `pending_release_quantity` −= qty — the schedule quantity is open again; the release lines' PR allocations (`target_type PO_RELEASE_LINE`) are released (`TPR-T4-03`, R31 F-TR-014) | **yes** | WS-285 | FR-580, FR-561 |
+| TPO-T1-10b | release `DRAFT`, `REJECTED`; `SUBMITTED` after withdraw (`TAM-T1-09`) | Cancel | `CANCELLED` | — | `wht_po_releases:cancel` | pending quantity reverted; the release lines' PR allocations released (`TPR-T4-03`); nothing sent to core | **yes**, reason code | WS-294 / WS-293 | FR-580, FR-561 |
+| TPO-T1-10c | release `RELEASED`, some of it unreceived | Cancel the unreceived part | `CANCELLED` (nothing received) or `CLOSED` (part received) | `TPO-GRD-09` per release line (no open gate entry or unposted GRN on its core lines); `TPO-GRD-14` | `wht_po_releases:cancel` | per release line, as `TPO-T4-09`: nothing received → `unfirmScheduleLine` (whole-firmed BLANKET line) or `cancelScheduleLine` (added `FIRM` line); **partly received → the core `FIRM` line is reduced to its received quantity by `amendOrder` `scheduleChanges.quantity`** (core's floor is the received quantity, FRD-STORES R.2; R31 F-TR-004 — `unfirm` and `cancel` both need 0 received); the unreceived BLANKET quantity returns to the trade schedule as unreleased and to core as `FORECAST` through the same `amendOrder` (`newScheduleLines` `FORECAST`, or `scheduleChanges` on the reduced `FORECAST` line); the unreceived quantity's PR allocation released (`TPR-T4-03`, R31 F-TR-014); RC consumption reduced | **yes**, reason code | WS-294 / WS-293 | FR-580, FR-583 |
 | TPO-T1-11 | `ISSUED`, `ACKNOWLEDGED` with ack `PENDING` | Record acknowledgement | ack `ACCEPTED` → PO `ACKNOWLEDGED`; `ACCEPTED_WITH_CHANGES` → buyer decides: *Accept changes* drafts an amendment (`TOA-T1-01`, origin `ACK_CHANGES`, maker = that buyer) / *Dispute* logs a follow-up; `REJECTED` → follow-up + buyer decides cancel | — | `:acknowledge` | `wht_po_acknowledgements` row + per schedule line confirmed date/qty; **trade only** (`TPO-T4-05`) | supplier ref | WS-293 Acknowledgement tab | FR-586 |
 | TPO-T1-12 | release `RELEASED` | Every core schedule line carrying its `releaseRef` is received, closed or cancelled (`WH_PO_SCHEDULE_LINE_RECEIVED`, `getReceiptPosition`) | `CLOSED` | — | system | — | — | — | FR-580 |
 | TPO-T1-13 | line `OPEN` / header non-terminal | Short-close line or header | request `PO_SHORT_CLOSE` (seeded zero-level) | `TPO-GRD-13`, `-14` | `:short_close` | — | **yes**, reason code | row action / line action | FR-588 |
@@ -153,21 +154,49 @@ line: `po_line_id`, `schedule_line_id` (BLANKET) or null (OPEN call-off), qty, d
 | TPO-UNR-06 | Changing `po_type` after submit | not editable; API refuses | FR-575 |
 | TPO-UNR-07 | A trade PO `CLOSED` while its core PO stays open | auto-close and header short-close call `closeOrder` in the same transaction | FR-589 |
 
+### 1.5 Subcontract service PO (FR-682…FR-689, `D-18` item 3)
+
+A `FIXED` PO with `po_purpose = SUBCONTRACT`; every line a `SUBCONTRACT_SERVICE` line linked to one MFG
+subcontract order. It follows the PO ladder of §1.2 for draft, submit, approval, issue, acknowledgement,
+expediting, cancel, short-close and auto-close, except as these rows say. **No sales twin** (FRD-TRADE §5 M34):
+we do not sell processing.
+
+| ID | From | Action | To | Guard | Actor | Side effects | Comment | UI | Source |
+|---|---|---|---|---|---|---|---|---|---|
+| TPO-T1-17 | `SUBMITTED` | Approved (last level) — subcontract PO | `APPROVED` | `TPO-GRD-11`, `-17`…`-19` re-checked | approver | **no port call**: no core PO is created (`TPO-UNR-08`); `version_no = 1` snapshot; service lines `OPEN` | — | WS-285 | FR-684 |
+| TPO-T1-18 | `APPROVED`, `ISSUED`, `ACKNOWLEDGED`; line `OPEN` | Record service confirmation | confirmation `POSTED`; line confirmed += qty | `TPO-GRD-20` | `wht_purchase_orders:confirm_service` | number `<po_number>-Cnn`; job worker's bill no / date recorded; the charge posted by core in the same transaction (`TPO-T4-14`) | bill ref | WS-293 *Service confirmations* | FR-686 |
+| TPO-T1-19 | confirmation `POSTED` | Reverse confirmation | `REVERSED` | not already reversed | `wht_purchase_orders:confirm_service` | core reverses its landed-cost posting in the same transaction (`TPO-T4-14`); the quantity is confirmable again | **yes**, reason (`TRADE_ORDER_CLOSE`) | WS-293 | FR-687 |
+| TPO-T1-20 | subcontract PO non-terminal | Cancel / short-close / auto-close | as `-05`/`-05a`, `-13`/`-13a`, `TPO-T3-03` | cancel: no `POSTED` confirmation; short-close closes the unconfirmed remainder; auto-close when every line confirmed ≥ qty × (1 − under tolerance) or short-closed | as those rows | **no port call** (no core PO) | as those rows | as those rows | FR-688 |
+
+| ID | Predicate | Refusal | Source |
+|---|---|---|---|
+| TPO-GRD-17 | Purpose rules: a `SUBCONTRACT` PO is `FIXED`, in the company currency, and holds only `SUBCONTRACT_SERVICE` lines; a `STOCK` PO holds none; `po_purpose` immutable after submit | `422 TRADE_SUBCONTRACT_TYPE` / `TRADE_SUBCONTRACT_CURRENCY` / `TRADE_PO_PURPOSE_MIXED` | FR-684 |
+| TPO-GRD-18 | Every service line has `subcontract_order_id`; at most one non-cancelled service line per subcontract order (partial unique index); a service line without a link is refused (R8 stands) | `422 TRADE_SERVICE_LINE_NEEDS_SUBCONTRACT_ORDER` / `409 TRADE_SUBCONTRACT_ORDER_ALREADY_ORDERED` | FR-682, FR-689 |
+| TPO-GRD-19 | At save, submit and approval: `CostObjectResolver('PRODUCTION_ORDER').resolve(subcontract_order_id, companyId)` succeeds, the order is of kind `SUBCONTRACT` and its job worker is the PO's supplier; the line's item is the resolved order's processed item (FRD-TRADE §12c `CN-14` (a)) | `422 TRADE_SUBCONTRACT_ORDER_INVALID` | FR-683 |
+| TPO-GRD-20 | Service confirmation: quantity > 0 and ≤ processed (core read, `TPO-T4-13`) − Σ `POSTED` confirmations of the line; line not `SHORT_CLOSED` / `CANCELLED` | `422 TRADE_CONFIRMATION_EXCEEDS_PROCESSED {open}` | FR-685, FR-686 |
+
+| ID | Forbidden | Why | Source |
+|---|---|---|---|
+| TPO-UNR-08 | A core PO, release, gate entry or GRN for a subcontract PO; trade reading or writing a `whm_` row | the processed item comes back by MFG's subcontract receipt; the link is a bare id resolved through core (`TRD-09`, `ArchitectureInvariantsTest` (d)) | FR-684, FR-682 |
+| TPO-UNR-09 | A service line on a `STOCK` PO, or a general service / capex PO | R8 stays refused (FRD-TRADE §11) | FR-689 |
+| TPO-UNR-10 | Editing or deleting a posted service confirmation | corrected only by reversal (`TPO-T1-19`) | FR-687 |
+
 ## 2. T2 — Action × role × state
 
 | ID | Action | Permission | Allowed from | Source |
 |---|---|---|---|---|
-| TPO-T2-01 | Add / edit | `:create` / `:edit` | `DRAFT`, `REJECTED` | — |
-| TPO-T2-02 | Submit / withdraw | `:submit` | `DRAFT`, `REJECTED` / `SUBMITTED` | — |
-| TPO-T2-03 | Approve | `:approve` (`TAM`) + `warehouse:orders:port` | `SUBMITTED`; `PO_CANCEL` / `PO_SHORT_CLOSE` requests | — |
-| TPO-T2-04 | Issue / print | `:issue` / `:view` | `APPROVED`+ | — |
-| TPO-T2-05 | Acknowledge | `:acknowledge` | `ISSUED`, `ACKNOWLEDGED` with ack `PENDING` | — |
-| TPO-T2-06 | Release (OPEN/BLANKET) — create / submit / approve / cancel | `wht_po_releases:create` / `:submit` / `:approve` / `:cancel` (+ `warehouse:orders:port` for submit of a zero-level release, approve and cancel) | PO `APPROVED`, `ISSUED`, `ACKNOWLEDGED`; release per T1 | — |
-| TPO-T2-07 | Amend | `:amend` (`TOA`) | `APPROVED`, `ISSUED`, `ACKNOWLEDGED` | — |
-| TPO-T2-08 | Short-close | `:short_close` | non-terminal | — |
-| TPO-T2-09 | Cancel | `:cancel` | non-terminal, `TPO-GRD-09` | — |
-| TPO-T2-10 | Follow-up | `wht_po_followups:create` | non-terminal | — |
-| TPO-T2-11 | Export | `:export` (auditor: none) | — | — |
+| TPO-T2-01 | Add / edit | `:create` / `:edit` | `DRAFT`, `REJECTED` | FR-575 |
+| TPO-T2-02 | Submit / withdraw | `:submit` | `DRAFT`, `REJECTED` / `SUBMITTED` | FR-551 |
+| TPO-T2-03 | Approve | `:approve` (`TAM`) + `warehouse:orders:port` | `SUBMITTED`; `PO_CANCEL` / `PO_SHORT_CLOSE` requests | FR-577 |
+| TPO-T2-04 | Issue / print | `:issue` / `:view` | `APPROVED`+ | FR-576, FR-615 |
+| TPO-T2-05 | Acknowledge | `:acknowledge` | `ISSUED`, `ACKNOWLEDGED` with ack `PENDING` | FR-586 |
+| TPO-T2-06 | Release (OPEN/BLANKET) — create / submit / approve / cancel | `wht_po_releases:create` / `:submit` / `:approve` / `:cancel` (+ `warehouse:orders:port` for submit of a zero-level release, approve and cancel) | PO `APPROVED`, `ISSUED`, `ACKNOWLEDGED`; release per T1 | FR-580 |
+| TPO-T2-07 | Amend | `:amend` (`TOA`) | `APPROVED`, `ISSUED`, `ACKNOWLEDGED` | FR-590 |
+| TPO-T2-08 | Short-close | `:short_close` | non-terminal | FR-588 |
+| TPO-T2-09 | Cancel | `:cancel` | non-terminal, `TPO-GRD-09` | FR-583 |
+| TPO-T2-10 | Follow-up | `wht_po_followups:create` | non-terminal | FR-587 |
+| TPO-T2-11 | Export | `:export` (auditor: none) | — | FR-616 |
+| TPO-T2-13 | Confirm / reverse a subcontract service | `wht_purchase_orders:confirm_service` (+ the core authority `CN-14` (c) names) | subcontract PO `APPROVED`, `ISSUED`, `ACKNOWLEDGED` | FR-686, FR-687 |
 | TPO-T2-12 | Every action in this table, and the auditor | `wht_<table>:<verb>` per FRD-TRADE FR-617 (`view`, `create`, `edit`, `export` + the workflow verbs above); `permission_dependencies` seeded; the auditor bundle holds `:view` only; record scope follows core's company / site grants; a bundle whose action calls a core port is also granted `warehouse:orders:port` in the trade seed | — | FR-617 |
 
 ## 3. T3 — Time-driven rules
@@ -176,7 +205,7 @@ line: `po_line_id`, `schedule_line_id` (BLANKET) or null (OPEN call-off), qty, d
 |---|---|---|---|---|---|---|
 | TPO-T3-01 | Release proposal | BLANKET schedule line `PLANNED` with `delivery_date − lead_time_days(item, supplier) − warehouse.trade.release_horizon_days ≤ today` | `release_status = PROPOSED` | buyer, `TRADE_RELEASE_PROPOSED` | `TradeReleaseProposalJob` daily; once per line | FR-579 |
 | TPO-T3-02 | Expediting due / overdue | open quantity on a FIXED schedule line or on a released OPEN / BLANKET quantity, with `delivery_date − warehouse.trade.expedite.days_before ≤ today` (site tz, `FR-439`); overdue when `delivery_date < today`; also `next_followup_date = today` | none (computed filters `dueSoon`, `overdue`) | buyer digest, `TRADE_EXPEDITE_DIGEST` | `TradeExpediteJob` daily | FR-587 |
-| TPO-T3-03 | Auto-close | every line `SHORT_CLOSED` or fulfilment `COMPLETE`, no release open, **no GRN line of the PO under QC hold and no supplier return of it not yet dispatched / cancelled** (core reads), no `replacement_pending_quantity`; OPEN/BLANKET also when validity ended and nothing open | `CLOSED`; `closeOrder` (`TPO-T4-10`) | buyer, `TRADE_ORDER_CLOSED` | nightly `TradePoCloseJob` (acts as the PO's buyer, `TRD-13`) | FR-589 |
+| TPO-T3-03 | Auto-close | every line `SHORT_CLOSED` or fulfilment `COMPLETE`, no release open, **no GRN line of the PO under QC hold and no supplier return of it not yet dispatched / cancelled** (core reads), no `replacement_pending_quantity`; OPEN/BLANKET also when validity ended and nothing open | `CLOSED`; `closeOrder` (`TPO-T4-10`) | buyer, `TRADE_ORDER_CLOSED` | nightly `TradePoCloseJob`, calling as trade's **service principal** (`TRD-13`, FRD-STORES R.1 — never as the PO's buyer; R31 F-TR-012) | FR-589 |
 | TPO-T3-04 | Ack overdue | ack `PENDING` `warehouse.trade.ack.alert_days` (default 3) after `issued_at` or after the amendment that reset it | none | buyer, `TRADE_PO_ACK_OVERDUE` | `TradeExpediteJob` | FR-586 |
 | TPO-T3-05 | Validity ending | OPEN/BLANKET `valid_to − 30` | none | buyer, `TRADE_VALIDITY_ENDING` | `TradeContractJob` | FR-576 |
 | TPO-T3-06 | Release overdue | BLANKET schedule line `PLANNED`/`PROPOSED` with open quantity and `delivery_date − lead_time_days ≤ today` (it can no longer arrive on time) | computed `releaseOverdue` on WS-294; the line is excluded from the supplier's `DELIVERY_OTIF` (`TCE`) | buyer, `TRADE_RELEASE_OVERDUE`, once per line | `TradeReleaseProposalJob` | FR-580 |
@@ -190,13 +219,15 @@ line: `po_line_id`, `schedule_line_id` (BLANKET) or null (OPEN call-off), qty, d
 | TPO-T4-03 | Any port call refused | trade transaction rolls back; the core error code and field (e.g. `403 PORT_AUTHORITY_REQUIRED`, `422 PO_LINE_QUANTITY_RULE`, `409 PORT_IDEMPOTENCY_CONFLICT`) are relayed in the trade envelope | port adapter | FR-577, FR-618 |
 | TPO-T4-04 | Detail / grid read | received, accepted, rejected, in-flight, billed quantities, gate entries, GRNs (bill no/date), QC results and holds, MRNs, supplier returns, claims read from core by `core_po_id` (FK down; `getReceiptPosition` for quantities per line and schedule line); fulfilment `COMPLETE` when every line received ≥ qty × (1 − under tolerance) or short-closed | `PurchaseOrderQueryService` (read-only joins / core query beans) | FR-581 |
 | TPO-T4-05 | Ack recorded | trade only — the port has no acknowledge operation; core `acknowledged_at` stays null for trade POs (`TPO-OPEN-03`) | ack transaction | FR-586 |
-| TPO-T4-06 | Short-close / cancel approved | `closeLine(ClosePurchaseOrderLineCommand)` / `cancelScheduleLine` / `closeOrder` / `cancelOrder` with `reasonCodeId` and `note`, keys `WHT_PURCHASE_ORDER:<poId>:<op>:<request id>-<line / schedule no>`; PR allocation release (`TPR-T1-07`); RC consumption reduced | same transaction | FR-583, FR-588 |
+| TPO-T4-06 | Short-close / cancel approved | `closeLine(ClosePurchaseOrderLineCommand)` / `cancelScheduleLine` / `closeOrder` / `cancelOrder` with `reasonCodeId` (a `TRADE_ORDER_CLOSE`-context `whb_reason_codes` id — the request's reason, FR-546, R31 F-TR-007) and `note`, keys `WHT_PURCHASE_ORDER:<poId>:<op>:<request id>-<line / schedule no>`; PR allocation release (`TPR-T1-07`); RC consumption reduced | same transaction | FR-583, FR-588 |
 | TPO-T4-07 | `WH_SUPPLIER_RETURN_DISPATCHED` with intent `REPLACE` for this PO (`source_document_id`) | PO `APPROVED`/`ISSUED`/`ACKNOWLEDGED`: a system amendment `DRAFT` (origin `SUPPLIER_RETURN`, change `SCHEDULE_ADD` of the returned qty on the original line, condition `supplier_return_replacement`) is drafted for the buyer to submit; while another amendment is open the quantity waits in `replacement_pending_quantity` and is drafted when it ends. PO `CLOSED` cannot happen meanwhile (`TPO-T3-03`); PO `SHORT_CLOSED` / `CANCELLED`: nothing reinstated, buyer notified `TRADE_REPLACEMENT_NEEDS_NEW_PO`, shown on the Returns tab | outbox subscriber (`OD-33`, `TOA-T1-01`) | FR-613 |
 | TPO-T4-08 | Any write | `whb_audit_events` | services | FR-540 |
-| TPO-T4-09 | Release cancelled after approval | a whole-firmed BLANKET line with nothing received → `unfirmScheduleLine(UnfirmScheduleLineCommand{ scheduleLineId, reasonCodeId, note })` (key `…:PO_UNFIRM_SCHEDULE:<release no>-X<n>`), back to `FORECAST` keeping its schedule number and release reference (`STO-D19`; FRD-TRADE §12c `CN-6`, resolved); each added unreceived `FIRM` line → `cancelScheduleLine(CancelScheduleLineCommand{ scheduleLineId, reasonCodeId, note })` (key `…:PO_CANCEL_SCHEDULE:<release no>-X<n>`), and a split BLANKET remainder is restored by `amendOrder` (`scheduleChanges` on the reduced `FORECAST` line, or `newScheduleLines` when it was ended; key `…:PO_AMEND:<release no>-X`), so the core forecast equals the unreleased schedule | release cancel transaction | FR-580 |
-| TPO-T4-10 | Auto-close | `closeOrder(ClosePurchaseOrderCommand{ poId, reasonCodeId = AUTO_CLOSE, note })`, key `…:PO_CLOSE:AUTO`; idempotent on a `CLOSED` core PO (`POS-T1-08`) | close job transaction | FR-589 |
+| TPO-T4-09 | Release cancelled after approval | a whole-firmed BLANKET line with nothing received → `unfirmScheduleLine(UnfirmScheduleLineCommand{ scheduleLineId, reasonCodeId, note })` (key `…:PO_UNFIRM_SCHEDULE:<release no>-X<n>`), back to `FORECAST` keeping its schedule number and release reference (`STO-D19`; FRD-TRADE §12c `CN-6`, resolved); each added unreceived `FIRM` line → `cancelScheduleLine(CancelScheduleLineCommand{ scheduleLineId, reasonCodeId, note })` (key `…:PO_CANCEL_SCHEDULE:<release no>-X<n>`), and a split BLANKET remainder is restored by `amendOrder` (`scheduleChanges` on the reduced `FORECAST` line, or `newScheduleLines` when it was ended; key `…:PO_AMEND:<release no>-X`), so the core forecast equals the unreleased schedule. A **partly received** line (`TPO-T1-10c`) is neither un-firmed nor cancelled: `amendOrder` (key `…:PO_AMEND:<release no>-X`) sets its `scheduleChanges.quantity` to the received quantity and, in the same command, restores the unreceived BLANKET quantity as `FORECAST` (R31 F-TR-004). Every `reasonCodeId` is a `TRADE_ORDER_CLOSE` reason (FR-546) | release cancel transaction | FR-580 |
+| TPO-T4-10 | Auto-close | `closeOrder(ClosePurchaseOrderCommand{ poId, reasonCodeId = AUTO_CLOSE, note })` as trade's service principal (`TRD-13`), key `…:PO_CLOSE:AUTO` — `AUTO_CLOSE` is the `TRADE_ORDER_CLOSE` reason trade seeds (FR-546); idempotent on a `CLOSED` core PO (`POS-T1-08`) | close job transaction | FR-589 |
 | TPO-T4-11 | Core events for this PO (`WH_PO_SCHEDULE_LINE_RECEIVED`, `WH_PO_LINE_RECEIVED`, `WH_PO_AMENDED`, `WH_PO_CLOSED`, `WH_PO_CANCELLED`) | release close (`TPO-T1-12`), expediting refresh; a core-side close or cancel the trade PO did not cause is logged for the buyer (it cannot happen through the guarded screens) | outbox subscriber | FR-580, FR-589 |
-| TPO-T4-12 | — (mirror of `TSO-T4-12` ATP) | **refused**: supplier capacity is not known to us (§5 M19) | — | §5 M19 |
+| TPO-T4-13 | Subcontract service line read (WS-292 / WS-293, `TPO-GRD-20`) | processed quantity = the processed item's base quantity received by the linked order's receipts, from core's received-output read for cost object `PRODUCTION_ORDER` × item (FRD-TRADE §12c `CN-14` (b)); never stored; fulfilment derived as `TPO-T4-04` | `PurchaseOrderQueryService` | FR-685 |
+| TPO-T4-14 | Service confirmation posted / reversed | core's landed-cost apply (`CN-14` (c); `WhCostObjectChargePort.applyOutputCharge` / `reverseOutputCharge`, FRD-STORES registry R.2) with `PortEnvelope(key 'WHT_PURCHASE_ORDER:<poId>:SUBCONTRACT_CHARGE_APPLY:<confirmation no>', actingUserId = the confirming buyer)`, source `WHT_PURCHASE_ORDER` / the confirmation, cost object `PRODUCTION_ORDER` = `subcontract_order_id`, item = the processed item, value = confirmed qty × line net price in the company currency → one value-only `LANDED_COST_APPLY` onto the order's receiving lots (`CVL-T4-07` sends a consumed share on); its reference stored as `core_landed_cost_ref`. Reversal: the same port's reverse (`…:SUBCONTRACT_CHARGE_REVERSE:<confirmation no>`). A refusal rolls back (`TPO-T4-03`). Closes MFG `SUB-OPEN-06` | confirmation transaction | FR-686, FR-687 |
+| TPO-T4-12 | — (mirror of `TSO-T4-12` ATP) | **refused**: supplier capacity is not known to us (§5 M19) | — | FR-575 (§5 M19) |
 
 ## 5. T5 — Screen contract
 
@@ -208,8 +239,8 @@ plus *+n in other currencies*, FR-616). Columns: `poNumber`, `poType`, `versionN
 `currencyCode`, `orderValue`, `releasedValue`, `fulfilment` (derived), `ackStatus`, `status`, `msmeCategory`,
 audit. Filters: `warehouseId`; `poType`; `status`; `supplierId` typeahead; `buyerId`; `itemId`; `currencyCode`;
 `orderFrom`/`orderTo`; `overdueOnly`; `ackPendingOnly`. Row actions: View · Edit · Submit · Withdraw · Issue ·
-Print · Acknowledge · Release · Amend · Short-close · Cancel. Toolbar: Add · Export (⊇ grid, money per row in
-its own currency). Add/Edit modal tabs: Header · Lines · Schedule · Charges & terms (≤ 6 groups each).
+Print · Acknowledge · Release · Amend · Short-close · Cancel. Toolbar: Add (type picker first; *Subcontract PO* = `FIXED`, `po_purpose = SUBCONTRACT`, FR-689) · Export (⊇ grid, money per row in
+its own currency). Column and filter `poPurpose` (FR-689). Add/Edit modal tabs: Header · Lines · Schedule · Charges & terms (≤ 6 groups each).
 
 ### 5.2 WS-293 Detail — tabs per FRD-TRADE §6.
 
@@ -250,6 +281,7 @@ FIXED), `supplierName`, `itemCode`, `deliveryDate` (agreed), `supplierConfirmedD
 | 2026-10-22 | all | R29 TP-F1, F4, F6, F7, F14, F15, F17, F19, F21–F23, F26–F28, TS-F7, MA-02, MA-05, MA-10 and contract quality: registry-exact port commands and keys; release ladder (reject-revert, cancel, close by `releaseRef`); `PO_CANCEL`; auto-close → `closeOrder` with QC / return holds; reinstatement as a system amendment; pending releases reserved; approval-time re-check; amendment lock on changed lines; `open_unbounded`; free-of-charge refused on OPEN; receipt cut-off; FIXED in expediting; release overdue; screens completed; ack drift fixed (`TPO-T1-11` = `T4-05`); numbering aligned row for row with `TSO` | R29 |
 | 2026-10-22 | `TPO-T4-01`, `-02`, `-09`, `TPO-OPEN-01` | Aligned to the updated core registry: create carries tolerances and receiving location (`CN-1`); whole-line BLANKET release uses `firm(…, unitPrice)`; release cancel uses `unfirmScheduleLine` and `amendOrder` (`newScheduleLines`) instead of cancel + re-add (`CN-6` → `STO-D19`); `CN-1`…`CN-7` resolved | TRADE author |
 | 2026-10-23 | every T1, guard, unreachable, T3 and T4 row | `Source` column added, filled from FRD-TRADE §4, so every rule traces to the FR it proves | R30 `CP-FR-008` |
+| 2026-10-23 | `TPO-T1-10a`…`-10c`, `-T3-03`, `-T4-06`, `-T4-09`, `-T4-10`, `-T4-12`, §1.5 (new), `TPO-T2-13`, A14, §5.1, `TPO-OPEN-02`, every T2 row | R31: partly received release reduced by `amendOrder` (F-TR-004, `CN-12`); release reject / cancel releases PR allocations (F-TR-014); auto-close as the service principal (F-TR-012); port reasons are `whb_reason_codes` (F-TR-007); T2 Source FRs (F-TR-019); subcontract service PO rows for FR-682…FR-689 (`D-18` item 3); `TPO-OPEN-02` settled | R31 |
 
 ## 8. Invariants and scenarios
 
@@ -261,5 +293,5 @@ FIXED), `supplierName`, `itemCode`, `deliveryDate` (agreed), `supplierConfirmedD
 | ID | Question | Status |
 |---|---|---|
 | TPO-OPEN-01 | Port signatures above vs `p8-01` | **Settled (R29):** aligned to FRD-STORES *Port & seam registry*; FRD-TRADE §12c `CN-1`, `CN-2`, `CN-5`, `CN-6`, `CN-7` resolved by STORES 2026-10-22 (registry R.1, R.2; `STO-D19`, `STO-D20`); nothing owed |
-| TPO-OPEN-02 | `OD-30` PO pickers match `source_document_ref` | owed by `p8-03` / `p8-04` |
+| TPO-OPEN-02 | `OD-30` PO pickers match `source_document_ref` | **Settled (R31 decisions):** pickers match `po_number` **or** `source_document_ref` and show both; owed by `p8-03` / `p8-04` |
 | TPO-OPEN-03 | Should the port gain `acknowledge` so core WS-072 shows the supplier acknowledgement? | **Settled: no** — WS-293 owns it (`TPO-T4-05`) |

@@ -49,8 +49,8 @@
 |---|---|---|---|---|
 | Run | `RUNNING` | `RPN-T1-01`, `-02` | `-03`, `-04` | active (one per site at a time) |
 | Run | `COMPLETED` / `FAILED` | `-03` / `-04` | none | **terminal** |
-| Suggestion | `PROPOSED` | `RPN-T1-03` | `-05`, `-06`, `-07` | initial |
-| Suggestion | `ACCEPTED` | `RPN-T1-05` (bulk accept before conversion) | `-06` | active |
+| Suggestion | `PROPOSED` | `RPN-T1-03` | `-05`, `-07` | initial |
+| Suggestion | `ACCEPTED` | inside `RPN-T1-05` only | `CONVERTED` in the **same transaction** | **momentary** — Accept creates the document in the same transaction and a failed creation rolls both back, so a committed row is never left `ACCEPTED` (`WhReplenishmentSuggestion.java:35-37`); there is no queue of accepted-but-unconverted suggestions |
 | Suggestion | `CONVERTED` / `REJECTED` | `-06` / `-07` | none here (`POS-T1-35` re-opens a PR conversion) | **terminal** |
 | Replenishment task | `REPLEN` task, open → done / cancelled | `RPN-T4-04` | `-08`, `-09` | task |
 
@@ -62,8 +62,8 @@
 | RPN-T1-02 | — | Scheduled run (per site, nightly by default) | run `RUNNING` | `RPN-GRD-02` | system job (`RPN-T3-01`) | `run_type = SCHEDULED`, `run_by` null; a `whb_job_runs` row | no | FR-253 |
 | RPN-T1-03 | run `RUNNING` | Engine completes | run `COMPLETED`; suggestions `PROPOSED` | `RPN-GRD-03`, `-05` | system | `RPN-T4-01`…`-03` | no | FR-253, FR-254 |
 | RPN-T1-04 | run `RUNNING` | Engine throws | run `FAILED` | — | system | no suggestions survive | no | FR-253 |
-| RPN-T1-05 | `PROPOSED` | Accept / bulk accept (buyer may edit quantity, source, source site, supplier) | `ACCEPTED` → `CONVERTED` | `RPN-GRD-04`…`-06` | `wh_replenishment_suggestions:accept` | `RPN-T4-03` | no | FR-253 |
-| RPN-T1-06 | `PROPOSED` · `ACCEPTED` | Convert (same action) | `CONVERTED` | as `-05` | `:accept` | `resulting_document_type` `PO` / `TRANSFER_ORDER` | no | FR-253 |
+| RPN-T1-05 | `PROPOSED` | Accept / bulk accept = convert (buyer may edit quantity, source, source site, supplier) | `CONVERTED`, passing through `ACCEPTED` inside the one transaction | `RPN-GRD-04`…`-06` | `wh_replenishment_suggestions:accept` | `RPN-T4-03` | no | FR-253 |
+| RPN-T1-06 | — | *(folded into `RPN-T1-05`, R31 `F-CB-002`: there is no separate Convert action and no committed `ACCEPTED` row to convert)* | — | — | — | `resulting_document_type` `PO` / `TRANSFER_ORDER` is written by `-05` | no | FR-253 |
 | RPN-T1-07 | `PROPOSED` | Reject | `REJECTED` | `RPN-GRD-07` | `:reject` | — | **yes** | FR-253 |
 | RPN-T1-08 | task open | Complete (confirm the pick-face location) | done | `RPN-GRD-09` | `wh_replenishment_tasks:complete` | one internal move through the writer | no | FR-255 |
 | RPN-T1-09 | task open | Cancel | cancelled | open only, else `409 REPLENISHMENT_TASK_NOT_OPEN` | `:cancel` | — | **yes** | FR-255 |
@@ -75,13 +75,14 @@
 | RPN-GRD-01 | Min, max, reorder point, reorder quantity, safety stock and lead time are held per **item × site** (`whb_item_site_settings`); pick-face min / max / trigger per **item × location** (`whb_item_location_settings`, dated `effective_from`/`_to`) | field-level `422` on the master | uk per grain | FR-252 — **see §10 row 1** |
 | RPN-GRD-02 | One running run per site | `409 REPLENISHMENT_RUN_ALREADY_RUNNING` | one-running-run index `V510070:147` | FR-253 |
 | RPN-GRD-03 | The run needs a house owner at the site | `REPLENISHMENT_NO_HOUSE_OWNER` | — | FR-253 |
-| RPN-GRD-04 | Only `PROPOSED` (or `ACCEPTED` in a bulk accept) converts | `409 REPLENISHMENT_SUGGESTION_NOT_PROPOSED` | — | FR-253 |
+| RPN-GRD-04 | Only a `PROPOSED` suggestion is accepted (and so converted); `ACCEPTED` is never a committed starting state | `409 REPLENISHMENT_SUGGESTION_NOT_PROPOSED` | — | FR-253 |
 | RPN-GRD-05 | A `TRANSFER` names a source site that is a **sister**: a site of a different `REGISTERED` branch as at the run, holding allocatable house stock above its own minimum; a site is never its own sister and a shared site counts once | `422 REPLENISHMENT_SOURCE_WAREHOUSE_REQUIRED` / `_NOT_ALLOWED` / `REPLENISHMENT_SOURCE_NOT_A_SISTER` | `CHECK (suggested_source <> 'TRANSFER' OR source_warehouse_id IS NOT NULL)` `V510070:228` | FR-254 |
 | RPN-GRD-06 | A `PURCHASE` names a supplier, an owner and an operating company | `422 REPLENISHMENT_SUPPLIER_REQUIRED` / `_OWNER_REQUIRED` / `_OPERATING_COMPANY_REQUIRED` | — | FR-253 |
 | RPN-GRD-07 | A reject reason is an active code in its context; a note when the code requires one | `422 REPLENISHMENT_REJECT_REASON_NOT_FOUND` / `_WRONG_CONTEXT` / `_INACTIVE` / `REPLENISHMENT_REJECT_NOTE_REQUIRED` | FK `whb_reason_codes` | FR-253 |
 | RPN-GRD-08 | Lead-time statistics exclude purchases whose `order_source` is `VOR` (*line-stop / machine-down*) or `EMERGENCY` | — (excluded from the figure) | `ORDER_SOURCE_VOR`, `ORDER_SOURCE_EMERGENCY` in `WhSupplierLeadTimeQueryService` | FR-260 |
 | RPN-GRD-09 | A replenishment task's target is a valid pick-face location at the site and the source still holds the stock | `422 REPLENISHMENT_LOCATION_INVALID` / `REPLENISHMENT_SOURCE_EMPTY` | ledger guards | FR-255 |
-| RPN-GRD-10 | A manual lost-sale entry: item required, quantity > 0, not in the future, reason valid (note when required) | `422 LOST_SALE_ITEM_REQUIRED` / `LOST_SALE_QUANTITY_INVALID` / `LOST_SALE_OCCURRED_IN_FUTURE` / `LOST_SALE_REASON_INVALID` / `LOST_SALE_REASON_NOTE_REQUIRED` | — | FR-257 |
+| RPN-GRD-10 | A lost-sale capture (through the core API, from the guard or from `warehouse-trade`): item required, quantity > 0, not in the future, reason valid (note when required) | `422 LOST_SALE_ITEM_REQUIRED` / `LOST_SALE_QUANTITY_INVALID` / `LOST_SALE_OCCURRED_IN_FUTURE` / `LOST_SALE_REASON_INVALID` / `LOST_SALE_REASON_NOTE_REQUIRED` | — | FR-257 |
+| RPN-GRD-11 | **An item planned elsewhere is not reorder-planned** (R31 `MRP-OPEN-10`, `mfg-mrp`): the reorder-point run skips an item × site for which the registered `ExternalPlanningOwner` (FRD-STORES registry R.3) answers `plansItem = true` — MFG's `planning_method = MRP` (FR-662) — so an `MRP` item with core reorder settings is not proposed twice; its supply arrives as `origin = MRP` suggestions (`p8-16`). With no bean registered (MFG absent) core's settings rule every item | — (skipped; no suggestion row) | one batch `plansItem` read per run before proposing; core reads no `whm_` | FR-253 |
 
 ### 1.4 Unreachable
 
@@ -99,7 +100,7 @@
 | RPN-T2-02 | Start a run | `wh_replenishment_runs:create` | — | FR-253 |
 | RPN-T2-03 | Accept / bulk accept / reject a suggestion | `wh_replenishment_suggestions:accept` / `:reject` | `PROPOSED` | FR-253 |
 | RPN-T2-04 | Assign / complete / cancel a replenishment task | `wh_replenishment_tasks:assign` / `:complete` / `:cancel` | open | FR-255 |
-| RPN-T2-05 | Record a lost sale by hand | `wh_insufficient_stock_log:create` | — | FR-257 (see `RPN-OPEN-01`) |
+| RPN-T2-05 | Record a lost sale by hand — **removed** (R31 `RPN-OPEN-01`, `D-17` item 4): no core screen or endpoint records one; trade calls the core API | `wh_insufficient_stock_log:create` to be retired (§10 row 3) | — | FR-257 |
 
 ## 3. T3 — Time-driven rules
 
@@ -107,7 +108,7 @@
 |---|---|---|---|---|---|
 | RPN-T3-01 | Scheduled run per site | `warehouse.replenishment.default_schedule` (nightly by default), ordinary job framework | `RPN-T1-02` | buyers (`RPN-T4-07`) | FR-253 |
 | RPN-T3-02 | Pick-face replenishment | `WhbPickFaceReplenishmentScheduler` pass | `REPLEN` tasks for faces at or below their trigger (`MIN_MAX`); `OPPORTUNISTIC` top-off in idle time | — | FR-255, FR-259 |
-| RPN-T3-03 | Computed best stocking level: phase-in after *k* hits in *m* months, level from the demand window and a days-supply target, phase-out after *n* months with no hits, under a named parameterised policy (v3) | policy run | the stocking level | — | FR-258 *(withdrawn D-16)* — **not built, owner VOID (§10 row 4)** |
+| RPN-T3-03 | **Reorder-point and safety-stock proposal** (v3, restored by `D-18` item 6): for an item × site planned by `REORDER_POINT`, a scheduled computation proposes a reorder point and safety stock from the issue history over a demand window, a lead time and a service-level target; a planner accepts it or overrides it with a reason; the typed parameters (`RPN-GRD-01`, `FR-662`) stay what the run reads | policy run | a proposal only — never the typed parameter until accepted | planner | FR-258 — **not built; carrier `P10-11` as a later-version increment (§10 row 4)** |
 
 ## 4. T4 — Cross-entity effects
 
@@ -145,6 +146,7 @@ fill-rate reports (`reports-kpis`); producing lost sales from trade enquiries an
 | Date | Change |
 |---|---|
 | 2026-10-23 | v0 derived (R30 `CP-FR-007` row 13) |
+| 2026-10-23 | R31: `F-CB-002` (`ACCEPTED` momentary, `RPN-T1-06` folded into `-05`); `RPN-OPEN-01` decided (manual capture removed); `FR-258` restored by `D-18` item 6 (`RPN-T3-03`, `RPN-OPEN-02`, §10 row 4); `RPN-GRD-11` — the reorder run skips items an `ExternalPlanningOwner` plans (`mfg-mrp` `MRP-OPEN-10`, `p8-16`) |
 
 ## 8. Invariants and scenarios
 
@@ -154,8 +156,8 @@ fill-rate reports (`reports-kpis`); producing lost sales from trade enquiries an
 
 | ID | Question | Default |
 |---|---|---|
-| RPN-OPEN-01 | `FR-257` keeps a manual "not catalogued" capture; `D-17` item 4 says no core screen records a lost sale by hand. The built WS-096 still offers `POST` (`wh_insufficient_stock_log:create`). Which stands? | as built until the owner decides |
-| RPN-OPEN-02 | **CLOSED 2026-10-23.** `FR-258`'s only owner `P6-02` is VOID (`D-17` item 6) | **withdrawn under `D-16`** in the FRD and plan §2: the hit-based stocking level is the dealer-parts framing; the plant equivalent is typed planning parameters with safety stock (`FR-662`, `P10-11`) and MRP netting (`FR-664`…`FR-667`, `P10-12`) |
+| RPN-OPEN-01 | `FR-257` keeps a manual "not catalogued" capture; `D-17` item 4 says no core screen records a lost sale by hand. The built WS-096 still offers `POST` (`wh_insufficient_stock_log:create`). Which stands? | **DECIDED R31 (2026-10-23), default replaced:** the manual `POST` is removed from WS-096 and `FR-257` is restated; lost sales come through trade (§10 row 3; `P2-15` acceptance item) |
+| RPN-OPEN-02 | **CLOSED 2026-10-23.** `FR-258`'s only owner `P6-02` is VOID (`D-17` item 6) | **RESTORED by `D-18` item 6** (R31 decisions; the R30 withdrawal is undone): rewritten without the dealer-parts wording as a reorder-point / safety-stock proposal from consumption history (`RPN-T3-03`); v3; carrier `P10-11`; an install without MFG would need it in core replenishment |
 
 ## 10. Code divergences
 
@@ -165,5 +167,5 @@ The FRD rule is kept; the code is what differs.
 |---|---|---|---|
 | 1 | `warehouse-base/…/entity/WhbItemLocationSetting.java` (columns `min_quantity`, `max_quantity`, `replen_trigger_quantity`) | FR-252 | item × location carries min / max / trigger only; no reorder point, reorder quantity, safety stock or lead time at that grain |
 | 2 | `warehouse/backend/src/main/resources/db/migration/V510011__Create_wh_purchase_orders_and_lines.sql:95` | FR-260 | `order_source` exists; the customer-waiting flag, linked job reference and promised date are absent from `wh_purchase_orders` |
-| 3 | `warehouse/…/controller/WhInsufficientStockLogController.java` (`POST`) | FR-257 | manual capture is served; `D-17` item 4 says no core screen records a lost sale by hand (`RPN-OPEN-01`) |
-| 4 | — (no stocking-level policy anywhere in `warehouse-base` / `warehouse`) | FR-258 | not built; owner `P6-02` VOID |
+| 3 | `warehouse/backend/src/main/java/ai/warehouse/controller/WhInsufficientStockLogController.java:175-183` (`POST`, `captureLostSale`) | FR-257 | manual capture is served; R31 `RPN-OPEN-01` removes it (`D-17` item 4); `P2-15` owns the removal (acceptance item added) |
+| 4 | — (no reorder-point proposal anywhere in `warehouse-base` / `warehouse` / `warehouse-manufacturing`) | FR-258 | not built (v3); carrier `P10-11` (`D-18` item 6) |

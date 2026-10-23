@@ -84,6 +84,11 @@
 | RMR-T1-20 | `ACKNOWLEDGED` | Decide | `APPROVED` / `PART_APPROVED` / `REJECTED` | decision complete and ≤ claimed (`SUPPLIER_CLAIM_DECISION_INCOMPLETE` / `_OVER_CLAIM`); a rejection reason (`_REJECTION_REASON_REQUIRED`) | `:decide` | — | rejection: **yes** | FR-459 |
 | RMR-T1-21 | decided | Settle: settlement mode, reference, date, settled amount; any balance explicitly written off | `SETTLED` | `SUPPLIER_CLAIM_SETTLEMENT_MODE_INVALID` / `_REF_REQUIRED` / `_DATE_INVALID` / `_BALANCE_NOT_WRITTEN_OFF` | `:settle` | the claim leaves the ageing report on its settlement date with `ageing_bucket_at_close` | no | FR-459 |
 | RMR-T1-22 | `DRAFT` · `SUBMITTED` · `ACKNOWLEDGED` | Withdraw | `WITHDRAWN` | note required (`SUPPLIER_CLAIM_WITHDRAW_NOTE_REQUIRED`) | `:withdraw` | — | **yes** | FR-459 |
+| RMR-T1-23 | — | Create a supplier return (vendor, origin GRN / lot, lines) | `DRAFT` | `RMR-GRD-12` | `wh_supplier_returns:create` / `:edit` (`DRAFT` only, `SUPPLIER_RETURN_NOT_DRAFT`) | — | no | FR-275 |
+| RMR-T1-24 | `DRAFT` | Approve | `APPROVED` | `RMR-GRD-13` | `wh_supplier_returns:approve` | `RMR-T4-03` (the `VENDOR_RETURN` demand order raised and allocated) | no | FR-275 |
+| RMR-T1-25 | `APPROVED` → `PICKED` → `DISPATCHED` | Pick and despatch of its demand order | as named | the ordinary outbound guards (`outbound-despatch`) | system (effects of the demand order) | `RMR-T4-03` | no | FR-275 |
+| RMR-T1-26 | `DISPATCHED` | **Close** — the supplier has the goods | `CLOSED` | only from `DISPATCHED`, else `SUPPLIER_RETURN_NOT_DISPATCHED` | `wh_supplier_returns:close` (`WhSupplierReturnController.java:256-257`) | `RMR-T4-06` | no | FR-275 |
+| RMR-T1-27 | `DRAFT` · `APPROVED` · `PICKED` | Cancel | `CANCELLED` | cancellable only from those three (`WhSupplierReturn.java:183-184`), else `SUPPLIER_RETURN_NOT_CANCELLABLE`; a reason, else `SUPPLIER_RETURN_CANCEL_REASON_REQUIRED` | `wh_supplier_returns:cancel` | — | **yes** | FR-275 |
 
 ### 1.3 Guards
 
@@ -100,6 +105,8 @@
 | RMR-GRD-09 | Recall: lot exists and is the item's; no open recall for the lot; caller is neither owner-scoped nor (for Initiate) site-scoped; no period override pending; no staged picks of the lot | `422 LOT_NOT_FOUND` / `LOT_ITEM_MISMATCH` / `409 RECALL_ALREADY_OPEN` / `403 RECALL_OWNER_SCOPE_REQUIRED` / `RECALL_WAREHOUSE_SCOPE_REQUIRED` / `409 RECALL_PERIOD_OVERRIDE_PENDING` / `RECALL_STAGED_ORDERS` | one transaction | FR-280 |
 | RMR-GRD-10 | Claim: type valid (short shipment, damage in transit, quality reject, price; expiry and breakage per the FRD); date not future; source valid and unchanged; each line cites a **posted** receipt line of the same supplier, once, not already claimed, within the evidenced quantity and unit cost, in the claim currency | `422 SUPPLIER_CLAIM_TYPE_INVALID` / `_DATE_FUTURE` / `_SOURCE_INVALID` / `_LINE_NO_RECEIPT` / `_LINE_RECEIPT_NOT_POSTED` / `_LINE_OTHER_SUPPLIER` / `_LINE_DUPLICATE` / `_LINE_ALREADY_CLAIMED` / `_LINE_OVER_EVIDENCE` / `_LINE_OVER_UNIT_COST` / `_LINE_CURRENCY_MISMATCH` · `409 _SOURCE_CHANGED` / `_SITE_CHANGED` | — | FR-459 — **see §10 rows 2, 3** |
 | RMR-GRD-11 | A claim moves only along its ladder | `409 SUPPLIER_CLAIM_TRANSITION_REFUSED` naming from, to and verb | `WhSupplierClaimValidationService.requireFrom` | FR-459 |
+| RMR-GRD-12 | A supplier return names a valid origin (GRN / lot of the vendor) and its site never changes after create | `SUPPLIER_RETURN_ORIGIN_INVALID`; `SUPPLIER_RETURN_WAREHOUSE_IMMUTABLE` | — | FR-275 |
+| RMR-GRD-13 | Approval is maker ≠ checker | `403 SUPPLIER_RETURN_SELF_APPROVAL` (`WhSupplierReturnValidationService.java:147`) | — | FR-275 |
 
 ### 1.4 Unreachable
 
@@ -121,6 +128,7 @@
 | RMR-T2-03 | Grade / disposition / approve scrap | `wh_return_gradings:grade` / `wh_return_receipts:disposition` / `:approve` | `POSTED` | FR-272, FR-273 |
 | RMR-T2-04 | Recall create / notify / respond / close | `wh_recalls:*` | see §1.2 | FR-280 |
 | RMR-T2-05 | Supplier claim verbs | `wh_supplier_claims:{submit,acknowledge,decide,settle,withdraw}` | see §1.2 | FR-459 |
+| RMR-T2-06 | Supplier return create / edit / approve / close / cancel | `wh_supplier_returns:{create,edit,approve,close,cancel}` (`WhSupplierReturnController.java:48`) | `DRAFT` / `DRAFT` / `DRAFT` / `DISPATCHED` / `DRAFT` · `APPROVED` · `PICKED` | FR-275 |
 
 ## 3. T3 — Time-driven rules
 
@@ -138,6 +146,7 @@
 | RMR-T4-03 | A supplier return is approved | a `VENDOR_RETURN` demand order (one line per return line, same lot) is raised and allocated; picking and despatch are its effects (`PICKED`, `DISPATCHED`); an `origin_grn_id` relieves that receipt's layer | `WhSupplierReturnService`, `WhSupplierReturnDemandEffects` | FR-275 (`RJ-003`, `RJ-010`) |
 | RMR-T4-04 | A recall is initiated | every allocatable position of the lot (and its splits, and every kit lot built from it) is **quarantined in place** by a status-change movement; every reservation at that grain is released with the recall reason; every shipment that carried the lot is listed with consignee and tracking; the affected-customer list exports | `WhRecallService` → writer | FR-280 |
 | RMR-T4-05 | A disposition is decided | the warehouse emits it (an event per dispositioned line); nothing computes a refund | `WhReturnLineDispositionedEvents` | FR-274 |
+| RMR-T4-06 | A supplier return is closed | its `VENDOR_RETURN` demand order, if still `SHIPPED`, is confirmed `DELIVERED` in the same transaction (`WhSupplierReturnService.java:281-295`) | `WhSupplierReturnService.close` | FR-275 |
 
 ## 5. T5 — Screen contract
 
@@ -162,6 +171,7 @@ marketplace claims and obsolescence returns (removed, `D-16`); per-client inspec
 | Date | Change |
 |---|---|
 | 2026-10-23 | v0 derived (R30 `CP-FR-007` row 15) |
+| 2026-10-23 | R31: `F-CB-008` (supplier-return `RMR-T1-23`…`-27`, `RMR-GRD-12`, `-13`, `RMR-T2-06`, `RMR-T4-06`); `F-CB-022` (§10 row 1, WS-135); `RMR-OPEN-01`, `-02` decided |
 
 ## 8. Invariants and scenarios
 
@@ -171,8 +181,8 @@ marketplace claims and obsolescence returns (removed, `D-16`); per-client inspec
 
 | ID | Question | Default |
 |---|---|---|
-| RMR-OPEN-01 | `FR-275` says the emitted debit-note proposal is v2; `D-16` item 6 says warehouse never generates a debit or credit note. Is the v2 proposal withdrawn? | withdrawn (`RMR-UNR-05`) |
-| RMR-OPEN-02 | `FR-272` per-client inspection checklists (v2) — no live task owns them | not built |
+| RMR-OPEN-01 | `FR-275` says the emitted debit-note proposal is v2; `D-16` item 6 says warehouse never generates a debit or credit note. Is the v2 proposal withdrawn? | **DECIDED R31 (2026-10-23): default stands** — withdrawn (`D-16` item 6, `RMR-UNR-05`) |
+| RMR-OPEN-02 | `FR-272` per-client inspection checklists (v2) — no live task owns them | **DECIDED R31 (2026-10-23): not withdrawn** — the checklist half stays v2, deferred against PARTIALLY VOID `P5-13`; a new task is needed when it is scheduled |
 
 ## 10. Code divergences
 
@@ -180,6 +190,6 @@ The FRD rule is kept; the code is what differs.
 
 | # | File:line | FR | Difference |
 |---|---|---|---|
-| 1 | `warehouse-base/backend/src/main/resources/db/migration/V500010__Create_whb_code_lists_task_types_dispositions_attribute_keys.sql:155`, `:161` | FR-270 | the two retail return types the FRD removes are still seeded (removal pending in `P7`) |
+| 1 | `warehouse-base/backend/src/main/resources/db/migration/V500010__Create_whb_code_lists_task_types_dispositions_attribute_keys.sql:155`, `:161` | FR-270 | the two retail return types the FRD removes (`RTO`, `MARKETPLACE`) are still seeded (removal pending in `P7`); BUILD-SPEC WS-135's `returnType` list carried them too and was amended (R31 `F-CB-022`) |
 | 2 | `warehouse/…/entity/WhSupplierClaim.java:72` | FR-459 | the `OBSOLESCENCE` claim type and its source are still in the vocabulary (`D-16` `RN-051` removes them) |
 | 3 | `warehouse/…/entity/WhSupplierClaim.java:69-77` | FR-459 | types are short shipment, damage in transit, quality reject, price; the FRD's expiry claim has no type |

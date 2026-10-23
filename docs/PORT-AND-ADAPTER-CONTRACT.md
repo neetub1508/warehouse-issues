@@ -1001,6 +1001,19 @@ logistics', the clock is ours*.
 > `grep -rn "CREATE TABLE.*grid_filter_definitions" --include=*.sql .` → **0**. An unguarded insert
 > into that name fails at Flyway and crash-loops the backend (`R1 CM-4`).
 
+## 4.8 The one value read back across the seam — `WhbGlBalanceProvider`
+
+*(R31 `AHO-OPEN-10`, 2026-10-23 — documents the existing interface; `RC-002`.)* Everything in §4 flows **out**
+of warehouse. The single read in the other direction, for values, is a port interface declared in
+`warehouse-base` with **no implementation in any warehouse module** (`WhbAccountingSeamContractTest` fails the
+build on one); the accounting-facing adapter implements it (accounting `P4-01`, deferred by `D-16` / `RN-054`).
+
+| Port | Method | Grain | Missing answer |
+|---|---|---|---|
+| `ai.warehousebase…WhbGlBalanceProvider` | `Optional<BigDecimal> controlAccountBalance(UUID companyId, UUID warehouseId, LocalDate asOfDate)`; `default String unavailableReason()` | company × site × period-end date, on the `posting_date` clock (`L-13`) | `Optional.empty()` = **unavailable, never zero**; with no provider bean WS-219 shows *"no accounting module installed"* (`accounting-handover` `AHO-RPT-03`, `-04`) |
+
+The other read in that direction is the period lock (`WhbAccountingPeriodLockProvider`, `FR-251`).
+
 ---
 
 # 5 · The reservation API

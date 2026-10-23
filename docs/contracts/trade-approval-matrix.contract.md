@@ -90,7 +90,7 @@ Each `:approve` depends on the resource's `:view` (`permission_dependencies`, se
 
 | ID | Predicate | Refusal | Lands on | Source |
 |---|---|---|---|---|
-| TAM-GRD-01 | Rule match: doc type = rule type ∧ company ∧ (site null or =) ∧ (department null or =) ∧ (category null or item category ∈) ∧ currency = ∧ value ∈ [from, to) ∧ qty ∈ [from, to) when set ∧ conditions: **`EXACT`** (default) — rule condition set = document condition set; **`INCLUDES`** — rule set ⊆ document set. **Most specific wins**: specificity = non-null scope dimensions + rule conditions + 1 when `EXACT` | — | — | FR-548, TRD-14 |
+| TAM-GRD-01 | Rule match: doc type = rule type ∧ company ∧ (site null or =) ∧ (department null or =) ∧ (category null or item category ∈) ∧ currency = ∧ value ∈ [from, to) ∧ qty ∈ [from, to) when set ∧ conditions: **`EXACT`** (default) — rule condition set = document condition set; **`INCLUDES`** — rule set ⊆ document set. **Most specific wins**: specificity = non-null scope dimensions + rule conditions + 1 when `EXACT`. **Non-monetary types** (`AVL`, `PROFILE_BLOCK`) carry no money: the request is opened with value 0 and the **company currency**, so their rules are written in the company currency with a value band that includes 0 (R31 F-TR-013) | — | — | FR-548, TRD-14 |
 | TAM-GRD-02 | At least one rule matches | `422 TRADE_NO_APPROVAL_RULE` `{documentType, value, currency}` | Submit modal | FR-550 |
 | TAM-GRD-03 | For **both** the actor and, when acting as a delegate, the principal: ≠ document maker (`created_by` and the submitter) ∧ has not acted on another step of this request (in own name or as / through a delegate); and the actor or the principal is a member of the level | `403 TRADE_APPROVAL_SELF` / `403 TRADE_APPROVAL_NOT_MEMBER` | Approve modal | FR-549 |
 | TAM-GRD-04 | Document version = request's frozen version (no edit after submit) | `409 TRADE_APPROVAL_STALE` | Approve modal | FR-553 |
@@ -99,7 +99,7 @@ Each `:approve` depends on the resource's `:view` (`permission_dependencies`, se
 | TAM-GRD-07 | Delegate ≠ principal; delegate ≠ recording user unless the recorder is the principal; date range valid; a delegate never acts on a request whose maker is the delegate or the principal (`TAM-GRD-03`) | field `422` | Delegate modal | FR-552 |
 | TAM-GRD-08 | At open: exactly one rule has the highest specificity among the matches (a tie the save guard missed — e.g. after a rule edit — is refused, never broken arbitrarily) | `422 TRADE_APPROVAL_RULE_AMBIGUOUS {ruleIds}` | Submit modal | FR-550 |
 | TAM-GRD-09 | Amendment documents (`*_AMENDMENT`): matched twice, on the new total and on the absolute delta; the request uses the match with more levels, a tie takes the new-total match; levels are never merged | — | — | FR-553 |
-| TAM-GRD-10 | **Concurrency**: every edit, submit, transition and approval of a `wht_` document checks its optimistic `version`; a stale write changes nothing | `409` stale write (code per `TPR-OPEN-03`) | — | FR-618 |
+| TAM-GRD-10 | **Concurrency**: every edit, submit, transition and approval of a `wht_` document checks its optimistic `version`; a stale write changes nothing | `409 CONCURRENT_MODIFICATION` stale write (`TPR-OPEN-03`) | — | FR-618 |
 
 ### 1.4 Transitions that must be unreachable
 
@@ -114,12 +114,12 @@ Each `:approve` depends on the resource's `:view` (`permission_dependencies`, se
 
 | ID | Action | Permission | Allowed from | Source |
 |---|---|---|---|---|
-| TAM-T2-01 | Add / edit / (de)activate rule | `wht_approval_rules:create`/`edit` | any | — |
+| TAM-T2-01 | Add / edit / (de)activate rule | `wht_approval_rules:create`/`edit` | any | FR-548 |
 | TAM-T2-02 | Open inbox | `wht_approval_requests:view` | — (own pending steps only) | FR-555 |
 | TAM-T2-03 | Approve / reject / return | `wht_<doc>:approve` + level member | step `PENDING` | FR-555 |
-| TAM-T2-04 | Withdraw | maker | request `PENDING`, nothing approved | — |
-| TAM-T2-05 | Export rules | `wht_approval_rules:export` | — (auditor: none) | — |
-| TAM-T2-06 | Record delegation for self / for another / confirm | approver / `wht_approval_rules:edit` / `wht_approval_rules:edit` (≠ recorder, ≠ delegate) | — | — |
+| TAM-T2-04 | Withdraw | maker | request `PENDING`, nothing approved | FR-551 |
+| TAM-T2-05 | Export rules | `wht_approval_rules:export` | — (auditor: none) | FR-616 |
+| TAM-T2-06 | Record delegation for self / for another / confirm | approver / `wht_approval_rules:edit` / `wht_approval_rules:edit` (≠ recorder, ≠ delegate) | — | FR-552 |
 | TAM-T2-07 | Every action in this table, and the auditor | `wht_<table>:<verb>` per FRD-TRADE FR-617 (`view`, `create`, `edit`, `export` + the workflow verbs above); `permission_dependencies` seeded; the auditor bundle holds `:view` only; record scope follows core's company / site grants; a bundle whose action calls a core port is also granted `warehouse:orders:port` in the trade seed | — | FR-617 |
 
 ## 3. T3 — Time-driven rules
@@ -172,6 +172,7 @@ document preview) · Approve · Reject · Return. Toolbar: Delegate. No export.
 | 2026-10-22 | all | v0 derived | TRADE author |
 | 2026-10-22 | §0.1, `TAM-T1-03`, `-04`, `-08a`, `-10`, `-11`, `TAM-GRD-01`, `-03`, `-05`, `-07`…`-09`, T2-06, T3, T4-03, §5 | R29 TP-F8, F9, F12, F26, F28, TS-F8, F9, F12 and contract quality: exact condition match, both-party maker check, intersecting-scope ambiguity, delegation confirmation, approve-verb map, inbox filters and tiles, notifications | R29 |
 | 2026-10-23 | every T1, guard, unreachable, T3 and T4 row | `Source` column added, filled from FRD-TRADE §4, so every rule traces to the FR it proves | R30 `CP-FR-008` |
+| 2026-10-23 | `TAM-GRD-01`, `-GRD-10`, every T2 row | R31: `AVL` / `PROFILE_BLOCK` match with value 0 in the company currency (F-TR-013); stale-write code (`TPR-OPEN-03`); T2 Source FRs (F-TR-019) | R31 |
 
 ## 8. Invariants and scenarios
 

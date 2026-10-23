@@ -63,6 +63,7 @@
 | CPM-UNR-02 | A party from another module (automotive, assets) **copied** into `whb_counterparties`; it is linked through `whb_counterparty_external_refs`. In a standalone install the table is empty and everything works | FR-118 |
 | CPM-UNR-03 | A shared `party-base` extracted before the recorded trigger — **the third module that needs the same GSTIN to be authoritative for tax filing** (`OD-4`); recorded, not acted on (v3) | FR-121 |
 | CPM-UNR-04 | A bespoke counterfeit workflow; a suspect part travels the existing disposition path | FR-455 |
+| CPM-UNR-05 | A payment-terms, credit-limit, bank-details, contacts or scorecard column or child table on the counterparty — they belong to the module that owns the commercial relationship (`trade-counterparty-evaluation` carries the scorecard). **Excepted:** dated addresses by role (`whb_counterparty_addresses`) and per-state tax registrations (`whb_counterparty_tax_registrations`), which the challan and e-way bill freeze; `national_tax_id` stays the legal-entity id | FR-119 |
 
 ## 2. T2 — Action × role × state
 
@@ -100,6 +101,7 @@ Supplier evaluation, AVL and approval (`trade-counterparty-evaluation`); counter
 | Date | Change |
 |---|---|
 | 2026-10-23 | v0 derived for R30 `CP-FR-007` row 6, as a NEW core contract (the trade contracts are not edited) |
+| 2026-10-23 | R31 `F-CA-017`: `CPM-UNR-05` (the `FR-119` exclusion, with its address and tax-registration exception); `CPM-OPEN-01` decided |
 
 ## 8. Invariants and scenarios
 
@@ -109,7 +111,7 @@ Supplier evaluation, AVL and approval (`trade-counterparty-evaluation`); counter
 
 | ID | Question | Default until decided | Source |
 |---|---|---|---|
-| CPM-OPEN-01 | `OD-4`: the long-term home of the party (base vs a future `party-base`) | base owns the thin identity (`FR-116`) | FR-116, FR-121 |
+| CPM-OPEN-01 | `OD-4`: the long-term home of the party (base vs a future `party-base`) | **DECIDED R31 (2026-10-23): default stands** — `warehouse-base` owns the thin identity; other modules join through external references (`OD-4` RESOLVED) | FR-116, FR-121 |
 
 ## 10. Code divergences (for the build to fix)
 

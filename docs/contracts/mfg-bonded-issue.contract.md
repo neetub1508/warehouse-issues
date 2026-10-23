@@ -14,9 +14,10 @@
 > `ai.warehouseindia`** (FR-620); everything india-side runs on base's post hook and the core
 > `JobWorkDispatchPort` (SEAM-M5).
 >
-> **Status.** Derived 2026-10-23 (v0), **not ratified**. No code exists. Statutory values **RE-VERIFY**. The
-> enablement calls in GitHub reports 539 (is MOOWR process scrap a loss) and 543 (MOOWR job work) stay with
-> the product owner; this contract builds the mechanism and the defaults below.
+> **Status.** Derived 2026-10-23 (v0), **not ratified**. No code exists. Statutory values **RE-VERIFY**. GitHub
+> reports 539 and 543 are decided by **D-18 item 1**: normal MOOWR process loss is a **bonded loss** (it carries the
+> duty consequence), and **MOOWR job work stays off** — its rules are seeded inactive — until a bond-officer
+> permission and the return-period source are confirmed. `BONDED` and `SEZ` job work run as written.
 
 ---
 
@@ -29,7 +30,7 @@
 | **Domain baseline** | FRD-MFG FR-670…FR-677, MD-42, MD-43, FR-620, FR-638, FR-659…FR-661, MD-13, MD-25, MD-28 · `DECISIONS.md` `D-17` item 3, `RL-001`, `D-8`, `L-1`, `L-11` · `p4-07` (licences, bonds, ex-bond clearance), `V541156` (`whin_bonded_losses`), `V540180` (compliance rules) · GitHub 539, 543 |
 | **Owning task body** | `issues/p10-14.md`. Depends on `p10-06`, `p10-07`, `p10-10`, `p8-10`, `p8-11`, `p4-07` |
 | **Primary tables** | `whin_bonded_exit_rules`, `whin_bonded_operation_lines` (`V540191`); `whin_moowr_returns`, `whin_moowr_return_lines`, `whin_sez_movements` (`V540192`); `whm_production_orders.bonded_duty_status`, `whm_subcontract_dispatches.bond_permission_ref` (`V560120`) |
-| **Status columns** | `whin_bonded_operation_lines` has none (append-only; `open_quantity` on `JOB_WORK_OUT` derived on write); `whin_moowr_returns.status` (`DRAFT` / `FILED`, code list `WHIN_MOOWR_RETURN_STATUS`, no `CHECK`, `D-10`) |
+| **Status columns** | `whin_bonded_operation_lines` has none (append-only; a `JOB_WORK_OUT` row's open quantity is **derived on read** from the immutable rows, never stored or updated — R31 F-MF-008); `whin_moowr_returns.status` (`DRAFT` / `FILED`, code list `WHIN_MOOWR_RETURN_STATUS`, no `CHECK`, `D-10`) |
 | **Permission resources** | `whin_bonded_exit_rules:{view,edit}` · `whin_bonded_operation_lines:{view,export}` · `whin_moowr_returns:{view,generate,file,export}` · dispatch `whm_subcontract_dispatches:dispatch` (unchanged) |
 | **Routes** | WS-338 `/warehouse/india/bonded-operations` · WS-339 `/warehouse/india/moowr-returns` · WS-185 *Bonded Licences* tab *Bond rules* · mobile: none |
 | **Contract status / version** | `derived 2026-10-23 (v0), not ratified` · `v0 — 2026-10-23` |
@@ -55,7 +56,7 @@
 |---|---|---|---|---|---|
 | Bond rule | active / inactive | `whin_bonded_exit_rules.is_active` | seed (`V540191`), `BND-T1-04` | `BND-T1-04` | — |
 | Register line | written | a `whin_bonded_operation_lines` row | `BND-T4-01`, `-02`, `-05` | none (append-only; a reversal writes a mirror row) | terminal |
-| `JOB_WORK_OUT` line | *open* (derived) | `open_quantity > 0` | `BND-T4-05` | `JOB_WORK_RETURN` rows, loss | active |
+| `JOB_WORK_OUT` line | *open* (derived) | open quantity > 0 — out − `JOB_WORK_RETURN` − `JOB_WORK_LOSS` rows naming it in `source_line_id`, mirrors netted | `BND-T4-05` | `JOB_WORK_RETURN`, `JOB_WORK_LOSS` rows | active |
 | MOOWR return | `DRAFT` | `whin_moowr_returns.status` | `BND-T1-01` | `BND-T1-02`, `-03` | initial |
 | MOOWR return | `FILED` | `status`, `filed_by/at` | `BND-T1-03` | none | **terminal** |
 
@@ -66,7 +67,7 @@
 | BND-T1-01 | — | Generate the MOOWR return for licence × month | `DRAFT` | `BND-GRD-06` | `whin_moowr_returns:generate` | lines computed (`BND-T4-07`) | no | WS-339 **Generate** | FR-676 |
 | BND-T1-02 | `DRAFT` | Regenerate | `DRAFT` | `BND-GRD-06` | `:generate` | lines recomputed; differences to the previous draft listed | no | WS-339 row **Regenerate** | FR-676 |
 | BND-T1-03 | `DRAFT` | File | `FILED` | filer ≠ generator is **not** required (a statutory filing, not an approval) | `whin_moowr_returns:file` | lines frozen (trigger refuses UPDATE / DELETE); print | yes (filing reference) | WS-339 row **File** | FR-676 |
-| BND-T1-04 | active ⇄ inactive | Switch a bond rule | — | — | `whin_bonded_exit_rules:edit` | audit row; takes effect on the next post | **yes** (reason) | WS-185 tab *Bond rules* | FR-671, FR-677 |
+| BND-T1-04 | active ⇄ inactive | Switch a bond rule | — | — | `whin_bonded_exit_rules:edit` | audit row; takes effect on the next post; the `MOOWR` rows at `JOB_WORKER` are seeded inactive (D-18 item 1) and are switched on only once the bond-officer permission and the return-period source are confirmed — the reason names both | **yes** (reason) | WS-185 tab *Bond rules* | FR-671, FR-677 |
 
 ### 1.3 Guards
 
@@ -75,7 +76,7 @@
 | BND-GRD-01 | A forward post line that **rises at a virtual-counterparty location** in a duty status with `requires_licence` is accepted only when an **active** `whin_bonded_exit_rules` row matches (duty status, movement type, the location's base type, `RISE`) — or the type is one of the recorder's loss types or a VAS work-order type (existing exemptions), or a netting master merge | `409 BONDED_EXIT_NOT_RECORDED` · `lines[n].duty_status` (unchanged code) | names type, duty status and location type | guard on base's `WhbMovementPostGuard` chain | FR-670, MD-42 |
 | BND-GRD-02 | The matched rule's site holds a `whin_bonded_licences` row of that duty status, `ACTIVE`, `valid_from ≤ posting date ≤ valid_to` | `409 BONDED_LICENCE_NOT_ACTIVE` · `lines[n].duty_status` | names licence kind, site, date | — | FR-671 |
 | BND-GRD-03 | A rule exists for the line but is inactive | `409 BONDED_OPERATION_NOT_PERMITTED` · `lines[n].duty_status` | names duty status and operation kind | — | FR-671 |
-| BND-GRD-04 | An order's consumption lines carry at most **one** licensed duty status (`bonded_duty_status` frozen at the first) | `409 BONDED_REGIME_MIXED` · `lines[n].dutyStatus` | names the frozen and the offered status | — | FR-673, MD-43 |
+| BND-GRD-04 | An order's consumption **and subcontract dispatch** lines carry at most **one** licensed duty status (`bonded_duty_status` frozen at the first — a dispatch is a freeze point, so a mixed second dispatch refuses before the goods leave); the **first** licensed consumption or dispatch is refused on an order that is `COMPLETED` or has already posted output outside that regime (R31 F-MF-004) | `409 BONDED_REGIME_MIXED` / `409 BONDED_REGIME_AFTER_OUTPUT` *(proposed)* · `lines[n].dutyStatus` | names the frozen and the offered status | — | FR-673, MD-43 |
 | BND-GRD-05 | A subcontract dispatch with any line in a licensed duty status carries `bond_permission_ref` (≤ 60) and `expected_return_date` | `422 BOND_PERMISSION_REF_REQUIRED` · `bondPermissionRef`; `422 EXPECTED_RETURN_DATE_REQUIRED` · `expectedReturnDate` | — | — | FR-675 |
 | BND-GRD-06 | MOOWR return: licence `MOOWR` at the site; the month has ended (site timezone); no `FILED` return for licence × month | `409 MOOWR_RETURN_PERIOD_OPEN` · `period`; `409 MOOWR_RETURN_FILED` · `period` | — | uk(`licence_id`, `period_month`) | FR-676 |
 | BND-GRD-07 | The same predicates (`-01`…`-03`) run again when a `PENDING` movement is approved, on its stored lines | as `-01`…`-03` | — | `WhinBondedVirtualExitApprovalGuard` | FR-671 |
@@ -85,20 +86,20 @@
 | ID | Forbidden | What makes it unreachable | Source |
 |---|---|---|---|
 | BND-UNR-01 | Bonded stock leaving to `CUSTOMER`, `SUPPLIER`, `CONSUMED` or any location type no active rule names, without ex-bond clearance or a loss | `BND-GRD-01` — no seeded rule for those types | FR-670 |
-| BND-UNR-02 | The guard deciding from a hard-coded list of MFG movement types | it reads `whin_bonded_exit_rules` (registry, `RL-001`); base keeps no customs flag (D-8) | MD-42 |
-| BND-UNR-03 | Updating or deleting a register line; editing a `FILED` return | append-only and frozen triggers | FR-672, FR-676 |
+| BND-UNR-02 | The guard deciding from a hard-coded list of MFG movement types | it reads `whin_bonded_exit_rules` (registry, `RL-001`); base keeps no customs flag (D-8) | FR-670, MD-42 |
+| BND-UNR-03 | Updating or deleting a register line, or storing an open quantity on one; editing a `FILED` return | append-only and frozen triggers; the open quantity is derived on read (R31 F-MF-008) | FR-672, FR-676 |
 | BND-UNR-04 | MFG writing a `whin_` table or importing `ai.warehouseindia` | rules and register are india's, run on base's post hook; MFG passes data through the core port only | FR-620 |
 | BND-UNR-05 | Output of bonded inputs received as `DOMESTIC` | MFG sets the output duty status from `bonded_duty_status` (`BND-T4-03`) | FR-673 |
 
 ## 2. T2 — Action × role × state
 
-| ID | Action | Permission | Allowed from | Extra condition |
-|---|---|---|---|---|
-| BND-T2-01 | View register / export | `whin_bonded_operation_lines:view` / `:export` | — | AUDITOR views, never exports |
-| BND-T2-02 | Generate / regenerate MOOWR return | `whin_moowr_returns:generate` | `DRAFT` or none | `BND-GRD-06` |
-| BND-T2-03 | File MOOWR return | `whin_moowr_returns:file` | `DRAFT` | — |
-| BND-T2-04 | Switch a bond rule | `whin_bonded_exit_rules:edit` | — | reason |
-| BND-T2-05 | Dispatch bonded stock to a job worker | `whm_subcontract_dispatches:dispatch` | dispatch `DRAFT` | `BND-GRD-05` |
+| ID | Action | Permission | Allowed from | Extra condition | Source |
+|---|---|---|---|---|---|
+| BND-T2-01 | View register / export | `whin_bonded_operation_lines:view` / `:export` | — | AUDITOR views, never exports | FR-677 |
+| BND-T2-02 | Generate / regenerate MOOWR return | `whin_moowr_returns:generate` | `DRAFT` or none | `BND-GRD-06` | FR-676 |
+| BND-T2-03 | File MOOWR return | `whin_moowr_returns:file` | `DRAFT` | — | FR-676 |
+| BND-T2-04 | Switch a bond rule | `whin_bonded_exit_rules:edit` | — | reason | FR-671, FR-677 |
+| BND-T2-05 | Dispatch bonded stock to a job worker | `whm_subcontract_dispatches:dispatch` | dispatch `DRAFT` | `BND-GRD-05` | FR-675 |
 
 ## 3. T3 — Time-driven rules & notifications
 
@@ -122,13 +123,13 @@
 
 | ID | When this happens | Then this other record must change | Enforced in | Source |
 |---|---|---|---|---|
-| BND-T4-01 | Any post with a line matched by an active rule (`ISSUE` / `ISSUE_RETURN` at `PRODUCTION`; `PRODUCTION_RECEIPT` at `PRODUCTION` or `JOB_WORKER`; `SUBCONTRACT_DISPATCH` / `SUBCONTRACT_RECALL` at `JOB_WORKER`) | one `whin_bonded_operation_lines` row per line: licence, movement / line ids, operation kind, item, lot, duty status, base quantity, UoM, source document number | `WhinBondedOperationRecorder` on base's post hook, same transaction | FR-672 |
-| BND-T4-02 | Reversal of such a movement | a mirror row (`reversal_of_id`, negated quantity); a `JOB_WORK_OUT` mirror re-opens nothing it did not open | same | FR-672 |
-| BND-T4-03 | First consumption of licensed stock by an order (store issue line with cost object `PRODUCTION_ORDER`, or receipt backflush) | `whm_production_orders.bonded_duty_status` set (MFG reads the ledger line's duty status — base data); every later good output, co-product, by-product and processed item of the order is posted in that duty status (`MANUFACTURE_OUTPUT` rows by `BND-T4-01`) | MFG `CostObjectResolver.onIssuePosted` / receipt post | FR-673, MD-43 |
-| BND-T4-04 | Scrap of licensed stock to `VIRT-SCRAP` (`PRODUCTION_RECEIPT` scrap line, approved `SUBCONTRACT_WRITE_OFF`) | one `whin_bonded_losses` row `OPEN` (rule kind `LOSS`, the existing recorder), resolved by india's existing paths; GitHub 539 decides whether normal process loss is a loss | `WhinBondedLossRecorder` | FR-674 |
-| BND-T4-05 | Subcontract dispatch with a licensed line | `bond_permission_ref` and `expected_return_date` frozen on the dispatch and passed in `JobWorkDispatchPort.registerDispatch`; the `JOB_WORK_OUT` register row carries both and `open_quantity` = dispatched | MFG dispatch service (`SUB-T4-03`); india recorder | FR-675 |
-| BND-T4-06 | Subcontract receipt / recall of that stock | `JOB_WORK_RETURN` rows reduce the dispatch's `open_quantity` (consumed in processed form, recalled, retained scrap → `BND-T4-04`); at 0 the `BND-T3-01` task closes | india recorder | FR-672, FR-675 |
-| BND-T4-07 | MOOWR return generated | per item: opening (ledger before the month), received into bond, issued to manufacture, returned from manufacture, produced, sent for job work, returned from job work, cleared (ex-bond clearances, export), losses, closing — each a backend sum; closing = opening + in − out, asserted per line | `WhinMoowrReturnService` | FR-676 |
+| BND-T4-01 | Any post with a line matched by an active rule (`ISSUE` / `ISSUE_RETURN` at `PRODUCTION`; `PRODUCTION_RECEIPT` at `PRODUCTION` or `JOB_WORKER`; `SUBCONTRACT_DISPATCH` / `SUBCONTRACT_RECALL` / `SUBCONTRACT_WRITE_OFF` at `JOB_WORKER`) | one `whin_bonded_operation_lines` row per line: licence, movement / line ids, operation kind, item, lot, duty status, base quantity, UoM, source document number | `WhinBondedOperationRecorder` on base's post hook, same transaction | FR-672 |
+| BND-T4-02 | Reversal of such a movement | a mirror row of the original's kind (`reversal_of_id`, negated quantity), never an update; a `*_REVERSAL` type has no rule row of its own — its lines take the kind of the row they mirror. A mirror of a `JOB_WORK_RETURN` (a subcontract receipt reversal, `SUB-T1-07`) **re-opens** that quantity on its `JOB_WORK_OUT` and re-arms `BND-T3-01`; a dispatch is never reversed (`SUB-UNR-02`), so no `JOB_WORK_OUT` mirror exists (R31 F-MF-008) | same | FR-672 |
+| BND-T4-03 | First consumption of licensed stock by an order (store issue line with cost object `PRODUCTION_ORDER`, or receipt backflush) **or first dispatch of licensed stock to its job worker** (R31 F-MF-004) | `whm_production_orders.bonded_duty_status` set (MFG reads the ledger line's duty status — base data); every later good output, co-product, by-product and processed item of the order is posted in that duty status (`MANUFACTURE_OUTPUT` rows by `BND-T4-01`) | MFG `CostObjectResolver.onIssuePosted` / receipt post / dispatch post (`MSI-GRD-11`, `PRC-GRD-28`, `SUB-GRD-18`) | FR-673, MD-43 |
+| BND-T4-04 | Scrap of licensed stock to `VIRT-SCRAP` (`PRODUCTION_RECEIPT` scrap line, approved `SUBCONTRACT_WRITE_OFF`) | one `whin_bonded_losses` row `OPEN` (rule kind `LOSS`, the existing recorder), resolved by india's existing paths; normal process loss within the BOM scrap % is a bonded loss too, with its duty consequence (D-18 item 1, `BND-OPEN-01` closed) | `WhinBondedLossRecorder` | FR-674 |
+| BND-T4-05 | Subcontract dispatch with a licensed line | `bond_permission_ref` and `expected_return_date` frozen on the dispatch and passed in `JobWorkDispatchPort.registerDispatch`; the `JOB_WORK_OUT` register row carries both; its derived open quantity starts at the dispatched quantity | MFG dispatch service (`SUB-T4-03`); india recorder | FR-675 |
+| BND-T4-06 | Subcontract receipt / recall of that stock | each `JOB_WORK_RETURN` row (consumed in processed form, recalled, retained scrap → also `BND-T4-04`) names the `JOB_WORK_OUT` row it reduces in `source_line_id`, matched **FIFO by dispatch** for the order, item and lot; an **approved write-off** writes a `JOB_WORK_LOSS` row (rule `SUBCONTRACT_WRITE_OFF` · `JOB_WORKER` · `FALL`) that reduces it the same way, besides its `whin_bonded_losses` row (R31 F-MF-007); when the derived open quantity reaches 0 the `BND-T3-01` task closes | india recorder | FR-672, FR-674, FR-675 |
+| BND-T4-07 | MOOWR return generated | per item: opening (ledger before the month), received into bond, issued to manufacture, returned from manufacture, produced, sent for job work, returned from job work, cleared (ex-bond clearances, export), losses, closing — each a backend sum; closing = opening + in − out, asserted per line. A loss of goods **already issued to manufacture** is reported under *losses* but is not an *out* of the input item again — it left bonded stock at the issue — so the closing equals the ledger's bonded on hand (`WH-SC-686`: 100 − 40 = 60; R31 F-MF-009) | `WhinMoowrReturnService` | FR-676 |
 | BND-T4-08 | Register row of an `SEZ` duty status | one `whin_sez_movements` row | india recorder | FR-676 |
 
 ## 5. T5 — Screen contract (web only)
@@ -171,7 +172,7 @@ Grid of `whin_bonded_exit_rules` (duty status, movement type, location type, dir
 | Bill of entry for home clearance of the output | india ex-bond clearance (`p4-07`) |
 | Duty computation, interest | accounting / customs broker; not in warehouse |
 | FTWZ manufacture | no rule seeded; FTWZ is trading and warehousing |
-| Enablement decisions on process-loss treatment and MOOWR job work | GitHub 539, 543 (product owner) |
+| Enablement decisions on process-loss treatment and MOOWR job work | decided — D-18 item 1 (bonded loss; MOOWR job work off until the permission and return-period source are confirmed) |
 | Mobile | none (user rule) |
 
 ## 7. Amendments
@@ -179,6 +180,7 @@ Grid of `whin_bonded_exit_rules` (duty status, movement type, location type, dir
 | Date | Row IDs affected | Change | Found by |
 |---|---|---|---|
 | 2026-10-23 | all | v0 derived from FRD-MFG FR-670…677, MD-42, MD-43 and the as-built `WhinBondedVirtualExitPostGuard` | R30 `CP-GB-001`, `CP-GA-007`; `D-17` item 3 |
+| 2026-10-23 | header, §0, §1.1, `BND-T1-04`, `BND-GRD-04`, `BND-UNR-03`, `BND-T4-01`…`-07`, §6, Source column on T2, `BND-OPEN-01`, `-02` | R31: D-18 item 1 (bonded loss; MOOWR job work off); dispatch is a freeze point, freeze after output refused (F-MF-004); write-off reduces the open quantity (F-MF-007); open quantity derived, FIFO matching, mirrors by kind (F-MF-008); no double deduction of issued-goods loss (F-MF-009); Source FR on every rule row (F-MF-018) | `R31-functional-review-mfg.md`, D-18 |
 
 ## 8. Invariants and scenarios this workflow must not break
 
@@ -195,6 +197,6 @@ Grid of `whin_bonded_exit_rules` (duty status, movement type, location type, dir
 
 | ID | Contradiction / hole | Recommendation | Authority | Status |
 |---|---|---|---|---|
-| BND-OPEN-01 | GitHub 539: is normal process loss of MOOWR inputs a loss or a manufacturing waste shown only on the return? | default: a bonded loss (`BND-T4-04`); a decision to treat it as waste changes the rule kind for `PRODUCTION_RECEIPT` at `SCRAP` from `LOSS` to a register-only kind | product owner | open |
-| BND-OPEN-02 | GitHub 543: MOOWR job work was refused everywhere; the default here allows it with the bond officer's permission | confirm the permission reference and the return period source | product owner | open |
+| BND-OPEN-01 *(resolved — D-18 item 1)* | GitHub 539: is normal process loss of MOOWR inputs a loss or a manufacturing waste shown only on the return? | **decided:** a bonded loss with its duty consequence (`BND-T4-04`); the `LOSS` rule kind stays | D-18 | resolved |
+| BND-OPEN-02 *(resolved — D-18 item 1)* | GitHub 543: MOOWR job work was refused everywhere; the default here allows it with the bond officer's permission | **decided:** MOOWR job work stays **off** — its `JOB_WORKER` rules are seeded inactive (`p10-14` seed, `SUB-GRD-18`) and a dispatch refuses `409 BONDED_OPERATION_NOT_PERMITTED` — until a bond-officer permission and the return-period source are confirmed; then the rows are switched on by `BND-T1-04` | D-18 | resolved |
 | BND-OPEN-03 | `D-17` item 3 says "a registry flag on the movement types"; MD-42 makes it a registry row keyed by location type too | record MD-42 against `D-17` | SPINE | **resolved 2026-10-23** — `D-17` item 3 now states the rule per location type (`MD-42`) |

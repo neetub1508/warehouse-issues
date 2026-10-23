@@ -86,8 +86,8 @@ None. The fixture has no clock.
 |---|---|---|---|---|
 | MOD-T4-01 | the fixture's migrations run | `ADAPTER_EXAMPLE` (claimable, not reserved, `post_permission warehouse:movements:post`), `EXAMPLE_DOCUMENT` (stock-bearing, external), `EXAMPLE_RECEIPT` (`IN`, `MUST_BALANCE_PER_OWNER_ITEM`, billable) registered in base registries; one item cross-reference seeded | `V525000`, `V525010`; `WhaeExampleDocumentPostingIntegrationTest.theAdaptersOwnMigrationsRegisterItsCodesInItsOwnSubBand` | FR-349, FR-356 |
 | MOD-T4-02 | an upgrade adds a lower-banded module after warehouse | out-of-order migration is required and the upgrade guide says so | Flyway config; install guide | FR-374 |
-| MOD-T4-03 | field-service adapter (v1.1) | the van is a mobile location, replenished by transfer, consumed at job close, counted, unreturned parts aged | `issues/p3-20.md` — not built (`MOD-DIV-02`) | FR-363 |
-| MOD-T4-04 | assets adapter (v1.1) | spares issued against a complaint; hand-off to assets is an event carrying the serial | `issues/p3-21.md` — not built (`MOD-DIV-02`) | FR-364 |
+| MOD-T4-03 | field-service adapter (v1.1) | the van is a mobile location, replenished by transfer, consumed at job close, counted, unreturned parts aged | `issues/p3-20.md` — **VOID** (R31 `MOD-OPEN-01`); `FR-363` WITHDRAWN by `D-16` — row kept as the record | FR-363 |
+| MOD-T4-04 | assets adapter (v1.1) | spares issued against a complaint; hand-off to assets is an event carrying the serial | `issues/p3-21.md` — **VOID** (R31 `MOD-OPEN-01`); `FR-364` WITHDRAWN by `D-16` — row kept as the record | FR-364 |
 
 ## 5. T5 — Screen contract
 
@@ -98,7 +98,7 @@ None (`MOD-UNR-05`).
 | ID | FR says | Code has (grep) | Source |
 |---|---|---|---|
 | MOD-DIV-01 | The fixture has one reservation and one subscriber, and its integration test posts, **reserves, consumes**, reverses and reads back | `WarehouseAdapterExampleModuleConfig` javadoc claims both; no reservation or subscriber code exists (`reserv` 0 hits in service and test; no subscriber class); the test methods are `theAdaptersOwnMigrationsRegisterItsCodesInItsOwnSubBand` and `anAdapterPostsAndReversesItsOwnMovementTypeThroughThePort` | FR-353 |
-| MOD-DIV-02 | `warehouse-adapter-field-service` and `warehouse-adapter-assets` ship in v1.1 | no such module directory in `classic` | FR-363, FR-364 |
+| MOD-DIV-02 | `warehouse-adapter-field-service` and `warehouse-adapter-assets` ship in v1.1 | no such module directory in `classic` — **resolved R31**: both FRs withdrawn, `p3-20` / `p3-21` VOID; no divergence remains | FR-363, FR-364 |
 | MOD-DIV-03 | "A released migration is never edited in place" | `D-16` item 4 supersedes it **for warehouse only** (clean rewrite, one DB rebuild); the FR carries no `D-16` note | FR-374 |
 
 ## 7. Out of scope
@@ -110,6 +110,7 @@ Withdrawn dealer / services / accessories adapter rows (see §0); the logistics 
 | Date | Change |
 |---|---|
 | 2026-10-23 | v0 derived for R30 `CP-FR-007` row 19 (`D-17` item a) |
+| 2026-10-23 | R31: `MOD-OPEN-01` (withdraw; `MOD-T4-03`, `-04`, `MOD-DIV-02`), `MOD-OPEN-02` (extend the fixture) decided |
 
 ## 9. Invariants and scenarios
 
@@ -119,5 +120,5 @@ Withdrawn dealer / services / accessories adapter rows (see §0); the logistics 
 
 | ID | Question | Default | Source |
 |---|---|---|---|
-| MOD-OPEN-01 | `FR-363` / `FR-364` are active with live tasks `p3-20` / `p3-21`, but the `D-1` amendment says the adapter row survives only as the CI fixture — keep the two vertical adapters or withdraw them | withdraw unless the user keeps them (`D-16` item 6 fences `services` / `assets`) | FR-363, FR-364 |
-| MOD-OPEN-02 | `MOD-DIV-01`: extend the fixture to reserve, consume and subscribe, or restate `FR-353` | extend the fixture (`p0-14`) | FR-353 |
+| MOD-OPEN-01 | `FR-363` / `FR-364` are active with live tasks `p3-20` / `p3-21`, but the `D-1` amendment says the adapter row survives only as the CI fixture — keep the two vertical adapters or withdraw them | **DECIDED R31 (2026-10-23):** withdraw — `FR-363` / `FR-364` WITHDRAWN by `D-16`, `p3-20` / `p3-21` VOID; plant spares to machines are core store issue to `MACHINE` (`D-1` amendment) | FR-363, FR-364 |
+| MOD-OPEN-02 | `MOD-DIV-01`: extend the fixture to reserve, consume and subscribe, or restate `FR-353` | **DECIDED R31 (2026-10-23):** default stands — extend the fixture to reserve, consume and subscribe (`p0-14` acceptance) | FR-353 |

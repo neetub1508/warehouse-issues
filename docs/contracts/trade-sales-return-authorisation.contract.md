@@ -29,12 +29,12 @@
 **Fields.** Header: `sra_number` (series `SRA`, at submit), company, customer, `sales_order_id`,
 `customer_return_ref`, `requested_date`, `return_by_date` (DATE, default `requested_date` +
 `warehouse.trade.sales.return_validity_days`, default 30; sent to core as the RMA `expiryDate`),
-`return_to_warehouse_id`, `intent_code` (`REPLACE`/`CREDIT`/`REWORK`), `status`, `core_rma_id` ↓ `wh_rmas`,
+`return_to_warehouse_id`, `intent_code` (`REPLACE`/`CREDIT`/`REWORK`), `reason_code_id` ↓ `whb_reason_codes` (context `RETURN`, required — the one header reason core's RMA takes, R31 F-TR-007), `status`, `core_rma_id` ↓ `wh_rmas`,
 `received_short` (matched below the authorised quantity), `replacement_release_id`,
 `replacement_declined_reason_code`, `accounting_handover_marked_at`. Line: `so_line_id`,
 `core_demand_order_line_id` (the shipped line; sent as `originalDemandOrderLineId`), item, `quantity`,
-`uom_code`, `reason_code` (code list `trade_return_reason`: `QUALITY_NC`, `DIMENSION_NC`, `WRONG_ITEM`,
-`EXCESS_SUPPLY`, `TRANSIT_DAMAGE`, `CUSTOMER_CHANGE`), `expected_condition_code`, lot / serial refs (optional,
+`uom_code`, `reason_code_id` ↓ `whb_reason_codes` (context `RETURN`; trade seeds `QUALITY_NC`, `DIMENSION_NC`,
+`EXCESS_SUPPLY`, `TRANSIT_DAMAGE`, `CUSTOMER_CHANGE` and reuses base's `RETURN` / `WRONG_ITEM` row, FRD-TRADE FR-546; defaulted from the header reason, may differ per line and stays trade-side — the RMA carries the header reason only), `expected_condition_code`, lot / serial refs (optional,
 from the shipment), `received_quantity` (projection of core, `getRmaPosition`).
 
 ### Acceptance checks
@@ -71,7 +71,7 @@ Core RMA status → SRA (`POS-T1-22`; core statuses are exactly `OPEN`, `APPROVE
 | TSR-T1-02a | `SUBMITTED` | Withdraw (`TAM-T1-09`) | `DRAFT` | no step acted | maker | — | no | *Withdraw* | FR-551 |
 | TSR-T1-03 | `SUBMITTED` | Approved | `APPROVED` | `TSR-GRD-04` | approver (holds `warehouse:orders:port`) | **`WhRmaPort.createRma`** (`TSR-T4-03`) in the same transaction; print `SALES_RETURN_AUTHORISATION` | — | WS-285 | FR-612 |
 | TSR-T1-03a | `SUBMITTED` | Rejected / returned | `REJECTED` / `DRAFT` | `TAM` | approver | maker notified | **yes** | WS-285 | FR-551 |
-| TSR-T1-04 | `APPROVED` | Cancel (customer withdrew) | `CANCELLED` | core RMA not `MATCHED` (`getRmaPosition`) | `:cancel` | **`WhRmaPort.cancelRma(CancelRmaCommand{ rmaId, reasonCodeId, note })`**, key `WHT_SRA:<id>:RMA_CANCEL:1` | **yes** | row action | FR-612 |
+| TSR-T1-04 | `APPROVED` | Cancel (customer withdrew) | `CANCELLED` | core RMA not `MATCHED` (`getRmaPosition`) | `:cancel` | **`WhRmaPort.cancelRma(CancelRmaCommand{ rmaId, reasonCodeId (a `TRADE_ORDER_CLOSE`-context `whb_reason_codes` id, FR-546), note })`**, key `WHT_SRA:<id>:RMA_CANCEL:1` | **yes** | row action | FR-612 |
 | TSR-T1-05 | `RECEIVED`, `PARTIALLY_RECEIVED` | Close | `CLOSED` | `REPLACE`: the replacement release is `RELEASED`/`CLOSED`, or declined with a reason (also when the SO is `SHORT_CLOSED` / `CANCELLED`, `TSO-T4-07`); `CREDIT`: `accounting_handover_marked_at` stamped; `REWORK`: none | system (after the replacement release is released or declined), or `:edit` for *Decline replacement* | — | reason on decline | *Decline replacement* | FR-612 |
 | TSR-T1-06 | `DRAFT`, `REJECTED` | Cancel | `CANCELLED` | — | maker | — | no | row action | FR-612 |
 | TSR-T1-07 | `APPROVED` | Core RMA expired (`WH_RMA_EXPIRED`) | `CLOSED`, outcome *expired*, received 0 | — | system | none sent to core; the customer may raise a new SRA | — | — | FR-612 |
@@ -81,12 +81,12 @@ Core RMA status → SRA (`POS-T1-22`; core statuses are exactly `OPEN`, `APPROVE
 
 | ID | Predicate | Refusal | Source |
 |---|---|---|---|
-| TSR-GRD-01 | Per shipped demand-order line: Σ non-cancelled SRA qty + this ≤ shipped qty (core; core re-checks under its own lock, `POS-GRD-21`) | `422 TRADE_RETURN_EXCEEDS_SHIPPED {open}` | FR-612 |
-| TSR-GRD-02 | Reason and expected condition set; intent set; `return_by_date ≥ today`; return-to site in user scope and holds a return location (core) | field `422` | FR-612 |
-| TSR-GRD-03 | SO not `CANCELLED`; customer exists (a blocked customer may still return goods — no block check) | field `422` | FR-612 |
+| TSR-GRD-01 | Per shipped demand-order line: Σ **live** authorised qty (SRAs `SUBMITTED` or `APPROVED`, not yet matched or expired) + Σ **matched** qty (SRAs `RECEIVED`, `PARTIALLY_RECEIVED`, or `CLOSED` after a match) + this ≤ shipped qty — an expired SRA and the lapsed remainder of a `PARTIALLY_RECEIVED` one count nothing, as core counts only live RMAs (R31 F-TR-015); core re-checks under its own lock (`POS-GRD-21`) | `422 TRADE_RETURN_EXCEEDS_SHIPPED {open}` | FR-612 |
+| TSR-GRD-02 | Header reason (`RETURN` context) and expected condition set; intent set; `return_by_date ≥ today`; return-to site in user scope and holds a return location (core) | field `422` | FR-612 |
+| TSR-GRD-03 | SO not `CANCELLED`; customer exists (a blocked customer may still return goods — no block check). Intent **`REPLACE`** also needs the SO open (`APPROVED` / `ISSUED`): on a `CLOSED` or `SHORT_CLOSED` SO its core demand order is closed and takes no release, so a replacement is a **new SO** and the SRA is raised `CREDIT` or `REWORK` (twin of FR-613's *a new PO is needed*; R31 F-TR-002). An SO open at approval stays open until the SRA closes (`TSO-T3-03`) | field `422` / `422 TRADE_REPLACE_NEEDS_OPEN_SO` | FR-612 |
 | TSR-GRD-04 | `WhRmaPort` bean present (`OD-33`) | `503 TRADE_RMA_PORT_ABSENT` — the screen states the dependency | FR-612 |
 | TSR-GRD-05 | Trade's `RmaChangeGuard` refuses core-screen `EDIT`, `APPROVE`, `CANCEL` of a trade-created RMA; `EXPIRE` is allowed (`OD-39`) | `409 RMA_OWNED_BY_SOURCE_MODULE` (raised by the guard, `POS-GRD-22`) | FR-612 |
-| TSR-GRD-06 | **Concurrency**: every edit, submit, transition and approval of a `wht_` document checks its optimistic `version`; a stale write changes nothing; every write through `WhRmaPort` (`TSR-T4-03`) carries a `PortEnvelope` whose idempotency key has the FRD-TRADE §12a shape `<SOURCE_DOCUMENT_TYPE>:<id>:<operation>:<sequence>`, and the port call commits with the trade transition, so a double-clicked action changes core once | `409` stale write (code per `TPR-OPEN-03`); `409 PORT_IDEMPOTENCY_CONFLICT` relayed | FR-618 |
+| TSR-GRD-06 | **Concurrency**: every edit, submit, transition and approval of a `wht_` document checks its optimistic `version`; a stale write changes nothing; every write through `WhRmaPort` (`TSR-T4-03`) carries a `PortEnvelope` whose idempotency key has the FRD-TRADE §12a shape `<SOURCE_DOCUMENT_TYPE>:<id>:<operation>:<sequence>`, and the port call commits with the trade transition, so a double-clicked action changes core once | `409 CONCURRENT_MODIFICATION` stale write (`TPR-OPEN-03`); `409 PORT_IDEMPOTENCY_CONFLICT` relayed | FR-618 |
 
 ### 1.4 Unreachable
 
@@ -101,10 +101,10 @@ Core RMA status → SRA (`POS-T1-22`; core statuses are exactly `OPEN`, `APPROVE
 
 | ID | Action | Permission | Allowed from | Source |
 |---|---|---|---|---|
-| TSR-T2-01 | Add / edit | `:create` / `:edit` | `DRAFT`, `REJECTED` | — |
-| TSR-T2-02 | Submit / withdraw / approve | `:submit` / `:submit` (maker) / `:approve` + `warehouse:orders:port` | per T1 | — |
-| TSR-T2-03 | Cancel | `:cancel` (+ `warehouse:orders:port` after approval) | `DRAFT`, `REJECTED`, `APPROVED` (not matched) | — |
-| TSR-T2-04 | Decline replacement | `:edit` | `RECEIVED`, `PARTIALLY_RECEIVED` with intent `REPLACE` | — |
+| TSR-T2-01 | Add / edit | `:create` / `:edit` | `DRAFT`, `REJECTED` | FR-612 |
+| TSR-T2-02 | Submit / withdraw / approve | `:submit` / `:submit` (maker) / `:approve` + `warehouse:orders:port` | per T1 | FR-612 |
+| TSR-T2-03 | Cancel | `:cancel` (+ `warehouse:orders:port` after approval) | `DRAFT`, `REJECTED`, `APPROVED` (not matched) | FR-612 |
+| TSR-T2-04 | Decline replacement | `:edit` | `RECEIVED`, `PARTIALLY_RECEIVED` with intent `REPLACE` | FR-612 |
 | TSR-T2-05 | Print / export | `:view` / `:export` (auditor: none) | numbered | FR-615 |
 | TSR-T2-06 | Every action in this table, and the auditor | `wht_<table>:<verb>` per FRD-TRADE FR-617 (`view`, `create`, `edit`, `export` + the workflow verbs above); `permission_dependencies` seeded; the auditor bundle holds `:view` only; record scope follows core's company / site grants; a bundle whose action calls a core port is also granted `warehouse:orders:port` in the trade seed | — | FR-617 |
 
@@ -120,7 +120,7 @@ Core RMA status → SRA (`POS-T1-22`; core statuses are exactly `OPEN`, `APPROVE
 |---|---|---|---|---|
 | TSR-T4-01 | `WH_RMA_MATCHED` for the SRA's RMA (`source_document_id`) | `received_quantity` per line from the event (reconciled through `getRmaPosition`); SRA `RECEIVED` when Σ matched = authorised, else `PARTIALLY_RECEIVED` with `received_short = true` (the rest of the authorisation lapses); `WH_RMA_EXPIRED` → `TSR-T1-07`; `WH_RMA_CANCELLED` → `-04` / `-08`; projection reconciled nightly | outbox subscriber | FR-612 |
 | TSR-T4-02 | `REPLACE` and matched quantity > 0 | replacement dispatch release `DRAFT` on the SO for the matched qty at the original net price, `is_replacement`, `source_sra_id` (`TSO-T1-16`); the planner submits it and `SO_RELEASE` approves it; the SO stays open until the SRA closes (`TSO-T3-03`) | same handler | FR-612 |
-| TSR-T4-03 | Approved | `WhRmaPort.createRma(CreateRmaCommand{ envelope(sourceModule 'warehouse-trade', idempotencyKey 'WHT_SRA:<id>:RMA_CREATE:1', actingUserId = last approver), sourceDocumentType 'WHT_SRA', sourceDocumentId, sourceDocumentRef <sra_number>, customerCounterpartyId, ownerId, warehouseId = return-to site, originalDemandOrderId = the SO's core demand order, reasonCodeId, expectedConditionCode, expiryDate = return_by_date, initialStatus 'APPROVED', approvedByUserId = last approver, lines[ originalDemandOrderLineId, itemId, quantity, uomCode, lotCode?, serialNumber? ] })` → core `wh_rmas` `APPROVED` (`POS-T1-20`); `core_rma_id` stored | approval transaction | FR-612 |
+| TSR-T4-03 | Approved | `WhRmaPort.createRma(CreateRmaCommand{ envelope(sourceModule 'warehouse-trade', idempotencyKey 'WHT_SRA:<id>:RMA_CREATE:1', actingUserId = last approver), sourceDocumentType 'WHT_SRA', sourceDocumentId, sourceDocumentRef <sra_number>, customerCounterpartyId, ownerId, warehouseId = return-to site, originalDemandOrderId = the SO's core demand order, reasonCodeId = the header `reason_code_id` (a `RETURN`-context `whb_reason_codes` id, as `WhRmaValidationService.validateHeader` requires), expectedConditionCode, expiryDate = return_by_date, initialStatus 'APPROVED', approvedByUserId = last approver, lines[ originalDemandOrderLineId, itemId, quantity, uomCode, lotCode?, serialNumber? ] })` → core `wh_rmas` `APPROVED` (`POS-T1-20`); `core_rma_id` stored | approval transaction | FR-612 |
 | TSR-T4-04 | `WH_SUPPLIER_RETURN_DISPATCHED` with intent `REPLACE` for a trade-created PO | `TPO-T4-07`: a system amendment of origin `SUPPLIER_RETURN` is drafted for the buyer (version + 1 on apply, `amendOrder` adds the `FIRM` schedule quantity); on a `SHORT_CLOSED` / `CANCELLED` PO nothing is reinstated and the buyer is told | outbox subscriber (`OD-33`) | FR-613 |
 | TSR-T4-05 | Any | `RETURN_RATE` metric reads SRA quantities (`TCE`) | evaluation run | FR-614 |
 
@@ -149,6 +149,7 @@ Empty state: *No return authorisations.*
 | 2026-10-22 | all | v0 derived | TRADE author |
 | 2026-10-22 | all | R29 TS-F3, F12, F16, F21 and contract quality: core RMA statuses mapped exactly (`MATCHED` / `EXPIRED` / `CANCELLED`), `PARTIALLY_RECEIVED` closable, RMA created `APPROVED` with the approver, `return_by_date` field for `expiryDate`, registry-exact command and keys, `RmaChangeGuard` row, withdraw, replacement through `TSO-T1-16`, supplier-return reinstatement through the amendment engine | R29 |
 | 2026-10-23 | every T1, guard, unreachable, T3 and T4 row | `Source` column added, filled from FRD-TRADE §4, so every rule traces to the FR it proves | R30 `CP-FR-008` |
+| 2026-10-23 | §0 fields, `TSR-GRD-01`…`-03`, `-T1-04`, `-T4-03`, `-GRD-06`, every T2 row | R31: header `reason_code_id` and line reasons as `whb_reason_codes` (F-TR-007); allowance counts live + matched only (F-TR-015); `REPLACE` needs an open SO (F-TR-002); stale-write code `409 CONCURRENT_MODIFICATION` (`TPR-OPEN-03`); T2 Source FRs (F-TR-019) | R31 |
 
 ## 8. Invariants and scenarios
 

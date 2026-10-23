@@ -53,11 +53,11 @@
 | ID | From | Event | To | Guard | Actor | Side effects | UI | Source |
 |---|---|---|---|---|---|---|---|---|
 | ITM-T1-01 | — | Create item: owner, `sku`, name, item type, base UoM, category, tax classification, status facts | active, `lifecycle_status` as given (default `ACTIVE`) | `ITM-GRD-01`…`-04` | `whb_items:create` | system-generated immutable `code` (`item_code`) | WS-023 **Add** | FR-048, FR-060 |
-| ITM-T1-02 | active | Edit | unchanged | `ITM-GRD-03`, `-06`, `-07` | `whb_items:edit` | — | WS-023 **Edit** | FR-048 |
+| ITM-T1-02 | active | Edit | unchanged | `ITM-GRD-03`, `-06`, `-07`, `-20`, `-21` | `whb_items:edit` | — | WS-023 **Edit** | FR-048 |
 | ITM-T1-03 | any | Change a status fact (receivable / issuable / orderable / countable) or `lifecycle_status` | facts as set | each fact independent of the others and of `lifecycle_status` | `whb_items:edit` | the consuming document checks the fact (`ITM-T4-01`) | WS-023 Edit | FR-050 |
 | ITM-T1-04 | active | Deactivate | inactive | `ITM-GRD-05` | `whb_items:edit` | — | WS-023 **Deactivate** | FR-051 |
 | ITM-T1-05 | — | Create a UoM conversion (item-specific, or global with a null item) | current | `ITM-GRD-08` | `whb_item_uom_conversions:create` | — | WS-026 | FR-055 |
-| ITM-T1-06 | current | Supersede a conversion (new factor) | old row ended, new row current | `ITM-GRD-08`; no ledger line's frozen factor changes (`L-7`) | `whb_item_uom_conversions:edit` | — | WS-026 | FR-055 |
+| ITM-T1-06 | current | Supersede a conversion (new factor) | old row ended, new row current | `ITM-GRD-08`, `-22`; no ledger line's frozen factor changes (`L-7`) | `whb_item_uom_conversions:edit` | — | WS-026 | FR-055 |
 | ITM-T1-07 | — | Create a supersession link: predecessor, successor, type (`REPLACES` / `INTERCHANGE` / `PARTIAL`), `chain_sequence`, `quantity_ratio`, effective date | link with `KEEP_SEPARATE` | `ITM-GRD-14`, `-15` | `whb_item_supersessions:create` | — | WS-030 **Add** | FR-071 |
 | ITM-T1-08 | `KEEP_SEPARATE` | Set stock treatment `MERGE_DEMAND` | `MERGE_DEMAND` (recorded only) | — | `whb_item_supersessions:edit` | none — no report or calculation reads it (W58 scope note) | WS-030 action | FR-072 |
 | ITM-T1-09 | `KEEP_SEPARATE` · `MERGE_DEMAND` | **Merge stock** | `MERGE_STOCK` | `ITM-GRD-16` | `whb_item_supersessions:merge` | `ITM-T4-05` in one transaction | WS-030 action **Merge stock** | FR-072 |
@@ -86,6 +86,9 @@
 | ITM-GRD-17 | A kit's components are active, not themselves phantom kits where the parent stocks, convertible to their UoM; versions do not overlap | `KIT_COMPONENT_IS_PHANTOM` / `KIT_COMPONENT_UOM_NOT_CONVERTIBLE` / `KIT_VERSION_OVERLAP` | `V500089` (a phantom kit holds no stock) | FR-075 |
 | ITM-GRD-18 | An item document link references platform `documents` with `ON DELETE NO ACTION`; a file with a link cannot be deleted silently | `ITEM_DOCUMENT_*` on the link | FK `ON DELETE NO ACTION` (`V500017:113`) | FR-077 |
 | ITM-GRD-19 | Planning numbers — reorder point, safety stock, min, max, reorder quantity, lead time — are read from **item × site** (v1) and **item × location** (v1.1); item-level values only seed a new row | `ITEM_SITE_SETTING_ALREADY_EXISTS` on a duplicate | `whb_item_site_settings` (`V500050:98`), `whb_item_location_settings` (`V500016`) | FR-053 |
+| ITM-GRD-20 | An item's owner never changes; an item two owners stock is two items | `422 ITEM_OWNER_IMMUTABLE` · `ownerId` (`WhbItemValidationService.java:219`) | — | FR-048 |
+| ITM-GRD-21 | The lot and serial control modes do not change (a downgrade included) while the item has any non-zero position, virtual and negative included | `422 ITEM_HAS_STOCK` · the first changed mode field (`validateControlModesUnchanged`, `WhbItemValidationService.java:251-256`) | **database trigger** (`V500027`) — the service check only names the field | FR-098 |
+| ITM-GRD-22 | A conversion a posted ledger line has used is not edited or deleted; a new factor supersedes it (`ITM-T1-06`) | `409 CONVERSION_IN_USE` (`WhbItemUomConversionService.java:39`, `:49`) | database trigger | FR-055 |
 
 ### 1.4 Unreachable
 
@@ -152,6 +155,7 @@ ABC recompute (`FR-463`); variants and style matrices (`FR-443`…`445`, segment
 | Date | Change |
 |---|---|
 | 2026-10-23 | v0 derived for R30 `CP-FR-007` row 2; `FR-072`/`FR-073` re-homed to `P7-11` per `D-17` item 5 |
+| 2026-10-23 | R31 `F-CA-012`: guards `ITM-GRD-20`…`-22` added; `ITM-OPEN-01` decided |
 
 ## 8. Invariants and scenarios
 
@@ -162,7 +166,7 @@ ABC recompute (`FR-463`); variants and style matrices (`FR-443`…`445`, segment
 
 | ID | Question | Default until decided | Source |
 |---|---|---|---|
-| ITM-OPEN-01 | `FR-073` shows availability "across every branch", but `FR-405` scopes every management query to the caller's branch-derived sites. Does the interchange enquiry show sites outside the caller's scope (quantity only), or only in-scope sites? | in-scope sites only (`FR-405` is the guard) | FR-073 |
+| ITM-OPEN-01 | `FR-073` shows availability "across every branch", but `FR-405` scopes every management query to the caller's branch-derived sites. Does the interchange enquiry show sites outside the caller's scope (quantity only), or only in-scope sites? | **DECIDED R31 (2026-10-23): default stands** — in-scope sites only (`FR-405` is the guard) | FR-073 |
 
 ## 10. Code divergences (for the build to fix)
 

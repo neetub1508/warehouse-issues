@@ -49,7 +49,7 @@ MRP (`P10`); no switching rules or skip-lot dynamics; no gate pass that moves st
 | **Availability by status** | `MRN_PENDING.is_allocatable = false`; authorise is the only exit into an allocatable status | `P8-08` · `MRA-GRD-06`, `-08` |
 | **Every new resource is site-scoped** | `:view:all`/`:view:branch` seeded on each; department visibility is `:view_all_departments` | all seed tasks · `STO-D16` |
 | **Every port write replays its own result** | one `wh_port_operations` row per call | `P8-01` · `POS-GRD-07` · `STO-D17` |
-| **The port carries everything trade must not keep to itself** | create-line tolerances and deliver-to, amend with new schedule lines, demand ship-to, schedule-driven `OPEN` lines, PO un-firm / priced firm; sibling jobs call as a seeded service principal; port-owned POs out of core's overdue digest (FRD-TRADE §12c `CN-1`…`CN-7`) | `P8-01`, `P8-02` · `POS-GRD-15`, `-16`, `POS-T1-03a`, `POS-T3-01` · `STO-D19`, `STO-D20` |
+| **The port carries everything trade must not keep to itself** | create-line tolerances and deliver-to, amend with new schedule lines, demand ship-to, schedule-driven `OPEN` lines, PO un-firm / priced firm; sibling jobs call as a seeded service principal; port-owned POs out of core's overdue digest (FRD-TRADE §12c `CN-1`…`CN-8`, plus the R31 additions — `firmScheduleLine` `releaseRef`, `closeScheduleLineShort`, `WhLostSalePort`, port-caller site scope) | `P8-01`, `P8-02` · `POS-GRD-15`, `-16`, `POS-T1-03a`, `POS-T3-01` · `STO-D19`, `STO-D20` |
 | **The cost object lives on issue lines, never on the ledger** | `S-052` resolved without an append-only retrofit | `P8-10` · `SIR-UNR-01` · `RN-034` |
 | **A posted store issue is immutable** | correction = return + new issue | `P8-10` · `STO-D11` |
 | **Returns are valued at the issue cost** | a return never revalues stock | `P8-11` · `SIR-T4-03` |
@@ -94,8 +94,7 @@ so a rebuilt database would have applied them before `V511303` (the demand-order
 `V500300`+*n* → `V501230`+*n*. `V511309`, `V501228` and `V501229` are left unused as a buffer. Both a fresh and an
 upgraded database now apply base `V50123x` → app schema `V5113xx` → app seeds `V5114xx` (Flyway out-of-order is
 `true`). No other `issues/*.md` claims a number in these blocks (checked against `p7-*`, `p9-*` (`V55xxxx`) and
-`p10-*` (`V56xxxx`)). Not edited here, owed by their owners: `DATA-MODEL.md`, `IMPLEMENTATION-PLAN.md`,
-`FRD-MFG.md`, `mfg-qc-rework.contract.md`, `p10-01`, `p10-02` still cite the old numbers.
+`p10-*` (`V56xxxx`)). The old numbers now occur only in the R29 review files, which are kept as history (R31 contract-quality note).
 
 ### Existing tables that change
 

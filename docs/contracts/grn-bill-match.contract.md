@@ -71,9 +71,9 @@ The GRN header ladder is `RQP`'s. This contract adds **line-level facts** and tw
 | ID | Predicate | Refusal | Backstop | Source |
 |---|---|---|---|---|
 | GBM-GRD-01 | normalised bill no (trim, upper, spaces removed) is not on a **live** bill (GRN `POSTED`, not reversed) of the same supplier in the same financial year (`whb_companies` FY start) **belonging to another bill group**. `bill_group_key` = the GRN's `gate_entry_id`, else the GRN id: every GRN of one gate entry carries the entry's one bill and is one group, so several GRNs (several POs on one entry, `V510014:128` `session_id` not unique) never trip the guard on their shared bill (R29 F24) | `409 SUPPLIER_BILL_DUPLICATE` · `bills[i].billNumber`, naming the first GRN | `EXCLUDE USING gist (supplier_counterparty_id WITH =, fiscal_year WITH =, bill_number_normalised WITH =, bill_group_key WITH <>) WHERE (is_live)` (`btree_gist`, `V500012`) | FR-516 |
-| GBM-GRD-02 | bill date ≤ GRN receipt date and ≤ today | `422 SUPPLIER_BILL_DATE_AFTER_RECEIPT` · `bills[i].billDate` | — | FR-516 |
+| GBM-GRD-02 | **primary** bill: bill date ≤ GRN receipt date and ≤ today. **Supplementary** bill (`GBM-T1-08`, appended after post — the supplier invoices the excess later): bill date ≥ the primary bill's date (the GRN receipt date when there is none) and ≤ today (site TZ); the receipt-date ceiling does not apply to it (R31 F-SR-007) | `422 SUPPLIER_BILL_DATE_AFTER_RECEIPT` · `bills[i].billDate` (primary) / `422 SUPPLEMENTARY_BILL_DATE_INVALID` · `billDate` (supplementary) | — | FR-516 |
 | GBM-GRD-03 | bill type is an active `SUPPLIER_DOCUMENT_TYPE` row | `422 SUPPLIER_DOCUMENT_TYPE_INVALID` | composite FK | FR-516 |
-| GBM-GRD-04 | `bill_required_for_po_receipt = true` and any line has `po_line_id` ⇒ a primary bill exists | `409 SUPPLIER_BILL_REQUIRED` · `bills` | — | FR-516 |
+| GBM-GRD-04 | `bill_required_for_po_receipt = true` (default **true**, seeded by `P8-04`; R31 F-SR-014) and any line has `po_line_id` ⇒ a primary bill exists | `409 SUPPLIER_BILL_REQUIRED` · `bills` | — | FR-516 |
 | GBM-GRD-05 | every line's excess is *decided* | `409 EXCESS_APPROVAL_REQUIRED` · `lines[i].decisionQuantity` naming each line | — | FR-520 |
 | GBM-GRD-06 | the §1.5 arithmetic: headroom `H` = effective open quantity (`effectiveOrderedQuantity()` or the firm open schedule quantity, `POS-T1-14`) − received on other posted GRNs; tolerance `T` = effective quantity × resolved pct, resolution PO line → header → item → warehouse → setting (`WhPurchaseOrderLineStatusService.java:111-126`, unchanged); free quantity is excluded from every comparison, as today (`WhGoodsReceiptLine.java:42-44`) | auto part accepted; the decision part needs `-05` or `-06` | — | FR-520 |
 | GBM-GRD-07 | an approved excess still respects `received − refused ≥ 0` and `accepted + rejected ≤ received − refused`. **`rejected_quantity` is the existing dock rejection** (landed in `REJECTED` at post, `WhGoodsReceiptPostingService.java:305-311`), not a QC reject — a QC reject is an inspection disposition (R29 F5) | `422 GRN_LINE_QUANTITIES_INCONSISTENT` | CHECK `excess_accepted_quantity + excess_refused_quantity <= received_quantity`, `supplier_billed_quantity IS NULL OR supplier_billed_quantity >= 0`, and `accepted_quantity + rejected_quantity <= received_quantity - excess_refused_quantity` (replaces `V510014:318`) | FR-517, FR-122 |
@@ -160,6 +160,7 @@ Debit/credit notes; bill booking; price variance (`P5-10`); landed cost (`P2-17`
 |---|---|
 | 2026-10-22 | v0 derived |
 | 2026-10-22 | R29 dispositions: `supplier_billed_quantity` beside the untouched helpers; free and dock-rejected quantity in the posting rule; §1.5 excess arithmetic with frozen examples; duplicate-bill guard per bill group; short-claim ceiling on billed − received; reversal resolves the cases; self-approval codes |
+| 2026-10-23 | R31: supplementary bill dated after the receipt accepted, ≥ the primary bill's date (`GBM-GRD-02`, F-SR-007); `bill_required_for_po_receipt` default stated (`GBM-GRD-04`, F-SR-014); `GBM-OPEN-01`/`-02` resolved (`R31-decisions`) |
 
 ## 8. Invariants and scenarios
 
@@ -169,5 +170,5 @@ Debit/credit notes; bill booking; price variance (`P5-10`); landed cost (`P2-17`
 
 | ID | Question | Default |
 |---|---|---|
-| GBM-OPEN-01 | OD-28 — free-of-charge excess | case resolution only |
-| GBM-OPEN-02 | Short against the PO **and** against the bill on the same line: one claim or two records? | claim for short-vs-bill; `QUANTITY` case for short-vs-PO (today) — both may exist |
+| GBM-OPEN-01 | OD-28 — free-of-charge excess | case resolution only. **RESOLVED (DEFAULT), 2026-10-23** (`R31-decisions`): wait for the bill; a manager may resolve `ACCEPT_FREE_OF_CHARGE` on the case only; the posted GRN line is never edited |
+| GBM-OPEN-02 | Short against the PO **and** against the bill on the same line: one claim or two records? | claim for short-vs-bill; `QUANTITY` case for short-vs-PO (today) — both may exist. **RESOLVED (DEFAULT), 2026-10-23** (`R31-decisions`): two records, both linked to the source line, no double recovery |

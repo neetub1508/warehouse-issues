@@ -122,7 +122,7 @@
 | ID | Action | Permission | Allowed from | Extra | Source |
 |---|---|---|---|---|---|
 | CCT-T2-01 | Adjustment create / edit / submit / approve / post / cancel | `wh_stock_adjustments:{create,edit,submit,approve,post,cancel}` | as §1.2 | approver ≠ maker | `FR-145` |
-| CCT-T2-02 | Approval policies | `wh_stock_adjustments:manage` | — | admin | `FR-145` |
+| CCT-T2-02 | Approval policies | `wh_adjustment_approval_policies:{view,manage}` | — | admin | `FR-145` |
 | CCT-T2-03 | Count generate / freeze / edit / recount / approve / post / cancel | `wh_counts:{generate,freeze,edit,recount,approve,post,cancel}` | as §1.2 | approve is a distinct permission | `FR-155` |
 | CCT-T2-04 | Count programmes | `wh_count_programs:{create,edit,delete,view,export}` | — | — | `FR-156` |
 | CCT-T2-05 | Holds place / release / mass; hold types | `wh_holds:{place,release,mass}` · `wh_hold_types:*` | open / — | mass is the v2 action | `FR-151`, `FR-152` |
@@ -133,7 +133,7 @@
 | ID | Rule | Trigger (clock) | Changes | Notified | Job | Source |
 |---|---|---|---|---|---|---|
 | CCT-T3-01 | A count programme generates its counts on its cadence, within the per-run task cap | the programme's next scheduled date | a `GENERATED` count per due scope | count supervisor | `WhbCycleCountSchedulingJob` | `FR-156`, `FR-165` |
-| CCT-T3-02 | A lot past its expiry moves to `EXPIRED` | `whb_lots.expiry_date` < site day | `CCT-T4-08` | stock controller | `WhbLotExpiryJob` (`WHB_LOT_EXPIRY`) | `FR-160`, `FR-161`, `FR-165` |
+| CCT-T3-02 | A lot past its hard date (`LEAST(expiry_date, use_by_date)`, the one rule in `lot-serial-status` `LSS-GRD-02a`) moves to `EXPIRED` | hard date < site day | `CCT-T4-08` | stock controller | `WhbLotExpiryJob` (`WHB_LOT_EXPIRY`) | `FR-160`, `FR-161`, `FR-165` |
 | CCT-T3-03 | Near-expiry notification at `expiry − near_expiry_days`, resolved item × site → item → `warehouse.expiry.near_expiry_days`; the register buckets by `warehouse.expiry.register_bucket_days` | the same clock | nothing — alert `LOT_NEAR_EXPIRY` + WS-221 | stock controller | `WhbNearExpiryResolver` with the expiry job | `FR-160` |
 | CCT-T3-04 | Ledger-versus-position drift, position-versus-allocation drift, orphaned reservations and a ledger chain break each raise an exception row with an owner and an action; its age is reported | the recorder's run | `POSITION_DRIFT`, `RESERVATION_DRIFT`, `ORPHANED_RESERVATION`, `LEDGER_CHAIN_BREAK` rows `OPEN` | assigned owner | `WhReconciliationExceptionRecorder` | `FR-163`, `FR-165` |
 | CCT-T3-05 | Aged-stock and no-movement buckets are measured from the **last outward movement**, valued per bucket, split by warehouse and by each site's `REGISTERED` branch as at the report date; a linked-branches view is a separate, non-additive grouping | the report date | nothing (projection) | — | `WhbStockAgeingProjectionScheduler`; WS-212 | `FR-162` |
@@ -149,8 +149,8 @@
 | CCT-T4-04 | Freeze with `freeze_locations` | the scoped locations become `COUNTING` (cycle) or `FROZEN` (stocktake); the allocator admits only `AVAILABLE` locations; post and cancel release them | `WhCountService`, `WhbLocationCountStatusService` | `FR-156`, `FR-157` |
 | CCT-T4-05 | A pick leaves its source storage location with every position row exactly zero | a `ZERO_STOCK` count over that one location is raised and frozen inside the pick transaction, with an `EMPTY_BIN` task; none when an open `EMPTY_BIN` task exists or the location is not storage | `WhEmptyBinVerificationService` (called by `WhPickTaskWriter.pick`) | `FR-158` |
 | CCT-T4-06 | A hold is placed or released | allocation (`WhHoldAllocationGate`) and pick read open blocking holds by query at the moment of the action | hold gate | `FR-151` |
-| CCT-T4-07 | Mass action | one hold row (or release) per subject, all in one transaction, with the same reason | `WhHoldService` | `FR-152` |
-| CCT-T4-08 | Lot expiry job | a `STATUS_CHANGE` to `EXPIRED` through `MPR-T1-10`, reason `EXPIRED`, `actor_type = SCHEDULED_JOB`, `source_document_type = LOT_EXPIRY` | `WhbShelfLifePolicyService` | `FR-160`, `FR-161` |
+| CCT-T4-07 | Mass action | one hold row (or release) per subject, all in one transaction, with the same reason; **no movement is posted and nothing is written to `whb_lots`** (`WhHoldService.java:220-225`, `FR-096`); a subject already holding an open hold of the type is skipped | `WhHoldService` | `FR-152`, `FR-096` |
+| CCT-T4-08 | Lot expiry job | a `STATUS_CHANGE` to `EXPIRED` through `MPR-T1-10`, reason `EXPIRED`, `actor_type = SCHEDULED_JOB`, `source_document_type = LOT_EXPIRY`; then `whb_lots.status_code = EXPIRED` once none of the lot's stock is still issuable — the same two effects as `LSS-T3-01` | `WhbShelfLifePolicyService` | `FR-160`, `FR-161` |
 
 ## 5. T5 — Screen contract (web only, `D-17` item 2)
 
@@ -182,6 +182,7 @@ the code or the as-built count contract; the rest are fixed by their owning task
 | Date | Change |
 |---|---|
 | 2026-10-23 | v0 derived for `D-17` item 1 (R30 `CP-FR-007` row 8, the count / adjust half) |
+| 2026-10-23 | R31: `F-CA-006` (`CCT-T2-02`); `F-CA-009` (`CCT-T3-02`, `-T4-08` cite `LSS-GRD-02a`); `F-CA-010` (`CCT-T4-07`, `CCT-DIV-04`, FR-152 amended); `F-CA-011` (this contract owns holds; `lot-serial-status` cites it); `CCT-OPEN-01`…`-03` decided, `CCT-DIV-05` added |
 
 ## 8. Invariants and scenarios
 
@@ -195,14 +196,15 @@ the code or the as-built count contract; the rest are fixed by their owning task
 | CCT-DIV-01 | `warehouse/…/service/whcount/WhCountPostingService.java:68` | `FR-153` | the FRD names the variance movement `COUNT_ADJ`; the code posts `COUNT_ADJUST` / `COUNT_ADJUST_AUTO` (both keyed `source_document_type = COUNT`). Same behaviour, different type code |
 | CCT-DIV-02 | `warehouse-base/…/service/shelflife/WhbShelfLifePolicyService.java:170-177`; `warehouse-base/…/entity/WhbCounterparty.java:89` | `FR-161` | the FRD's despatch point is *"below Y days remaining"*; the code resolves `min_shelf_life_ship_pct`, a **percentage** of shelf life, on counterparty → channel → item |
 | CCT-DIV-03 | — (no class: grep of `warehouse-base` / `warehouse` `src/main` for an ABC recompute job finds none) | `FR-463` | the v1.1 ABC recompute job is not built; classes are held manually (`WhCountProgramRepositoryCustom.java:53`) |
-| CCT-DIV-04 | `warehouse/…/dto/request/WhHoldMassActionRequest.java:22` | `FR-152` | the FRD's mass hold selects by lot, LPN, location, supplier, item **or date range**; the code takes one subject type and a list of subject ids — no supplier or date-range selector |
+| CCT-DIV-04 | `warehouse/…/dto/request/WhHoldMassActionRequest.java:22` | `FR-152` | the FRD's mass hold selects by lot, LPN, location, supplier, item **or date range**; the code takes one subject type and a list of subject ids — no supplier or date-range selector. **Effect (R31 `F-CA-010`):** the code posts no movement on a mass hold (`WhHoldService.java:220-225`) — the FRD's FR-152 said each mass hold posts a balanced status-change movement, contradicting `FR-096`; FR-152 was amended 2026-10-23 to the movement-free hold, so only the selector difference remains |
+| CCT-DIV-05 | `warehouse-base/…` movement writer and putaway (no freeze-window refusal); only the allocator reads location status (`CCT-T4-04`) | `FR-157` | R31 `CCT-OPEN-01`: a `FROZEN` stocktake location must refuse putaway into it, moves in or out and allocation, letting only the stocktake's own count adjustments post; receipts to dock or staging go ahead. Today only allocation is refused. `P2-04` owns it (acceptance item added) |
 
 ## 10. Open rows
 
 | ID | Question | Missing decision | Default until decided | Source |
 |---|---|---|---|---|
-| CCT-OPEN-01 | Which movements a `FROZEN` stocktake location refuses during the freeze window (receipts, putaway, moves, or allocation only) | the FRD names a freeze window but not what it blocks | the as-built rule: the allocator admits `AVAILABLE` locations only (`CCT-T4-04`); other movements are not refused | `FR-157` |
-| CCT-OPEN-02 | The two Pareto cut-offs' default values for the ABC recompute | the FRD says they are held on the site, not what they default to | none — the job is not built (`CCT-DIV-03`) | `FR-463` |
-| CCT-OPEN-03 | The aged-stock bucket boundaries | the FRD names buckets, not their edges | the as-built projection's buckets (WS-212) | `FR-162` |
+| CCT-OPEN-01 | Which movements a `FROZEN` stocktake location refuses during the freeze window (receipts, putaway, moves, or allocation only) | **DECIDED R31 (2026-10-23), default replaced:** a `FROZEN` stocktake location refuses putaway into it, moves in or out and allocation; only the stocktake's own count adjustments post; receipts to dock or staging go ahead — not built (`CCT-DIV-05`) | the as-built rule: the allocator admits `AVAILABLE` locations only (`CCT-T4-04`); other movements are not refused | `FR-157` |
+| CCT-OPEN-02 | The two Pareto cut-offs' default values for the ABC recompute | **DECIDED R31 (2026-10-23):** A = up to 80 % of cumulative 12-month issue value, B = up to 95 %, C = the rest; editable per site; zero-value items are C | none — the job is not built (`CCT-DIV-03`) | `FR-463` |
+| CCT-OPEN-03 | The aged-stock bucket boundaries | **DECIDED R31 (2026-10-23): default stands** — 0–30, 31–60, 61–90, 91–180, 181–365, > 365 days from the last outward movement; stock with no outward movement goes in the oldest bucket | the as-built projection's buckets (WS-212) | `FR-162` |
 
 <!-- v0 2026-10-23. Amend with /functional-contract: every change references a row id and adds a §7 row. -->

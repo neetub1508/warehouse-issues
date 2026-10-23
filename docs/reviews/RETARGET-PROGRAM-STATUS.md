@@ -1,6 +1,6 @@
 # Re-target program (D-16) — status and remaining steps
 
-**Read this first when resuming.** Updated 2026-10-23 (R30 fix wave 1). All work happens on `main` only (user rule).
+**Read this first when resuming.** Updated 2026-10-23 (R31 fix wave done). All work happens on `main` only (user rule).
 
 ## Done
 1. R27 (client purchase-to-stores gap) and R28 (re-target impact, decisions `RN-050`…`RN-054`, plan §8c) recorded.
@@ -71,6 +71,15 @@ Reference: `docs/reviews/BATCH-PATTERN-REFERENCE.md`, which summarises `classic/
   2. **Second dual-engine functional review** of the changed areas (R29 + R30 fixes). Also ratify or drop the 20 *(proposed)* MFG refusal codes (`CP-FR-009`; acceptance rows in `p10-05`, `p10-07`).
   3. **GitHub sync** — `create-issues.sh --sync` for the 42+ drifted bodies; file `p10-14`; post the R30 comments; close #142 and #144 as not planned (`P7-12`).
   4. **BATCH files** — `BATCH-WAREHOUSE-P7…P10.md` via `/create-batch` (Remaining 6 above), then stop for the user's go.
+## R31 dual-engine functional review (2026-10-23)
+- **Review — done.** `docs/reviews/R31-functional-review-{core-a,core-b,stores-rem,trade,mfg}.md`; decisions `docs/reviews/R31-decisions.md` (113 rows).
+- **User decisions — done.** `DECISIONS.md` **`D-18`** (MOOWR loss + job work OFF, segments fenced / pharma declined, subcontract service PO lifts R9, 3PL freight tariff + true-up, putaway capacity block/warn, `FR-258` → `P10-11` and `FR-471` → `P8-13` restored).
+- **Fix wave — done**, four agents plus a reconciler: **108 findings fixed, 113 decisions applied**. Reconciled: `CN-14` (b)/(c) defined as owed core changes (`WhCostObjectChargePort`, `CostObjectResolver.receivedOutput`, carrier `p8-09`, `V511324`); `ExternalPlanningOwner` / `RPN-GRD-11` (`MRP-OPEN-10`, `p8-16` + `p10-11`); TRADE scenario range `WH-SC-700`…`719` (`700`…`707` used, `p9-07`); `CROSS_GSTIN_DIRECT_ISSUE` on live rows; WS-096 manual lost-sale `POST` removed; `JOB_WORK_RETURN_FILED` carried by `p10-10`; DATA-MODEL 486 → **487** tables (`wht_po_service_confirmations`). Checker: 0 violations across 15 checks.
+- **Remaining, in order:**
+  1. **GitHub sync** — `create-issues.sh --sync` for the drifted bodies; file the new `p10-14`; post the R30 and R31 comments.
+  2. **BATCH files** — `BATCH-WAREHOUSE-P7…P10.md` via `/create-batch`.
+  3. **Stop for the user's go.**
+
 - Outside the program (platform): `CP-GB-010` (`ObjectStorageService.java:932` fallback list lacks `.csv`), `CP-GB-011` (server refusal text and platform toasts English in fr/hi).
 
 ## Pending user items (do not act without approval)

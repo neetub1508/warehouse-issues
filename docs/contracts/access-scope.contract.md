@@ -23,7 +23,7 @@
 | **Owning tasks** | `issues/p0-15.md` (permissions, seeds, menus, role decisions) · `issues/p1-18.md` (warehouse-scoped access) · `issues/p0-06.md` (owner grants) · `issues/p0-13.md` (audit events, impersonation column) · `issues/p2-23.md` (approval levels, v2 increment) |
 | **Primary tables** | platform `permissions`, `permission_dependencies`, `role_permissions`, `menus`; `whb_owner_grants` (`V500044`); `whb_audit_events` (`V501011`, `on_behalf_of_actor_id`); `wh_approval_levels` (`V510222`, v2) |
 | **Services** | `BranchScopeService` (platform) · `WhbWarehouseScopeService` · `WhbOwnerScopeResolver` |
-| **Routes** | WS-020 Owner Grants · WS-063 Warehouse Audit Events · WS-241 Approval Levels; every warehouse management route |
+| **Routes** | WS-020 Owner Grants · WS-238 Warehouse Grants (`/warehouse/masters/warehouse-grants`) · WS-063 Warehouse Audit Events · WS-241 Approval Levels; every warehouse management route |
 | **Contract version** | `v0 — 2026-10-23` |
 
 ### Acceptance checks
@@ -46,6 +46,7 @@
 | ACS-GRD-02 | Every management resource is seeded with the tier pair `<resource>:view:all` / `<resource>:view:branch` beside `:view`; the pattern is platform's `BranchScopeService`, never a re-implemented branch resolution | — (seed) | `V501000`, `V511000` | FR-404 |
 | ACS-GRD-03 | Every management query (grid, export, statistics, dropdown, detail) carries the site predicate in its `WHERE` clause: `allowedWarehouseIds` resolved **once per request** from the caller's branches through any current link whose role grants visibility — `null` = view-all, empty set = no access, short-circuited before SQL, **including a non-empty branch set that resolves to no site** | `403 WAREHOUSE_SITE_NOT_PERMITTED` (a named site); no access is answered before any SQL runs | `WhbWarehouseScopeContractTest` | FR-404, FR-405 |
 | ACS-GRD-04 | A two-ended record (transfer, inter-site document) is in scope if **either** site is; composition is owner ∩ branch-derived sites ∩ any warehouse grant — it narrows, never widens | `403` as above | — | FR-405 |
+| ACS-GRD-04a | **The warehouse-grant axis.** A caller whose grantee set (user, roles, groups) has **no** `whb_warehouse_grants` row is **unscoped on this axis, not blind** — they keep every site their branches reach. A caller with **any** grant row, whatever its dates, is on the axis: their sites are the grants **current now** intersected with the branch tier, so a grant narrows and never widens, and a user whose only grant has **expired** loses access to every site it named (`WhbWarehouseScopeService.java:153-165`, `narrowByWarehouseGrants`) | `403` as above | — | FR-405 |
 | ACS-GRD-05 | Owner grants are enforced by the single server-side resolver; every repository method touching an owner-scoped table takes an owner-set parameter, and each grid's export path and statistics map applies it | `403 OWNER_NOT_PERMITTED` | `WhbOwnerScopeContractTest` fails the build otherwise | FR-406 |
 | ACS-GRD-07 | Cost and value are suppressed **by actor**: every endpoint returning `unit_cost`, `total_value`, `standard_cost` or a cost layer — exports included — omits them from the response DTO unless the caller holds `warehouse:cost:view`; applied in the mapper and asserted per endpoint, **never** a frontend column hide (`role_field_configs` is client-side only) | — (the fields are absent from the payload) | per-endpoint tests | FR-450 |
 | ACS-GRD-06 | A document whose value falls in a band with current approval levels (v2) needs every level of its type whose `min_value` ≤ its value, in `sequence_no` order, each by a holder of that level's `required_permission`; **no user approves one document twice**; with no rows for a type, the v1 single-step approval stands | `403` naming the level's permission; `403` on a second approval by the same user | `uk(company_id, document_type_code, sequence_no)` among current rows | FR-466 — §10 row 1 |
@@ -95,6 +96,7 @@
 | ACS-T5-02 | WS-063 Warehouse Audit Events | shows the on-behalf-of actor beside the actor | FR-409 |
 | ACS-T5-03 | WS-241 Approval Levels (v2) | grid `companyName`, `documentTypeCode`, `sequenceNo`, `minValue`, `requiredPermission`, effective dates; company and document-type filters | FR-466 |
 | ACS-T5-04 | every warehouse menu | appears only to holders of its `required_permission_prefix`; labels in en, fr, hi | FR-410 |
+| ACS-T5-05 | WS-238 Warehouse Grants | Customer-reference grid `whb_warehouse_grants`, filter scope `WAREHOUSE_WAREHOUSE_GRANT`, `whb_warehouse_grants:*`; grantee, site and effective dates; the page states that a user with no grant row keeps branch-derived access (`ACS-GRD-04a`) | FR-405 |
 
 ## 6. Out of scope
 
@@ -105,6 +107,7 @@
 | Date | Change |
 |---|---|
 | 2026-10-23 | v0 derived for R30 `CP-FR-007` row 22 |
+| 2026-10-23 | R31 `F-CA-016`: `ACS-GRD-04a` (no grant row = unscoped; any row = current grants ∩ branch tier; an expired-only grant removes access) and WS-238 (`ACS-T5-05`, §0 routes) added |
 
 ## 8. Invariants and scenarios
 

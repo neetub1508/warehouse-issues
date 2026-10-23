@@ -18,7 +18,7 @@
 |---|---|
 | **Workflow** | Enquiry recorded → (regret, whole or per line) or quotation drafted → submit (approval) → approved → sent → revised (new version, also after expiry) → won / lost **per line** → SO / sales RC drafted for won lines; remaining enquiry lines quoted, regretted or closed lost; cancelled |
 | **Module** | `warehouse-trade` |
-| **Domain baseline** | FRD-TRADE FR-598…FR-601, FR-545 (customer part approval), FR-604, FR-680 (lost sale, `D-17` item 4), `TRD-10` · core `FR-257` (`WhInsufficientStockLogService.captureLostSale`) |
+| **Domain baseline** | FRD-TRADE FR-598…FR-601, FR-545 (customer part approval), FR-604, FR-680 (lost sale, `D-17` item 4), `TRD-10` · core `FR-257` (through `WhLostSalePort.captureLostSale`, `POS-T1-40`, over `WhInsufficientStockLogService`) |
 | **Owning task body** | `issues/p9-08.md` |
 | **Primary tables** | `wht_sales_enquiries`, `wht_sales_enquiry_lines`, `wht_customer_quotations`, `wht_customer_quotation_lines`, `wht_customer_quotation_charges` (`V550070`) |
 | **Permission resources** | `wht_sales_enquiries:view/create/edit/export/cancel` · `wht_customer_quotations:view/create/edit/export/submit/approve/issue/cancel` |
@@ -28,11 +28,11 @@
 **Fields.** Enquiry: `enquiry_number` (at save, series `ENQ`), company, customer, `customer_enquiry_ref`,
 `customer_enquiry_date`, `source_code`, `quote_by_date`, `sales_exec_id`, `dispatch_warehouse_id`,
 `status`, `regret_reason_code`, `outcome_at`. Line: item (nullable with `new_item_description` when the
-plant has no item yet — such a line can be regretted or quoted only after an item exists), customer part
+plant has no item yet — such a line can be **regretted** at once (the *not catalogued* lost sale of `TSQ-T4-05`), and **quoted** only after an item exists, `TSQ-GRD-04`; R31 F-TR-010), customer part
 no (FR-545), qty, UoM, required date, `target_price`, spec note, `line_outcome` (`OPEN`, `QUOTED`, `WON`,
 `LOST`, `REGRETTED`), `regret_reason_code`, `lost_sale_log_id` (↓ `wh_insufficient_stock_log`, set once by `TSQ-T4-05`). Quotation:
 `quotation_number` (series `SQ`, at submit; shared by all versions), `version_no`, `supersedes_id`,
-`enquiry_id` (nullable), customer, `quote_date`, `valid_until`, currency, payment / delivery / freight
+`enquiry_id` (nullable), customer, `dispatch_warehouse_id` (NOT NULL; defaulted from the enquiry, else from `wht_customer_profiles.default_dispatch_warehouse_id`, editable while `DRAFT` — R31 F-TR-009; the site `TSQ-T4-05` records a lost sale against and the won SO's dispatch site), `quote_date`, `valid_until`, currency, payment / delivery / freight
 terms, `terms_template_version_id`, `status`, `won_target_type` + `won_target_id`, `loss_reason_code`,
 `competitor_name`, `competitor_price`, `sent_at`. Line: `enquiry_line_id`, item, customer part no, qty,
 UoM, `unit_price`, `discount_percent`, `net_price`, `price_source`, `floor_price_at_quote`,
@@ -92,11 +92,11 @@ vendor-quotation shape): `charge_type_code` (code list `trade_charge_type`), `am
 | TSQ-GRD-01 | Customer profile exists, not sales-blocked; ≥ 1 line | `422 TRADE_CUSTOMER_BLOCKED` | FR-543 |
 | TSQ-GRD-02 | `requires_part_approval` ⇒ every line has a current `APPROVED` customer item reference | `422 TRADE_CUSTOMER_PART_NOT_APPROVED` | FR-545 |
 | TSQ-GRD-03 | `valid_until ≥ quote_date` (default + `warehouse.trade.quotation.validity_days`); price ≥ 0 (0 only free-of-charge + reason); discount ∈ [0,100) | field `422` | FR-599 |
-| TSQ-GRD-04 | Every line has an `item_id` (a new-item line must be resolved to an item first) | `422 TRADE_ITEM_REQUIRED` | FR-598 |
+| TSQ-GRD-04 | Every **quotation** line has an `item_id` (a new-item enquiry line must be resolved to an item before it is quoted); regretting a new-item enquiry line (`TSQ-T1-03`) is not guarded by it (R31 F-TR-010) | `422 TRADE_ITEM_REQUIRED` | FR-598 |
 | TSQ-GRD-05 | Only the latest version, status `SENT` or `EXPIRED`; `valid_until ≥ today`, or the customer's PO date ≤ `valid_until` recorded on the win (always required from `EXPIRED`) | `409 TRADE_QUOTATION_NOT_WINNABLE` | FR-600 |
 | TSQ-GRD-06 | Customer not sales-blocked at win | `422 TRADE_CUSTOMER_BLOCKED` | FR-543 |
 | TSQ-GRD-07 | The outcome records `WON` or `LOST` (+ reason) for **every** quotation line | field `422` per line | FR-601 |
-| TSQ-GRD-08 | **Concurrency**: every edit, submit, transition and approval of a `wht_` document checks its optimistic `version`; a stale write changes nothing | `409` stale write (code per `TPR-OPEN-03`) | FR-618 |
+| TSQ-GRD-08 | **Concurrency**: every edit, submit, transition and approval of a `wht_` document checks its optimistic `version`; a stale write changes nothing | `409 CONCURRENT_MODIFICATION` stale write (`TPR-OPEN-03`) | FR-618 |
 
 ### 1.4 Unreachable
 
@@ -111,14 +111,14 @@ vendor-quotation shape): `charge_type_code` (code list `trade_charge_type`), `am
 
 | ID | Action | Permission | Allowed from | Source |
 |---|---|---|---|---|
-| TSQ-T2-01 | Enquiry add / edit / regret | `wht_sales_enquiries:create`/`edit` | `OPEN` | — |
-| TSQ-T2-02 | Quotation add / edit | `wht_customer_quotations:create`/`edit` | `DRAFT`, `REJECTED` | — |
-| TSQ-T2-03 | Submit / withdraw / approve | `:submit` / `:submit` (maker) / `:approve` | per T1 | — |
+| TSQ-T2-01 | Enquiry add / edit / regret | `wht_sales_enquiries:create`/`edit` | `OPEN` | FR-598 |
+| TSQ-T2-02 | Quotation add / edit | `wht_customer_quotations:create`/`edit` | `DRAFT`, `REJECTED` | FR-599 |
+| TSQ-T2-03 | Submit / withdraw / approve | `:submit` / `:submit` (maker) / `:approve` | per T1 | FR-551 |
 | TSQ-T2-04 | Send / print | `:issue` / `:view` | `APPROVED` / `SENT` | FR-615 |
-| TSQ-T2-05 | Revise / won / lost | `:edit` | `SENT`, `EXPIRED` (latest) | — |
-| TSQ-T2-08 | Quote remaining / regret lines / close as lost | `wht_customer_quotations:create` / `wht_sales_enquiries:edit` | enquiry `QUOTED` | — |
-| TSQ-T2-06 | Compare versions | `:view` | ≥ 2 versions | — |
-| TSQ-T2-07 | Export | `:export` | — | — |
+| TSQ-T2-05 | Revise / won / lost | `:edit` | `SENT`, `EXPIRED` (latest) | FR-600, FR-601 |
+| TSQ-T2-08 | Quote remaining / regret lines / close as lost | `wht_customer_quotations:create` / `wht_sales_enquiries:edit` | enquiry `QUOTED` | FR-598 |
+| TSQ-T2-06 | Compare versions | `:view` | ≥ 2 versions | FR-600 |
+| TSQ-T2-07 | Export | `:export` | — | FR-616 |
 | TSQ-T2-09 | Every action in this table, and the auditor | `wht_<table>:<verb>` per FRD-TRADE FR-617 (`view`, `create`, `edit`, `export` + the workflow verbs above); `permission_dependencies` seeded; the auditor bundle holds `:view` only; record scope follows core's company / site grants; a bundle whose action calls a core port is also granted `warehouse:orders:port` in the trade seed | — | FR-617 |
 
 ## 3. T3 — Time-driven rules
@@ -137,7 +137,7 @@ vendor-quotation shape): `charge_type_code` (code list `trade_charge_type`), `am
 | TSQ-T4-02 | Won | draft SO of the chosen type (or sales rate contract) prefilled with the **won lines only** — price (`price_source = QUOTATION`), terms, charges, customer PO no and date captured on the win modal; maker = the user who recorded the win | same transaction | FR-601 |
 | TSQ-T4-03 | Enquiry regretted | open quotation drafts cancelled | same | FR-598 |
 | TSQ-T4-04 | Version compare | backend diff of header + lines between any two versions | `QuotationVersionService` | FR-599 |
-| TSQ-T4-05 | A line regretted (`TSQ-T1-03`) or recorded `LOST` (`TSQ-T1-09`, `-10`, `-12`) with a reason in `warehouse.trade.sales.lost_sale_reason_codes` (default `NO_STOCK`, `LEAD_TIME_NOT_MET`) | core `WhInsufficientStockLogService.captureLostSale(WhLostSaleRequest{ warehouseId = dispatch_warehouse_id, itemId (null ⇒ itemDescription = new_item_description, *not catalogued*), ownerId = the house owner, requestedQuantity = the line qty in base UoM, lostSaleReasonCodeId = core reason `TRADE_STOCK_NOT_AVAILABLE` (context `SHORT_PICK`), sourceSystem `WAREHOUSE_TRADE`, sourceType `TRADE_ENQUIRY_LINE` / `TRADE_QUOTATION_LINE`, sourceId = line id }, actor = the user recording the outcome)`; the returned id is stored as `lost_sale_log_id` on the line (and on its enquiry line, so the two never capture twice). Core reads the available quantity itself and sets `is_lost_sale`, `captured_manually`, `policy_applied = BLOCK`. A core refusal (`403` site scope, `422 LOST_SALE_*`) rolls the outcome back and is relayed on the line (`TPO-T4-03` pattern) | same transaction | FR-680 |
+| TSQ-T4-05 | A line regretted (`TSQ-T1-03`) or recorded `LOST` (`TSQ-T1-09`, `-10`, `-12`) with a reason in `warehouse.trade.sales.lost_sale_reason_codes` (default `NO_STOCK`, `LEAD_TIME_NOT_MET`) | core **`WhLostSalePort.captureLostSale`**`(envelope(sourceModule 'warehouse-trade', idempotencyKey 'WHT_SALES_ENQUIRY:<enquiryId>:LOST_SALE_CAPTURE:<lineId>' / 'WHT_CUSTOMER_QUOTATION:<quotationId>:LOST_SALE_CAPTURE:<lineId>', actingUserId = the user recording the outcome), CaptureLostSaleCommand{ warehouseId = the enquiry's / quotation's `dispatch_warehouse_id`, itemId (null ⇒ itemDescription = new_item_description, *not catalogued*), ownerId = the house owner, requestedQuantity = the line qty in base UoM, lostSaleReasonCodeId = core reason `TRADE_STOCK_NOT_AVAILABLE` (context `SHORT_PICK`), sourceDocumentType `TRADE_ENQUIRY_LINE` / `TRADE_QUOTATION_LINE`, sourceDocumentId = line id, sourceDocumentRef = the enquiry / quotation number })` — the registered port of FRD-STORES R.2 (`POS-T1-40`, op `LOST_SALE_CAPTURE`; core records source type / id from these and the source system from the envelope; R31 F-TR-011), never the core service directly; the returned id is stored as `lost_sale_log_id` on the line (and on its enquiry line, so the two never capture twice). Core reads the available quantity itself and sets `is_lost_sale`, `captured_manually`, `policy_applied = BLOCK`. A core refusal (`403` site scope, `422 LOST_SALE_*`) rolls the outcome back and is relayed on the line (`TPO-T4-03` pattern) | same transaction | FR-680 |
 
 ## 5. T5 — Screen contract
 
@@ -180,6 +180,7 @@ allowed (grouped by currency).
 | 2026-10-22 | §0, §1.1, `TSQ-T1-02`…`-05a`, `-08`…`-12`, `TSQ-GRD-05`, `-07`, T2, T3, T4, §5 | R29 TS-F4, F5, F8, F12, F24, F26, MA-15, MA-16, MA-18: won / lost / revise from `EXPIRED`, per-line outcomes, quote / regret remaining lines, close as lost, withdraw, exact zero-level rule, charges specified, currency-split values | R29 |
 | 2026-10-23 | every T1, guard, unreachable, T3 and T4 row | `Source` column added, filled from FRD-TRADE §4, so every rule traces to the FR it proves | R30 `CP-FR-008` |
 | 2026-10-23 | §0, A9, `TSQ-UNR-04`, `TSQ-T4-05`, §8 | Lost sale from pre-sales: a line lost or regretted for stock calls core `captureLostSale` once (`D-17` item 4, FR-680) | R30 `CP-GA-003` |
+| 2026-10-23 | §0 fields, `TSQ-GRD-04`, `-GRD-08`, `-T4-05`, every T2 row | R31: quotation `dispatch_warehouse_id` (F-TR-009); a not-catalogued line can be regretted (F-TR-010); lost sale through `WhLostSalePort.captureLostSale` with an envelope (F-TR-011, `CN-11`); stale-write code (`TPR-OPEN-03`); T2 Source FRs (F-TR-019) | R31 |
 
 ## 8. Invariants and scenarios
 

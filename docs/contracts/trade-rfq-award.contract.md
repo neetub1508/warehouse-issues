@@ -63,7 +63,7 @@ partial uk among statements not `REJECTED`), `status`, `prepared_by`, `is_stale`
 |---|---|---|---|---|
 | RFQ | `DRAFT` | `-01` | `-03`, `-04` | initial |
 | RFQ | `ISSUED` | `-03` | `-05`, `-04` | active |
-| RFQ | `BIDS_CLOSED` | `-05` (manual, or due date passed — `TRA-T3-02`), `-13`, `-14` | `-10`, `-04` | active |
+| RFQ | `BIDS_CLOSED` | `-05` (the buyer's act only: the due date never closes bids, `TRA-T3-02` only notifies; `NO_RESPONSE` is set at `-05`, R31 F-TR-023), `-13`, `-14` | `-10`, `-04` | active |
 | RFQ | `EVALUATION` | CS submitted | award outcome, `-13`, `-14`, `-04` (no CS `SUBMITTED`) | active |
 | RFQ | `AWARDED` / `PARTIALLY_AWARDED` | `TRA-T4-04` | `-12` | active |
 | RFQ | `NOT_AWARDED` | CS approved awarding nothing | none | terminal |
@@ -106,7 +106,7 @@ partial uk among statements not `REJECTED`), `status`, `prepared_by`, `is_stale`
 | TRA-GRD-08 | Award to a rank ≠ 1 ⇒ `award_reason_code` + note; alternative-item award ⇒ reason | field `422` | FR-567 |
 | TRA-GRD-09 | At approval: each awarded quotation `valid_until ≥ today`; supplier still not blocked; AVL still valid | `422 TRADE_QUOTATION_EXPIRED` / blocked | FR-569 |
 | TRA-GRD-10 | Every awarded quotation line is in the statement's currency (other-currency quotations are shown unranked and awardable only on their own currency's statement) | `422 TRADE_CS_MIXED_CURRENCY` | FR-566 |
-| TRA-GRD-11 | **Concurrency**: every edit, submit, transition and approval of a `wht_` document checks its optimistic `version`; a stale write changes nothing | `409` stale write (code per `TPR-OPEN-03`) | FR-618 |
+| TRA-GRD-11 | **Concurrency**: every edit, submit, transition and approval of a `wht_` document checks its optimistic `version`; a stale write changes nothing | `409 CONCURRENT_MODIFICATION` stale write (`TPR-OPEN-03`) | FR-618 |
 
 ### 1.4 Unreachable
 
@@ -121,13 +121,13 @@ partial uk among statements not `REJECTED`), `status`, `prepared_by`, `is_stale`
 
 | ID | Action | Permission | Allowed from | Source |
 |---|---|---|---|---|
-| TRA-T2-01 | Edit RFQ / invitees | `wht_rfqs:edit` | `DRAFT` | — |
-| TRA-T2-02 | Issue / close bids | `wht_rfqs:issue` | `DRAFT` / `ISSUED` | — |
-| TRA-T2-03 | Cancel | `wht_rfqs:cancel` | `DRAFT`, `ISSUED` | — |
-| TRA-T2-04 | Capture / revise / withdraw quotation | `wht_vendor_quotations:create`/`edit` | RFQ `ISSUED`/`BIDS_CLOSED` (revise up to award) | — |
-| TRA-T2-05 | Prepare / edit / submit CS | `wht_comparative_statements:create`/`edit`/`submit` | per T1 | — |
-| TRA-T2-06 | Approve award | `wht_comparative_statements:approve` via `TAM` | CS `SUBMITTED` | — |
-| TRA-T2-07 | Print RFQ, CS | `:view` | issued / submitted | — |
+| TRA-T2-01 | Edit RFQ / invitees | `wht_rfqs:edit` | `DRAFT` | FR-562 |
+| TRA-T2-02 | Issue / close bids | `wht_rfqs:issue` | `DRAFT` / `ISSUED` | FR-562, FR-563 |
+| TRA-T2-03 | Cancel | `wht_rfqs:cancel` | `DRAFT`, `ISSUED`, `BIDS_CLOSED`, `EVALUATION` (no CS `SUBMITTED`, as `TRA-T1-04`; R31 F-TR-018) | FR-562 |
+| TRA-T2-04 | Capture / revise / withdraw quotation | `wht_vendor_quotations:create`/`edit` | RFQ `ISSUED`/`BIDS_CLOSED` (revise up to award) | FR-564 |
+| TRA-T2-05 | Prepare / edit / submit CS | `wht_comparative_statements:create`/`edit`/`submit` | per T1 | FR-566 |
+| TRA-T2-06 | Approve award | `wht_comparative_statements:approve` via `TAM` | CS `SUBMITTED` | FR-567 |
+| TRA-T2-07 | Print RFQ, CS | `:view` | issued / submitted | FR-615 |
 | TRA-T2-08 | Every action in this table, and the auditor | `wht_<table>:<verb>` per FRD-TRADE FR-617 (`view`, `create`, `edit`, `export` + the workflow verbs above); `permission_dependencies` seeded; the auditor bundle holds `:view` only; record scope follows core's company / site grants; a bundle whose action calls a core port is also granted `warehouse:orders:port` in the trade seed | — | FR-617 |
 
 ## 3. T3 — Time-driven rules
@@ -135,7 +135,7 @@ partial uk among statements not `REJECTED`), `status`, `prepared_by`, `is_stale`
 | ID | Rule | Trigger | Changes | Notified | Job | Source |
 |---|---|---|---|---|---|---|
 | TRA-T3-01 | Response reminder | `response_due_date − warehouse.trade.rfq.reminder_days` (default 2), invitees `INVITED` | none | the RFQ's buyer, `TRADE_RFQ_REMINDER` | `TradeRfqJob` daily | FR-563 |
-| TRA-T3-02 | Due date passed | `response_due_date < today` (site tz) | RFQ stays `ISSUED`; *sealed* lifts; CS may be prepared | the RFQ's buyer, `TRADE_RFQ_DUE` | same | FR-563 |
+| TRA-T3-02 | Due date passed | `response_due_date < today` (site tz) | RFQ stays `ISSUED` (bids close only by `TRA-T1-05`); *sealed* lifts; the buyer is told to close bids | the RFQ's buyer, `TRADE_RFQ_DUE` | same | FR-563 |
 | TRA-T3-03 | Quotation expiry | `valid_until < today` | VQ `EXPIRED` unless awarded (still revisable, `-08`) | the RFQ's buyer, `TRADE_VQ_EXPIRED` | same | FR-569 |
 
 ## 4. T4 — Cross-entity effects
@@ -191,6 +191,7 @@ L1 cell highlighted; other-currency quotations in a separate unranked band; per 
 | 2026-10-22 | all | v0 derived | TRADE author |
 | 2026-10-22 | §0, §1.1, `TRA-T1-04`, `-08`, `-10`, `-11`, `-13`, `-14`, `TRA-GRD-07`, `-10`, T3, `TRA-T4-02`…`-04`, §5.2, §5.3 | R29 TP-F2, F3, F16, F25, F26, F28 and *in code, not in contract*: rejected/returned statement exits, cancel from `BIDS_CLOSED`/`EVALUATION`, revise from `EXPIRED`, one statement per currency, OPEN-PO targets release allocations, target maker, `:award` dropped, screen contracts | R29 |
 | 2026-10-23 | every T1, guard, unreachable, T3 and T4 row | `Source` column added, filled from FRD-TRADE §4, so every rule traces to the FR it proves | R30 `CP-FR-008` |
+| 2026-10-23 | §1.1 `BIDS_CLOSED`, `TRA-T3-02`, `-T2-03`, `-GRD-11`, `TRA-OPEN-01`, every T2 row | R31: the due date never closes bids (F-TR-023); cancel states aligned with `TRA-T1-04` (F-TR-018); `TRA-OPEN-01` settled; stale-write code (`TPR-OPEN-03`); T2 Source FRs (F-TR-019) | R31 |
 
 ## 8. Invariants and scenarios
 
@@ -200,4 +201,4 @@ L1 cell highlighted; other-currency quotations in a separate unranked band; per 
 
 | ID | Question | Status |
 |---|---|---|
-| TRA-OPEN-01 | E-mail dispatch of RFQ prints | **Proposed:** print + download only in v1; channel recorded manually. DEFERRED-TO-p9-05 |
+| TRA-OPEN-01 | E-mail dispatch of RFQ prints | **Settled (R31 decisions):** default stands — print + download only in v1; channel recorded manually (`p9-05`) |

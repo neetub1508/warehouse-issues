@@ -57,11 +57,11 @@ None. A report has no state and no transition.
 
 ## 2. T2 — Action × role × state
 
-| ID | Action | Permission | Allowed from |
-|---|---|---|---|
-| TRP-T2-01 | Open a report tab | `wht_rpt_<name>:view` | — |
-| TRP-T2-02 | Export a report | `wht_rpt_<name>:export` (`hasAuthority(…) or hasRole('ADMIN')`) | — |
-| TRP-T2-03 | Auditor | `:view` only (FR-617) | — |
+| ID | Action | Permission | Allowed from | Source |
+|---|---|---|---|---|
+| TRP-T2-01 | Open a report tab | `wht_rpt_<name>:view` | — | FR-619 |
+| TRP-T2-02 | Export a report | `wht_rpt_<name>:export` (`hasAuthority(…) or hasRole('ADMIN')`) | — | FR-619 |
+| TRP-T2-03 | Auditor | `:view` only (FR-617) | — | FR-617 |
 
 ## 3. T3 — Time-driven rules
 
@@ -109,6 +109,7 @@ export has none either (grid ↔ export parity).
 | Date | Rows | Change | Found by |
 |---|---|---|---|
 | 2026-10-23 | all | v0 derived from `issues/p9-14.md` (Reports table) and FRD-TRADE FR-616, FR-619 | R30 `CP-SC-005` |
+| 2026-10-23 | §2 | R31: Source column added to the T2 table (F-TR-019) | R31 |
 
 ## 8. Invariants and scenarios
 

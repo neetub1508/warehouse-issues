@@ -27,11 +27,12 @@ Requirements, the mirror table, screens, scenarios, decisions, open decisions an
 **[`docs/frd/FRD-TRADE.md`](../docs/frd/FRD-TRADE.md)**. Contracts (one per workflow):
 `trade-approval-matrix`, `trade-purchase-requisition`, `trade-rfq-award`, `trade-rate-contract`,
 `trade-purchase-order`, `trade-sales-enquiry-quotation`, `trade-sales-order`, `trade-order-amendment`,
-`trade-counterparty-evaluation`, `trade-sales-return-authorisation` (`docs/contracts/`).
+`trade-counterparty-evaluation`, `trade-sales-return-authorisation`, `trade-reports` (`docs/contracts/`; eleven).
 
 **What P9 deliberately does not do:** no credit limit, invoice, bill, debit or credit note, payment or
 MSME due-date tracking (accounting deferred, `RN-054`); no tax computation or FX; no supplier portal,
-e-auction or EDI; no service / capex / subcontract POs; no mobile. FRD-TRADE §11 lists all eighteen.
+e-auction or EDI; no service / capex POs and no subcontract PO **except** the service-line PO linked to an MFG
+subcontract order (`D-18` item 3, FR-682…FR-689, `p9-07`); no mobile. FRD-TRADE §11 lists all eighteen.
 
 ## Exit criterion — a Mode-D-plus install: platform + `warehouse-base` + `warehouse` + `warehouse-trade`
 
@@ -128,7 +129,8 @@ SafeTranslation, i18n) serialize at the barrier.
 `warehouse.trade.sales.discount_approval_pct` (10) · `warehouse.trade.sales.dispatch_horizon_days` (7) ·
 `warehouse.trade.sales.at_risk_days` (5) · `warehouse.trade.sales.ack_send_alert_days` (1, p9-10) ·
 `warehouse.trade.sales.firm_zone_days` (14, p9-09) · `warehouse.trade.sales.return_validity_days` (30,
-p9-13) · `warehouse.trade.evaluation.review_grade` (D) · reuses
+p9-13) · `warehouse.trade.evaluation.review_grade` (D) · `warehouse.trade.sales.lost_sale_reason_codes`
+(`NO_STOCK,LEAD_TIME_NOT_MET`, p9-08) · reuses
 `warehouse.approval.pending_alert_hours` (24). `admin_settings.description` ≤ 255 characters.
 
 ## Open decisions this phase carries
@@ -140,7 +142,11 @@ only · `OD-37` sealed default off · `OD-38` QC decided by core inspection plan
 change guards on `p8-01` / `p8-02` / `p8-15`'s seams (closed) · **`OD-45` (A)** one core demand order per
 SO, header back to `OPEN` after each despatch until `closeDemand` (closed by STORES). Each has an adopted
 default (FRD-TRADE §10). The core changes trade asked of STORES, FRD-TRADE §12c
-(`CN-1`…`CN-7`), are all resolved (2026-10-22; `STO-D19`, `STO-D20`).
+(`CN-1`…`CN-7`), are all resolved (2026-10-22; `STO-D19`, `STO-D20`); `CN-8` resolved 2026-10-23 (`STO-D25`);
+`CN-9`…`CN-13` agreed in R31 (registry R.2 / R.1: `firmScheduleLine(…, releaseRef)`, `closeScheduleLineShort`,
+`WhLostSalePort.captureLostSale`, the `amendOrder` received floor, port-principal site scope); **`CN-14`** (the
+subcontract charge seam — resolver kind + job worker, received-output read, value-only landed-cost apply) is open
+and blocks only the subcontract half of `p9-07`.
 
 ## Traps this phase must not walk into
 
@@ -150,7 +156,10 @@ default (FRD-TRADE §10). The core changes trade asked of STORES, FRD-TRADE §12
 - **Accounting creep.** A "just record the debit note number" column is how a second ledger starts — the
   hand-over points are stated per contract and nothing more.
 - **Sibling cross-imports.** Trade never imports `ai.warehousemanufacturing` or `ai.warehouseindia`;
-  MRP and India facts arrive through core (`TRD-09`).
+  MRP and India facts arrive through core (`TRD-09`). A subcontract service line holds a bare
+  `whm_production_orders` id resolved through core's `CostObjectResolver` — never an FK, a `whm_` read or an MFG class.
+- **Port principal without site scope.** `warehouse:orders:port` alone is refused by core's site check; every
+  port-calling bundle also holds `:view:branch`, the service principal `:view:all` (FR-617, R31 F-SR-004).
 - **Mobile.** None — user rule 2026-09-11.
 - **Docker only** for build and test; never a local `mvn` / `npm`.
 
@@ -158,6 +167,6 @@ default (FRD-TRADE §10). The core changes trade asked of STORES, FRD-TRADE §12
 
 - [ ] Every task merged with reviewer + functional-reviewer clean against its contract rows
 - [ ] The exit criterion's nine steps pass in order on a clean database
-- [ ] FRD-TRADE §13 traceability: every FR-540…FR-619 closed by a merged task
+- [ ] FRD-TRADE §13 traceability: every FR-540…FR-619 and FR-680…FR-689 closed by a merged task
 - [ ] The mirror table (FRD-TRADE §5) re-checked against the merged code: every row built on both sides or refused
 - [ ] `OD-30`…`OD-39` resolved or their defaults ratified in `DECISIONS.md` by SPINE

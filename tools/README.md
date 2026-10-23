@@ -368,7 +368,7 @@ Until the runner exists, run both before every `issues/create-issues.sh --sync`.
 
 ## Current state — re-run 2026-09-02, from the repo root
 
-> **Latest run, 2026-10-23, after the `D-16` re-target and the R30 reconciliation (P7–P10, 201 task files, 486
+> **Latest run, 2026-10-23, after the `D-16` re-target, the R30 reconciliation and the R31 fix wave (P7–P10, 201 task files, 487
 > tables): 0 violations across 15 checks** — check 14 (R30 `CP-FR-007`) passes now that every active FR has a rule row, and check 15 (added 2026-10-23, the task → contract links) passes on all 190 live task files — plus one non-failing advisory block of versions cited in a
 > task body that no task header claims. Flyway bands now include `warehouse-trade` `V550000`–`V559999`
 > and `warehouse-manufacturing` `V560000`–`V569999`; the removed dealer and services adapter blocks

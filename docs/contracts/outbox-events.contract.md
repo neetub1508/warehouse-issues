@@ -19,7 +19,7 @@
 
 | | |
 |---|---|
-| **Workflow** | A posting appends staged rows in its own transaction → the sequencer assigns gapless cursors at commit → the publisher delivers each event to every matching subscription (`OK` / `RETRY` / `DEAD` / `SKIPPED`) and advances that subscription's cursor → a dead delivery is retried or skipped by an operator; a cursor can be reset to replay |
+| **Workflow** | A posting appends staged rows in its own transaction (each producer takes its ordering key under the staging barrier inside its COMMIT, `V501224`) → **later**, as the first step of the publisher job, the sequencer assigns gapless cursors in its own `REQUIRES_NEW` transactions, in batches of `warehouse.outbox.sequencer.batch-size` (default 5000) — until it runs, a committed posting's events sit in `whb_outbox_staged` with no cursor (the staging backlog) → the publisher delivers each event to every matching subscription (`OK` / `RETRY` / `DEAD` / `SKIPPED`) and advances that subscription's cursor → a dead delivery is retried or skipped by an operator; a cursor can be reset to replay |
 | **Module** | `warehouse-base` (`ai.warehousebase`); consumers in `warehouse`, `warehouse-3pl`, adapters |
 | **Domain baseline** | `FR-330`…`FR-348`, `FR-458` · `D-16`, `D-17` · `OD-8` · `L-1` · tables `whb_event_types`, `whb_outbox`, `whb_outbox_subscriptions`, `whb_outbox_deliveries`, `whb_outbox_cursor_counter` (`V500040`), `whb_outbox_staged`, `whb_outbox_staged_order` (`V501223`, `V501224`), document-status columns + HTTP settings (`V501106`), `whb_api_clients`, `_keys`, `_endpoints`, `_companies` (`V500066`) |
 | **Owning tasks** (R30 §4) | `issues/p0-11.md` (`FR-330`…`333`, `336`) · `p3-22` (`334`) · `p2-02` (`335`, `342`) · `p1-11` (`337`, `339`, `341`) · `p5-21` (`338`, `340`, `343`) · `p1-17` (`344`) · `p2-28` (`345`) · `p0-15` (`346`) · `p6-08` (`347`, `348`) · `p5-22` (`458`) |
@@ -55,7 +55,7 @@
 | ID | From | Event | To | Guard | Actor / class | Side effects | UI | Source |
 |---|---|---|---|---|---|---|---|---|
 | OEV-T1-01 | — | A posting in the same transaction | staged | event code exists in `whb_event_types` (FK by code) | `WhbOutboxAppender` | — | — | FR-330, FR-331 |
-| OEV-T1-02 | staged | Commit | appended with next cursor | one sequencer pass under an advisory lock (`V501227`) | `WhbOutboxSequencer` | cursor counter advanced | — | FR-330 |
+| OEV-T1-02 | staged (producer committed) | Sequencer pass (publisher job, step one) | appended with next cursor | one sequencer pass under an advisory lock (`V501227`); only the staged prefix at or below the highest committed `order_seq` is copied | `WhbOutboxSequencer` (`REQUIRES_NEW`, batch-size 5000, `WhbOutboxSequencer.java:19-36,60`) | cursor counter advanced; copied staged rows deleted in the same batch transaction — a crash leaves them staged for the next run, never both, never neither | — | FR-330 |
 | OEV-T1-03 | appended | Publish to a matching subscription | delivery `OK` | event filter / owner filter / accepted version match | `WhbOutboxPublisher`, `WhbOutboxPublisherJob`, `WhbOutboxDeliveryStep` | subscription `last_delivered_cursor` advanced | WS-056 | FR-332, FR-333 |
 | OEV-T1-04 | delivery | Transport failure | `RETRY` → … → `DEAD` | `max_attempts` (`warehouse.outbox.max_attempts`, default 10, 1…100), `backoff_seconds` (default 60) | `WhbOutboxRetryPolicy`, `WhbOutboxDeliveryFailure` | blocked alert (`WhbOutboxBlockedAlertService`) | WS-058 | FR-332 |
 | OEV-T1-05 | `DEAD` | Retry / retry all dead / skip | `RETRY` / `SKIPPED` | — | `POST /retry`, `/retry-dead`, `/skip` · `whb_outbox:replay` | — | WS-058 | FR-332 |
@@ -128,7 +128,7 @@
 
 | ID | FR says | Code has (grep) | Source |
 |---|---|---|---|
-| OEV-DIV-01 | Issue-to-asset and return-from-asset are posted through the port | `V500003` seeds `EQUIPMENT_ISSUE` / `EQUIPMENT_RETURN` only; no `ISSUE_TO_ASSET` / `RETURN_FROM_ASSET` type | FR-338 |
+| OEV-DIV-01 | Issue-to-asset and return-from-asset are posted through the port | `V500003` seeds `EQUIPMENT_ISSUE` / `EQUIPMENT_RETURN` only; no `ISSUE_TO_ASSET` / `RETURN_FROM_ASSET` type — **resolved R31**: `FR-338` restated to this pair (`OEV-OPEN-02`) | FR-338 |
 | OEV-DIV-02 | The integration surface is argued as platform work first and built in base only if platform declines | built in base (`V500066`, `WhbApiClientGate`); no recorded platform decline found | FR-458 |
 | OEV-DIV-03 | Seam acceptance = two deletion tests (delete logistics; delete warehouse) | only the warehouse side is tested (no FK out); no logistics module exists to delete | FR-336 |
 
@@ -141,6 +141,7 @@ The logistics module itself (`p6-08`, v3); trips, ePOD and freight settlement; m
 | Date | Change |
 |---|---|
 | 2026-10-23 | v0 derived for R30 `CP-FR-007` row 18 (`D-17` item a) |
+| 2026-10-23 | R31 `F-CB-016`: cursor assignment is producer-commit-then-sequencer, not at commit (§0, `OEV-T1-02`); `OEV-OPEN-01`, `-02` decided |
 
 ## 9. Invariants and scenarios
 
@@ -150,5 +151,5 @@ The logistics module itself (`p6-08`, v3); trips, ePOD and freight settlement; m
 
 | ID | Question | Default | Source |
 |---|---|---|---|
-| OEV-OPEN-01 | `OD-8`: does platform own API clients (service principals) after all, making `OEV-DIV-02` a migration later | base keeps them until platform ships one | FR-458 |
-| OEV-OPEN-02 | Asset fitment movement types (`OEV-DIV-01`): add `ISSUE_TO_ASSET` / `RETURN_FROM_ASSET` or restate the FR to the equipment pair | restate | FR-338 |
+| OEV-OPEN-01 | `OD-8`: does platform own API clients (service principals) after all, making `OEV-DIV-02` a migration later | **DECIDED R31 (2026-10-23):** default stands — base keys only narrow an authenticated user (`OD-8` RESOLVED) | FR-458 |
+| OEV-OPEN-02 | Asset fitment movement types (`OEV-DIV-01`): add `ISSUE_TO_ASSET` / `RETURN_FROM_ASSET` or restate the FR to the equipment pair | **DECIDED R31 (2026-10-23):** default stands — `FR-338` restated to the equipment issue / return pair | FR-338 |

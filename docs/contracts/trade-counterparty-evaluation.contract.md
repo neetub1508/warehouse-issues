@@ -101,7 +101,7 @@ counterparty; the evaluation stores `excluded_metrics`. A counterparty with no m
 | TCE-GRD-05 | Period ended (`period_to < today`); no `DRAFT` run open for the same scheme × period | `422` / `409` | FR-595 |
 | TCE-GRD-06 | Customer item ref `APPROVED` only with the customer's approval document attached; the status records the customer's decision, so no internal approval request (FR-545, §5 M2) | `422` on `document` | FR-545 |
 | TCE-GRD-07 | A trade extensible value (reason, terms, AVL status-as-code, MSME category, charge type, enquiry source) is an active `whb_code_lists` value whose list has `owning_module = 'warehouse-trade'`, seeded under the owning-module guard; an install may add values | `422` field-named | FR-546 |
-| TCE-GRD-08 | **Concurrency**: every edit, submit, transition and approval of a `wht_` document checks its optimistic `version`; a stale write changes nothing | `409` stale write (code per `TPR-OPEN-03`) | FR-618 |
+| TCE-GRD-08 | **Concurrency**: every edit, submit, transition and approval of a `wht_` document checks its optimistic `version`; a stale write changes nothing | `409 CONCURRENT_MODIFICATION` stale write (`TPR-OPEN-03`) | FR-618 |
 
 ### 1.4 Unreachable
 
@@ -118,11 +118,11 @@ counterparty; the evaluation stores `excluded_metrics`. A counterparty with no m
 
 | ID | Action | Permission | Source |
 |---|---|---|---|
-| TCE-T2-01 | Profiles add / edit / block or unblock request / approve request | `wht_*_profiles:create`/`edit`/`block`/`approve` | — |
-| TCE-T2-02 | AVL maintain / approve (`TAM`) | `wht_approved_vendor_items:create`/`edit`/`approve` | — |
-| TCE-T2-03 | Customer item refs | `wht_customer_item_refs:*` | — |
-| TCE-T2-04 | Schemes | `wht_evaluation_schemes:*` | — |
-| TCE-T2-05 | Run / publish / export | `wht_evaluation_runs:create`/`publish`/`export` | — |
+| TCE-T2-01 | Profiles add / edit / block or unblock request / approve request | `wht_*_profiles:create`/`edit`/`block`/`approve` | FR-542, FR-543 |
+| TCE-T2-02 | AVL maintain / approve (`TAM`) | `wht_approved_vendor_items:create`/`edit`/`approve` | FR-544 |
+| TCE-T2-03 | Customer item refs | `wht_customer_item_refs:*` | FR-545 |
+| TCE-T2-04 | Schemes | `wht_evaluation_schemes:*` | FR-594 |
+| TCE-T2-05 | Run / publish / export | `wht_evaluation_runs:create`/`publish`/`export` | FR-595 |
 | TCE-T2-06 | Every action in this table, and the auditor | `wht_<table>:<verb>` per FRD-TRADE FR-617 (`view`, `create`, `edit`, `export` + the workflow verbs above); `permission_dependencies` seeded; the auditor bundle holds `:view` only; record scope follows core's company / site grants; a bundle whose action calls a core port is also granted `warehouse:orders:port` in the trade seed | FR-617 |
 
 ## 3. T3 — Time-driven rules
@@ -145,7 +145,7 @@ counterparty; the evaluation stores `excluded_metrics`. A counterparty with no m
 | TCE-T4-05 | Publish with grade ≤ `warehouse.trade.evaluation.review_grade` | a `whb_tasks` row of task type `TRADE_AVL_REVIEW` (seeded by trade) for the trade administrator, linked to the supplier / customer | FR-596 |
 | TCE-T4-06 | Published grade | shown on CS (`TRA-T4-01`), PO header, AVL, customer profile, SO header | FR-597 |
 | TCE-T4-07 | A numbered trade document reaches its numbering stage: `PR` submit (a hand-off PR at create, FR-557), `RFQ` issue, `VQ` capture, `CS` submit, `PRC` / `SRC` / `PL` submit, `PO` / `PA` / `SO` submit, `ENQ` save, `SQ` submit, `SRA` submit | one number from `whb_number_series` for the document type (`whb_document_types` row, `is_gapless = false`, `YEARLY` financial-year reset) per company, optionally per site; the PO supplier-facing number per `OD-30` | FR-547 |
-| TCE-T4-08 | A PO, SO, RFQ or quotation records its terms | the company × document-type T&C template version in force is stored on the document (`terms_template_version_id`); a later **New version** on WS-311 never changes it; the document print shows the stored version | FR-584 |
+| TCE-T4-08 | A PO, SO, RFQ or quotation records its terms | the company × document-type T&C template version in force is **copied at create** (`terms_template_version_id`); while the document is `DRAFT` it changes only by an explicit *Refresh terms* act, which is audited (`whb_audit_events`, old → new version); it is **frozen at submit** (RFQ: at issue) and a later **New version** on WS-311 never changes it; the document print shows the stored version (`TCE-OPEN-02`, R31 decisions) | FR-584 |
 
 ## 5. T5 — Screen contract
 
@@ -207,6 +207,7 @@ actions View · Edit · New version · Versions.
 | 2026-10-22 | all | v0 derived | TRADE author |
 | 2026-10-22 | §0, metric catalogue, `TCE-T1-02`…`-05`, `TCE-GRD-06`, T2, T3, §5 | R29 TP-F10, F11, F26, F27, F28, TS-F29, MA-12: AVL through the engine with reject, profile `:approve`, part-approval refusal recorded, OTIF over FIXED and released lines, sales firm zone named, notifications, every screen specified | R29 |
 | 2026-10-23 | every T1, guard, unreachable, T3 and T4 row | `Source` column added, filled from FRD-TRADE §4, so every rule traces to the FR it proves | R30 `CP-FR-008` |
+| 2026-10-23 | `TCE-T4-08`, `-GRD-08`, `TCE-OPEN-01`, `-02`, every T2 row | R31 decisions: task-type seed settled; T&C version copied at create, refreshed in `DRAFT` only by an audited act, frozen at submit / issue; stale-write code (`TPR-OPEN-03`); T2 Source FRs (F-TR-019) | R31 |
 
 ## 8. Invariants and scenarios
 
@@ -216,5 +217,5 @@ actions View · Edit · New version · Versions.
 
 | ID | Question | Status |
 |---|---|---|
-| TCE-OPEN-01 | Does base let a sibling seed a `whb_task_types` row (`TRADE_AVL_REVIEW`)? | **Proposed: yes**, under the owning-module guard like code lists. DEFERRED-TO-p9-12 |
-| TCE-OPEN-02 | `FR-584` says the T&C version is "frozen on the document" but not at which transition (create, submit or approval), nor whether a `DRAFT` re-reads the current version | **OPEN.** Proposed: copied at create, refreshed while `DRAFT`, frozen at submit (when the number is drawn, `TCE-T4-07`) |
+| TCE-OPEN-01 | Does base let a sibling seed a `whb_task_types` row (`TRADE_AVL_REVIEW`)? | **Settled (R31 decisions):** yes — seeded under the owning-module guard like code lists (`whb_task_types.owning_module`, `V500010`), by `p9-12` (`D-16` item 5) |
+| TCE-OPEN-02 | `FR-584` says the T&C version is "frozen on the document" but not at which transition (create, submit or approval), nor whether a `DRAFT` re-reads the current version | **Settled (R31 decisions, default replaced):** copied at create; refreshed while `DRAFT` only by an explicit, audited user action; frozen at submit (RFQ: at issue) — `TCE-T4-08` |

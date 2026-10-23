@@ -21,7 +21,7 @@
 | **Domain baseline** | `D-14` (`RG-001` canonical), `OD-19` safe default, `I-22`, `I-23`, `FR-408` (maker–checker) · `movement-post-reverse.contract.md` `MPR-GRD-07`, `-08` |
 | **Owning tasks** | `issues/p1-05.md` (sites, links, locations, custody, external refs) · `issues/p1-06.md` (generator, docks) · `issues/p2-02.md` (transfer request ladder) · `issues/p1-17.md` (inter-company, v2) · `issues/p8-10.md` (`FR-461`, re-homed by `D-17` item 5) |
 | **Primary tables** | `whb_warehouses`, `whb_warehouse_branch_roles`, `whb_warehouse_branches` (`V500012`); `whb_locations`, `whb_location_user_assignments`, `whb_location_external_refs` (`V500013`); `whb_location_types` (`V500006`); `wh_dock_doors`, `wh_dock_appointments` (`V510010`); `wh_transfer_orders`, `wh_transfer_order_lines` (`V510031`) |
-| **Permission resources** | `whb_warehouses:{view,create,edit,delete,export}` · `warehouse:warehouses:change_registration` · `whb_locations:{view,create,edit,delete,export,block}` · `wh_transfer_orders:{request,create,edit,approve,cancel,allocate,receive,export}` |
+| **Permission resources** | `whb_warehouses:{view,create,edit,delete,export}` · `warehouse:warehouses:change_registration` · `whb_locations:{view,create,edit,delete,export,block}` · `wh_transfer_orders:{request,create,edit,approve,reject,cancel,allocate,receive,report_variance,write_off_transit,export}` |
 | **Routes** | WS-016 Warehouses · WS-017 Locations · WS-018 Location Generator · WS-005 Location Types · WS-085 Dock Doors · WS-086 Dock Appointments · WS-090 Transfer Orders |
 | **Contract version** | `v0 — 2026-10-23` |
 
@@ -43,7 +43,7 @@
 | Entity | Status | Represented by | Kind |
 |---|---|---|---|
 | Branch link | current / ended | `effective_from`, `effective_to` (`[from, to)`), role code | dated history |
-| Location | `AVAILABLE` · `BLOCKED` · `COUNTING` · `DAMAGED` · `FROZEN` | `whb_locations.status` | operational |
+| Location | `AVAILABLE` · `BLOCKED` · `DAMAGED` (Block / Unblock, `FBL-T1-06`, `-06a`) · `COUNTING` · `FROZEN` (set and cleared only by the count freeze, `cycle-count` `CCT-T4-04`) | `whb_locations.status` | operational |
 | Custody assignment | current / released | `effective_from`, `effective_to` | dated history, retained forever |
 | Transfer request | `REQUESTED` → `APPROVED` (lines carry `approved_quantity`) / `REJECTED` | `wh_transfer_orders.status` | the request half of the transfer lifecycle |
 
@@ -56,11 +56,12 @@
 | FBL-T1-03 | — | Add / end a `SERVING`, `FULFILMENT` or `RETURNS` link | link current / ended | `FBL-GRD-03` | `whb_warehouses:edit` | changes access from now (`FBL-T4-02`), classification of nothing | WS-016 links tab | FR-079, FR-460 |
 | FBL-T1-04 | `REGISTERED` link current | **Change registration**: closes the current row and opens the next **at the same instant**, maker–checker | old ended, new current | `FBL-GRD-01`, `-04`, `-05` | `warehouse:warehouses:change_registration`; approver ≠ requester | — | WS-016 **Change registration** | FR-079, FR-460 |
 | FBL-T1-05 | — | Create / generate locations: zone, aisle / rack / level / position ranges, format mask, location type, default capacities — **preview** count, first and last code, then commit | locations `AVAILABLE` | `FBL-GRD-08`, `-09` | `whb_locations:create` | CSV import is the fallback (import batch) | WS-018 | FR-089 |
-| FBL-T1-06 | `AVAILABLE` | Block (with reason) / set counting / damaged / frozen | that status | reason required for `BLOCKED`, `DAMAGED` | `whb_locations:block` | stock stays where it is | WS-017 **Block** | FR-091 |
+| FBL-T1-06 | `AVAILABLE` | Block (with reason) as `BLOCKED` or `DAMAGED` | that status | reason required | `whb_locations:block` (`WhbLocationController.java:320-321`) | stock stays where it is | WS-017 **Block** | FR-091 |
+| FBL-T1-06a | `BLOCKED` · `DAMAGED` | Unblock | `AVAILABLE` | only `BLOCKED` / `DAMAGED`; `COUNTING` / `FROZEN` are never cleared here (`WhbLocationService.java:399`) — they belong to the count (`cycle-count` `CCT-T4-04`) | `whb_locations:block` (`WhbLocationController.java:330-331`) | none | WS-017 **Unblock** | FR-091 |
 | FBL-T1-07 | — | Assign custody (`CUSTODIAN`, `DRIVER`, `HELPER`) | assignment current | `FBL-GRD-10` | `whb_locations:edit` | the previous custodian's row is ended, never overwritten | WS-017 custody tab | FR-088 |
 | FBL-T1-08 | — | **Raise transfer request** against another site (created only by a user scoped to the **destination**) | `REQUESTED` | destination in caller's scope | `wh_transfer_orders:request` | — | WS-090 **Raise request** | FR-462 |
 | FBL-T1-09 | `REQUESTED` | Approve, or part-approve by line `approved_quantity` (never a separate state) | `APPROVED` | `FBL-GRD-11`, `-12` | `wh_transfer_orders:approve`, scoped to the **source** site; approver ≠ requester (`FR-408`) | `FBL-T4-04`, `-05` | WS-090 **Approve** | FR-462 |
-| FBL-T1-10 | `REQUESTED` | Reject with a reason | `REJECTED` | source in caller's scope | `wh_transfer_orders:approve` | `FBL-T4-05` for the whole quantity | WS-090 **Reject** | FR-462 |
+| FBL-T1-10 | `REQUESTED` | Reject with a reason | `REJECTED` | source in caller's scope | `wh_transfer_orders:reject` — its own verb, not `:approve` (`WhTransferOrderController.java:337`; `STR-T1-04`) | `FBL-T4-05` for the whole quantity | WS-090 **Reject** | FR-462 |
 | FBL-T1-11 | — | Move goods between two companies of one install (v2): one action creates a demand order in the source company **and** a purchase order in the other, cross-referenced in the source quad, priced from `FR-244`'s transfer-price columns | both documents created | `FBL-UNR-04` | demand-order and PO create permissions | — | not built (v2, `P1-17`) | FR-465 |
 
 ### 1.3 Guards
@@ -79,9 +80,9 @@
 | FBL-GRD-10 | One current custodian per location; custody ranges of one user do not overlap; the user is active | `LOCATION_CUSTODY_OVERLAP` / `LOCATION_CUSTODY_USER_INACTIVE` · `userId` | `uk_whb_location_user_assignments_one_custodian` (`V500013:299`); exclusion on custodian ranges | FR-088, FR-093 |
 | FBL-GRD-11 | `approved_quantity` per line is 0 … requested quantity, and at least one line approves something | `TRANSFER_LINE_APPROVED_ABOVE_REQUESTED` / `TRANSFER_APPROVES_NOTHING` · `lines[i].approvedQuantity` | `CHECK (approved_quantity <= quantity)` (`V510031:351`) | FR-462 |
 | FBL-GRD-12 | Approve / reject only a `REQUESTED` transfer; the approver is not the requester | `409 TRANSFER_NOT_REQUESTED`; `403 TRANSFER_SELF_APPROVAL` | — | FR-462 |
-| FBL-GRD-13 | **Serving-branch rule.** A stock-consuming document handed over at a requesting branch (a store issue, a despatch from a shared site) posts directly from a site only when that branch holds a current `REGISTERED` or `SERVING` link to it **and** its GSTIN (`branches.gst_number`) equals the site's `REGISTERED` GSTIN at the document date; across GSTINs it is refused and offers *Raise request* | `422 CROSS_GSTIN_COUNTER_SALE` (code kept for the wire) · `warehouseId` | — | FR-461 — §10 row 1 |
+| FBL-GRD-13 | **Serving-branch rule.** A stock-consuming document handed over at a requesting branch (a store issue, a despatch from a shared site) posts directly from a site only when that branch holds a current `REGISTERED` or `SERVING` link to it **and** its GSTIN (`branches.gst_number`) equals the site's `REGISTERED` GSTIN at the document date; across GSTINs it is refused and offers *Raise request* | `422 CROSS_GSTIN_DIRECT_ISSUE` · `warehouseId` (the withdrawn dealer counter-sale code `CROSS_GSTIN_COUNTER_SALE` is not used — `D-16`, FR-359 withdrawn; no `warehouse*` code carries it, so no wire depends on it — R31 `F-CA-020`) | — | FR-461 — §10 row 1 |
 | FBL-GRD-15 | Every site has its virtual locations — `SUPPLIER`, `CUSTOMER`, `ADJUSTMENT`, `SCRAP`, `PRODUCTION`, `IN_TRANSIT`, `COUNT_VARIANCE`, `OPENING_BALANCE`, `CONSUMED`, `JOB_WORKER`, `VALUE_OFFSET`, `COST_OF_SALES` — provisioned as `VIRT-<purpose>-<site>` with `counts_as_on_hand = false`, so they never appear in a stock report and always balance the ledger; every movement has a real from- and to-location, one of which may be virtual | the writer's `MPR-GRD-01` refusal for a one-sided movement | `WhbVirtualLocationProvisioner` (`ADJUSTMENT` → type `ADJUSTMENT_OFFSET`); location types `V500006` | FR-084 |
-| FBL-GRD-14 | Capacity and constraint columns (weight, volume, height, LPN count, unit count, mixed-item, mixed-lot, mixed-owner, temperature zone, pick sequence, barcode, check digit) are on the location from v1 and **enforced at putaway** from v1.1 under a hard-block-vs-warn setting | the putaway refusal or warning, field-named | columns (`V500013:91-112`) | FR-086 |
+| FBL-GRD-14 | Capacity and constraint columns (weight, volume, height, LPN count, unit count, mixed-item, mixed-lot, mixed-owner, temperature zone, pick sequence, barcode, check digit) are on the location from v1 and **enforced at putaway** from v1.1 (`D-18` item 5): where a capacity column is set the putaway is **blocked**; a null column is unconstrained. Setting `warehouse.putaway.capacity_enforcement` = `BLOCK` (default) or `WARN`, per site; `WARN` lets the putaway proceed only with an acknowledgement reason. Temperature and owner rules (`receipt-qc-putaway` `RQP-GRD-22`) stay hard under either value | `409 LOCATION_CAPACITY_EXCEEDED` (proposed — not in code yet) · `toLocationId`, naming the column and both quantities; under `WARN` the warning names the same and `OVERRIDE_REASON_REQUIRED` applies | columns (`V500013:91-112`); today capacity is advisory only, inside the suggestion (`WhPutawayRuleEngine.java:126`) — §10 row 3 | FR-086 |
 
 ### 1.4 Unreachable
 
@@ -98,8 +99,8 @@
 | ID | Action | Permission | Allowed from | Source |
 |---|---|---|---|---|
 | FBL-T2-01 | Change registration | `warehouse:warehouses:change_registration` | any; checker ≠ maker | FR-460 |
-| FBL-T2-02 | Block a location | `whb_locations:block` | `AVAILABLE` | FR-091 |
-| FBL-T2-03 | Raise / approve / reject a transfer request | `wh_transfer_orders:request` (destination scope) / `:approve` (source scope) | — / `REQUESTED` | FR-462 |
+| FBL-T2-02 | Block / unblock a location | `whb_locations:block` | Block: `AVAILABLE`; Unblock: `BLOCKED` · `DAMAGED` | FR-091 |
+| FBL-T2-03 | Raise / approve / reject a transfer request | `wh_transfer_orders:request` (destination scope) / `:approve` / `:reject` (source scope) | — / `REQUESTED` | FR-462 |
 
 ## 3. T3 — Time-driven rules
 
@@ -140,6 +141,7 @@ lifecycle (India contract); 3PL client GST registrations (WS-169).
 | Date | Change |
 |---|---|
 | 2026-10-23 | v0 derived for R30 `CP-FR-007` row 3; `FR-461` re-homed to `P8-10` per `D-17` item 5 |
+| 2026-10-23 | R31: `F-CA-002` (`FBL-T1-06` narrowed, `FBL-T1-06a` Unblock added, `COUNTING`/`FROZEN` pointed at `CCT-T4-04`); `F-CA-005` (Reject is `:reject`; §0 resource list completed); `F-CA-020` (`FBL-GRD-13` code `CROSS_GSTIN_DIRECT_ISSUE`); `FBL-OPEN-01` decided; `FBL-OPEN-02` decided by `D-18` item 5 (`FBL-GRD-14`, §10 row 3) |
 
 ## 8. Invariants and scenarios
 
@@ -150,12 +152,13 @@ lifecycle (India contract); 3PL client GST registrations (WS-169).
 
 | ID | Question | Default until decided | Source |
 |---|---|---|---|
-| FBL-OPEN-01 | `OD-19`: may a registration change move a site between GSTINs while it holds stock, given an adviser ruling? | refused (`FBL-GRD-04`) | FR-079, FR-460 |
-| FBL-OPEN-02 | `FR-086`'s hard-block-vs-warn setting: its key and default are not named in the FRD | TBD — the putaway contract names it | FR-086 |
+| FBL-OPEN-01 | `OD-19`: may a registration change move a site between GSTINs while it holds stock, given an adviser ruling? | **DECIDED R31 (2026-10-23): default stands** — refused while the site holds stock, reservations, transfers, counts or open documents; no adviser bypass (`FBL-GRD-04`) | FR-079, FR-460 |
+| FBL-OPEN-02 | `FR-086`'s hard-block-vs-warn setting: its key and default are not named in the FRD | **DECIDED `D-18` item 5 (2026-10-23):** key `warehouse.putaway.capacity_enforcement`, default `BLOCK` wherever a capacity is set, per-site `WARN` with an acknowledgement reason (`FBL-GRD-14`); the reviewer default, stated to the user | FR-086 |
 
 ## 10. Code divergences (for the build to fix)
 
 | # | File:line | FR | What differs |
 |---|---|---|---|
-| 1 | `warehouse/backend` (no `CROSS_GSTIN_COUNTER_SALE` anywhere; no store-issue service yet) | FR-461 | The serving-branch refusal is not built; `P8-10` (store issue, the first stock-consuming document) owns it |
+| 1 | `warehouse/backend` (no `CROSS_GSTIN_DIRECT_ISSUE` anywhere; no store-issue service yet) | FR-461 | The serving-branch refusal is not built; `P8-10` (store issue, the first stock-consuming document) owns it, under the neutral code `CROSS_GSTIN_DIRECT_ISSUE` |
 | 2 | `warehouse/backend/.../db/migration/` (no inter-company action) | FR-465 | Inter-company demand order + PO in one action is not built (v2, `P1-17`) |
+| 3 | `warehouse/backend/src/main/java/ai/warehouse/service/whputawayrule/WhPutawayRuleEngine.java:126` (capacity advisory, suggestion only); no `warehouse.putaway.capacity_enforcement` key | FR-086 | Capacity enforcement at putaway completion (`D-18` item 5: `BLOCK` default, per-site `WARN`) is not built; `P3-02` owns it (plan §8.2) |

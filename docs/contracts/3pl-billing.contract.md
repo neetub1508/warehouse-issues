@@ -19,7 +19,7 @@
 
 | | |
 |---|---|
-| **Workflow** | Client: `PROSPECT` → `ONBOARDING` → `LIVE` ⇄ `SUSPENDED` → `TERMINATING` → `OFFBOARDED`. Meter: event `METERED` → `RATED` → `BILLED`, or `REVERSED` / `EXCLUDED`. Run: `DRAFT` → `RATED` → `APPROVED` → `INVOICED`, or `CANCELLED`. Around them: rate cards, storage periods, accessorials, disputes, AR handovers, SLA, GST registrations, portal |
+| **Workflow** | Client: `PROSPECT` → `ONBOARDING` → `LIVE` → `SUSPENDED` → `TERMINATING` → `OFFBOARDED` — one-way: there is **no `SUSPENDED → LIVE`** (`Wh3plClientService.java:62-63`; the ladder trigger refuses it, `V530010:114-115`), so a suspended client can only be terminated. Meter: event `METERED` → `RATED` → `BILLED`, or `REVERSED` / `EXCLUDED`. Run: `DRAFT` → `RATED` → `APPROVED` → `INVOICED`, or `CANCELLED`. Around them: rate cards, storage periods, accessorials, disputes, AR handovers, SLA, GST registrations, portal |
 | **Module** | `warehouse-3pl` (`ai.warehouse3pl`, band `V530000`–`V539999`, prefix `wh3_`, flag `enable.warehouse.3pl`, `Wh3plModuleConfig`) |
 | **Domain baseline** | `FR-281`…`FR-303` · `D-11`, `D-16`, `D-17` · `L-1`, `L-2` · `OD-3` · base snapshots `whb_stock_position_snapshots` / `whb_stock_position_snapshot_days` (`V500045`, `V501125`) · base number series `whb_number_series` · base outbox subscription `WH3_BILLING_METER` (`V530030`) |
 | **Owning tasks** (R30 §4) | `issues/p5-01.md` (`FR-281`…`283`, `303`) · `p5-02` (`286`, `287`) · `p5-03` (`285`) · `p5-04` (`288`, `290`) · `p2-28` (`289`) · `p5-05` (`291`…`294`) · `p5-06` (`295`) · `p5-07` (`297`, `298`) · `p5-08` (`284`, `300`) · `p4-10` (`301`) · `p6-07` (`296`, `299`, `302`) |
@@ -62,14 +62,15 @@
 | ID | From | Event | To | Guard | Actor | Side effects | UI | Source |
 |---|---|---|---|---|---|---|---|---|
 | TPB-T1-01 | — | Create client (owner, contract dates, notice, billing cycle/day, currency, terms, credit limit, minimum charge, tax profile) | `PROSPECT` | `TPB-GRD-01`, `-02` | `wh3_clients:create` | — | WS-155 **Add** | FR-282 |
-| TPB-T1-02 | `PROSPECT` | Onboard | `ONBOARDING` | template chosen; series company resolvable | `Wh3plClientService.onboard` | onboarding tasks copied from `wh3_client_onboarding_template_tasks`; per-client number series provisioned in `whb_number_series` (pad `warehouse.3pl.client_series.pad_length`) | WS-155 | FR-283 |
-| TPB-T1-03 | `ONBOARDING` | Go live | `LIVE` | every onboarding task `COMPLETED`, else `409 CLIENT_NOT_ONBOARDING` · `status` | `goLive` | `go_live_date` stamped | WS-155 | FR-282, FR-283 |
-| TPB-T1-04 | `LIVE` | Suspend | `SUSPENDED` | — | `suspend` | — | WS-155 | FR-282 |
-| TPB-T1-05 | `LIVE` · `SUSPENDED` | Terminate | `TERMINATING` | `contract_end_date` required (`V531152`) | `terminate` | notice clock `TPB-T3-02` | WS-155 | FR-282 |
-| TPB-T1-06 | `TERMINATING` | Offboard | `OFFBOARDED` | — | `offboard` | terminal | WS-155 | FR-282 |
-| TPB-T1-07 | `OPEN` | Complete onboarding task | `COMPLETED` (re-openable) | — | `wh3_onboarding_tasks` | audit `WH3_ONBOARDING_TASK_COMPLETED` | WS-157 | FR-283 |
+| TPB-T1-02 | `PROSPECT` | Onboard | `ONBOARDING` | template chosen; series company resolvable | `wh3_clients:onboard` (`Wh3plClientService.onboard`) | onboarding tasks copied from `wh3_client_onboarding_template_tasks`; per-client number series provisioned in `whb_number_series` (pad `warehouse.3pl.client_series.pad_length`) | WS-155 | FR-283 |
+| TPB-T1-03 | `ONBOARDING` | Go live | `LIVE` | no **blocking** onboarding task still `OPEN`, else `409 BLOCKING_TASKS_OPEN` · `status`, naming the tasks (`Wh3plClientValidationService.java:275-279`); optional tasks may stay open; the go-live date is given and not in the future, else `422 GO_LIVE_DATE_INVALID` · `goLiveDate` (`:263-270`). (`CLIENT_NOT_ONBOARDING` is the refusal for reopening an onboarding task, `TPB-T1-07`) | `wh3_clients:onboard` (`goLive`) | `go_live_date` stamped | WS-155 | FR-282, FR-283 |
+| TPB-T1-04 | `LIVE` | Suspend | `SUSPENDED` (one-way) | — | `wh3_clients:suspend` | — | WS-155 | FR-282 |
+| TPB-T1-05 | `LIVE` · `SUSPENDED` | Terminate | `TERMINATING` | `contract_end_date` required (`V531152`) | `wh3_clients:terminate` | notice clock `TPB-T3-02` | WS-155 | FR-282 |
+| TPB-T1-06 | `TERMINATING` | Offboard | `OFFBOARDED` | contract end date set and reached, else `422 CONTRACT_END_REQUIRED` / `409 CONTRACT_END_NOT_REACHED` · `contractEndDate` (`Wh3plClientValidationService.java:215-224`); the caller is unscoped (may read every owner), else `403 OFFBOARD_REQUIRES_UNSCOPED` (`:237`); the owner holds no stock or open reservation, base's `OWNER_HAS_STOCK` (`:242`) | `wh3_clients:terminate` (`offboard`) | terminal; `TPB-T4-10` | WS-155 | FR-282 |
+| TPB-T1-07 | `OPEN` | Complete onboarding task | `COMPLETED` (re-openable while the client is `ONBOARDING`, else `CLIENT_NOT_ONBOARDING`) | — | `wh3_client_onboarding_tasks:complete` / `:reopen` / `:assign` | audit `WH3_ONBOARDING_TASK_COMPLETED` | WS-157 | FR-283 |
 | TPB-T1-08 | — | Create rate card / clone version | `DRAFT` | one draft per card, else `409 RATE_CARD_DRAFT_EXISTS` · `status`; ladder complete, else `RATE_CARD_LADDER_INCOMPLETE` | `Wh3plRateCardService.create` / `cloneVersion` | version n+1 copies lines, bands, clients | WS-159 | FR-287, FR-296 |
-| TPB-T1-09 | `DRAFT` | Activate | `ACTIVE` | client overlap refused `409 RATE_CARD_CLIENT_OVERLAP` · `clientIds` | `activate` | the prior `ACTIVE` version → `SUPERSEDED` at the new `effective_from` | WS-159 | FR-287 |
+| TPB-T1-09 | `DRAFT` | Activate | `ACTIVE` | client overlap refused `409 RATE_CARD_CLIENT_OVERLAP` · `clientIds` | `wh3_rate_cards:activate` | the prior `ACTIVE` version → `SUPERSEDED` at the new `effective_from` | WS-159 | FR-287 |
+| TPB-T1-09a | `ACTIVE` | **Expire** | `ACTIVE` (status unchanged) — `effective_to` moved earlier; the card keeps pricing the dates it covered | `validateExpiry` (the new end is valid for the window) | `wh3_rate_cards:expire` (`Wh3plRateCardController.java:262-263`, `Wh3plRateCardService.java:255-258`) | — | WS-159 | FR-287 |
 | TPB-T1-10 | — | Meter an event | `METERED` | `TPB-GRD-04` | `Wh3plBillableEventMeter` (outbox subscriber `WH3_BILLING_METER`, `Wh3plBillableEventSubscriber`) | — | — | FR-285 |
 | TPB-T1-11 | `METERED` | Rate | `RATED` | `TPB-GRD-05` | `Wh3plBillingRunRatingEngine` | rate, amount, rate-card version stamped | — | FR-287 |
 | TPB-T1-12 | `METERED` · `RATED` | Reverse | `REVERSED` + a reversing row | not already reversed (`409 BILLABLE_EVENT_ALREADY_REVERSED`); not billed (`409 BILLABLE_EVENT_BILLED`) | `Wh3plBillableEventService.reverse` | reversing event `reversal_of_id` (`uk_wh3_billable_events_reversal_of`) | WS-160 | FR-285 |
@@ -86,6 +87,26 @@
 | TPB-T1-23 | — → `RAISED` → `INVESTIGATING` → `UPHELD` / `REJECTED`; `RAISED` → `WITHDRAWN` | Dispute ladder | as named | `TPB-GRD-09` | `Wh3plDisputeService` (portal raise via `/portal/disputes`) | `UPHELD` → `TPB-T4-04` | WS-164, WS-172 | FR-293 |
 | TPB-T1-24 | `PENDING` → `SENT` → `POSTED` / `REJECTED`; `REJECTED` → `PENDING` (retry) / `VOIDED`; `PENDING` → `POSTED` manual | Handover delivery | as named | trigger `AR_HANDOVER_STATUS_TRANSITION` | `Wh3plArHandoverDispatcher`, `Wh3plArHandoverService.retry` / `voidHandover` | — | WS-170 | FR-294 |
 | TPB-T1-25 | — | Confirm / waive SLA breach | `CONFIRMED` / `WAIVED` | waiver separation above `warehouse.3pl.sla.waiver_separation_threshold` | `Wh3plSlaBreachService.confirm` / `waive` | — | WS-168 | FR-297, FR-299 |
+
+### 1.3 T2 — Action × permission × state (R31 `F-CB-003`, as built)
+
+| ID | Action | Permission (`@PreAuthorize`) | Allowed from | Source |
+|---|---|---|---|---|
+| TPB-T2-01 | Create / edit a client; parties | `wh3_clients:create` / `:edit` | — / not `OFFBOARDED` | FR-282 |
+| TPB-T2-02 | Onboard; **go live** | `wh3_clients:onboard` (both — `Wh3plClientController.java:291-302`) | `PROSPECT`; `ONBOARDING` | FR-282, FR-283 |
+| TPB-T2-03 | Suspend | `wh3_clients:suspend` | `LIVE` | FR-282 |
+| TPB-T2-04 | Terminate; **offboard** | `wh3_clients:terminate` (both — `:321-332`) | `LIVE` · `SUSPENDED`; `TERMINATING` | FR-282 |
+| TPB-T2-05 | Onboarding task assign / complete / reopen | `wh3_client_onboarding_tasks:{assign,complete,reopen}` | `OPEN` / `COMPLETED` | FR-283 |
+| TPB-T2-06 | Rate card create / edit / clone version / activate / expire | `wh3_rate_cards:{create,edit,clone_version,activate,expire}` | — / `DRAFT` / any / `DRAFT` / `ACTIVE` | FR-287, FR-296 |
+| TPB-T2-07 | Billable event reverse; **exclude** | `wh3_billable_events:reverse` (both — exclude has no verb of its own) | `METERED` · `RATED` | FR-285 |
+| TPB-T2-08 | Storage period compute / approve / recompute | `wh3_storage_billing_periods:{compute,approve,recompute}` | — / `COMPUTED` / `COMPUTED` | FR-288, FR-290 |
+| TPB-T2-09 | Billing run create / rate / re-rate / approve / emit AR handover / cancel | `wh3_billing_runs:create` / `:rate` (both) / `:approve` / `:emit_ar_handover` / `:cancel` | as §1.2 | FR-292, FR-294 |
+| TPB-T2-10 | **Reverse a billing run** | `wh3_billing_runs:create` (`Wh3plBillingRunController.java:249-250`) — a role meant to create runs can reverse an approved one; `TPB-DIV-10`, decision owed by `P5-05` | `APPROVED` · `INVOICED` | FR-292 |
+| TPB-T2-11 | Accessorial raise / approve / reject | `wh3_accessorials:{raise,approve,reject}` | — / `RAISED` | FR-291 |
+| TPB-T2-12 | Dispute raise / withdraw; investigate / uphold / reject | `wh3_disputes:raise` (withdraw too) / `:investigate` / `:uphold` / `:reject` | as `TPB-T1-23` | FR-293 |
+| TPB-T2-13 | AR handover retry / void | `wh3_ar_handovers:{retry,void}` | `REJECTED` | FR-294 |
+| TPB-T2-14 | SLA breach confirm / waive | `wh3_sla_breaches:{confirm,waive}` | candidate / `CONFIRMED` | FR-297, FR-299 |
+| TPB-T2-15 | Portal read and dispute raise | `wh3_clients:portal_access` | — | FR-284 |
 
 ## 2. Guards
 
@@ -128,6 +149,7 @@
 | TPB-T3-03 | Onboarding task overdue | task due date | nothing; alert | `Wh3plOnboardingTaskOverdueJob` | FR-283 |
 | TPB-T3-04 | Anniversary storage: each pallet billed for a storage month from its own receipt date | `oldest_receipt_date` | storage line | `Wh3plStorageBillingCalculator` | FR-288 |
 | TPB-T3-05 | SLA measurement per window, storing numerator and denominator (percentage derived) | definition window + calendar | `wh3_sla_measurements` row; breach candidate | `Wh3plSlaMeasurementJob`, `Wh3plSlaCalendarVerdict` | FR-297 |
+| TPB-T3-07 | **Scheduled monthly SLA / performance export** to the client: cadence monthly, recipients the client's own portal users only (scoped to the client's owner, `TPB-GRD-10`), produced by a platform report schedule | month end | an exported file per client | platform report scheduling — **not built** (`TPB-DIV-11`) | FR-298 |
 | TPB-T3-06 | Client GST registration expiry | `effective_to − warehouse.3pl.gst_registration_expiry.alert_lead_days` | nothing; alert | `Wh3plClientGstRegistrationExpiryJob` | FR-301 |
 
 ## 4. T4 — Cross-entity effects
@@ -139,7 +161,8 @@
 | TPB-T4-03 | dock appointment detention / after-hours receipt | auto-captured accessorial written to `wh3_accessorials` with `source` `DOCK_DETENTION` / `AFTER_HOURS` | not wired — `§6` `TPB-DIV-09` | FR-291 |
 | TPB-T4-04 | dispute upheld | a reversing or credit billable event; billed line untouched | `Wh3plDisputeService.uphold` | FR-293 |
 | TPB-T4-05 | run approved | one AR envelope `wh3_ar_handovers` (party, date, currency, one line per run line with revenue purpose code, SAC/HSN, qty, UoM, rate, amount, tax code; stable idempotency key, unique per `(billing_run_id, envelope_kind)` while not `VOIDED`); without accounting the same envelope exports as CSV (`getEnvelopeCsv`) and is marked posted manually | `Wh3plArHandoverDispatcher`, `Wh3plArAccountingSink`, `Wh3plArEnvelopes` | FR-294 |
-| TPB-T4-06 | shipment with a freight rule | pass-through metered at the quoted amount; reconciled when the carrier cost lands | `Wh3plFreightBillingService` | FR-295 |
+| TPB-T4-06 | shipment with a freight rule | **`D-18` item 4:** the pass-through is metered **at despatch at a quoted amount from the 3PL's own tariff**; when the carrier invoice arrives the difference (markup included) is a **delta billable event in an open billing run** — a frozen run is never edited, no tolerance, no silent write-off (`Wh3plFreightBillingService` `meter` / `reconcile`, `:38-43`) | `Wh3plFreightBillingService` | FR-295 — **see `TPB-DIV-12`** |
+| TPB-T4-10 | client offboarded | every live owner grant on the client's owner is **ended** (a future-dated one deleted), then the owner is **retired** — access beyond the client record goes too | `Wh3plClientService.java:375-395` (`closeOwnerAccess`) | FR-282 |
 | TPB-T4-07 | confirmed breach with a penalty code (v3) | a negative billable event on the `SLA_CREDIT` code, subject to approval | not built — `§6` `TPB-DIV-05` | FR-299 |
 | TPB-T4-08 | client profitability (v3) | metered revenue joined to labour minutes × loaded rate and snapshot × space cost | not built — `§6` `TPB-DIV-06` | FR-302 |
 | TPB-T4-09 | VAS labour completed for a client owner | labour billable event priced by `Wh3plVasLabourPricingService` | `WH3_VAS_*` refusals | FR-285 |
@@ -173,6 +196,9 @@
 | TPB-DIV-06 | v3 client profitability | no `Profitab*` class or `wh3_rpt_*profit*` object in `warehouse-3pl/backend/src/main` | FR-302 |
 | TPB-DIV-07 | v3 rate escalation | no escalation job; only manual `cloneVersion` (comment names `P6-07`) | FR-296 |
 | TPB-DIV-09 | Auto-captured accessorials (detention from the dock appointment, after-hours from the receipt timestamp) | `chk_wh3_accessorials_source` admits `DOCK_DETENTION` / `AFTER_HOURS` and `Wh3plBillingRunVocabulary` names them, but no class writes either source; base event `dock.appointment.detention_started` (`V500040`) has no 3PL subscriber | FR-291 |
+| TPB-DIV-10 | A separate permission for reversing an approved billing run (`TPB-T2-10`) | reverse is gated by `wh3_billing_runs:create` (`Wh3plBillingRunController.java:249-250`), so run creators can reverse frozen runs; `P5-05` owns the decision (keep `:create` with a written reason, or a `:reverse` verb in the next free `V531…` with `permission_dependencies`) | FR-292 |
+| TPB-DIV-11 | A scheduled monthly export (`TPB-T3-07`) | not built: needs a platform `ReportType` and a recipient-aware data-provider SPI (`issues/p5-08.md:172`) | FR-298 |
+| TPB-DIV-12 | `D-18` item 4: the freight quote is taken from **the 3PL's own tariff** | the build meters the quote persisted by `P5-11` (`wh_rate_quotes`) under the client's mode; only `OWN_TARIFF` prices from the 3PL's rate card. `P5-06` confirms the quote source per mode (acceptance item added) | FR-295 |
 | TPB-DIV-08 | Module seeds into base registries guard ownership (`D-16` item 5, `V521000:117` pattern) | grep for an owning-module conflict guard in `warehouse-3pl` migrations finds none (india: 15 files; example adapter: 1) | FR-281 |
 
 ## 7. Out of scope
@@ -184,6 +210,7 @@ Invoice, numbering and tax (accounting, `D-16` item 6 — handover points only);
 | Date | Change |
 |---|---|
 | 2026-10-23 | v0 derived for R30 `CP-FR-007` row 16 (`D-17` item a) |
+| 2026-10-23 | R31: `F-CB-003` (§1.3 T2 table; `TPB-DIV-10`); `F-CB-004` (`TPB-T1-03` predicate and code, `TPB-T1-06` guards, `TPB-T4-10`); `F-CB-005` (one-way ladder, `TPB-T1-09a` expire); `F-CB-011` (`TPB-T3-07`, `TPB-DIV-11`); `D-18` item 4 (`TPB-T4-06`, `TPB-DIV-12`); `TPB-OPEN-01`…`-03` decided |
 
 ## 9. Invariants and scenarios
 
@@ -193,6 +220,6 @@ Invoice, numbering and tax (accounting, `D-16` item 6 — handover points only);
 
 | ID | Question | Default | Source |
 |---|---|---|---|
-| TPB-OPEN-01 | Square-feet bases (`TPB-DIV-01`): add to the vocabulary or restate the FR at five bases | restate is the user's call; code stays at five | FR-288 |
-| TPB-OPEN-02 | Portal write surfaces (`TPB-DIV-03`): `p5-08` is PARTIALLY VOID (`D-16`, the trade-customer persona only) — does its surviving scope still owe ASN / order create, upload, cancel and returns | yes; `p5-08` owes them | FR-284 |
-| TPB-OPEN-03 | Freight reconciliation: the FR gives no tolerance or timing for "reconciled when the carrier invoice lands" | difference posted as an adjusting billable event, no tolerance | FR-295 |
+| TPB-OPEN-01 | Square-feet bases (`TPB-DIV-01`): add to the vocabulary or restate the FR at five bases | **DECIDED R31 (2026-10-23), default replaced:** build the FR's seven bases — add `SQ_FT_ALLOCATED` (contracted area on the rate card) and `SQ_FT_OCCUPIED` (needs a location footprint column); the FR is not restated to five. `P5-04` acceptance item | FR-288 |
+| TPB-OPEN-02 | Portal write surfaces (`TPB-DIV-03`): `p5-08` is PARTIALLY VOID (`D-16`, the trade-customer persona only) — does its surviving scope still owe ASN / order create, upload, cancel and returns | **DECIDED R31 (2026-10-23): default stands** — `p5-08` still owes ASN and order create, CSV upload, cancel-while-unallocated and returns; `D-16` removed only the trade-customer persona | FR-284 |
+| TPB-OPEN-03 | Freight reconciliation: the FR gives no tolerance or timing for "reconciled when the carrier invoice lands" | **DECIDED R31 (2026-10-23): default stands**, with `D-18` item 4 — the carrier-invoice difference (markup included) is an adjusting billable event in an open run; frozen runs are never edited; no tolerance, no silent write-off (`TPB-T4-06`) | FR-295 |

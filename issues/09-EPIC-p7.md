@@ -77,7 +77,7 @@ Each task is one PR and reviewable alone. Each leaves a tree that installs fresh
 
 - **An allowlisted grep gate is a shim.** A hit means the owning task is unfinished (FRD §6).
 - **Count assertions in seed migrations** (`V511248:298`, `V511268:304,371`, `V500010:811`, `V510050:945`, `V500002:461,464,468-470`, `V500003:429,432`, `V500004:342`) and the **menu-leaf `:view` checks** (`V511271:214-223`, `V511273:194-202`) fail a fresh install if the deleting task does not edit them.
-- **Per-task gates are scoped to the task's own surfaces** (`$T`, docs excluded, codes renamed later excluded). The full gate set GATE-1…GATE-8 runs only in `P7-13` (`R29` F7).
+- **Per-task gates are scoped to the task's own surfaces** (`$T`, docs excluded, codes renamed later excluded). The full gate set GATE-1…GATE-8 runs only in `P7-13` (`R29` F7). The exit proof runs the unescaped commands of `rem-removal.contract.md` §1.7, including the exact-path Appendix A check `RMV-UNR-26` and an anti-vacuous pre-`P7` run (R31 F-SR-009, F-SR-010).
 - **`warehouse_channels` is two different menu rows**: the removed L1 and the kept L3 Channels master. Always filter on `menu_level`.
 - **`OBSOLESCENCE` is two different things**: the removed supplier-claim type, and the kept stock KPI.
 - **`payment_mode` is two different columns**: the demand-order one is dropped. The carrier-account one (`CREDIT`/`PREPAID`/`TO_PAY`) is kept.
@@ -86,7 +86,7 @@ Each task is one PR and reviewable alone. Each leaves a tree that installs fresh
 
 ## Open decisions
 
-`OD-22` (`supports_cod`, default drop), `OD-23` (return types, default keep 3 and drop 2) and `OD-24` (3PL freight metering source, no behaviour change). See FRD-REM §3.
+`OD-22` (`supports_cod`, default drop), `OD-23` (return types, default keep 3 and drop 2) and `OD-24` (3PL freight metering source, no behaviour change) — **all resolved 2026-10-23**: `OD-22`/`OD-23` defaults stand (`R31-decisions`), `OD-24` by user decision `D-18` item 4 (quoted from the 3PL's own tariff at despatch, trued up on the carrier invoice). See FRD-REM §3.
 
 ## Definition of done
 Per __MASTER__, plus the exit criterion above.

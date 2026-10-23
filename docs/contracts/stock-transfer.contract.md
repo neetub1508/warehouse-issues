@@ -36,12 +36,12 @@
 
 | Entity | Status | Represented by | Reachable via | Exits via | Kind | Source |
 |---|---|---|---|---|---|---|
-| Transfer | `DRAFT` · `REQUESTED` | `status` | `STR-T1-01`, `-02` | `-03`, `-04`, `-11` | initial | `FR-147` |
-| Transfer | `APPROVED` · `ALLOCATED` | `status` | `STR-T1-03`, `-05` | `-05`, `-06`, `-11` | active | `FR-147` |
+| Transfer | `DRAFT` · `REQUESTED` | `status` | `STR-T1-01`, `-02` | `REQUESTED`: `-03`, `-04`, `-11`; `DRAFT`: `-03` (where `requires_approval`), `-05` (where not), `-11` | initial | `FR-147` |
+| Transfer | `APPROVED` · `ALLOCATED` | `status` | `STR-T1-03` (`APPROVED` then `ALLOCATED` in the same request), `-05` | `-06`, `-11` | active — `APPROVED` is never left standing by a committed Approve; it is the step the demand order's allocation leaves (`V510031:52-54`) | `FR-147` |
 | Transfer | `IN_TRANSIT` | `status`; `transit_location_id`, `dispatched_at` | `STR-T1-06` | `-07`, `-08`, `-11` | active — stock exists, owned by the sender | `FR-147`, `FR-148` |
 | Transfer | `PARTIALLY_RECEIVED` | `status` | `STR-T1-07` | `-07`, `-08`, `-09`, `-10` | active | `FR-147` |
-| Transfer | `RECEIVED` | `status`; `received_at` | `STR-T1-08` | `-10` | active | `FR-147` |
-| Transfer | `CLOSED` · `REJECTED` · `CANCELLED` | `status` | `STR-T1-09`, `-10` / `-04` / `-11` | none | **terminal** | `FR-147` |
+| Transfer | `RECEIVED` | `status`; `received_at` | `STR-T1-08` | `-09`, `-10` | active | `FR-147` |
+| Transfer | `CLOSED` · `REJECTED` · `CANCELLED` | `status` | `STR-T1-09a`, `-10` / `-04` / `-11` | none | **terminal** | `FR-147` |
 
 ### 1.2 Transitions
 
@@ -49,13 +49,14 @@
 |---|---|---|---|---|---|---|---|
 | STR-T1-01 | — | Create at the source | `DRAFT` | `STR-GRD-01`, `-02` | `wh_transfer_orders:create` | number issued; `expected_arrival_date` held | `FR-147` |
 | STR-T1-02 | — | Request at the destination | `REQUESTED` | `STR-GRD-01`, `-02` | `wh_transfer_orders:request` | as `-01` | `FR-147` |
-| STR-T1-03 | `REQUESTED` | Approve (line quantities may be cut, never raised) | `APPROVED` | `STR-GRD-03`, `-04` | `wh_transfer_orders:approve` | approved quantities stored | `FR-147` |
+| STR-T1-03 | `REQUESTED` · `DRAFT` (a `DRAFT` only where `requires_approval` is set — `WhTransferOrderValidationService.java:266-273`) | Approve (line quantities may be cut, never raised) | `APPROVED` → `ALLOCATED` **in the same request** | `STR-GRD-03`, `-04` | `wh_transfer_orders:approve` | approved quantities stored; the approval raises and allocates the **one demand order** for the transfer (`ODS-T4-01`, `WhTransferOrderService` `raiseDemandOrder`) | `FR-147`, `FR-177` |
 | STR-T1-04 | `REQUESTED` | Reject | `REJECTED` | reason | `wh_transfer_orders:reject` | none | `FR-147` |
-| STR-T1-05 | `APPROVED` | Allocate | `ALLOCATED` | — | `wh_transfer_orders:allocate` | **one demand order** for the transfer (`ODS-T4-01`) | `FR-147`, `FR-177` |
+| STR-T1-05 | `DRAFT` where `requires_approval` is **false** | Allocate (a draft that needs no approval) | `ALLOCATED` | a `DRAFT` that requires approval is refused (`409 TRANSFER_INVALID_TRANSITION`, *"allocated by its approval"*); a transfer that already has a demand order is refused (`TRANSFER_INVALID_TRANSITION`) — `WhTransferOrderValidationService.java:197-206` | `wh_transfer_orders:allocate` | **one demand order** for the transfer (`ODS-T4-01`) | `FR-147`, `FR-177` |
 | STR-T1-06 | `ALLOCATED` | First despatch of the transfer's demand order | `IN_TRANSIT` | `STR-GRD-05` | system (despatch, `wh_shipments:dispatch`) | `STR-T4-01`, `-02` | `FR-147`, `FR-148`, `FR-189` |
 | STR-T1-07 | `IN_TRANSIT` · `PARTIALLY_RECEIVED` | Receive less than in transit | `PARTIALLY_RECEIVED` | `STR-GRD-06`, `-07` | `wh_transfer_orders:receive` | `STR-T4-03` | `FR-147`, `FR-148` |
 | STR-T1-08 | `IN_TRANSIT` · `PARTIALLY_RECEIVED` | Receive the remainder | `RECEIVED` | `STR-GRD-06`, `-07` | `wh_transfer_orders:receive` | `STR-T4-03`; `received_at` | `FR-147` |
-| STR-T1-09 | `IN_TRANSIT` · `PARTIALLY_RECEIVED` | Write off the transit residue (shipped ≠ received) | `CLOSED` | `STR-GRD-08` | `wh_transfer_orders:write_off_transit` | `STR-T4-04` | `FR-147`, `FR-148` |
+| STR-T1-09 | `IN_TRANSIT` · `PARTIALLY_RECEIVED` · `RECEIVED` | Write off the transit residue (shipped ≠ received) | status unchanged — the write-off is not a ladder step (`WhTransferOrderValidationService.java:214-224`); something must stand at the transit location | `STR-GRD-08` | `wh_transfer_orders:write_off_transit` | `STR-T4-04`; then `STR-T1-09a` when the residue reaches zero | `FR-147`, `FR-148` |
+| STR-T1-09a | `IN_TRANSIT` · `PARTIALLY_RECEIVED` · `RECEIVED` | Transit location reaches zero residue (after a write-off) | `CLOSED` | `STR-GRD-09` | system (no verb, no permission — `validateCanCloseAtZeroResidue`) | none | `FR-147` |
 | STR-T1-10 | `PARTIALLY_RECEIVED` · `RECEIVED` | Report variance and close | `CLOSED` | `STR-GRD-08`, `-09` | `wh_transfer_orders:report_variance` | `STR-T4-04` for a non-zero residue | `FR-147` |
 | STR-T1-11 | `DRAFT` · `REQUESTED` · `APPROVED` · `ALLOCATED` · `IN_TRANSIT` | Cancel | `CANCELLED` | `STR-GRD-10` | `wh_transfer_orders:cancel` | demand order de-allocated; from `IN_TRANSIT`, `STR-T4-05` | `FR-147` |
 
@@ -90,7 +91,7 @@
 | ID | Action | Permission | Allowed from | Extra | Source |
 |---|---|---|---|---|---|
 | STR-T2-01 | Create / request / edit | `wh_transfer_orders:{create,request,edit}` | — / `DRAFT` | `TRANSFER_NOT_EDITABLE` past `DRAFT` | `FR-147` |
-| STR-T2-02 | Approve / reject / allocate | `wh_transfer_orders:{approve,reject,allocate}` | `REQUESTED` / `APPROVED` | approver ≠ maker | `FR-147` |
+| STR-T2-02 | Approve / reject / allocate | `wh_transfer_orders:{approve,reject,allocate}` | approve: `REQUESTED`, or `DRAFT` where `requires_approval`; reject: `REQUESTED`; allocate: `DRAFT` where not `requires_approval` | approver ≠ maker | `FR-147` |
 | STR-T2-03 | Receive / write off / report variance / cancel | `wh_transfer_orders:{receive,write_off_transit,report_variance,cancel}` | as §1.2 | receiver scoped to the destination | `FR-148` |
 | STR-T2-04 | In-transit ageing report | `wh_rpt_in_transit_ageing:{view,export}` | — | — | `FR-149` |
 
@@ -123,6 +124,7 @@
 | Date | Change |
 |---|---|
 | 2026-10-23 | v0 derived for `D-17` item 1 (R30 `CP-FR-007` row 8, the transfer half) |
+| 2026-10-23 | R31 `F-CA-001`: `STR-T1-03`, `-05`, `-09` restated to the built ladder, `STR-T1-09a` added, §8 rows `STR-DIV-01`/`-02` replace "none found"; `F-CA-015`: WS-090 amended. `STR-OPEN-01` decided (R31 decisions) |
 
 ## 7. Invariants and scenarios
 
@@ -132,12 +134,13 @@
 
 | ID | File:line | FR | Difference |
 |---|---|---|---|
-| — | — | — | none found: the ladder, the per-transfer transit location, the three legs and the ageing job match the FRD |
+| STR-DIV-01 | `docs/BUILD-SPEC-SCREENS.md` WS-090 (amended R31) | `FR-147`, `FR-150` | WS-090 listed `transferType (BIN_TO_BIN/INTRA_SITE/INTER_SITE)` and said Receive is authorised *"regardless of site scope"*. The build has two types (`V511246__Narrow_wh_transfer_orders_type_check_to_two_values.sql`, `STR-UNR-05`) and requires destination scope (`TRANSFER_NOT_AT_DESTINATION`, `WhTransferOrderValidationService.java:600`, `STR-GRD-06`). WS-090 was amended to the contract (R31 `F-CA-015`) |
+| STR-DIV-02 | `V510031:52-54`; `WhTransferOrderValidationService.java:197-224` | `FR-147` | the v0 ladder had Approve from `REQUESTED` only, a separate Allocate from `APPROVED`, and write-off as a closing step. The build approves a `DRAFT` too (where `requires_approval`), allocates inside the approval, allocates a no-approval `DRAFT` directly, and closes automatically at zero residue. The contract was corrected to the build (R31 `F-CA-001`); the FRD rule is unchanged |
 
 ## 9. Open rows
 
 | ID | Question | Missing decision | Default until decided | Source |
 |---|---|---|---|---|
-| STR-OPEN-01 | The default N (days) of the in-transit ageing residue | `FR-149` says *"beyond N days"* without a value or a setting key | the report's over-days parameter, entered per run | `FR-149` |
+| STR-OPEN-01 | The default N (days) of the in-transit ageing residue | **DECIDED R31 (2026-10-23): default stands** — no setting key | the report's over-days parameter, entered per run | `FR-149` |
 
 <!-- v0 2026-10-23. Amend with /functional-contract: every change references a row id and adds a §7 row. -->

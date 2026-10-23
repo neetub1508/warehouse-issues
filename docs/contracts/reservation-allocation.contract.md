@@ -35,9 +35,9 @@
 
 | Entity | Status | Represented by | Reachable via | Exits via | Kind | Source |
 |---|---|---|---|---|---|---|
-| Reservation | `OPEN` (type `SOFT` or `HARD`) | `status`, `reservation_type`, `expires_at` (soft only) | `RSA-T1-01`, `-02` | `-03`…`-08` | active | `FR-166`, `FR-169` |
-| Reservation | `RELEASED` | `status`; `released_at`, release reason | `RSA-T1-04`, `-05`, `-06`, `-07` | none | **terminal** | `FR-166`, `FR-170`, `FR-171` |
-| Reservation | `CONSUMED` | `status` | `RSA-T1-08` | none | **terminal** | `FR-166` |
+| Reservation | `OPEN` (type `SOFT` or `HARD`) | **derived, not stored** (`V500033:44`, *"status is NOT stored"*): `released_at` null and `consumed_by_movement_line_id` null; `reservation_type`, `expires_at` (soft only) | `RSA-T1-01`, `-02` | `-03`…`-08` | active | `FR-166`, `FR-169` |
+| Reservation | `RELEASED` | derived: `released_at` set; release reason | `RSA-T1-05`, `-06`, `-07` | none | **terminal** | `FR-166`, `FR-170`, `FR-171` |
+| Reservation | `CONSUMED` | derived: `consumed_by_movement_line_id` set | `RSA-T1-08` | none | **terminal** | `FR-166` |
 | Allocation strategy / rule | active · superseded | `version_no`, `supersedes_id`, `is_active` | `RSA-T1-09` | — | master (copy-on-write) | `FR-172`, `FR-173` |
 
 ### 1.2 Transitions
@@ -118,6 +118,7 @@
 | Date | Change |
 |---|---|
 | 2026-10-23 | v0 derived for `D-17` item 1 (R30 `CP-FR-007` row 9) |
+| 2026-10-23 | R31 `F-CA-018`: §1.1 — `RSA-T1-04` (soft → hard, still `OPEN`) removed from `RELEASED`'s inbound list; the status is derived from `released_at` / `consumed_by_movement_line_id`, not stored |
 
 ## 7. Invariants and scenarios
 

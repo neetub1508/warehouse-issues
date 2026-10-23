@@ -158,6 +158,7 @@ Switching rules, skip-lot dynamics, variables sampling, SPC (FRD §12 row 4); au
 |---|---|
 | 2026-10-22 | v0 derived. Settles `RQP-T1-16`'s open note *"FIXED_QUANTITY / PERCENTAGE propose the whole lot until `wh_inspection_plans` gains a parameter column"* |
 | 2026-10-22 | R29 dispositions: scope pair; `Re = Ac + 1`; one `sampling_scheme_id` column name, plans re-pointed on copy-on-write, scheme deactivation; destructive issue under `QCINSP` with its cost object on the inspection line; core posts `PRODUCTION_RECEIPT` dispositions |
+| 2026-10-23 | `IIS-OPEN-01`/`-02` resolved, defaults stand (`R31-decisions`) |
 
 ## 8. Invariants and scenarios
 
@@ -167,5 +168,5 @@ Switching rules, skip-lot dynamics, variables sampling, SPC (FRD §12 row 4); au
 
 | ID | Question | Default |
 |---|---|---|
-| IIS-OPEN-01 | For `AQL_TABLE` with an `aql` value, seed the full Z1.4/IS 2500 single-sampling master table (Ac/Re by code letter × AQL) as data? | **Yes, as a seeded `is_system` scheme family** `Z14-GII-AQL-<aql>` for the eleven common AQLs (0.065…6.5), generated in `V511314`; `AQL_TABLE` without `aql` stays sample-size only |
-| IIS-OPEN-02 | OD-25 band reading | contiguous |
+| IIS-OPEN-01 | For `AQL_TABLE` with an `aql` value, seed the full Z1.4/IS 2500 single-sampling master table (Ac/Re by code letter × AQL) as data? | **Yes, as a seeded `is_system` scheme family** `Z14-GII-AQL-<aql>` for the eleven common AQLs (0.065…6.5), generated in `V511314`; `AQL_TABLE` without `aql` stays sample-size only **RESOLVED (DEFAULT), 2026-10-23** (`R31-decisions`). Seeded in `V511314`, cell by cell from a named edition of ANSI/ASQ Z1.4 / IS 2500-1 (Table II-A). |
+| IIS-OPEN-02 | OD-25 band reading | contiguous **RESOLVED (DEFAULT), 2026-10-23** (`R31-decisions`). Contiguous bands with an open top band (`OD-25`). |

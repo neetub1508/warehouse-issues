@@ -65,7 +65,7 @@
 |---|---|---|---|---|---|---|---|---|
 | CVL-T1-01 | — | Create landed cost document: charge kind, counterparty, amount, currency, **apportionment basis** (`VALUE`/`QUANTITY`/`WEIGHT`/`VOLUME`/`MANUAL`), receipt lines it loads | `DRAFT` | `CVL-GRD-08`, `-09` | `wh_landed_cost_documents:create` | number `LCD-…`; `grn_id` set only when exactly one GRN is loaded (`RG-019`) | no | FR-238, FR-239 |
 | CVL-T1-02 | `DRAFT` | **Apply** | `APPLIED` | `CVL-GRD-08`…`-10` under the grain lock | `:apply` | `CVL-T4-07`; allocation rows stored with `quantity_remaining_at_apply`, `amount_to_layer`, `amount_to_cogs` | no | FR-238 |
-| CVL-T1-03 | `APPLIED` | Reverse | `REVERSED` | — | `:apply` | a mirror value-only movement; the allocation rows are kept | **yes** | FR-238 |
+| CVL-T1-03 | `APPLIED` | Reverse | `REVERSED` | `CVL-GRD-09a` | `:apply` | a mirror value-only movement; the allocation rows are kept | **yes** | FR-238 |
 | CVL-T1-04 | `DRAFT` | Cancel | `CANCELLED` | — | `:edit` | nothing posted | **yes** | FR-238 |
 | CVL-T1-05 | — | Create revaluation: site, owner, reason, lines (open cost layer, new unit cost) | `DRAFT` | `CVL-GRD-11` | `wh_revaluations:create` / `:edit` (maker only, `403 REVALUATION_NOT_MAKER`) | — | no | FR-240 |
 | CVL-T1-06 | `DRAFT` | Approve | `APPROVED` | approver ≠ maker (`WhbMakerChecker`), else `403 REVALUATION_SELF_APPROVAL` | `:approve` | — | no | FR-240 — **see §10 row 2** |
@@ -90,8 +90,9 @@
 | CVL-GRD-05 | Standard cost with purchase-price and usage variances is a v1.1 method | — | — | FR-235 — **see §10 row 1** |
 | CVL-GRD-06 | The valuation grain is declared: `(company, owner, item, site)`; an inter-site transfer is valued at the **sending site's** cost | — | `chk_whb_valuation_policies_grain` (one legal value, `V500021:194`) | FR-236 |
 | CVL-GRD-07 | A foreign-currency cost carries a positive `exchange_rate` (base units per one source unit); a base-currency cost carries rate 1 only; `unit_cost`/`layer_value` are stored in the company's base currency; a movement waiting for approval takes base-currency cost only; a company with no base currency and no platform default stores no cost | `422 EXCHANGE_RATE_REQUIRED` · `lines[i].exchange_rate` / `422 BASE_CURRENCY_REQUIRED` · `company_id` | `exchange_rate DECIMAL(19,8)` | FR-245 (`OD-16`, `RF-004`) |
-| CVL-GRD-08 | Landed cost: the basis is one of the five and is read from the receipt side; lines are posted receipt lines, unique; basis quantities non-zero | `422 LANDED_COST_BASIS_INVALID` / `_BASIS_MISSING` / `_BASIS_ZERO` / `_LINE_INVALID` / `_LINE_DUPLICATE` / `_NOT_WHOLE` | `CHECK (apportionment_basis IN (…))` `V510080:104` | FR-238, FR-239 |
+| CVL-GRD-08 | Landed cost: the basis is one of the five and is read from the receipt side; lines are posted receipt lines, unique; basis quantities non-zero | `422 LANDED_COST_BASIS_INVALID` / `_BASIS_MISSING` / `_BASIS_ZERO` / `_LINE_INVALID` / `_LINE_DUPLICATE` / `_NOT_WHOLE`; the charge kind is an active code and the counterparty valid (`LANDED_COST_CHARGE_KIND_INVALID`, `LANDED_COST_COUNTERPARTY_INVALID`, `WhLandedCostValidationService.java:54`, `:69`); the receiving location resolves (`LANDED_COST_LOCATION_MISSING`, `WhLandedCostPostingService.java:380`) | `CHECK (apportionment_basis IN (…))` `V510080:104` | FR-238, FR-239 |
 | CVL-GRD-09 | Apply and edit only from `DRAFT`; the receipt movement is posted and its layer exists | `409 LANDED_COST_STATUS` / `422 LANDED_COST_MOVEMENT_NOT_POSTED` / `LANDED_COST_LAYER_MISSING` | — | FR-238 |
+| CVL-GRD-09a | **Reverse** only from `APPLIED`, and only while **no loaded layer has been issued since apply** — a layer consumed after apply is corrected with a revaluation instead; Apply refuses a consumed layer the same way | `409 LANDED_COST_STATUS` (`WhLandedCostValidationService.java:147`); `409 LANDED_COST_LAYER_CONSUMED` (`WhLandedCostPostingService.java:320-339`, *"Correct it with a revaluation instead"*) | — | FR-238 |
 | CVL-GRD-10 | A consumed share goes to cost of sales only when the consumption was a sale; a non-sale consumption (transfer, receipt reversal) is refused | `422 LANDED_COST_NON_SALE_CONSUMPTION` | `NON_SALE_MOVEMENT_TYPES` | FR-238 |
 | CVL-GRD-11 | Revaluation line: the layer exists, is open with stock, belongs to the document's site and owner, is on the document once, and the new unit cost changes its value | `422 REVALUATION_LAYER_INVALID` / `REVALUATION_LINE_DUPLICATE` / `REVALUATION_NO_CHANGE` · `lines[i]` | — | FR-240 |
 | CVL-GRD-12 | NRV: owner type is own; assessed NRV is below carrying value; basis active; note when the basis requires it; caller holds the cost view and the site | `422 NRV_OWNER_NOT_OWN` / `NRV_NOTHING_TO_WRITE_DOWN` / `NRV_BASIS_INVALID` / `NRV_NOTE_REQUIRED` · `403 NRV_COST_VIEW_REQUIRED` / `NRV_SITE_NOT_PERMITTED` | — | FR-241 |
@@ -100,7 +101,7 @@
 | CVL-GRD-15 | COGS point: `warehouse.cogs.recognition_point` (`DISPATCH`/`DELIVERY`/`INVOICE`), a site override in `wh_cogs_recognition_policies` beating it; missing or unknown = `DISPATCH` (logged) | — | `chk_wh_cogs_recognition_policies_point` | FR-243 |
 | CVL-GRD-16 | The tax basis is a **second basis** over the configured book method, never a third method; the two are never summed; non-own stock carries neither | — | — | FR-250 — **not built, §10 row 4** |
 | CVL-GRD-17 | Every movement carries `handover_id` and `posting_status` (`NOT_APPLICABLE` default, `PENDING`, `POSTED`, `REJECTED`); the **rejected-handover queue** (WS-052) shows each row's owner (the requester) and age, and raises `WHB_ACCOUNTING_HANDOVER_QUEUE_ALERT` once per breach of `warehouse.accounting.handover.rejected_queue_threshold` (default 10) to the WS-069 recipients | — | `V500030:242-244`, partial index `:306-307`; `V501071`; `WhbAccountingHandoverQueueAlertService` | FR-232 |
-| CVL-GRD-18 | **Cut-off** is answered by three columns and the owner: `invoice_matched` on the receipt (goods received not invoiced), `ownership_transfer_point` on the receipt and the transfer (goods in transit under the Incoterm), and `owner_id` (consignment) | — | `V510014:155-156`; `V510031:117` | FR-242 — **see §10 row 6** |
+| CVL-GRD-18 | **Cut-off** is answered by three columns and the owner: `invoice_matched` on the receipt (goods received not invoiced), `ownership_transfer_point` on the **purchase order**, the receipt and the transfer (goods in transit under the Incoterm), and `owner_id` (consignment) | — | `V510011` (`WhPurchaseOrder.java:178`); `V510014:155-156`; `V510031:117` | FR-242 |
 | CVL-GRD-19 | An inter-branch transfer carries **two numbers**: `transfer_price` under `transfer_price_basis` (the tax document) and `cost_value` (what follows the goods); `transfer_price − cost_value` inside one company is the unrealised profit to eliminate | `chk_wh_transfer_orders_transfer_price`, `_cost_value` (≥ 0); a price needs a basis | `V510031:111-145` | FR-244 |
 | CVL-GRD-20 | **Stock periods are separate from accounting periods and close earlier**; a stock period cannot be reopened under a closed accounting period | `409 PERIOD_ACCOUNTING_CLOSED` (`WhbStockPeriodValidationService.java:253`) | `WhbAccountingPeriodLockProvider` | FR-251 — **see §10 row 7** |
 
@@ -157,7 +158,7 @@
 
 | ID | Screen · grid · scope | Contract | Source |
 |---|---|---|---|
-| CVL-T5-01 | WS-049 Cost Layers (Customer ref.) · `whb_cost_layers` · `WAREHOUSE_COST_LAYER` | read-only; View drills into the consumptions (`whb_cost_layer_consumptions`) — which layer fed which issue; filter `hasRemaining` default **true**; `costBasis` filter lists `RETURN_UNMATCHED` and `ESTIMATED`; `layerDateFrom`/`To` `dateOnly` | FR-234 |
+| CVL-T5-01 | WS-049 Cost Layers (Customer ref.) · `whb_cost_layers` · `WAREHOUSE_COST_LAYER` | read-only; View drills into the consumptions (`whb_cost_layer_consumptions`) — which layer fed which issue; filter `hasRemaining` default **true**; `costBasis` filter lists `RETURN_UNMATCHED` and `ESTIMATED` — **not built** (§10 row 8); `layerDateFrom`/`To` `dateOnly` | FR-234 |
 | CVL-T5-02 | WS-050 Valuation Policies (Department ref.) · `whb_valuation_policies` · `WAREHOUSE_VALUATION_POLICY` | Add / Edit / End-date; method select offers `AVCO`, `FIFO` only and states why LIFO is absent; footer names the grain | FR-235, FR-236 |
 | CVL-T5-03 | WS-147 Landed Cost Documents · `wh_landed_cost_documents` · `WAREHOUSE_LANDED_COST_DOCUMENT` | the basis is chosen on the document from the receipt side; detail shows the stored allocation rows with the layer / COGS split | FR-238, FR-239 |
 | CVL-T5-04 | WS-148 Revaluations · `wh_revaluations` · `WAREHOUSE_REVALUATION` | lines pick an open layer (`/layers`); actions Approve · Reject · Post · Cancel by state | FR-240 |
@@ -175,6 +176,7 @@ columns and filters as a report (`reports-kpis` §5).
 | Date | Change |
 |---|---|
 | 2026-10-23 | v0 derived (R30 `CP-FR-007` row 12) |
+| 2026-10-23 | R31: `F-CB-007` (`CVL-GRD-09a` reverse guard; missing landed-cost codes on `CVL-GRD-08`); `F-CB-018` (§10 row 6 deleted as false, `CVL-GRD-18` corrected); `F-CB-012` (§10 row 8, `P2-16` acceptance item); `CVL-OPEN-01` decided, `-02`, `-03` deferred |
 
 ## 8. Invariants and scenarios
 
@@ -185,9 +187,9 @@ columns and filters as a report (`reports-kpis` §5).
 
 | ID | Question | Default |
 |---|---|---|
-| CVL-OPEN-01 | `FR-240`/`FR-241` place revaluation approval and the NRV judgement with accounting; accounting is deferred (`D-16` item 6) and the built screens approve inside warehouse. Does warehouse approval stand as the standalone (`D-7`) stand-in, or must an accounting approval gate the post when accounting is installed? | warehouse maker-checker approval, as built |
-| CVL-OPEN-02 | `FR-250` asks a jurisdiction-specific tax basis; `p4-11.md` first asks whether it is derivable from v1 columns. Unanswered | not built |
-| CVL-OPEN-03 | `FR-251` says the two period locks are synchronised; with accounting deferred (`D-16` item 6), who refuses an accounting close while the stock period is still open (§10 row 7)? | the stock side only, as built |
+| CVL-OPEN-01 | `FR-240`/`FR-241` place revaluation approval and the NRV judgement with accounting; accounting is deferred (`D-16` item 6) and the built screens approve inside warehouse. Does warehouse approval stand as the standalone (`D-7`) stand-in, or must an accounting approval gate the post when accounting is installed? | **DECIDED R31 (2026-10-23): default stands for standalone** — warehouse maker-checker approval (`D-7`); whether an accounting gate applies when accounting is installed goes to accounting `P4-01` |
+| CVL-OPEN-02 | `FR-250` asks a jurisdiction-specific tax basis; `p4-11.md` first asks whether it is derivable from v1 columns. Unanswered | **DEFERRED R31 (2026-10-23)**: carrier accounting-india / the accounting integration, with warehouse `P4-11`; the tax basis is a statutory valuation (India s.145A) — not built, not withdrawn |
+| CVL-OPEN-03 | `FR-251` says the two period locks are synchronised; with accounting deferred (`D-16` item 6), who refuses an accounting close while the stock period is still open (§10 row 7)? | **DEFERRED R31 (2026-10-23)**: carrier accounting `P4-01`; the stock-side lock stands as built |
 
 ## 10. Code divergences
 
@@ -200,5 +202,6 @@ The FRD rule is kept; the code is what differs.
 | 3 | `warehouse/…/controller/WhNrvAssessmentController.java:252` | FR-241 | the write-down is approved and posted in warehouse (`wh_nrv_assessments:approve`); accounting owns NRV per the FRD |
 | 4 | — (no `tax_basis` anywhere under `warehouse-base`, `warehouse`, `warehouse-india`) | FR-250 | the second, tax-basis value is not built |
 | 5 | `warehouse-base/…/db/migration/V500042__Create_whb_accounting_handovers_and_gl_posting_rules.sql:49-54` | FR-232 | `posting_status` has no CHECK and also stores `BLOCKED` and `DISCARDED`, two values beyond the FR's four |
-| 6 | `warehouse/…/db/migration/V510014__Create_wh_goods_receipts_lines_and_line_serials.sql:155`; `V510031:117` | FR-242 | `ownership_transfer_point` is on the receipt and the transfer; the purchase order carries none (grep of `wh_purchase_orders` finds no such column) |
+| 6 | *(deleted R31 `F-CB-018`: false divergence — `wh_purchase_orders.ownership_transfer_point` exists, `V510011`, `WhPurchaseOrder.java:178`)* | FR-242 | — |
 | 7 | `warehouse-base/…/service/whbstockperiod/WhbStockPeriodValidationService.java:253` | FR-251 | only the stock side of the lock sync is enforced (reopen refused under a closed accounting period); nothing stops an accounting close while the stock period is open, because accounting is deferred (`D-16` item 6) |
+| 8 | `warehouse-base/frontend/src/components/warehouseCatalogues/WhbCostLayerFilter.tsx`; `platform/frontend/src/utils/filterUtils.ts:1416-1421` (`WAREHOUSE_COST_LAYER`); `V501119` (`costBasis` seeded as a grid column only, `:254`) | FR-234 | the WS-049 `costBasis` filter (`CVL-T5-01`) is not built: no `filter_definitions` row, no allowlist key, no query binding, no filter control. `P2-16` owns it (acceptance item added) |

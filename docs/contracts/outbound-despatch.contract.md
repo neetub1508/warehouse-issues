@@ -43,7 +43,7 @@
 |---|---|---|---|---|---|---|
 | Demand order | `OPEN` → `ALLOCATED` → `RELEASED` → `PICKING` → `PACKED` → `SHIPPED` → `DELIVERED` | `wh_demand_orders.status` | `ODS-T1-01`…`-08` | as §1.2 | active; `DELIVERED` terminal | `FR-177`, `FR-447` |
 | Demand order | `CANCELLED` | `status`; reason | `ODS-T1-09` | none | **terminal** | `FR-171`, `FR-449` |
-| Wave | `OPEN` → `RELEASED` → `PICKING` → `PICKED` → `PACKED` → `SHIPPED`; `CANCELLED` | `wh_waves.status` | `ODS-T1-10`, `-11` | — | v1.1 | `FR-187` |
+| Wave | `OPEN` → `RELEASED` → `PICKING` → `PICKED` → `PACKED` → `SHIPPED`; `CANCELLED` | `wh_waves.status` | `ODS-T1-10`, `-11`; `PICKING`…`SHIPPED` and the all-members-cancelled `CANCELLED` by the roll-up `ODS-T1-11a`; hand cancel `ODS-T1-11b` | — | v1.1 | `FR-187` |
 | Pack session | `IN_PROGRESS` → `COMPLETED`; `CANCELLED` | `status` | `ODS-T1-13`…`-15` | — | v1.1 | `FR-190` |
 | Carton | `OPEN` → `SEALED`; `VOID` | `status` | `ODS-T1-14` | — | active | `FR-191` |
 | Shipment | `OPEN` → `LOADED` → `DISPATCHED` → `DELIVERED`; `CANCELLED` | `wh_shipments.status` | `ODS-T1-16`…`-19` | — | active | `FR-193`, `FR-447` |
@@ -65,17 +65,20 @@
 | ODS-T1-09 | any not terminal | Cancel (whole order or a line quantity) | `CANCELLED` | `ODS-GRD-17` | `wh_demand_orders:cancel` | `ODS-T4-06`, `RSA-T4-02` | `FR-171`, `FR-449` |
 | ODS-T1-10 | — | Create a wave over allocated orders | wave `OPEN` | `ODS-GRD-20` | `wh_waves:create` | — | `FR-187` |
 | ODS-T1-11 | wave `OPEN` | Release the wave | wave `RELEASED`; each order `ODS-T1-04` | `ODS-GRD-20` | `wh_waves:release` | the same Release action on N orders | `FR-187` |
+| ODS-T1-11a | wave `RELEASED` and after | A member order or pick task changes status | `PICKING` · `PICKED` · `PACKED` · `SHIPPED` rolled up from the member orders and pick tasks; `CANCELLED` once every member order is cancelled | — | system (DB roll-up `wh_waves_roll_up()`, `V510100:119-121`, trigger on `whb_tasks` `V511253`) | none | `FR-187` |
+| ODS-T1-11b | wave `OPEN`, or before `SHIPPED` with every member order cancelled | Cancel the wave | `CANCELLED`; member orders stay `ALLOCATED` | `409 WAVE_NOT_OPEN` otherwise (`WhWaveService.cancel`, `validateCancellable`) | `wh_waves:cancel` (`WhWaveController.java:169`) | none | `FR-187` |
 | ODS-T1-12 | `RELEASED` and after | Edit an order after release | unchanged, or as the matrix compensates | `ODS-GRD-04` | `wh_demand_orders:edit_after_release` | `ODS-T4-05` | `FR-183` |
 | ODS-T1-13 | — | Start a pack session | `IN_PROGRESS`; the first carton auto-created | `ODS-GRD-09` | `wh_pack_sessions:create` | one active carton | `FR-190` |
-| ODS-T1-14 | carton `OPEN` | Scan (quantity on scan; repeat scans merge into the pack line) / Seal | carton `SEALED`; the next carton auto-created only while units remain | `ODS-GRD-09`, `-10` | `wh_pack_sessions:create` / `wh_cartons:seal` | pack evidence `ODS-T4-10` | `FR-190`, `FR-191`, `FR-206` |
+| ODS-T1-14 | carton `OPEN` | Scan (quantity on scan; repeat scans merge into the pack line) / Seal | carton `SEALED`; the next carton auto-created only while units remain | `ODS-GRD-09`, `-10` | `wh_pack_sessions:create` (scan; and Seal inside a pack session, `PATCH /warehouse/outbound/pack-sessions/{id}/seal-carton`, `WhPackSessionController.java:258-259`) / `wh_cartons:seal` (Seal from the carton, `WhCartonController.java:217`) — `ODS-DIV-07` | pack evidence `ODS-T4-10` | `FR-190`, `FR-191`, `FR-206` |
 | ODS-T1-15 | `IN_PROGRESS` | Complete (× 1) / Cancel | `COMPLETED` / `CANCELLED` | `ODS-GRD-09` | `wh_pack_sessions:{complete,cancel}` | — | `FR-190` |
 | ODS-T1-16 | — | Create a shipment for picked orders; optionally one consignment | shipment `OPEN` | `ODS-GRD-11`, `-12` | `wh_shipments:create` · `wh_consignments:create` | `wh_shipment_orders` rows | `FR-179`, `FR-193`, `FR-196` |
-| ODS-T1-17 | shipment `OPEN` | Load | `LOADED` | `ODS-GRD-08` (sealed cartons only) | `wh_shipments:edit` | — | `FR-190`, `FR-191` |
+| ODS-T1-17 | shipment `OPEN` | Load | `LOADED` | `ODS-GRD-08` (sealed cartons only) | `wh_shipments:dispatch` (`WhShipmentController.java:262-263`) | — | `FR-190`, `FR-191` |
 | ODS-T1-18 | shipment `LOADED` | Dispatch | `DISPATCHED` | `ODS-GRD-08` | `wh_shipments:dispatch` | `ODS-T4-03` | `FR-188`, `FR-189` |
 | ODS-T1-19 | shipment `DISPATCHED` | **Confirm delivery** (date-time, optional proof document, optional receiver name) | `DELIVERED`; order `DELIVERED` | `ODS-GRD-16` | `wh_shipments:confirm_delivery` | `ODS-T4-07` | `FR-447` |
 | ODS-T1-20 | — / `OPEN` | Manifest create / close | `OPEN` / `CLOSED` | `ODS-GRD-13` | `wh_manifests:{create,close,cancel}` | the carrier's signed consignment / tracking-number list | `FR-194` |
 | ODS-T1-21 | `PREPARED` | Hand over (who, when, signature) | `HANDED_OVER` | `ODS-GRD-13` | `wh_handovers:hand_over` | our record that N shipments left | `FR-194` |
-| ODS-T1-22 | `REQUESTED` | Confirm / complete a pickup request (vehicle window) | `CONFIRMED` / `COMPLETED` | — | `wh_pickup_requests:confirm` | — | `FR-194` |
+| ODS-T1-22 | `REQUESTED` | Confirm a pickup request (vehicle window) | `CONFIRMED` | — | `wh_pickup_requests:confirm` | — | `FR-194` |
+| ODS-T1-22a | `CONFIRMED` | The handover naming the request is handed over (`ODS-T1-21`) | `COMPLETED` | — | system — there is no Complete verb (`WhPickupRequestService.java:30-35`) | `ODS-T4-12` | `FR-194` |
 | ODS-T1-23 | live label | Void | voided | `ODS-GRD-14` | `wh_shipping_labels:void` | label kept, `voided_at` | `FR-197` |
 | ODS-T1-24 | — | Record a drop-shipment confirmation (v2) | — (a movement) | `ODS-GRD-18` | `wh_demand_orders:drop_ship` / `:drop_ship_reverse` | `ODS-T4-09` | `FR-467` |
 
@@ -134,7 +137,7 @@
 | ODS-T2-01 | Order create / edit / allocate / release / hold / short pick / cancel | `wh_demand_orders:{create,edit,allocate,release,hold,short_pick,cancel}` | as §1.2 | — | `FR-177`, `FR-182` |
 | ODS-T2-02 | Edit after release | `wh_demand_orders:edit_after_release` plus the matrix row's permission | `RELEASED` and after, before ship | — | `FR-183` |
 | ODS-T2-03 | Waves; pick tasks; pack sessions; cartons | `wh_waves:*` · `wh_pick_tasks:{edit,complete}` · `wh_pack_sessions:*` · `wh_cartons:{create,seal,capture_evidence}` | as §1.2 | — | `FR-186`, `FR-187`, `FR-190`, `FR-206` |
-| ODS-T2-04 | Shipments; confirm delivery | `wh_shipments:{create,edit,dispatch,cancel,confirm_delivery}` | as §1.2 | — | `FR-193`, `FR-447` |
+| ODS-T2-04 | Shipments; load; confirm delivery | `wh_shipments:{create,edit,dispatch,cancel,confirm_delivery}` — Load is `:dispatch` | as §1.2 | — | `FR-193`, `FR-447` |
 | ODS-T2-05 | Manifests / handovers / pickup requests / consignments / labels | `wh_manifests:*` · `wh_handovers:*` · `wh_pickup_requests:*` · `wh_consignments:*` · `wh_shipping_labels:void` | — | — | `FR-194`, `FR-197` |
 | ODS-T2-06 | Carrier masters; status mappings; re-derive | `wh_carriers:*`, `wh_carrier_accounts:*` · `wh_carrier_status_mappings:{create,edit,rederive}` | — | admin | `FR-196`, `FR-198` |
 | ODS-T2-07 | Edit rules; fulfilment policies; working calendars | `wh_order_edit_rules:edit` · `wh_fulfilment_policies:*` · `wh_working_calendars:*` | — | admin | `FR-181`, `FR-183`, `FR-184` |
@@ -160,6 +163,8 @@
 | ODS-T4-08 | A status mapping is corrected | tracking history is re-derived from the stored raw events | `WhCarrierStatusRederiveService` | `FR-198` |
 | ODS-T4-09 | Drop-shipment confirmed | one movement `−q` at `SUPPLIER`, `+q` at `CUSTOMER`, purchase and sales lines in the source quad; on-hand at every physical site unchanged; reversal follows the original links | `WhDropShipService` | `FR-467` |
 | ODS-T4-10 | Carton sealed with evidence | pack photo (platform document) and scale weight (with instrument) captured at pack time as `wh_carton_evidence` rows | `WhCartonService` | `FR-206` |
+| ODS-T4-12 | Handover handed over with a pickup request | the pickup request moves `CONFIRMED` → `COMPLETED` in the same transaction (`WhHandoverService.java:293-294` → `completeFromHandover`) | `WhHandoverService` | `FR-194` |
+| ODS-T4-13 | Shipment dispatch | the LPN plate of every `SEALED` carton of the shipment goes `CLOSED` → `SHIPPED` inside the dispatch transaction (`WhCartonService.java:546-565`; `lot-serial-status` §1.1) | `WhCartonService` | `FR-188`, `FR-191` |
 | ODS-T4-11 | Order → shipments → cartons | three tables (`wh_demand_orders`, `wh_shipments` with `wh_shipment_orders`, `wh_cartons`) even where one carton ships | schema | `FR-179` |
 
 ## 5. T5 — Screen contract (web only, `D-17` item 2)
@@ -187,6 +192,7 @@ statuses are fixed by the owning task.
 | Date | Change |
 |---|---|
 | 2026-10-23 | v0 derived for `D-17` item 1 (R30 `CP-FR-007` row 10) |
+| 2026-10-23 | R31: `F-CA-004` (`ODS-T1-11a` roll-up, `-11b` cancel); `F-CA-005` (Load is `:dispatch`; Seal's two paths, `ODS-DIV-07`); `F-CA-013` (`ODS-T1-22` split, `-22a`, `ODS-T4-12`); `F-CA-003` parity (`ODS-T4-13`); `ODS-OPEN-01`, `-02` decided |
 
 ## 8. Invariants and scenarios
 
@@ -203,13 +209,14 @@ statuses are fixed by the owning task.
 | ODS-DIV-03 | `warehouse/…/service/WhDemandOrderService.java:144` | `FR-181` | the calendar computes the promise; no SLA-breach measure reads `WhWorkingCalendarService` (its only other consumer is a class `D-16` item 2 removes) |
 | ODS-DIV-04 | `warehouse/…/db/migration/V510043__Create_wh_shipments_and_shipment_orders.sql:147` (and `:64`, the account FK added by `V510044`) | `FR-199` | the FRD forbids an FK from the referencing table to a relocatable carrier object; `wh_shipments` carries FKs on `carrier_counterparty_id` and `carrier_account_id` |
 | ODS-DIV-05 | `warehouse-base/…/db/migration/V500010__Create_whb_code_lists_task_types_dispositions_attribute_keys.sql:165-168` | `FR-207` | three `CHANNEL_KIND` rows besides `B2B` are still seeded (their removal is `P7`) |
+| ODS-DIV-07 | `warehouse/…/controller/WhPackSessionController.java:258-259` | `FR-190`, `FR-191` | Seal inside a pack session needs only `wh_pack_sessions:create`, weaker than the carton's own `wh_cartons:seal` (`WhCartonController.java:217`), so a packer without `:seal` can seal. The permission decision is `P3-07`'s (acceptance item added) |
 | ODS-DIV-06 | `warehouse/…/entity/WhDemandOrder.java:289`; `warehouse/…/service/whshipment/WhShipmentValidationService.java:59` | `FR-177`, `FR-193` | payment-collection columns and a pooled-tracking-number guard that `D-16` item 2 removes are still present (their removal is `P7`) |
 
 ## 10. Open rows
 
 | ID | Question | Missing decision | Default until decided | Source |
 |---|---|---|---|---|
-| ODS-OPEN-01 | Who owns the **trip** that ends the shipment → consignment → manifest → trip chain, and the "truck" a carton rides in a split dispatch | the FRD names the trip but no warehouse object or owner (the logistics seam is `FR-330`…`FR-348`) | no trip object in warehouse; the chain ends at the manifest | `FR-193`, `FR-191` |
-| ODS-OPEN-02 | The carrier weight-dispute object, its due date and the carrier-invoice reconciliation (v2) | not specified beyond naming | evidence captured only (`ODS-T4-10`) | `FR-206` |
+| ODS-OPEN-01 | Who owns the **trip** that ends the shipment → consignment → manifest → trip chain, and the "truck" a carton rides in a split dispatch | **DECIDED R31 (2026-10-23): default stands** — logistics owns the trip | no trip object in warehouse; the chain ends at the manifest | `FR-193`, `FR-191` |
+| ODS-OPEN-02 | The carrier weight-dispute object, its due date and the carrier-invoice reconciliation (v2) | **DECIDED R31 (2026-10-23): default stands for v1** — evidence only; the v2 dispute half stays in the FR, not scheduled | evidence captured only (`ODS-T4-10`) | `FR-206` |
 
 <!-- v0 2026-10-23. Amend with /functional-contract: every change references a row id and adds a §7 row. -->

@@ -525,6 +525,8 @@ dealer or retail target.
    `WH-SC-600`…`659`, `OD-40`…`44`. STORES also holds `OD-45`, outside every range and registered in §3.6.
    *Extended 2026-10-23 by `D-17`:* MFG also holds `FR-670`…`679` and `WH-SC-680`…`699`; TRADE also holds
    `FR-680`…`689`, and its lost-sale scenarios are `WH-SC-597`…`599`, the last of its own range.
+   *Extended 2026-10-23 by `D-18` item 3 (R31):* TRADE also holds **`WH-SC-700`…`719`**, for the subcontract
+   service PO (FR-682…FR-689; `700`…`707` used in `FRD-TRADE.md` §7.x).
    Requirements for P7–P10 live in `docs/frd/FRD-<AREA>.md`.
 9. **What it withdraws.** FRs `FR-074`, `FR-279`, `FR-358`, `FR-359`, `FR-360`, `FR-365`, `FR-419`,
    `FR-420` and `FR-422` are **WITHDRAWN** (kept, marked, never deleted). *Amended 2026-10-23 by `D-17`
@@ -595,6 +597,47 @@ it where they say so.
    task named. `P6-02`, `P6-11` and `P6-12` are VOID.
 7. **Numbering.** FR ids 472–479 were never allocated and are never used (R30 `CP-FR-006`); the main FRD
    ends at `FR-471` and REM starts at `FR-480`.
+
+### D-18 · R31 decisions — MOOWR loss and job work, segments, subcontract PO, 3PL freight, putaway capacity, two FRs restored
+
+**User decisions, 2026-10-23**, on the six USER rows of `reviews/R31-decisions.md` (the R31 dual-engine
+functional review of the contracts, `reviews/R31-functional-review-{core-a,core-b,stores-rem,trade,mfg}.md`).
+The 95 DECIDE rows and 9 DEFER-ACCOUNTING rows of the same file are applied in the owning contracts' open
+rows (each marked **DECIDED R31** or **DEFERRED R31** with its carrier); they are reviewer decisions, not
+re-litigated here. They read with `D-16` and `D-17` and amend them where they say so.
+
+1. **MOOWR process loss and job work** (`BND-OPEN-01`, `BND-OPEN-02`). Normal process loss on bonded stock
+   is a **bonded loss** with its duty consequence — never register-only waste — until a customs adviser rules
+   otherwise. **MOOWR job work stays OFF** (refused) until both a bond-officer permission and the source of
+   the return period are confirmed; GitHub reports 539 and 543 stay with the product owner (`D-17` item 3).
+2. **Segments** (`NFR-OPEN-01`, `NFR-OPEN-02`). The built style / variant schema is **kept**; **nothing more
+   is built** on it, and ratio packs are **fenced** (no screen, no allocation by ratio). `FR-443`…`FR-445`
+   stay active, scoped to the built schema and fenced. The **pharma segment is declined in writing**:
+   `FR-456` and `FR-457` (regulated-goods licences, Schedule H1 register) are **WITHDRAWN by `D-18`**; the
+   pack already built in `warehouse-india` (`V540183`) is kept and **fenced behind `warehouse.regulated_profile`**,
+   which ships `NONE` (`V511200`; the despatch guard stands aside), with its menus hidden while it is `NONE`
+   (`P4-13`); re-entry is a funded requirement and a new FR.
+3. **Subcontract service PO** (`F-MF-005`, `SUB-OPEN-06`). `warehouse-trade` **lifts refusal R9** for a
+   service-line purchase order **linked to a manufacturing subcontract order**: the line carries the
+   processing charge, and its bill lands the cost on the processed item (a value-only `LANDED_COST_APPLY`
+   owned by trade). **R8 general service POs stay refused.**
+4. **3PL freight** (`RMV-OPEN-03`, `FR-295`). Freight re-billed to a 3PL client is **quoted from the 3PL's own
+   tariff at despatch** and **trued up when the carrier invoice arrives** — the difference (markup included)
+   becomes an adjusting billable event in an open billing run; a frozen run is never edited
+   (`TPB-OPEN-03`). `P7-02`'s comment-only change stands as interim cleanup.
+5. **Capacity breach at putaway** (`FBL-OPEN-02`, `FR-086`). Where a location capacity column is set, a
+   putaway that would exceed it is **blocked**; a null column is unconstrained. Setting
+   `warehouse.putaway.capacity_enforcement` (`BLOCK` default, or `WARN`) may **downgrade to warn per site**,
+   and a warned putaway needs an acknowledgement reason. Temperature and owner rules stay hard either way.
+   This is the reviewer's default, stated to the user.
+6. **Withdrawals reversed** (R31 decisions, FR rows). `FR-258` is **RESTORED** — rewritten without the
+   dealer-parts wording as a computed reorder-point and safety-stock **proposal** from consumption history
+   for items planned by `REORDER_POINT`, with a reasoned override; v3, carrier **`P10-11`** as a later-version
+   increment (an install without MFG would need it in core replenishment). `FR-471` (location-utilisation
+   analysis) is **RESTORED**; v3, carrier **`P8-13`** as a later-version increment (precedent `FR-463` in
+   `P1-03`). Both were withdrawn only because their owner `P6-02` went VOID (`D-17` item 5 is amended to
+   that extent); `P6-02` stays VOID. **`FR-397` stays withdrawn** — accessories coexistence is removed, so
+   there is no second inventory to report on.
 
 ---
 
@@ -771,13 +814,13 @@ That cannot happen here.
 | Kind | Namespace | Authority |
 |---|---|---|
 | Tasks | **`P0-01` … `P10-nn`** (P7–P10 added by D-16) | `issues/pN-nn.md` — the file glob is the count |
-| Requirements | **`FR-001` …** | `WAREHOUSE-FUNCTIONAL-REQUIREMENTS.md` · and, since `D-16`, the area files `docs/frd/` `FRD-REM.md`, `FRD-STORES.md`, `FRD-TRADE.md`, `FRD-MFG.md` (ranges in `D-16` item 8, extended by `D-17` items 3–4: MFG `FR-670`…`679` and `WH-SC-680`…`699`, TRADE `FR-680`…`689` and `WH-SC-597`…`599`) |
+| Requirements | **`FR-001` …** | `WAREHOUSE-FUNCTIONAL-REQUIREMENTS.md` · and, since `D-16`, the area files `docs/frd/` `FRD-REM.md`, `FRD-STORES.md`, `FRD-TRADE.md`, `FRD-MFG.md` (ranges in `D-16` item 8, extended by `D-17` items 3–4: MFG `FR-670`…`679` and `WH-SC-680`…`699`, TRADE `FR-680`…`689` and `WH-SC-597`…`599`; and by `D-18` item 3: TRADE `WH-SC-700`…`719`) |
 | Decisions | **`D-1` …** | this file |
 | Open decisions | **`OD-1` …** | this file · and, since `D-16`, the area files `docs/frd/` `FRD-REM.md`, `FRD-STORES.md`, `FRD-TRADE.md`, `FRD-MFG.md` (ranges in `D-16` item 8) |
 | Invariants | **`L-1` … `L-14`** — plus **`L-15`, allocated 2026-09-03** by `OD-14` and **owed into §4**, which still stops at `L-14`. The row is written verbatim in [`OPEN-DECISIONS-RESOLVED.md`](OPEN-DECISIONS-RESOLVED.md) §2 so the later wave transcribes rather than re-derives it | this file |
 | Enforceable constraints | **`I-1` … `I-20`** — plus **`I-21`, allocated 2026-09-03** by `OD-14` as `L-15`'s database guard and **owed into `DATA-MODEL.md` §6.3**, which still stops at `I-20`. Allocating it here rather than there is deliberate: §6 is the allocation, and an id claimed in two places is the collision this table exists to prevent. **`I-22`, `I-23`, `I-24`** were **allocated 2026-09-10** by `GAP-REGISTER-R4.md` §4.0 and are owed into §6.3 after `I-21`: `I-22`, a movement at an instant with no `REGISTERED` link is refused (`V500030`); `I-23`, the `REGISTERED` history is exclusive and append-only (`V500037`); `I-24`, a rule row that a reservation or task references is immutable (`V500031`, `V500033`, `V510017`) | `DATA-MODEL.md` §invariants-as-SQL |
 | Irreversible rows | **`IRR-01` … `IRR-63`** — plus **`IRR-64` … `IRR-67`, allocated 2026-09-10** by `GAP-REGISTER-R4.md` §4.0 and owed into `IRREVERSIBLE.md` §2: registration history, v1 junction history, the outbox event schema, and non-ledger partitioning at `CREATE`. The next free is `IRR-68` | `IRREVERSIBLE.md` §2 |
-| Scenarios | **`WH-SC-001` …** | `SCENARIO-CATALOGUE.md` · and, since `D-16`, the area files `docs/frd/` `FRD-REM.md`, `FRD-STORES.md`, `FRD-TRADE.md`, `FRD-MFG.md` (ranges in `D-16` item 8, extended by `D-17` items 3–4: MFG `FR-670`…`679` and `WH-SC-680`…`699`, TRADE `FR-680`…`689` and `WH-SC-597`…`599`) |
+| Scenarios | **`WH-SC-001` …** | `SCENARIO-CATALOGUE.md` · and, since `D-16`, the area files `docs/frd/` `FRD-REM.md`, `FRD-STORES.md`, `FRD-TRADE.md`, `FRD-MFG.md` (ranges in `D-16` item 8, extended by `D-17` items 3–4: MFG `FR-670`…`679` and `WH-SC-680`…`699`, TRADE `FR-680`…`689` and `WH-SC-597`…`599`; and by `D-18` item 3: TRADE `WH-SC-700`…`719`) |
 | Screens | **`WS-001` … `WS-237`** — **`WS-238`** *Warehouse Grants* was **allocated 2026-09-11** to round 3's `RA-001` (`P1-18`). The same day's second fold (lane `W0-1b`) allocated **`WS-239`** *Item Prices* (`RA-002`, `P2-25`), **`WS-243`** *Location Utilisation* (`RC-009`, `P6-02`) and **`WS-244`** *Metric Targets* (`RC-007`, `P2-21`), and **reserved `WS-242`** for `P5-13`'s marketplace-claim queue. **`WS-240`** *Trade Portal* and **`WS-241`** *Approval Levels* were **allocated 2026-09-10** by `GAP-REGISTER-R4.md` §4.0. **`WS-245`** *Master Merge Log* was **allocated 2026-09-16** by `P1-21` | `BUILD-SPEC-SCREENS.md` §1 — the index is the allocation; the next free is `WS-246` · and, since `D-16`, the area files `docs/frd/` `FRD-REM.md`, `FRD-STORES.md`, `FRD-TRADE.md`, `FRD-MFG.md` (ranges in `D-16` item 8) |
 | Findings — R1 codebase reality | **`C-001` … `C-050`** | `reviews/R1` |
 | Findings — R2 tier-1 WMS | **`T-001` … `T-097`** | `reviews/R2` |
@@ -809,6 +852,7 @@ That cannot happen here.
 | Findings — R28 manufacturing + storage re-target impact | **`RN-001` … `RN-054`** | `reviews/R28` (§8b `RN-050`…`RN-054` are `D-16`) |
 | Findings — R29 dual-engine functional review of the `D-16` areas, 2026-10-22 | **file-local** `F1` … per file (plus `TS-`/`MA-` row ids in the trade files), 145 in all: REM 17 · STORES 36 · TRADE purchase 30 · TRADE sales 29 · MFG 33 — not a design-set register, so cite them with their file | `reviews/R29-functional-review-{rem,stores,trade-purchase,trade-sales,mfg}.md`; dispositions in each area FRD §"R29 dispositions" |
 | Findings — R30 completeness audit (GitHub #1–#604, requirements, screens, classic code), 2026-10-23 | **`CP-GA-001` … `CP-GA-015`** · **`CP-GB-001` … `CP-GB-015`** · **`CP-FR-001` … `CP-FR-016`** · **`CP-SC-001` … `CP-SC-008`** · **`CP-CODE-001` … `CP-CODE-013`** — file-local per part, cite them with their file | `reviews/R30-completeness-{github-a,github-b,requirements,screens,code}.md`; decisions in `D-17`; dispositions in each carrier task and in `FRD-REM` / `FRD-STORES` §"R30 dispositions" |
+| Findings — R31 dual-engine functional review of the contracts, 2026-10-23 | **file-local** **`F-CA-001` … `F-CA-021`** · **`F-CB-001` … `F-CB-023`** · **`F-SR-001` … `F-SR-018`** · **`F-TR-001` … `F-TR-023`** · **`F-MF-001` … `F-MF-023`** — cite them with their file; the 113 open-row verdicts are keyed by the contract open-row ids | `reviews/R31-functional-review-{core-a,core-b,stores-rem,trade,mfg}.md`, `reviews/R31-decisions.md`; decisions in `D-18` |
 | Traps — R1 §8 | **`T-1` … `T-18`**, unpadded | `reviews/R1` §8 |
 
 `P-` (prior art) and `Pn-nn` (tasks) are distinguishable because a task id always carries a phase digit

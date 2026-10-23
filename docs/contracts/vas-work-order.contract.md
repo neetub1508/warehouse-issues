@@ -59,8 +59,8 @@
 |---|---|---|---|---|---|---|---|---|
 | VWO-T1-01 | — | Create: site, owner, type (`ASSEMBLY`/`DISASSEMBLY`/`REPACK`/`VAS`), VAS service type, kit (version), output item / location / UoM, planned quantity, planned start / end, assignee, client instruction document **and its version**, billing charge code, lines (role `INPUT` / `OUTPUT` / `PACKAGING`) | `DRAFT` | `VWO-GRD-01`…`-04` | `wh_work_orders:create` / `:edit` | number `WO…`; Explode copies one kit version's BOM into the lines | no | FR-262 |
 | VWO-T1-02 | `DRAFT` | Release | `RELEASED` | `DRAFT` only, else `409 WORK_ORDER_NOT_DRAFT` | `:release` | `release_note` | no | FR-262 |
-| VWO-T1-03 | `RELEASED` | Issue components (actual quantities taken from the shelf) | `IN_PROGRESS` | `RELEASED` only, else `409 WORK_ORDER_NOT_RELEASED`; at least one input issued | `:issue_components` | **posts nothing**; takes no reservation; `actual_start_at` | no | FR-261 |
-| VWO-T1-04 | `IN_PROGRESS` | **Complete**: produced, scrapped (+ reason), output serials, variance reason | `COMPLETED` | `VWO-GRD-05`…`-08`; `IN_PROGRESS` only, else `409 WORK_ORDER_NOT_IN_PROGRESS` | `:complete` | `VWO-T4-01`…`-04` in one transaction; `posted_movement_id`, `transformation_id`, `actual_end_at` | no | FR-261, FR-263 |
+| VWO-T1-03 | `RELEASED` | Issue components (actual quantities taken from the shelf) | `IN_PROGRESS` | `RELEASED` only, else `409 WORK_ORDER_NOT_RELEASED` | `:issue_components` | **posts nothing**; takes no reservation as built (decided: hard-reserve, `VWO-OPEN-01`, §10 row 3); `actual_start_at` | no | FR-261 |
+| VWO-T1-04 | `IN_PROGRESS` | **Complete**: produced, scrapped (+ reason), output serials, variance reason | `COMPLETED` | `VWO-GRD-05`…`-08`; `IN_PROGRESS` only, else `409 WORK_ORDER_NOT_IN_PROGRESS`; at least one `INPUT` line issued, else `422 WORK_ORDER_NO_INPUT_ISSUED` · `lines` (`WhWorkOrderValidationService.java:547`) | `:complete` | `VWO-T4-01`…`-04` in one transaction; `posted_movement_id`, `transformation_id`, `actual_end_at` | no | FR-261, FR-263 |
 | VWO-T1-05 | `DRAFT` · `RELEASED` · `IN_PROGRESS` | Cancel | `CANCELLED` | not terminal, else `409 WORK_ORDER_NOT_CANCELLABLE` | `:cancel` | nothing posted | **yes** (`cancel_reason_code_id`) | FR-262 |
 | VWO-T1-06 | — | Add a kit definition version: kit item, kit type (`KIT_TYPE` code list: stocked or `PHANTOM`), components with UoM, effective range | version | `VWO-GRD-09` | `whb_kit_definitions:create` / `:edit` | — | no | FR-261 |
 
@@ -109,7 +109,7 @@
 
 | ID | When | Then | Enforced in | Source |
 |---|---|---|---|---|
-| VWO-T4-01 | Complete | **one** movement of type `ASSEMBLY`/`DISASSEMBLY`/`REPACK`/`VAS`: each consumption line (`INPUT`/`PACKAGING`) of actual *A*, scrap *S*: −*A* at its bin, +(*A*−*S*) at `VIRT-PRODUCTION-<site>`, +*S* at `VIRT-SCRAP-<site>`; each `OUTPUT` line: +(*A*−*S*) at its bin, −(*A*−*S*) at `VIRT-PRODUCTION`, scrap to `VIRT-SCRAP`; every grain nets to zero | `WhWorkOrderPostingService` → `WhbStockLedgerWriter` | FR-261 |
+| VWO-T4-01 | Complete | **one** movement of type `ASSEMBLY`/`DISASSEMBLY`/`REPACK`/`VAS`: each consumption line (`INPUT`/`PACKAGING`) of actual *A*, scrap *S*: −*A* at its bin, +(*A*−*S*) at `VIRT-PRODUCTION-<site>`, +*S* at `VIRT-SCRAP-<site>`; each `OUTPUT` line: +(*A*−*S*) at its bin, −(*A*−*S*) at `VIRT-PRODUCTION`, scrap to `VIRT-SCRAP` — **except a `VAS` order, whose `OUTPUT` lines receipt nothing** (goods serviced in place; only their scrap posts, `VWO-UNR-05`, `WhWorkOrderPostingService.java:411-412`); every grain nets to zero | `WhWorkOrderPostingService` → `WhbStockLedgerWriter` | FR-261 |
 | VWO-T4-02 | Complete | consumption lines carry the engine's relief unit cost; output lines carry the extended cost of what went in; the difference is `variance_value` with its reason; non-own stock is `ZERO_BAILMENT` | same | FR-263 |
 | VWO-T4-03 | Complete with packaging lines | the packaging is relieved on the same movement as the pack | same | FR-265 |
 | VWO-T4-04 | Complete | a `whb_transformations` row with inputs (lots / serials consumed) and outputs (lots / serials produced); the genealogy explorer walks it forward and backward, and a recall reaches every kit lot built from a recalled lot | `WhbTransformationRecorder`, `WhbGenealogyQueryService` | FR-266 |
@@ -136,6 +136,7 @@ Production orders, BOMs, backflush and WIP (`warehouse-manufacturing`); the 3PL 
 | Date | Change |
 |---|---|
 | 2026-10-23 | v0 derived (R30 `CP-FR-007` row 14) |
+| 2026-10-23 | R31 `F-CB-023`: `WORK_ORDER_NO_INPUT_ISSUED` moved to its real transition (`VWO-T1-04`); VAS output exception in `VWO-T4-01`; `VWO-OPEN-01` decided, §10 row 3 |
 
 ## 8. Invariants and scenarios
 
@@ -145,7 +146,7 @@ Production orders, BOMs, backflush and WIP (`warehouse-manufacturing`); the 3PL 
 
 | ID | Question | Default |
 |---|---|---|
-| VWO-OPEN-01 | Issue components takes no reservation (`WhWorkOrderService` issueComponents), so two orders can be issued against one on-hand and a cancel after issue leaves floor and ledger apart until an adjustment. Accept, or reserve at issue? | as built (refused at Complete by the ledger) |
+| VWO-OPEN-01 | Issue components takes no reservation (`WhWorkOrderService` issueComponents), so two orders can be issued against one on-hand and a cancel after issue leaves floor and ledger apart until an adjustment. Accept, or reserve at issue? | **DECIDED R31 (2026-10-23):** default replaced — hard-reserve at Issue components, consume at Complete, release on Cancel only with a recorded return. Not built (§10 row 3; `p3-11` acceptance) |
 
 ## 10. Code divergences
 
@@ -155,3 +156,4 @@ The FRD rule is kept; the code is what differs.
 |---|---|---|---|
 | 1 | `warehouse-base/…/service/allocation/` (no phantom handling); `warehouse-base/…/service/ledger/writer/WhbMovementPostValidationService.java:896` | FR-261 | a phantom kit is refused as stock (`UNKNOWN_ITEM`), but no explosion of a phantom kit at allocation was found |
 | 2 | `warehouse/…/entity/WhWorkOrder.java:109-118` | FR-262 | types are `ASSEMBLY`/`DISASSEMBLY`/`REPACK`/`VAS`; BUILD-SPEC WS-144 lists `ASSEMBLE`/`DISASSEMBLE`/`REPACK`/`DECANT`/`VAS` (no `DECANT` in code) |
+| 3 | `warehouse/…/service/WhWorkOrderService.java:391` (`issueComponents`, no reservation) | FR-261 | decided `VWO-OPEN-01`: Issue components hard-reserves the issued quantities, Complete consumes them, Cancel releases only with a recorded return; built today with no reservation, so two orders can issue against one on-hand and a cancel after issue leaves floor and ledger apart (owner `p3-11`) |

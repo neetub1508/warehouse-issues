@@ -2,7 +2,7 @@ TITLE: [Warehouse] EPIC: P10 — Manufacturing (warehouse-manufacturing)
 LABELS: epic,warehouse,phase-p10
 issue: 548
 ---
-Part of __MASTER__ · Module `warehouse-manufacturing` (`ai.warehousemanufacturing`, band **V560000–V569999**, prefix **`whm_`**) · Migrations — **24 blocks in band + one `warehouse-india` block, enumerated below** · Depends on **`P7`** (removal first) and **`P8`** (`p8-01`, `p8-02`, `p8-03`, `p8-06`, `p8-09`, `p8-10`, `p8-11` hard; `p8-16` for SEAM-M3) and **`P9`** (`p9-04`, `p9-07`, optional at runtime) · Ships in **v1.1** with the P8 seams it consumes (MD-38, R29 F24) · Runs in parallel with **`P9`** until p10-12 — the module **may ship before trade**: with trade off, MRP BUY output becomes a draft core PO (`OD-41` fallback)
+Part of __MASTER__ · Module `warehouse-manufacturing` (`ai.warehousemanufacturing`, band **V560000–V569999**, prefix **`whm_`**) · Migrations — **25 blocks in band + six `warehouse-india` blocks (`V540190`…`V540193`, `V541160`, `V541161`), enumerated below** · Depends on **`P7`** (removal first) and **`P8`** (`p8-01`, `p8-02`, `p8-03`, `p8-06`, `p8-09`, `p8-10`, `p8-11` hard; `p8-16` for SEAM-M3) and **`P9`** (`p9-04`, `p9-07`, optional at runtime) · Ships in **v1.1** with the P8 seams it consumes (MD-38, R29 F24) · Runs in parallel with **`P9`** until p10-12 — the module **may ship before trade**: with trade off, MRP BUY output becomes a draft core PO (`OD-41` fallback)
 
 ## Overview
 
@@ -125,7 +125,7 @@ __TASKS__
 | [`p10-07`](p10-07.md) | Production receipt — backflush, scrap, tolerances, genealogy, reversal, FG note, **per-receipt absorption and exact split** (MD-37) | p10-06 |
 | [`p10-08`](p10-08.md) | Operation confirmations, final / in-process QC, rework | p10-07, `p8-06` |
 | [`p10-09`](p10-09.md) | Settlement (landed-cost restatement path), close, cost sheet | p10-07, p10-08 |
-| [`p10-10`](p10-10.md) | Subcontracting / job work + india `V540190` seam (SEAM-M5) | p10-07, p10-09, `p8-03`, `p9-07` (ref only) |
+| [`p10-10`](p10-10.md) | Subcontracting / job work + india `V540190` seam (SEAM-M5) | p10-07, p10-09, `p8-03`, `p9-07` (the trade subcontract PO, D-18 item 3) |
 | [`p10-11`](p10-11.md) | Planning masters — item planning parameters, demand plans | p10-03 |
 | [`p10-12`](p10-12.md) | MRP — run, netting, lot sizing, proposals, pegging, conversion, exceptions | p10-05, p10-11, `p8-01`, `p8-02`, `p8-16`, `p9-04` (runtime) |
 | [`p10-13`](p10-13.md) | Capacity load and manufacturing registers | p10-04, p10-09, p10-12 |
@@ -148,7 +148,7 @@ joins after p10-05 and p10-11; p10-13 last; p10-14 after p10-10 (parallel with p
 | `p8-11` | Store return from the same counter purpose (FR-641) |
 | `p8-16` | **SEAM-M3** external replenishment-suggestion port, origin `MRP` (FR-666, `OD-31`/`OD-41`/`OD-44`) |
 | `p9-04` | Trade turns an `MRP` suggestion into a PR (FR-557) — runtime only, no compile dependency |
-| `p9-07` | Service PO reference frozen on a subcontract order (FR-658) and suggestion reference on the PO line (`OD-44`) — runtime only |
+| `p9-07` | The warehouse-trade subcontract PO (FRD-TRADE FR-682…689, **SEAM-M7**: R9 lifted for a service line linked to a subcontract order; it lands the processing charge — D-18 item 3) and suggestion reference on the PO line (`OD-44`) — runtime only |
 
 ## Seams owed by other areas (MFG cannot ship them; each is a dependency, not a workaround — FRD-MFG §3.2)
 
@@ -159,6 +159,8 @@ joins after p10-05 and p10-11; p10-13 last; p10-14 after p10-10 (parallel with p
 | **SEAM-M3** | `p8-16` (MD-28) | `WhReplenishmentSuggestionPort.publishExternal/withdrawExternal`, `origin` + `origin_document_type/id` on `wh_replenishment_suggestions` | p10-12 |
 | **SEAM-M4** | `p8-06` | `QualityInspectionSourceResolver.stockBearing()` (FRD-STORES registry R.3); record-only ACCEPT/REJECT/REWORK when `false` | p10-08, p10-07 |
 | **SEAM-M5** | core `ai.warehouse.port.jobwork.JobWorkDispatchPort` + `warehouse-india` bean — **owned inside p10-10** as a cross-module change (india migration `V540190`) | `registerDispatch`, `registerReturn(returnedAsItemId, consumedInputQty, scrapQty, scrapRetained)` (a recall is a return of the input), `reverseReturn`, `registerLoss` (MD-25) | p10-10 |
+| **SEAM-M6** | `p0` base genealogy, carried in `p10-07` | `WhbGenealogyQueryService.trace` reads a `PRODUCTION_REVERSAL` transformation row as a cancel marker; no schema change (R31 F-MF-021) | p10-07 |
+| **SEAM-M7** | `p9-07` (warehouse-trade) | the subcontract service-line PO (FRD-TRADE FR-682…689): trade owns the link `subcontract_order_id`, validated through MFG's `PRODUCTION_ORDER` resolver (`order_type`, `subcontractor_counterparty_id`), and lands the charge as a value-only `LANDED_COST_APPLY` (D-18 item 3, R31 F-MF-005) | p10-10 |
 
 ## Admin settings seeded by P10 (all in `V561000`, FRD-MFG §8)
 
