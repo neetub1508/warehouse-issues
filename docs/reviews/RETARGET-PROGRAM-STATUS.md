@@ -4,6 +4,8 @@
 
 ## Done
 
+- **P7-08 #556 closed 2026-10-24** — Trade portal, Warehouse Trade Customer role and the customer persona removed (classic ddd47803a9 + S4 ee8209032d). Gates: reviewer PASS, functional PASS after floor fix, tester PASS (key-absence SQL clean).
+
 - **P7-07 #555 closed 2026-10-24** — OEM obsolescence returns and the OBSOLESCENCE claim type removed; supplier claims keep 4 types (classic b620cfbfd9 + S4 b1877a1410). Gates: reviewer PASS, functional PASS after floor fix, tester PASS.
 
 - **P7-06 #554 closed 2026-10-24** — Channels L1 replaced by Shipping › Carrier Tracking & Planning, 4 leaves (classic 30163e54d2). REM-D15 default built; user confirmation pending. Gates: reviewer PASS, functional PASS, tester PASS.
