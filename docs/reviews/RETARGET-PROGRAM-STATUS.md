@@ -69,14 +69,14 @@ Reference: `docs/reviews/BATCH-PATTERN-REFERENCE.md`, which summarises `classic/
 - **Remaining, in order:**
   1. **Contract wave** — `CP-FR-007`: contracts for all **377** uncovered active FRs (+ 81 weak-only; the R30 26-row table names each contract), plus a checker check that **fails on an active FR with no contract rule** (R30 proposed checks 14–18). A live task's FRs are covered before its S1 pre-review.
   2. **Second dual-engine functional review** of the changed areas (R29 + R30 fixes). Also ratify or drop the 20 *(proposed)* MFG refusal codes (`CP-FR-009`; acceptance rows in `p10-05`, `p10-07`).
-  3. **GitHub sync** — `create-issues.sh --sync` for the 42+ drifted bodies; file `p10-14`; post the R30 comments; close #142 and #144 as not planned (`P7-12`).
+  3. **GitHub sync** — done 2026-10-23 (see R31 *Remaining* 1).
   4. **BATCH files** — `BATCH-WAREHOUSE-P7…P10.md` via `/create-batch` (Remaining 6 above), then stop for the user's go.
 ## R31 dual-engine functional review (2026-10-23)
 - **Review — done.** `docs/reviews/R31-functional-review-{core-a,core-b,stores-rem,trade,mfg}.md`; decisions `docs/reviews/R31-decisions.md` (113 rows).
 - **User decisions — done.** `DECISIONS.md` **`D-18`** (MOOWR loss + job work OFF, segments fenced / pharma declined, subcontract service PO lifts R9, 3PL freight tariff + true-up, putaway capacity block/warn, `FR-258` → `P10-11` and `FR-471` → `P8-13` restored).
 - **Fix wave — done**, four agents plus a reconciler: **108 findings fixed, 113 decisions applied**. Reconciled: `CN-14` (b)/(c) defined as owed core changes (`WhCostObjectChargePort`, `CostObjectResolver.receivedOutput`, carrier `p8-09`, `V511324`); `ExternalPlanningOwner` / `RPN-GRD-11` (`MRP-OPEN-10`, `p8-16` + `p10-11`); TRADE scenario range `WH-SC-700`…`719` (`700`…`707` used, `p9-07`); `CROSS_GSTIN_DIRECT_ISSUE` on live rows; WS-096 manual lost-sale `POST` removed; `JOB_WORK_RETURN_FILED` carried by `p10-10`; DATA-MODEL 486 → **487** tables (`wht_po_service_confirmations`). Checker: 0 violations across 15 checks.
 - **Remaining, in order:**
-  1. **GitHub sync** — `create-issues.sh --sync` for the drifted bodies; file the new `p10-14`; post the R30 and R31 comments.
+  1. **GitHub sync — done 2026-10-23.** `p10-14` filed as **#605** (CREATED.md, P10 epic #548 checklist); `--sync` pushed all 285 bodies (205 had drifted, incl. master #1 and epics #3–#11, #545–#548) — `--check` no drift; VOID closed not planned: #99 (P6-02), #142 (P6-11), #144 (P6-12), #152 (P2-27, was *completed*); D-16/D-18 reason comments on #102, #108 (VOID, already closed) and partial #73, #106, #124, #88; **102** "R30/R31 review findings carried by this task" comments (247 finding refs, 60 decision refs). Checker 0; no `issue: TBD`; phase labels match the files (GitHub-only #156–#161, #165–#177, #188 are the documented folded/follow-up issues).
   2. **BATCH files** — `BATCH-WAREHOUSE-P7…P10.md` via `/create-batch`.
   3. **Stop for the user's go.**
 
