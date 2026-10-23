@@ -3,6 +3,8 @@
 **Read this first when resuming.** Updated 2026-10-23 (R31 fix wave and tracking fix done). All work happens on `main` only (user rule).
 
 ## Done
+
+- **P7-01 #549 closed 2026-10-23** — pure move of the four generic helpers (classic `4756b0ba1c`); reviewer PASS, functional-reviewer PASS (Claude+GPT), tester PASS on the p7-verify side stack; ci-gate not run (on request).
 1. R27 (client purchase-to-stores gap) and R28 (re-target impact, decisions `RN-050`…`RN-054`, plan §8c) recorded.
 2. D-16 in DECISIONS.md. Spine docs rewritten; dealer/retail tasks VOID; historical files carry superseded notes.
 3. Area requirements, contracts and tasks:
