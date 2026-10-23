@@ -96,15 +96,15 @@
 
 ## 2. T2 — Action × role × state
 
-| ID | Action | Permission | Allowed from | Extra |
-|---|---|---|---|---|
-| SIR-T2-01 | Create / edit issue | `wh_store_issues:create`/`:edit` | — / `DRAFT` | stores issue clerk |
-| SIR-T2-02 | Post issue | `:post` | `DRAFT` | — |
-| SIR-T2-03 | Cancel issue | `:cancel` | `DRAFT` | reason |
-| SIR-T2-04 | Create / submit return | `wh_store_returns:create`/`:submit` | — / `DRAFT` | department requester (own departments) |
-| SIR-T2-05 | Post / reject return | `:post` / `:reject` | `SUBMITTED` | stores; ≠ submitter |
-| SIR-T2-06 | Cost centres | `wh_cost_centres:*` | — | admin |
-| SIR-T2-07 | Print issue slip / return note | `wh_print_jobs:create` | `POSTED` (issue), `SUBMITTED`/`POSTED` (return) | `SYS-STORE-ISSUE`, `SYS-STORE-RETURN` |
+| ID | Action | Permission | Allowed from | Extra | Source |
+|---|---|---|---|---|---|
+| SIR-T2-01 | Create / edit issue | `wh_store_issues:create`/`:edit` | — / `DRAFT` | stores issue clerk | — |
+| SIR-T2-02 | Post issue | `:post` | `DRAFT` | — | — |
+| SIR-T2-03 | Cancel issue | `:cancel` | `DRAFT` | reason | — |
+| SIR-T2-04 | Create / submit return | `wh_store_returns:create`/`:submit` | — / `DRAFT` | department requester (own departments) | — |
+| SIR-T2-05 | Post / reject return | `:post` / `:reject` | `SUBMITTED` | stores; ≠ submitter | — |
+| SIR-T2-06 | Cost centres | `wh_cost_centres:*` | — | admin | — |
+| SIR-T2-07 | Print issue slip / return note | `wh_print_jobs:create` | `POSTED` (issue), `SUBMITTED`/`POSTED` (return) | `SYS-STORE-ISSUE`, `SYS-STORE-RETURN` | FR-538 |
 
 ## 3. T3 — Time-driven rules
 
@@ -115,15 +115,15 @@
 
 ## 4. T4 — Cross-entity effects
 
-| ID | When | Then | Enforced in |
-|---|---|---|---|
-| SIR-T4-01 | issue post | **one** `ISSUE` movement (`WhbStockLedgerWriter.post`, `WhbMovementPostCommand`: `sourceSystem = WAREHOUSE`, `sourceDocumentType = STORE_ISSUE`, `sourceDocumentId` = issue id, `sourceDocumentNo` = `SIS` number, `idempotencyKey = STORE_ISSUE:<id>`, `consumedReservationIds` = the line's requisition holds at the issued grain, or — when the line's resolver `ownsReservations()` — the cost object's own holds from `reservationsFor(costObjectId, itemId)`, *amended for MFG MD-16*; the holds are then **consumed and split in the same transaction** by `MRQ-T4-02` — passing the ids alone only exempts them from the availability check, R29 F4) with, per issue line, −qty at the location (status `AVAILABLE`, lot, serial) and +qty at `VIRT-<counterLocationPurpose>-<site>` (the resolver's purpose: `CONSUMED` by default, `PRODUCTION` for MFG's `PRODUCTION_ORDER` — SEAM-M1); the purpose used is stored on the issue line (`counter_location_purpose`); before the post each line's resolver `assertIssuable` runs, and after the writer call `onIssuePosted(line)` runs in the same transaction (SEAM-M2); valued by the item's cost method; `issue_movement_id` on the header, `unit_cost` per line read back from the movement line | issue service → writer · `STO-D18` (R30 `CP-FR-014`) |
-| SIR-T4-02 | issue post | requisition `MRQ-T4-02`; outbox `WH_STORE_ISSUE_POSTED` carrying each line's cost object and value (accounting handover) | issue service |
-| SIR-T4-03 | return post | one **`ISSUE_RETURN`** movement (new type: direction `IN`, `cost_basis_default = ACTUAL`, `requires_reason = true`, `reversal_type_code = ISSUE`): −qty at the issue line's stored `counter_location_purpose` location (`VIRT-CONSUMED` or `VIRT-PRODUCTION`), +qty at the return location, **unit cost = the issue line's `unit_cost`**; then the resolver's `onReturnPosted(line)` in the same transaction (SEAM-M2), status by condition (`GOOD` → `AVAILABLE`, `NEEDS_INSPECTION` → `QC_HOLD`, `DAMAGED`/`SCRAP` → `DAMAGED`), `sourceDocumentType = STORE_RETURN` | return service → writer |
-| SIR-T4-04 | return post, `GOOD` | a putaway task per line (`RQP-T1-24` rule) | putaway service |
-| SIR-T4-05 | return post, `NEEDS_INSPECTION` | an inspection of `source_type = STORE_RETURN` is started (`IIS-T1-07`), stage `RETURN` | inspection service |
-| SIR-T4-06 | return post | issue line `returned_quantity` +=; requisition line `returned_quantity` += (`MRQ-T4-04`); outbox `WH_STORE_RETURN_POSTED` with the inherited cost object | return service, same transaction |
-| SIR-T4-07 | return post, `SCRAP` | stock lands `DAMAGED`; a `SCRAP` disposition is then an ordinary scrap movement (`requires_approval`) — not automatic | — (stated) |
+| ID | When | Then | Enforced in | Source |
+|---|---|---|---|---|
+| SIR-T4-01 | issue post | **one** `ISSUE` movement (`WhbStockLedgerWriter.post`, `WhbMovementPostCommand`: `sourceSystem = WAREHOUSE`, `sourceDocumentType = STORE_ISSUE`, `sourceDocumentId` = issue id, `sourceDocumentNo` = `SIS` number, `idempotencyKey = STORE_ISSUE:<id>`, `consumedReservationIds` = the line's requisition holds at the issued grain, or — when the line's resolver `ownsReservations()` — the cost object's own holds from `reservationsFor(costObjectId, itemId)`, *amended for MFG MD-16*; the holds are then **consumed and split in the same transaction** by `MRQ-T4-02` — passing the ids alone only exempts them from the availability check, R29 F4) with, per issue line, −qty at the location (status `AVAILABLE`, lot, serial) and +qty at `VIRT-<counterLocationPurpose>-<site>` (the resolver's purpose: `CONSUMED` by default, `PRODUCTION` for MFG's `PRODUCTION_ORDER` — SEAM-M1); the purpose used is stored on the issue line (`counter_location_purpose`); before the post each line's resolver `assertIssuable` runs, and after the writer call `onIssuePosted(line)` runs in the same transaction (SEAM-M2); valued by the item's cost method; `issue_movement_id` on the header, `unit_cost` per line read back from the movement line | issue service → writer · `STO-D18` (R30 `CP-FR-014`) | STO-D18 |
+| SIR-T4-02 | issue post | requisition `MRQ-T4-02`; outbox `WH_STORE_ISSUE_POSTED` carrying each line's cost object and value (accounting handover) | issue service | — |
+| SIR-T4-03 | return post | one **`ISSUE_RETURN`** movement (new type: direction `IN`, `cost_basis_default = ACTUAL`, `requires_reason = true`, `reversal_type_code = ISSUE`): −qty at the issue line's stored `counter_location_purpose` location (`VIRT-CONSUMED` or `VIRT-PRODUCTION`), +qty at the return location, **unit cost = the issue line's `unit_cost`**; then the resolver's `onReturnPosted(line)` in the same transaction (SEAM-M2), status by condition (`GOOD` → `AVAILABLE`, `NEEDS_INSPECTION` → `QC_HOLD`, `DAMAGED`/`SCRAP` → `DAMAGED`), `sourceDocumentType = STORE_RETURN` | return service → writer | FR-537 |
+| SIR-T4-04 | return post, `GOOD` | a putaway task per line (`RQP-T1-24` rule) | putaway service | — |
+| SIR-T4-05 | return post, `NEEDS_INSPECTION` | an inspection of `source_type = STORE_RETURN` is started (`IIS-T1-07`), stage `RETURN` | inspection service | — |
+| SIR-T4-06 | return post | issue line `returned_quantity` +=; requisition line `returned_quantity` += (`MRQ-T4-04`); outbox `WH_STORE_RETURN_POSTED` with the inherited cost object | return service, same transaction | — |
+| SIR-T4-07 | return post, `SCRAP` | stock lands `DAMAGED`; a `SCRAP` disposition is then an ordinary scrap movement (`requires_approval`) — not automatic | — (stated) | — |
 
 ## 5. T5 — Screen contract
 
@@ -151,6 +151,16 @@ Grid `wh_cost_centres` · scope `WAREHOUSE_COST_CENTRE` · sort `e.code ASC` · 
 
 Tabs, each a backend-paginated grid with export and filter-aware tiles (no cache name): **RGP pending/overdue** (from `GTE`), **Requisitions pending issue** (WS-274 data), **Issue register by cost object** (date range, site, cost-object type/id, item, department → item, qty, value, issue no.), **Gate register** (inward/outward by date, from `GTE`, R29 F31), **Issue register by cost object** also lists QC destructive-test issues (inspection lines under `QCINSP`, `IIS-T4-02`, R29 F11), **Consumption by department** (store issues + QC destructive issues − store returns at value, by department × month; **only `VIRT-CONSUMED` lines** — `VIRT-PRODUCTION` issues are WIP, not consumption), **Stores performance** (`FR-534`: gate-to-GRN, GRN-to-MRN, QC lead time, issue turnaround, fill rate, return cycle, dock-to-stock; median / P90 / % inside target). All SQL-aggregated; the page does no arithmetic.
 
+| ID | Rule (WS-277 tab) | Proved by | Source |
+|---|---|---|---|
+| SIR-T5-01 | Every register tab is a backend-paginated, backend-filtered grid with an export whose columns ⊇ the grid's; the statistics tiles follow the active filters and read **no cache name** (`FR-395`) | each tab's `/management` + `/export` honour the same filter set; no `@Cacheable` on the register query service | FR-539 |
+| SIR-T5-02 | **Gate register**: gate entries inward and outward by date (from `GTE`, R29 F31) | rows = `wh_gate_entries` in the date range, by `direction` | FR-539 |
+| SIR-T5-03 | **RGP pending / overdue**: RGPs `OUT`/`PARTIALLY_RETURNED`; overdue is computed on read exactly as `GTE-T3-01` | the tab and WS-263's `overdueOnly` return the same RGPs for the same day | FR-539, FR-515 |
+| SIR-T5-04 | **Requisitions pending issue**: approved − issued per line, aged by required-by date | open-to-issue equals the WS-274 figure for the same line | FR-539 |
+| SIR-T5-05 | **Issue register by cost object**: item, quantity, value by department / cost centre / production order for a date range; also lists QC destructive-test issues (`QCINSP`, `IIS-T4-02`) and issues to `VIRT-PRODUCTION` | value = Σ posted line value; `VIRT-PRODUCTION` lines are listed here | FR-539 |
+| SIR-T5-06 | **Consumption by department**: store issues + QC destructive issues − store returns, at value, by department × month, **only lines to `VIRT-CONSUMED`**; an issue to `VIRT-PRODUCTION` (WIP) is never consumption | a production-order issue appears in SIR-T5-05 and not here | FR-539 |
+| SIR-T5-07 | **Stores performance**: gate-to-GRN, GRN-to-MRN, QC lead time, issue turnaround (+ fill rate issued ÷ approved at closure), store-return cycle, dock-to-stock, each from **stored timestamps** (never typed), per site × period, median / P90 / share inside the site target `warehouse.stores.kpi_target_*`, drill-down to the documents | definitions are frozen KPI rows (eight, version 1, seeded by `P8-13` in `V511412`); a changed definition is a new KPI version | FR-534 |
+
 ## 6. Out of scope
 
 Production issue / backflush / WIP (MFG); tool-crib custody (FRD §12 row 13); editing a posted issue; mobile.
@@ -173,3 +183,4 @@ Production issue / backflush / WIP (MFG); tool-crib custody (FRD §12 row 13); e
 |---|---|---|
 | SIR-OPEN-01 | OD-27 cost centre source | thin `wh_cost_centres` |
 | SIR-OPEN-02 | Should an issue post require the receiver's acknowledgement (PIN / signature) before `POSTED`? | captured as name + time in the post modal; a signature image is an optional platform document id |
+| SIR-OPEN-03 | `FR-539` names five register tabs but no grid identifier or filter scope for any of them (WS-277 has `G = Y` in `FRD-STORES.md` §7) | one grid id and one `filterUtils` scope per tab, named by `P8-13` before build; until then SIR-T5-01…-06 are checked on behaviour only |

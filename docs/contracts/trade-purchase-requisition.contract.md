@@ -90,6 +90,8 @@ junction), `closed_short_quantity`, `close_reason_code`, `line_status` (`OPEN`, 
 | TPR-GRD-04 | Under `SELECT … FOR UPDATE` on each PR line: Σ active allocations + new ≤ quantity − closed_short | `422 TRADE_ALLOCATION_EXCEEDS_OPEN {open}` | FR-560 |
 | TPR-GRD-05 | No active allocation | `409 TRADE_PR_HAS_ALLOCATIONS` (offer close-short) | FR-561 |
 | TPR-GRD-06 | Requester cannot approve own PR | `TAM-GRD-03` | FR-549 |
+| TPR-GRD-07 | **Module start-up** (`warehouse-trade`, package `ai.warehousetrade`, band `V550000`–`V559999`, prefix `wht_`, switch `enable.warehouse.trade` read by `@ConditionalOnExpression`): the core port beans it calls — `WhPurchaseOrderPort`, `WhDemandOrderPort`, `WhAvailableToPromiseQuery`, `WhReplenishmentSuggestionPort` — are present. `WhRmaPort` absent disables only the SRA screens (`TSR-GRD-04`) | the module refuses to start, naming the missing bean | FR-540 |
+| TPR-GRD-08 | **Concurrency**: every edit, submit, transition and approval of a `wht_` document checks its optimistic `version`; a stale write changes nothing; every write through `WhReplenishmentSuggestionPort` (`TPR-T4-02`) carries a `PortEnvelope` whose idempotency key has the FRD-TRADE §12a shape `<SOURCE_DOCUMENT_TYPE>:<id>:<operation>:<sequence>`, and the port call commits with the trade transition, so a double-clicked action changes core once | `409` stale write (code per `TPR-OPEN-03`); `409 PORT_IDEMPOTENCY_CONFLICT` relayed | FR-618 |
 
 ### 1.4 Unreachable
 
@@ -98,18 +100,21 @@ junction), `closed_short_quantity`, `close_reason_code`, `line_status` (`OPEN`, 
 | TPR-UNR-01 | Editing an approved PR's quantities | no edit after approval; close-short or a new PR | FR-553 |
 | TPR-UNR-02 | Allocation from a `DRAFT` / `SUBMITTED` / `REJECTED` PR | workbench lists approved open lines only, `TPR-GRD-04` re-checks status | FR-560 |
 | TPR-UNR-03 | Writing core MR / suggestion rows | trade reads them; a converted suggestion is recorded by core through `WhReplenishmentSuggestionPort.markConverted` / `releaseConversion` (`p8-16`), a stores hand-off through core's call of trade's `PurchaseRequisitionHandoff` (`p8-09`) — never a trade repository write (`TRD-09`) | FR-557 |
+| TPR-UNR-04 | A `wh_` / `whb_` table, entity, service or route that references `wht_` (an FK or a call pointing **up**); a Mode-A install without trade behaving differently, or core PO / demand-order screens failing for documents core creates itself | every FK points down (`wht_` → `wh_` / `whb_` / platform); enforced by `ArchitectureInvariantsTest` (`warehouse/backend/src/test/java/ai/warehouse/architecture/ArchitectureInvariantsTest.java`) | FR-540 |
+| TPR-UNR-05 | Trade menus under the L1 key `warehouse_trade`, or a trade L2 with more than 8 leaves | `warehouse_trade` is retired with the Trade Portal (`REM-D21`, `WH-SC-662`); trade owns its own L1 `warehouse_purchase_sales` (*Purchase & Sales*) with six L2 sections of ≤ 8 leaves, so `warehouse_operations` keeps its 10-section cap | TRD-07 |
 
 ## 2. T2 — Action × role × state
 
-| ID | Action | Permission | Allowed from |
-|---|---|---|---|
-| TPR-T2-01 | Add / edit | `:create` / `:edit` (own or department scope) | `DRAFT`, `REJECTED` |
-| TPR-T2-02 | Submit / withdraw | `:submit` | `DRAFT`, `REJECTED` / `SUBMITTED` |
-| TPR-T2-03 | Approve | `:approve` via `TAM` | `SUBMITTED` |
-| TPR-T2-04 | Allocate | `wht_requisition_allocations:create` | `APPROVED`, `PARTIALLY_ORDERED` |
-| TPR-T2-05 | Cancel / close short | `:cancel` | per `-08`, `-09` |
-| TPR-T2-06 | Print PR | `:view` | any numbered |
-| TPR-T2-07 | Export | `:export` | — |
+| ID | Action | Permission | Allowed from | Source |
+|---|---|---|---|---|
+| TPR-T2-01 | Add / edit | `:create` / `:edit` (own or department scope) | `DRAFT`, `REJECTED` | — |
+| TPR-T2-02 | Submit / withdraw | `:submit` | `DRAFT`, `REJECTED` / `SUBMITTED` | — |
+| TPR-T2-03 | Approve | `:approve` via `TAM` | `SUBMITTED` | — |
+| TPR-T2-04 | Allocate | `wht_requisition_allocations:create` | `APPROVED`, `PARTIALLY_ORDERED` | — |
+| TPR-T2-05 | Cancel / close short | `:cancel` | per `-08`, `-09` | — |
+| TPR-T2-06 | Print PR | `:view` | any numbered | FR-615 |
+| TPR-T2-07 | Export | `:export` | — | — |
+| TPR-T2-08 | Every action in this table, and the auditor | `wht_<table>:<verb>` per FRD-TRADE FR-617 (`view`, `create`, `edit`, `export` + the workflow verbs above); `permission_dependencies` seeded; the auditor bundle holds `:view` only; record scope follows core's company / site grants; a bundle whose action calls a core port is also granted `warehouse:orders:port` in the trade seed | — | FR-617 |
 
 ## 3. T3 — Time-driven rules
 
@@ -179,3 +184,4 @@ selection; grid export allowed (⊇ grid, incl. `createdByName` / `updatedByName
 |---|---|---|
 | TPR-OPEN-01 | Does core render a *Raise PR* action on its MR / suggestion screens when trade is enabled? A core screen cannot import trade code | **Settled by STORES:** core needs no trade import — `p8-09` offers *Send to purchasing* only when trade registers the optional `PurchaseRequisitionHandoff` bean (`FR-528`; trade's side is `TPR-T1-02a`), and `p8-16` withdraws core's *Convert to PO* when trade registers `SuggestionConversionOwner`; trade's WS-286 *Import shortages* also lists core shortages (read down) |
 | TPR-OPEN-02 | `OD-31` MRP path | seam published by `p8-16` (origin `MRP`, `markConverted`); MFG to confirm |
+| TPR-OPEN-03 | `FR-618` says a stale `version` write is refused `409` but names no code, and the trade contracts need one exact code for the reviewer to check (`TAM-GRD-10`, `TCE-GRD-08`, `TPR-GRD-08`, `TRA-GRD-11`, `TRC-GRD-06`, `TSQ-GRD-08`, `TSR-GRD-06`) | **OPEN.** Proposed: `409 CONCURRENT_MODIFICATION`, the code the MFG contracts already use (`PRO-GRD-21`, `PRC-GRD-18`) |

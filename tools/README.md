@@ -30,7 +30,7 @@ checker that gets skipped.
 
 ---
 
-## The thirteen checks, and the specific failure each one prevents
+## The fifteen checks, and the specific failure each one prevents
 
 | # | Invariant | Authority | The failure it prevents |
 |---|---|---|---|
@@ -47,6 +47,8 @@ checker that gets skipped.
 | 11 | no id is used for two different kinds of thing | the id registers + `DECISIONS.md` §6 | the accounting set's worst structural defect, repeated — see **Why check 11** |
 | 12 | every `WS-nnn` cited resolves | `docs/BUILD-SPEC-SCREENS.md` §1 + `docs/frd/*.md` | a task whose screen was never specced, and a screen id silently allocated twice |
 | 13 | every screen with `G` = Y in §1 carries §9.6's three statements — the `\| key \| label \| type \| sort \| vis \| source \|` table, an `emptyMessage` key, and its statistics tiles or `none` | `docs/BUILD-SPEC-SCREENS.md` §1 `G` column, §9.6, and §9.6.1's shrink-only register | a grid specified as a bare comma list and built anyway — `P2-29` §9.6 was prose that no tool read, so the form it required was applied on the days a reviewer happened to look |
+| 14 | every **active** FR — a `\| **FR-nnn** \|` row in `WAREHOUSE-FUNCTIONAL-REQUIREMENTS.md` or `docs/frd/*.md` whose requirement cell does not open with `**WITHDRAWN`, `**DEFERRED` or `**VOID` — is cited in the `Source` / `FR` column, or in a cell that opens with an `FR-` id, of at least one **rule row** of `docs/contracts/*.contract.md` | the FRDs and every contract file | an FR nobody verifies: the functional reviewer checks contract rules, not requirements, so an FR with no rule — or one named only in a contract's §0 baseline range — reads as covered and is never checked (R30 `CP-FR-007`, 377 such FRs; `CP-FR-008`) |
+| 15 | every **live** task file (its header block does not open `> **VOID`; `PARTIALLY VOID` is live) carries a `**Functional contracts:**` line naming every contract with a rule row (check 14's definition) citing an FR the task closes in `IMPLEMENTATION-PLAN.md` §2 `Closes`, and names no contract file that does not exist | plan §2 `Closes`, every contract's rule rows, each task file's `**Functional contracts:**` line | a builder and a functional reviewer handed a task that never tells them which contract's rules to prove — the FR is covered (check 14) but the task that builds it points elsewhere |
 
 ### Why check 1 — dangling `FR` citations, and the 19 that resolved to the *wrong* requirement
 
@@ -133,6 +135,50 @@ convention — but it is a convention, applied inconsistently, not a namespace.
 next author reads before choosing an id; a register missing from it is the next collision. Three are
 missing today: screens (`WS-`, 237 ids), the irreversible rows (`I-`, 63 ids — `IRREVERSIBLE.md:19`
 believes §6 covers it and §6 does not), and R1 §8's traps (`T-n`, 18 ids).
+
+### Why check 14 — an FR that no contract rule proves
+
+R30 (`CP-FR-007`, `CP-FR-008`, `DECISIONS.md` `D-17` item a) found 377 active FRs with no contract and 81 more cited only
+weakly — in a contract's §0 *Domain baseline* range (`FR-575…FR-589`), its out-of-scope list or its amendments. The
+`functional-reviewer` agent proves code against **rule rows** (T1 transitions, guards, unreachables, T3 clocks, T4 effects,
+T2/T5 rows); a requirement that no rule names is never checked, and a range in §0 hides that.
+
+What counts, exactly:
+
+- **Active FR.** Every `| **FR-nnn** |` definition row; it is inactive when its requirement cell opens with
+  `**WITHDRAWN`, `**DEFERRED` or `**VOID` (the `D-16` / `D-17` markers the FRDs use). Inactive FRs need no rule.
+- **Rule row.** A table row of a `*.contract.md` whose first cell is a rule id (`SIR-GRD-07`, `RMV-UNR-04`, …), outside
+  the weak sections — `## 0.` / *Identity*, *Out of scope*, *Amendments*, *Open rows*, *Resolved rows*, *Invariants* —
+  and not an `-OPEN-` row (an open question is not a checkable rule).
+- **Citation.** An `FR-nnn` in the column headed `Source` / `Sources` / `FR`, or in any cell of the row that opens with an
+  `FR-` id. A written range in such a cell (`FR-480…FR-499`, `FR-556–561`, span ≤ 40) is expanded. An FR mentioned in a
+  rule row's prose (*Then*, *Predicate*) does not count — move it to the Source cell.
+
+The report groups the uncovered ids by FRD section (`--summary` prints the count only):
+
+```
+check-14 FAIL  338  every active FR is cited by a contract rule row (CP-FR-007)
+  docs/WAREHOUSE-FUNCTIONAL-REQUIREMENTS.md § 6.1 The stock ledger *owner: base* (18): FR-006 FR-007 …
+```
+
+It has no exemption rule by design: the fix for an uncovered FR is a rule row, a `WITHDRAWN`/`DEFERRED` marker on the
+FR, or an OPEN row **plus** the rule once the question closes. It passes from 2026-10-23: the R30 `CP-FR-007` contract set (`docs/contracts/README.md` index) covers every active
+FR, the last 17 core FRs closed by rule rows and `FR-258`, `FR-397`, `FR-471` withdrawn under `D-16`.
+
+### Why check 15 — a covered FR whose task points at the wrong contract
+
+Check 14 proves that a rule exists; it cannot prove the person building the FR is sent to it. The task file is what
+the builder and the `functional-reviewer` open first, so each live task carries one line under its `Part of` header:
+
+```
+**Functional contracts:** [`docs/contracts/receipt-qc-putaway.contract.md`](../docs/contracts/receipt-qc-putaway.contract.md), …
+```
+
+The required set is computed, not curated: the FRs plan §2 assigns to the task, mapped through every contract rule
+row that cites them (the same parser as check 14, `contract_rule_rows`). A line may name **more** contracts than
+that — the workflow owner of a task that closes no FR, or a contract its §0 *Owning tasks* cell names — but never
+fewer. A task with no such FR may say `**Functional contracts:** none — …`. VOID tasks are skipped; they build nothing.
+No exemption rule: the fix is to add the contract to the line, or move the FR's rule to the contract that owns it.
 
 ### Why check 9 — the placeholder that corrupts the epic it is meant to fill
 
@@ -323,7 +369,7 @@ Until the runner exists, run both before every `issues/create-issues.sh --sync`.
 ## Current state — re-run 2026-09-02, from the repo root
 
 > **Latest run, 2026-10-23, after the `D-16` re-target and the R30 reconciliation (P7–P10, 201 task files, 486
-> tables): 0 violations across 13 checks**, plus one non-failing advisory block of versions cited in a
+> tables): 0 violations across 15 checks** — check 14 (R30 `CP-FR-007`) passes now that every active FR has a rule row, and check 15 (added 2026-10-23, the task → contract links) passes on all 190 live task files — plus one non-failing advisory block of versions cited in a
 > task body that no task header claims. Flyway bands now include `warehouse-trade` `V550000`–`V559999`
 > and `warehouse-manufacturing` `V560000`–`V569999`; the removed dealer and services adapter blocks
 > `V520000`–`V521999` stay inside the reserved adapter band. The table below is the 2026-09-02 record.

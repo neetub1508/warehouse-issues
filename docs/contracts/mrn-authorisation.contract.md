@@ -84,16 +84,16 @@
 
 ## 2. T2 — Action × role × state
 
-| ID | Action | Permission | Allowed from | Extra |
-|---|---|---|---|---|
-| MRA-T2-01 | Prepare | `:create` | GRN `POSTED` with pending qty | receiving clerk |
-| MRA-T2-02 | Edit remarks / storage location hint | `:edit` | `DRAFT` | quantities are not editable |
-| MRA-T2-03 | Submit | `:submit` | `DRAFT` | — |
-| MRA-T2-04 | Authorise | `:authorise` | `SUBMITTED` | `MRA-GRD-03`, `-04` |
-| MRA-T2-05 | Reject | `:authorise` | `SUBMITTED` | reason |
-| MRA-T2-06 | Cancel | `:cancel` | `DRAFT` | reason |
-| MRA-T2-07 | Print MRN | `wh_print_jobs:create` | `SUBMITTED` (watermark *NOT AUTHORISED*) and `AUTHORISED` | `SYS-MRN`; reprint marked duplicate |
-| MRA-T2-08 | Print GRN | `wh_print_jobs:create` | GRN `DRAFT` (*provisional*) / `POSTED` / `REVERSED` (*reversed*) | `SYS-GRN` with the bill block |
+| ID | Action | Permission | Allowed from | Extra | Source |
+|---|---|---|---|---|---|
+| MRA-T2-01 | Prepare | `:create` | GRN `POSTED` with pending qty | receiving clerk | — |
+| MRA-T2-02 | Edit remarks / storage location hint | `:edit` | `DRAFT` | quantities are not editable | — |
+| MRA-T2-03 | Submit | `:submit` | `DRAFT` | — | — |
+| MRA-T2-04 | Authorise | `:authorise` | `SUBMITTED` | `MRA-GRD-03`, `-04` | — |
+| MRA-T2-05 | Reject | `:authorise` | `SUBMITTED` | reason | — |
+| MRA-T2-06 | Cancel | `:cancel` | `DRAFT` | reason | — |
+| MRA-T2-07 | Print MRN | `wh_print_jobs:create` | `SUBMITTED` (watermark *NOT AUTHORISED*) and `AUTHORISED` | `SYS-MRN`; reprint marked duplicate | FR-538, FR-518 |
+| MRA-T2-08 | Print GRN | `wh_print_jobs:create` | GRN `DRAFT` (*provisional*) / `POSTED` / `REVERSED` (*reversed*) | `SYS-GRN` with the bill block | FR-538 |
 
 ## 3. T3 — Time-driven rules
 

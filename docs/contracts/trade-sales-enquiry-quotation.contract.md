@@ -73,11 +73,11 @@ vendor-quotation shape): `charge_type_code` (code list `trade_charge_type`), `am
 |---|---|---|---|---|---|---|---|---|---|
 | TSQ-T1-01 | — | Record enquiry | `OPEN` | `TSQ-GRD-01` | `wht_sales_enquiries:create` | number | no | WS-298 Add | FR-598 |
 | TSQ-T1-02 | `OPEN`; `QUOTED` with lines still `OPEN` | Prepare quotation (for the open lines) | quotation v1 `DRAFT` | the lines are `OPEN` (not already on a live quotation) | `wht_customer_quotations:create` | lines copied; prices resolved `TRC-T4-04` | no | *Quote* / *Quote remaining* | FR-599 |
-| TSQ-T1-03 | `OPEN` (whole), or `OPEN` / `QUOTED` (selected open lines) | Regret | enquiry `REGRETTED` (whole) / lines `REGRETTED` | — | `wht_sales_enquiries:edit` | print `REGRET_LETTER` (the lines regretted); `TSQ-T4-01` re-evaluates the header | **yes**, reason code | *Regret* / *Regret lines* | FR-598 |
+| TSQ-T1-03 | `OPEN` (whole), or `OPEN` / `QUOTED` (selected open lines) | Regret | enquiry `REGRETTED` (whole) / lines `REGRETTED` | — | `wht_sales_enquiries:edit` | print `REGRET_LETTER` (the lines regretted); `TSQ-T4-01` re-evaluates the header | **yes**, reason code | *Regret* / *Regret lines* | FR-598, FR-615 |
 | TSQ-T1-04 | `DRAFT`, `REJECTED` | Submit | `SUBMITTED`; approved at once by `SYSTEM` only when the seeded zero-level `EXACT` `SQ` rule matches — i.e. the quotation carries **no** condition (`TAM-GRD-01`) | `TSQ-GRD-02`…`-04` | `:submit` | number at first submit; `TAM-T1-03` doc `SQ` with conditions `below_floor_price`, `discount_over_pct`, `manual_rate` | no | Submit | FR-599 |
 | TSQ-T1-05 | `SUBMITTED` | Approved / rejected / returned | `APPROVED` / `REJECTED` / `DRAFT` | `TAM` | approver | maker notified | on reject/return | WS-285 | FR-551 |
 | TSQ-T1-05a | `SUBMITTED` | Withdraw (`TAM-T1-09`) | `DRAFT` | no step acted | maker | — | no | *Withdraw* | FR-551 |
-| TSQ-T1-06 | `APPROVED` | Send / print | `SENT` | template exists | `:issue` | print `CUSTOMER_QUOTATION`; `sent_at`; enquiry `QUOTED` | no | Send | FR-600 |
+| TSQ-T1-06 | `APPROVED` | Send / print | `SENT` | template exists | `:issue` | print `CUSTOMER_QUOTATION`; `sent_at`; enquiry `QUOTED` | no | Send | FR-600, FR-615 |
 | TSQ-T1-07 | `SENT` | Reprint | — | — | `:view` | reprint flagged | no | Print | FR-600 |
 | TSQ-T1-08 | `SENT`, `EXPIRED` (latest) | Revise | new version `DRAFT`; old `REVISED` on the new one's send | latest version only | `:edit` | `supersedes_id` | no | *Revise* | FR-600 |
 | TSQ-T1-09 | `SENT`, `EXPIRED` (latest) | Record outcome — at least one line won | `WON`; each line `WON` or `LOST` | `TSQ-GRD-05`, `-06`, `-07` | `:edit` | `TSQ-T4-01`, `-02` (won lines only) | loss reason on each lost line; customer PO date when `EXPIRED` | *Won* (per-line outcome; target picker: FIXED / OPEN / BLANKET SO / sales RC) | FR-601 |
@@ -96,6 +96,7 @@ vendor-quotation shape): `charge_type_code` (code list `trade_charge_type`), `am
 | TSQ-GRD-05 | Only the latest version, status `SENT` or `EXPIRED`; `valid_until ≥ today`, or the customer's PO date ≤ `valid_until` recorded on the win (always required from `EXPIRED`) | `409 TRADE_QUOTATION_NOT_WINNABLE` | FR-600 |
 | TSQ-GRD-06 | Customer not sales-blocked at win | `422 TRADE_CUSTOMER_BLOCKED` | FR-543 |
 | TSQ-GRD-07 | The outcome records `WON` or `LOST` (+ reason) for **every** quotation line | field `422` per line | FR-601 |
+| TSQ-GRD-08 | **Concurrency**: every edit, submit, transition and approval of a `wht_` document checks its optimistic `version`; a stale write changes nothing | `409` stale write (code per `TPR-OPEN-03`) | FR-618 |
 
 ### 1.4 Unreachable
 
@@ -108,16 +109,17 @@ vendor-quotation shape): `charge_type_code` (code list `trade_charge_type`), `am
 
 ## 2. T2 — Action × role × state
 
-| ID | Action | Permission | Allowed from |
-|---|---|---|---|
-| TSQ-T2-01 | Enquiry add / edit / regret | `wht_sales_enquiries:create`/`edit` | `OPEN` |
-| TSQ-T2-02 | Quotation add / edit | `wht_customer_quotations:create`/`edit` | `DRAFT`, `REJECTED` |
-| TSQ-T2-03 | Submit / withdraw / approve | `:submit` / `:submit` (maker) / `:approve` | per T1 |
-| TSQ-T2-04 | Send / print | `:issue` / `:view` | `APPROVED` / `SENT` |
-| TSQ-T2-05 | Revise / won / lost | `:edit` | `SENT`, `EXPIRED` (latest) |
-| TSQ-T2-08 | Quote remaining / regret lines / close as lost | `wht_customer_quotations:create` / `wht_sales_enquiries:edit` | enquiry `QUOTED` |
-| TSQ-T2-06 | Compare versions | `:view` | ≥ 2 versions |
-| TSQ-T2-07 | Export | `:export` | — |
+| ID | Action | Permission | Allowed from | Source |
+|---|---|---|---|---|
+| TSQ-T2-01 | Enquiry add / edit / regret | `wht_sales_enquiries:create`/`edit` | `OPEN` | — |
+| TSQ-T2-02 | Quotation add / edit | `wht_customer_quotations:create`/`edit` | `DRAFT`, `REJECTED` | — |
+| TSQ-T2-03 | Submit / withdraw / approve | `:submit` / `:submit` (maker) / `:approve` | per T1 | — |
+| TSQ-T2-04 | Send / print | `:issue` / `:view` | `APPROVED` / `SENT` | FR-615 |
+| TSQ-T2-05 | Revise / won / lost | `:edit` | `SENT`, `EXPIRED` (latest) | — |
+| TSQ-T2-08 | Quote remaining / regret lines / close as lost | `wht_customer_quotations:create` / `wht_sales_enquiries:edit` | enquiry `QUOTED` | — |
+| TSQ-T2-06 | Compare versions | `:view` | ≥ 2 versions | — |
+| TSQ-T2-07 | Export | `:export` | — | — |
+| TSQ-T2-09 | Every action in this table, and the auditor | `wht_<table>:<verb>` per FRD-TRADE FR-617 (`view`, `create`, `edit`, `export` + the workflow verbs above); `permission_dependencies` seeded; the auditor bundle holds `:view` only; record scope follows core's company / site grants; a bundle whose action calls a core port is also granted `warehouse:orders:port` in the trade seed | — | FR-617 |
 
 ## 3. T3 — Time-driven rules
 

@@ -100,6 +100,8 @@ counterparty; the evaluation stores `excluded_metrics`. A counterparty with no m
 | TCE-GRD-04 | Scheme active; Σ weights = 100 (checked at scheme save too); ≥ 2 grade bands, strictly decreasing `min_score` | `422 TRADE_WEIGHTS_NOT_100` | FR-594 |
 | TCE-GRD-05 | Period ended (`period_to < today`); no `DRAFT` run open for the same scheme × period | `422` / `409` | FR-595 |
 | TCE-GRD-06 | Customer item ref `APPROVED` only with the customer's approval document attached; the status records the customer's decision, so no internal approval request (FR-545, §5 M2) | `422` on `document` | FR-545 |
+| TCE-GRD-07 | A trade extensible value (reason, terms, AVL status-as-code, MSME category, charge type, enquiry source) is an active `whb_code_lists` value whose list has `owning_module = 'warehouse-trade'`, seeded under the owning-module guard; an install may add values | `422` field-named | FR-546 |
+| TCE-GRD-08 | **Concurrency**: every edit, submit, transition and approval of a `wht_` document checks its optimistic `version`; a stale write changes nothing | `409` stale write (code per `TPR-OPEN-03`) | FR-618 |
 
 ### 1.4 Unreachable
 
@@ -109,16 +111,19 @@ counterparty; the evaluation stores `excluded_metrics`. A counterparty with no m
 | TCE-UNR-02 | Editing a published evaluation | immutable; re-run supersedes | FR-595 |
 | TCE-UNR-03 | Credit limit, bank details, payment history on a profile | FRD §11 R1, R4 | FR-542 |
 | TCE-UNR-04 | A second supplier / customer master | `FR-541` | FR-541 |
+| TCE-UNR-05 | A `CHECK` on an extensible trade value, or on any `wht_` document `status` column | the service is the only enforcement point (`D-10`, `RL-003`) | FR-546 |
+| TCE-UNR-06 | A number on a `DRAFT` trade document; a `whb_number_series` row for a release (`<order>-Rnn` / `-Dnn`) or an amendment (`<order>-Ann`); a gapless trade series | drafts show `DRAFT`; releases and amendments use a per-order counter; trade documents are not tax documents | FR-547 |
 
 ## 2. T2 — Action × role × state
 
-| ID | Action | Permission |
-|---|---|---|
-| TCE-T2-01 | Profiles add / edit / block or unblock request / approve request | `wht_*_profiles:create`/`edit`/`block`/`approve` |
-| TCE-T2-02 | AVL maintain / approve (`TAM`) | `wht_approved_vendor_items:create`/`edit`/`approve` |
-| TCE-T2-03 | Customer item refs | `wht_customer_item_refs:*` |
-| TCE-T2-04 | Schemes | `wht_evaluation_schemes:*` |
-| TCE-T2-05 | Run / publish / export | `wht_evaluation_runs:create`/`publish`/`export` |
+| ID | Action | Permission | Source |
+|---|---|---|---|
+| TCE-T2-01 | Profiles add / edit / block or unblock request / approve request | `wht_*_profiles:create`/`edit`/`block`/`approve` | — |
+| TCE-T2-02 | AVL maintain / approve (`TAM`) | `wht_approved_vendor_items:create`/`edit`/`approve` | — |
+| TCE-T2-03 | Customer item refs | `wht_customer_item_refs:*` | — |
+| TCE-T2-04 | Schemes | `wht_evaluation_schemes:*` | — |
+| TCE-T2-05 | Run / publish / export | `wht_evaluation_runs:create`/`publish`/`export` | — |
+| TCE-T2-06 | Every action in this table, and the auditor | `wht_<table>:<verb>` per FRD-TRADE FR-617 (`view`, `create`, `edit`, `export` + the workflow verbs above); `permission_dependencies` seeded; the auditor bundle holds `:view` only; record scope follows core's company / site grants; a bundle whose action calls a core port is also granted `warehouse:orders:port` in the trade seed | FR-617 |
 
 ## 3. T3 — Time-driven rules
 
@@ -135,10 +140,12 @@ counterparty; the evaluation stores `excluded_metrics`. A counterparty with no m
 |---|---|---|---|
 | TCE-T4-01 | PO submit for a MICRO/SMALL supplier with terms > 45 days | `TPO-GRD-01` requires `msme_acknowledged` | FR-542 |
 | TCE-T4-02 | RFQ invite / award / PO / release / rate contract line | AVL check per FR-544 (`TRA-GRD-02`, `TPO-GRD-01`, `TRC-GRD-04`) | FR-544 |
-| TCE-T4-03 | Run computed | metrics per catalogue from core facts (read-only, FK down) and trade documents; stored numerator / denominator so every score is reproducible | FR-595, FR-614 |
+| TCE-T4-03 | Run computed | metrics per catalogue from core facts (read-only, FK down) and trade documents; stored numerator / denominator so every score is reproducible | FR-595, FR-614, FR-142 |
 | TCE-T4-04 | Quotation / SO line | part approval per FR-545 (`TSQ-GRD-02`, `TSO-GRD-18`) | FR-545 |
 | TCE-T4-05 | Publish with grade ≤ `warehouse.trade.evaluation.review_grade` | a `whb_tasks` row of task type `TRADE_AVL_REVIEW` (seeded by trade) for the trade administrator, linked to the supplier / customer | FR-596 |
 | TCE-T4-06 | Published grade | shown on CS (`TRA-T4-01`), PO header, AVL, customer profile, SO header | FR-597 |
+| TCE-T4-07 | A numbered trade document reaches its numbering stage: `PR` submit (a hand-off PR at create, FR-557), `RFQ` issue, `VQ` capture, `CS` submit, `PRC` / `SRC` / `PL` submit, `PO` / `PA` / `SO` submit, `ENQ` save, `SQ` submit, `SRA` submit | one number from `whb_number_series` for the document type (`whb_document_types` row, `is_gapless = false`, `YEARLY` financial-year reset) per company, optionally per site; the PO supplier-facing number per `OD-30` | FR-547 |
+| TCE-T4-08 | A PO, SO, RFQ or quotation records its terms | the company × document-type T&C template version in force is stored on the document (`terms_template_version_id`); a later **New version** on WS-311 never changes it; the document print shows the stored version | FR-584 |
 
 ## 5. T5 — Screen contract
 
@@ -210,3 +217,4 @@ actions View · Edit · New version · Versions.
 | ID | Question | Status |
 |---|---|---|
 | TCE-OPEN-01 | Does base let a sibling seed a `whb_task_types` row (`TRADE_AVL_REVIEW`)? | **Proposed: yes**, under the owning-module guard like code lists. DEFERRED-TO-p9-12 |
+| TCE-OPEN-02 | `FR-584` says the T&C version is "frozen on the document" but not at which transition (create, submit or approval), nor whether a `DRAFT` re-reads the current version | **OPEN.** Proposed: copied at create, refreshed while `DRAFT`, frozen at submit (when the number is drawn, `TCE-T4-07`) |

@@ -54,17 +54,17 @@ The GRN header ladder is `RQP`'s. This contract adds **line-level facts** and tw
 
 ### 1.2 Transitions
 
-| ID | From | Event | To | Guard | Actor | Side effects | Reason? | UI |
-|---|---|---|---|---|---|---|---|---|
-| GBM-T1-01 | GRN `DRAFT` | Set primary bill (copied from gate entry at create, editable) | unchanged | `GBM-GRD-01`, `-02`, `-03` | `wh_goods_receipts:edit` | one `is_primary` bill row (partial uk one primary per GRN) | no | WS-077 *Bill* panel |
-| GBM-T1-02 | `DRAFT` | Receive line with **supplier billed quantity** (defaults to the ASN line qty, else the open PO/schedule qty, else null for blind) | unchanged | `supplier_billed_quantity ≥ 0` | `wh_goods_receipts:edit` | §1.5 figures computed in the response; the auto-accepted part is stored at once (`-04`) | no | WS-076 **Receive line** |
-| GBM-T1-03 | `DRAFT` | Post | `POSTED` (`RQP-T1-09`) | `RQP` guards + `GBM-GRD-04`, `-05`, `-08` | `wh_goods_receipts:post` | `GBM-T4-01`…`-04` | no | WS-076 **Post** |
-| GBM-T1-04 | any line with `excess > 0` | Accept the **auto part** (`excess − decision_quantity`, §1.5) | unchanged | — | system at **Receive line** | `excess_accepted_quantity` = the auto part | no | automatic |
-| GBM-T1-05 | line excess *undecided* | **Approve** the decision quantity (all of it or part; the rest must be refused) | *decided* when approved + refused = decision quantity | approver ≠ the line's last editor and ≠ the GRN creator (`FR-408`), else `403 GRN_EXCESS_SELF_APPROVAL` (R29 F26) | `wh_goods_receipts:approve_excess` | `excess_approved_quantity`, `excess_accepted_quantity` += it, `excess_approved_by/at` | **yes** | WS-077 line action **Approve excess** |
-| GBM-T1-06 | line excess *undecided* | **Refuse** the decision quantity (or the part not approved) | *decided* | — | `wh_goods_receipts:edit` | `received_quantity` stays the physical count; `excess_refused_quantity` is set and **only `received + free − excess_refused` is posted** to stock (`GBM-T4-01`) | **yes** (reason context `EXCESS_REFUSAL`) | WS-077 line action **Refuse excess** |
-| GBM-T1-07 | *decided* | Edit the line (qty or billed) in `DRAFT` | *undecided* if the excess changed | — | `:edit` | decision columns cleared; approval stamp cleared | no | — |
-| GBM-T1-08 | GRN `POSTED` | Add **supplementary bill** (type, no, date, amount, lines: GRN line + billed qty) | unchanged | `GBM-GRD-01`…`-03`; Σ billed per line ≤ posted received | `wh_goods_receipts:add_supplementary_bill` | bill row `is_supplementary`; line `supplier_billed_quantity` += (a recorded fact, the GRN stock is untouched); open `EXCESS_OVER_BILL` case resolved `RECORD_SUPPLEMENTARY_BILL` when the line's excess-over-bill reaches 0 | no | WS-077 **Add supplementary bill** |
-| GBM-T1-09 | excess case `OPEN` | Resolve `ACCEPT_FREE_OF_CHARGE` | `RESOLVED` | resolver holds `wh_reconciliation_cases:resolve`; ≠ GRN poster, else `403 EXCESS_CASE_SELF_RESOLUTION` (R29 F26) | case permission | resulting document = the GRN; **no** GRN change | **yes** | reconciliation case screen |
+| ID | From | Event | To | Guard | Actor | Side effects | Reason? | UI | Source |
+|---|---|---|---|---|---|---|---|---|---|
+| GBM-T1-01 | GRN `DRAFT` | Set primary bill (copied from gate entry at create, editable) | unchanged | `GBM-GRD-01`, `-02`, `-03` | `wh_goods_receipts:edit` | one `is_primary` bill row (partial uk one primary per GRN) | no | WS-077 *Bill* panel | — |
+| GBM-T1-02 | `DRAFT` | Receive line with **supplier billed quantity** (defaults to the ASN line qty, else the open PO/schedule qty, else null for blind) | unchanged | `supplier_billed_quantity ≥ 0` | `wh_goods_receipts:edit` | §1.5 figures computed in the response; the auto-accepted part is stored at once (`-04`) | no | WS-076 **Receive line** | FR-518 |
+| GBM-T1-03 | `DRAFT` | Post | `POSTED` (`RQP-T1-09`) | `RQP` guards + `GBM-GRD-04`, `-05`, `-08` | `wh_goods_receipts:post` | `GBM-T4-01`…`-04` | no | WS-076 **Post** | — |
+| GBM-T1-04 | any line with `excess > 0` | Accept the **auto part** (`excess − decision_quantity`, §1.5) | unchanged | — | system at **Receive line** | `excess_accepted_quantity` = the auto part | no | automatic | — |
+| GBM-T1-05 | line excess *undecided* | **Approve** the decision quantity (all of it or part; the rest must be refused) | *decided* when approved + refused = decision quantity | approver ≠ the line's last editor and ≠ the GRN creator (`FR-408`), else `403 GRN_EXCESS_SELF_APPROVAL` (R29 F26) | `wh_goods_receipts:approve_excess` | `excess_approved_quantity`, `excess_accepted_quantity` += it, `excess_approved_by/at` | **yes** | WS-077 line action **Approve excess** | — |
+| GBM-T1-06 | line excess *undecided* | **Refuse** the decision quantity (or the part not approved) | *decided* | — | `wh_goods_receipts:edit` | `received_quantity` stays the physical count; `excess_refused_quantity` is set and **only `received + free − excess_refused` is posted** to stock (`GBM-T4-01`) | **yes** (reason context `EXCESS_REFUSAL`) | WS-077 line action **Refuse excess** | — |
+| GBM-T1-07 | *decided* | Edit the line (qty or billed) in `DRAFT` | *undecided* if the excess changed | — | `:edit` | decision columns cleared; approval stamp cleared | no | — | — |
+| GBM-T1-08 | GRN `POSTED` | Add **supplementary bill** (type, no, date, amount, lines: GRN line + billed qty) | unchanged | `GBM-GRD-01`…`-03`; Σ billed per line ≤ posted received | `wh_goods_receipts:add_supplementary_bill` | bill row `is_supplementary`; line `supplier_billed_quantity` += (a recorded fact, the GRN stock is untouched); open `EXCESS_OVER_BILL` case resolved `RECORD_SUPPLEMENTARY_BILL` when the line's excess-over-bill reaches 0 | no | WS-077 **Add supplementary bill** | — |
+| GBM-T1-09 | excess case `OPEN` | Resolve `ACCEPT_FREE_OF_CHARGE` | `RESOLVED` | resolver holds `wh_reconciliation_cases:resolve`; ≠ GRN poster, else `403 EXCESS_CASE_SELF_RESOLUTION` (R29 F26) | case permission | resulting document = the GRN; **no** GRN change | **yes** | reconciliation case screen | — |
 
 ### 1.3 Guards
 
@@ -76,7 +76,7 @@ The GRN header ladder is `RQP`'s. This contract adds **line-level facts** and tw
 | GBM-GRD-04 | `bill_required_for_po_receipt = true` and any line has `po_line_id` ⇒ a primary bill exists | `409 SUPPLIER_BILL_REQUIRED` · `bills` | — | FR-516 |
 | GBM-GRD-05 | every line's excess is *decided* | `409 EXCESS_APPROVAL_REQUIRED` · `lines[i].decisionQuantity` naming each line | — | FR-520 |
 | GBM-GRD-06 | the §1.5 arithmetic: headroom `H` = effective open quantity (`effectiveOrderedQuantity()` or the firm open schedule quantity, `POS-T1-14`) − received on other posted GRNs; tolerance `T` = effective quantity × resolved pct, resolution PO line → header → item → warehouse → setting (`WhPurchaseOrderLineStatusService.java:111-126`, unchanged); free quantity is excluded from every comparison, as today (`WhGoodsReceiptLine.java:42-44`) | auto part accepted; the decision part needs `-05` or `-06` | — | FR-520 |
-| GBM-GRD-07 | an approved excess still respects `received − refused ≥ 0` and `accepted + rejected ≤ received − refused`. **`rejected_quantity` is the existing dock rejection** (landed in `REJECTED` at post, `WhGoodsReceiptPostingService.java:305-311`), not a QC reject — a QC reject is an inspection disposition (R29 F5) | `422 GRN_LINE_QUANTITIES_INCONSISTENT` | CHECK `excess_accepted_quantity + excess_refused_quantity <= received_quantity`, `supplier_billed_quantity IS NULL OR supplier_billed_quantity >= 0`, and `accepted_quantity + rejected_quantity <= received_quantity - excess_refused_quantity` (replaces `V510014:318`) | FR-517 |
+| GBM-GRD-07 | an approved excess still respects `received − refused ≥ 0` and `accepted + rejected ≤ received − refused`. **`rejected_quantity` is the existing dock rejection** (landed in `REJECTED` at post, `WhGoodsReceiptPostingService.java:305-311`), not a QC reject — a QC reject is an inspection disposition (R29 F5) | `422 GRN_LINE_QUANTITIES_INCONSISTENT` | CHECK `excess_accepted_quantity + excess_refused_quantity <= received_quantity`, `supplier_billed_quantity IS NULL OR supplier_billed_quantity >= 0`, and `accepted_quantity + rejected_quantity <= received_quantity - excess_refused_quantity` (replaces `V510014:318`) | FR-517, FR-122 |
 | GBM-GRD-08 | the posting tolerance refusal `OVER_RECEIPT_TOLERANCE_EXCEEDED` (`WhGoodsReceiptPostingService.java:133`) now evaluates `received − excess_refused` (free excluded) against `H + T + excess_approved` — it never fires on a decided line, and a receipt over the PO but not over the bill **is** decidable (R29 F8) | `422 OVER_RECEIPT_TOLERANCE_EXCEEDED` | — | FR-520 |
 
 ### 1.4 Unreachable
@@ -110,14 +110,14 @@ headroom and `T` tolerance (`GBM-GRD-06`).
 
 ## 2. T2 — Action × role × state
 
-| ID | Action | Permission | Allowed from | Extra |
-|---|---|---|---|---|
-| GBM-T2-01 | Edit bill / billed qty | `wh_goods_receipts:edit` | `DRAFT` | — |
-| GBM-T2-02 | Approve excess | `wh_goods_receipts:approve_excess` | `DRAFT`, line *undecided* above tolerance | ≠ maker |
-| GBM-T2-03 | Refuse excess | `wh_goods_receipts:edit` | `DRAFT`, line *undecided* | reason |
-| GBM-T2-04 | Add supplementary bill | `wh_goods_receipts:add_supplementary_bill` | `POSTED` | — |
-| GBM-T2-05 | Open the short claim | `wh_supplier_claims:edit` / `:submit` | claim `DRAFT` | `P5-23` ladder |
-| GBM-T2-06 | Print GRN | `wh_print_jobs:create` | `POSTED` (also `DRAFT` as *provisional*) | `SYS-GRN` gains bill block |
+| ID | Action | Permission | Allowed from | Extra | Source |
+|---|---|---|---|---|---|
+| GBM-T2-01 | Edit bill / billed qty | `wh_goods_receipts:edit` | `DRAFT` | — | — |
+| GBM-T2-02 | Approve excess | `wh_goods_receipts:approve_excess` | `DRAFT`, line *undecided* above tolerance | ≠ maker | — |
+| GBM-T2-03 | Refuse excess | `wh_goods_receipts:edit` | `DRAFT`, line *undecided* | reason | — |
+| GBM-T2-04 | Add supplementary bill | `wh_goods_receipts:add_supplementary_bill` | `POSTED` | — | — |
+| GBM-T2-05 | Open the short claim | `wh_supplier_claims:edit` / `:submit` | claim `DRAFT` | `P5-23` ladder | — |
+| GBM-T2-06 | Print GRN | `wh_print_jobs:create` | `POSTED` (also `DRAFT` as *provisional*) | `SYS-GRN` gains bill block | FR-538, FR-518 |
 
 ## 3. T3 — Time-driven rules
 
@@ -128,14 +128,14 @@ headroom and `T` tolerance (`GBM-GRD-06`).
 
 ## 4. T4 — Cross-entity effects
 
-| ID | When | Then | Enforced in |
-|---|---|---|---|
-| GBM-T4-01 | GRN post | the receipt posts **`received + free − excess_refused`** per line: `received + free − rejected − excess_refused` into the resolved received status and `rejected` into `REJECTED` (today's split, `WhGoodsReceiptPostingService.java:305-311`, with the refused excess taken off); PO line roll-up and schedule allocation (`POS-T4-02`) use `received − excess_refused` (free excluded, as today) | GRN posting service |
-| GBM-T4-02 | GRN post with any line `supplier_billed − received > 0` | one `SHORT_SHIPMENT` claim in `DRAFT` (`wh_supplier_claims`, `source_document_type = GOODS_RECEIPT`), lines from `WhSupplierClaimQueryService.getPrefill` (`:311`) restricted to short lines; **for `SHORT_SHIPMENT` the prefill's suggested quantity and the validation ceiling (`WhSupplierClaimValidationService.java:216-229`, query `:335`) read `supplier_billed − received` when the GRN line has a supplier billed quantity, and keep `expected − received` otherwise** (R29 F19); `unit_value` = PO line `unit_price` (or the allocated schedule price, `POS-GRD-12`), `claim_date` = receipt date; `created_by` = the poster. A blind receipt (no billed qty) opens none | GRN post, **same transaction** |
-| GBM-T4-03 | GRN post with any line `excess_over_bill_accepted` > 0 (§1.5) | one `EXCESS_OVER_BILL` case per GRN (`subject_type = GOODS_RECEIPT`), severity `MEDIUM` | `WhReconciliationCaseRecorder.open` |
-| GBM-T4-04 | GRN post | outbox `WH_GRN_POSTED` gains `bills[]` and per-line `billed/received/accepted/rejected/excessRefused` (accounting handover, FRD §8) | outbox writer |
-| GBM-T4-05 | receipt reversal post (`RQP-T1-32`) | the short claim, if still `DRAFT`, is `WITHDRAWN` with note *receipt reversed*; if submitted, a `QUANTITY` case opens naming it — the claim is never silently changed. An open `EXCESS_OVER_BILL` case of the GRN and an open weighment `QUANTITY` case (`GTE-T4-03`) are resolved `RECEIPT_REVERSED` (new `RECON_RESOLUTION` row; resulting document = the reversal) in the same transaction (R29 F29) | reversal service |
-| GBM-T4-06 | refused excess | listed on the gate entry's gate-out view (`GTE-T4-06`) | read model |
+| ID | When | Then | Enforced in | Source |
+|---|---|---|---|---|
+| GBM-T4-01 | GRN post | the receipt posts **`received + free − excess_refused`** per line: `received + free − rejected − excess_refused` into the resolved received status and `rejected` into `REJECTED` (today's split, `WhGoodsReceiptPostingService.java:305-311`, with the refused excess taken off); PO line roll-up and schedule allocation (`POS-T4-02`) use `received − excess_refused` (free excluded, as today) | GRN posting service | — |
+| GBM-T4-02 | GRN post with any line `supplier_billed − received > 0` | one `SHORT_SHIPMENT` claim in `DRAFT` (`wh_supplier_claims`, `source_document_type = GOODS_RECEIPT`), lines from `WhSupplierClaimQueryService.getPrefill` (`:311`) restricted to short lines; **for `SHORT_SHIPMENT` the prefill's suggested quantity and the validation ceiling (`WhSupplierClaimValidationService.java:216-229`, query `:335`) read `supplier_billed − received` when the GRN line has a supplier billed quantity, and keep `expected − received` otherwise** (R29 F19); `unit_value` = PO line `unit_price` (or the allocated schedule price, `POS-GRD-12`), `claim_date` = receipt date; `created_by` = the poster. A blind receipt (no billed qty) opens none | GRN post, **same transaction** | FR-519 |
+| GBM-T4-03 | GRN post with any line `excess_over_bill_accepted` > 0 (§1.5) | one `EXCESS_OVER_BILL` case per GRN (`subject_type = GOODS_RECEIPT`), severity `MEDIUM` | `WhReconciliationCaseRecorder.open` | — |
+| GBM-T4-04 | GRN post | outbox `WH_GRN_POSTED` gains `bills[]` and per-line `billed/received/accepted/rejected/excessRefused` (accounting handover, FRD §8) | outbox writer | — |
+| GBM-T4-05 | receipt reversal post (`RQP-T1-32`) | the short claim, if still `DRAFT`, is `WITHDRAWN` with note *receipt reversed*; if submitted, a `QUANTITY` case opens naming it — the claim is never silently changed. An open `EXCESS_OVER_BILL` case of the GRN and an open weighment `QUANTITY` case (`GTE-T4-03`) are resolved `RECEIPT_REVERSED` (new `RECON_RESOLUTION` row; resulting document = the reversal) in the same transaction (R29 F29) | reversal service | — |
+| GBM-T4-06 | refused excess | listed on the gate entry's gate-out view (`GTE-T4-06`) | read model | — |
 
 ## 5. T5 — Screen contract
 

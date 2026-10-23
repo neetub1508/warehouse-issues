@@ -426,6 +426,7 @@ QC-held stock with no inspection — H14), WS-059 (tasks, `p0-10`), WS-064 (job 
 | 2026-09-17 | `RQP-GRD-18` | **WH-SC-035c follow-up, user decision.** The disposition reason picker is narrowed per arm to the movement type's `reason_context` (`MPR-GRD-11`, `V500084`), so the picker offers nothing the writer refuses `422 UNKNOWN_REASON_CODE`; a `NULL` context offers every active reason. The existing `/reason-codes` endpoint takes an optional `dispositionCode`; no new endpoint. | user decision |
 | 2026-09-17 | `RQP-T1-32`, `RQP-T4-12`, row 2026-09-16 P1-16 C8 fix 3 (1) | **WH-SC-022 fix pass 1 F1, user decision 2026-09-17.** A receipt reversal is current-dated and carries no soft-close override: the `periodOverride*` fields are removed from the WS-078 Post body (superseding fix 3 (1)), and a current date in a `SOFT_CLOSED` period is refused `403 PERIOD_OVERRIDE_FORBIDDEN` by the writer, as the movement port's reverse is. The writer is asked before the PO counters and putaway tasks move, in the post's one transaction. A `REVERSAL` movement returned `PENDING` is refused `409 APPROVAL_REQUIRED` (existing code) rather than marking the documents reversed |
 | 2026-10-05 | `RQP-GRD-07`, A3, row 2026-09-16 P1-13 build part 2 (1) | **F391 (warehouse-issues#397 item 3, from F383 #389), settled by default 2026-10-04.** `RQP-GRD-07`'s chain is unchanged in code (line override → item × site → movement type → refuse; still no `AVAILABLE` literal in any code path), but its last rung is now seeded as **data**: classic `warehouse-base` `V501201` sets `whb_movement_types.default_stock_status_code = 'AVAILABLE'` on `RECEIPT` (V500003's `RETURN_RECEIPT = RETURNED` precedent), so FR-129 / `WH-SC-051`'s `item → supplier → AVAILABLE` end holds on a fresh install. The refusal `422 RECEIVED_STATUS_UNRESOLVED` ("422 when nothing is configured", line 158) is therefore **not reached on a fresh install**; it is reached only when an operator clears `RECEIPT`'s default on Movement Types (WS-034) and no line override or item × site default applies. An install that wants receipts to refuse again, or to land in `QC_HOLD`, edits that one row. Evidence: classic `WhbBaseOnlyInstallHealthIntegrationTest.theReceiptMovementTypeDefaultsToAvailable`; `warehouse-base/INSTALL.md` §14 supplier-rung row | S3 functional review of the W35 fixes (2026-10-05) |
+| 2026-10-23 | `RQP-T1-37`…`-43`, `RQP-GRD-31`…`-34`, `RQP-UNR-16`…`-20`, `RQP-T4-18`, `-19`, `RQP-T5-01`…`-04`, `RQP-DIV-01`, `-02`, `RQP-OPEN-22` | **R30 `CP-FR-007` row 7 (`D-17` item 1).** §10–§12 added: rule rows for `FR-125`, `FR-126`, `FR-136`, `FR-140`, with code divergences and one open row | R30 requirements audit |
 
 ---
 
@@ -502,5 +503,109 @@ later round folds beat earlier text; the scenario catalogue owns fixtures, not s
 | H15 | Untracked dated obligations | pending approvals covered by `warehouse.approval.pending_alert_hours` (`RQP-T3-03`); the rest have no v1 rule (§6) | `GLOBAL-SETTINGS-DECISIONS.md` catalogue | RESOLVED |
 | H16 | Default sort, tiles, export for WS-075, WS-078…WS-082; WS-076 tiles | defaults written into §5 | DATA-MODEL indexes; `warehouse-base` sort precedent; `FR-395`; export ⊇ grid | RESOLVED (WS-075 / WS-076 SETTLED 2026-09-16 as ratified, §7; **WS-079 / WS-080 SETTLED 2026-09-16 as ratified**, §7; **WS-081 / WS-082 and WS-078 refinements SETTLED 2026-09-16**, §7 C8 fix rows) |
 | H17 | Permissions for Receive line, Attach PO/ASN, Record seals, inspection Start / Record results / Complete, rule Test | `:edit` / `:create` / `:view` per §2 | BUILD-SPEC §10.1 shape and §10.2 rule; `p0-10` WS-059 | RESOLVED |
+
+---
+
+## 10. R30 coverage — PO command centre, receiving configuration, ASN, three-way match
+
+`DECISIONS.md` `D-17` item 1 (R30 `CP-FR-007` row 7): `FR-125`, `FR-126`, `FR-136` and `FR-140` had no rule row.
+These rows are derived from the FRD and checked against the built code in `classic` by name; where the two
+differ the FRD rule is kept and §11 records the difference. The ASN (v1.1, `P3-05`) and the three-way match
+(v2, `P5-10`) are now built, so §6's *ASN as a document* row is read with this section. The STORES bill match
+is [`grn-bill-match.contract.md`](grn-bill-match.contract.md), which is not a three-way match.
+
+### 10.1 T1 — ASN and three-way match ladders
+
+| ID | From | Event / action | To | Guard | Actor (permission) | Side effects | Source |
+|---|---|---|---|---|---|---|---|
+| RQP-T1-37 | — | Create an ASN with lines: shipped (expected) quantity, lot, expiry, SSCC, LPN, serials, each against an open PO line | ASN `EXPECTED` | `RQP-GRD-32` | `wh_asns:create` | — (a receipt expectation; nothing moves) | `FR-136` |
+| RQP-T1-38 | `EXPECTED` | Arrive — attached to a live receiving session of the same site and supplier | `ARRIVED` | `RQP-GRD-33` | `wh_asns:receive_against` | the session's GRN is created against the ASN lines; `RQP-T4-19` | `FR-136` |
+| RQP-T1-39 | `EXPECTED` | Cancel | `CANCELLED` | reason code (`ASN_CANCEL_REASON_REQUIRED`) | `wh_asns:cancel` | none | `FR-136` |
+| RQP-T1-40 | — | Create a three-way match: invoice header and **allocation rows** (invoice line × GRN line × PO line, allocated quantity and amount) | match `DRAFT` | `RQP-GRD-34` | `wh_three_way_matches:create` | `wh_three_way_match_allocations` rows | `FR-140` |
+| RQP-T1-41 | `DRAFT` | Match | `MATCHED`, or `VARIANCE` where quantity or price differs | `RQP-GRD-34` | `wh_three_way_matches:match` | variance recorded per allocation | `FR-140` |
+| RQP-T1-42 | `MATCHED` · `VARIANCE` | Approve | `APPROVED` | note where the service requires it (`THREE_WAY_MATCH_APPROVE_NOTE_REQUIRED`) | `wh_three_way_matches:approve` | the value leg is handed to accounting, not posted here (`RQP-UNR-20`) | `FR-140` |
+| RQP-T1-43 | `DRAFT` · `MATCHED` · `VARIANCE` | Cancel | `CANCELLED` | note (`THREE_WAY_MATCH_CANCEL_NOTE_REQUIRED`) | `wh_three_way_matches:cancel` | allocations released | `FR-140` |
+
+### 10.2 Guards
+
+| ID | Predicate (must hold to proceed) | Refusal: code · field | Message shape | Source |
+|---|---|---|---|---|
+| RQP-GRD-31 | Receiving behaviour is **one workflow configured per warehouse** — receiving mode, GRN timing relative to the physical count, QC policy and putaway automation level — with defaults that keep the simple store simple (blind-capable receipt, GRN at count, the category's inspection plan, operator-completed putaway) | — (configuration read at GRN create; §11 `RQP-DIV-01`) | — | `FR-126` |
+| RQP-GRD-32 | ASN lines reference open PO lines of the ASN's supplier and site; serials ≤ quantity, none repeated; the ASN number is unique; only an `EXPECTED` ASN is edited | `ASN_PO_NOT_OPEN`, `ASN_PO_OTHER_SITE`, `ASN_PO_OTHER_SUPPLIER`, `ASN_PO_LINE_NOT_FOUND`, `ASN_SERIALS_EXCEED_QUANTITY`, `ASN_SERIAL_DUPLICATE`, `ASN_NUMBER_DUPLICATE`, `ASN_NOT_EDITABLE` | names the line and the PO | `FR-136` |
+| RQP-GRD-33 | The receiving session is live and of the ASN's site and supplier; any other move is refused | `ASN_SESSION_NOT_LIVE`, `ASN_SESSION_OTHER_SITE`, `ASN_SESSION_OTHER_SUPPLIER`, `ASN_SESSION_NOT_FOUND`, `ASN_TRANSITION_INVALID` | names the session | `FR-136` |
+| RQP-GRD-34 | Every allocation names a PO line and a **posted** GRN line of the invoice's supplier, in the invoice currency, with a resolved unit; a line is allocated once; the allocated quantity never exceeds the received quantity not yet invoiced; the invoice total never exceeds the allocations; the invoice is not a duplicate and not future-dated; at least one allocation exists | `THREE_WAY_MATCH_LINE_NO_ORDER`, `_LINE_NO_RECEIPT`, `_LINE_RECEIPT_NOT_POSTED`, `_LINE_OTHER_SUPPLIER`, `_LINE_CURRENCY_MISMATCH`, `_LINE_UNIT_UNRESOLVED`, `_LINE_DUPLICATE`, `_LINE_OVER_ALLOCATED`, `_OVER_INVOICE`, `_INVOICE_DUPLICATE`, `_INVOICE_DATE_FUTURE`, `_NO_ALLOCATIONS` (each prefixed `THREE_WAY_MATCH`) | names the allocation row | `FR-140` |
+
+### 10.3 Unreachable
+
+| ID | Forbidden | What makes it unreachable | Source |
+|---|---|---|---|
+| RQP-UNR-16 | The PO holding a copy of what belongs to another document — physical arrival (the session), the legal receipt (the GRN), finance (the invoice / match) — or a WS-073 tab editing a child | every WS-073 tab is a read-only child grid; the action lives on the child's own screen | `FR-125` |
+| RQP-UNR-17 | Two parallel receiving workflows (one for a dock-managed DC, one for a two-person store) | one GRN service, configured per warehouse (`RQP-GRD-31`) | `FR-126` |
+| RQP-UNR-18 | The ASN as a transport object, or an ASN moving stock | the ASN is a receipt expectation owned by warehouse; only the GRN posts | `FR-136` |
+| RQP-UNR-19 | A match built on a 1:1:1 header assumption, or lines paired by "closest price" | allocations are explicit junction rows (`RQP-T1-40`); no auto-pairing by price | `FR-140` |
+| RQP-UNR-20 | The match posting a journal or moving stock | approval hands the value leg to accounting; nothing moves | `FR-140` |
+
+### 10.4 T4 and T5
+
+| ID | When / Screen | Rule | Source |
+|---|---|---|---|
+| RQP-T4-18 | A GRN, QC result, putaway, return, invoice match or exception is recorded against a PO | it rolls up on WS-073 as a child row of that PO, read from the child table — the PO stores no copy | `FR-125` |
+| RQP-T4-19 | An ASN arrives | it drives the cross-dock plan (`wh_cross_dock_plans` reference the ASN), dock appointments and pre-allocation (§11 `RQP-DIV-02`) | `FR-136` |
+| RQP-T5-01 | WS-073 Purchase Order Detail | sub-tabs Lines · GRNs · QC results · Putaways · Invoices / three-way match · Returns · Exceptions · Documents · Audit; each a child grid, count shown | `FR-125` |
+| RQP-T5-02 | WS-075 / WS-076 receiving | the GRN shows the receiving mode and GRN timing it ran under | `FR-126` |
+| RQP-T5-03 | WS-074 ASNs | tiles `EXPECTED` · `ARRIVED` · `CANCELLED`; Receive against routes to WS-075; Cancel needs a reason | `FR-136` |
+| RQP-T5-04 | WS-088 Three-way Matches | the allocation grid (invoice line × GRN line × PO line, quantity, amount, variance); Match, Approve, Cancel | `FR-140` |
+
+## 11. R30 code divergences (FRD rule kept)
+
+| ID | File:line | FR | Difference |
+|---|---|---|---|
+| RQP-DIV-01 | `warehouse/…/db/migration/V510014__Create_wh_goods_receipts_lines_and_line_serials.sql:148-149` | `FR-126` | `receiving_mode` and `grn_timing` are columns on each GRN; no per-warehouse configuration row holds them, and no QC-policy or putaway-automation setting was found by grep |
+| RQP-DIV-02 | — (grep of `warehouse` `src/main` for an ASN reference finds only the cross-dock plan, the GRN and the PO query) | `FR-136` | the ASN drives cross-dock only; dock appointments and pre-allocation do not read it |
+| RQP-DIV-03 | `warehouse/…/service/WhReconciliationCaseService.java:183-201` | `FR-138` | a resolution does not create its document: Resolve requires the user to pick an already-completed document of the resolution's type and records the pointer |
+| RQP-DIV-04 | — (grep of `warehouse` `src/main` for `TYPE_INVOICE`, `TYPE_ASN`, `TYPE_SUPPLIER_RETURN` outside the entity finds no opener) | `FR-138` | cases open by themselves at four variance points only (`RQP-T4-20`); the `INVOICE`, `ASN` and `SUPPLIER_RETURN` types are seeded but nothing opens them |
+
+## 12. R30 open rows
+
+| ID | Question | Missing decision | Default until decided | Source |
+|---|---|---|---|---|
+| RQP-OPEN-22 | The value lists for receiving mode, GRN timing, QC policy and putaway automation level, and where the per-warehouse default lives | `FR-126` names the four settings, not their values or their home | the per-GRN columns as built (`RQP-DIV-01`) | `FR-126` |
+| RQP-OPEN-23 | Does Resolve create the resolution document (amend, reversal, adjustment, supplier return, recount), or point at one the user completed first (`RQP-DIV-03`)? | `FR-138` says "creates"; the code links | point at a completed document, as built | `FR-138` |
+| RQP-OPEN-24 | Which variance points open `INVOICE`, `ASN` and `SUPPLIER_RETURN` cases (`RQP-DIV-04`) — a three-way match / bill variance, an ASN-vs-GRN difference, a supplier return short-accepted? | `FR-138` says "auto-created at variance points" without listing them | the four openers as built; the other three types stay unused (the service has no manual create) | `FR-138` |
+
+## 13. R30 coverage — layered truth, receiving session, verification, reconciliation, supplier return, cross-dock, free quantity
+
+`DECISIONS.md` `D-17` item 1 (R30 `CP-FR-007`): `FR-123`, `FR-124`, `FR-127`, `FR-137`, `FR-138`, `FR-139` and
+`FR-141` had no rule row. These rows are derived from the FRD §6.8 and checked against the built code in `classic`
+by grep; where the two differ the FRD rule is kept and §11 records the difference. The reconciliation-case and
+supplier-return screens (WS-083, WS-084) are `p2-13`'s; this section states only the rules the FRs fix.
+
+### 13.1 Guards and structural rules
+
+| ID | Predicate (must hold) | Refusal: code · field | Evidence (grep) | Source |
+|---|---|---|---|---|
+| RQP-GRD-35 | **Layered truth.** Ordered (PO line `ordered_quantity`), shipped (ASN line `expected_quantity`), received (GRN line `received_quantity`), billed (the bill / three-way match) and on-hand (`whb_stock_positions`) are each held on their own document and none is reconciled into another; *100 → 95 → 92 → 100 → 89* all hold at once, and a screen shows each beside the others, never one "right" quantity | — (structure) | `V510011` header "THE LAYERED-TRUTH MODEL"; the PO-line counters are effects of a GRN post (`RQP-T1-12`) | `FR-123` |
+| RQP-GRD-36 | A **receiving session** is one physical inbound load against N POs × N ASNs × N GRNs; `supplier_counterparty_id` is nullable for a consolidator's load; an ASN arrives on exactly one session; the session rollup iterates GRNs by `session_id`, never by PO | `ASN_SESSION_*` (`RQP-GRD-33`) | `V510013:98`; `V510012:99`, `:115` (`CHECK ((arrived_at IS NULL) = (receiving_session_id IS NULL))`); `WhReceivingSessionRepositoryCustomImpl.java:97` | `FR-124` |
+| RQP-GRD-37 | **Verification always, inspection optional.** Every GRN line records what was physically counted (`received_quantity`, `free_quantity`) before it posts. Inspection is a separate act, needed only where the line's received-status chain (line → item × site → movement type; a regulated class forces `QUARANTINE`) lands it in a held status | `422 RECEIVED_STATUS_UNRESOLVED` · `lines[i].receivedStatusCode` | `WhGoodsReceiptPostingService.java:541-567` | `FR-127` |
+| RQP-GRD-38 | The **cross-dock reference** is a nullable v1 column on the receipt line (`cross_dock_reference`), beside the typed v2 linkage (`is_cross_dock`, `cross_dock_demand_line_id`), so "which receipts were cross-docked" is answerable for the period before cross-dock shipped | — | `V510014:298`, comment `:370` | `FR-137` |
+| RQP-GRD-39 | **Free / scheme quantity** is a receipt-line column (`free_quantity` ≥ 0, `scheme_reference`); the ledger takes billed + free, so the landed value spreads over both and the unit cost falls; the over-receipt tolerance excludes it (`RQP-GRD-06`) | CHECK `free_quantity >= 0` | `V510014:271-272`, `:316`; `WhGoodsReceiptPostingService.java:310`, `:854` | `FR-141` |
+| RQP-GRD-40 | A **reconciliation case** carries a type (`QUANTITY`, `OVER_RECEIPT`, `INVOICE`, `ASN`, `INVENTORY`, `RECEIPT_REVERSAL`, `SUPPLIER_RETURN`), a severity, a status, its subject document, a root cause and the **resolution-document pointer**; Resolve names one of five resolutions (`AMEND_PURCHASE_ORDER`, `REVERSE_RECEIPT`, `ADJUST_STOCK`, `RETURN_TO_SUPPLIER`, `RECOUNT`) and the document of that type that carried it out | `422 CASE_RESOLUTION_ACTION_INVALID` · `resolutionAction`; `422 CASE_RESULTING_DOCUMENT_INVALID` · `resultingDocumentId` | `V510019:68-74`, `:98-124`; `WhReconciliationCase.java:87-92`; `WhReconciliationCaseService.java:183-201` | `FR-138` |
+| RQP-GRD-41 | A **supplier return** is its own document (`wh_supplier_returns`: `DRAFT → APPROVED → PICKED → DISPATCHED → CLOSED`, cancel from `DRAFT` / `APPROVED` / `PICKED`), never an RMA and never a customer row; it is raised only by a user (the inspection's *Raise supplier return*, `IIS-T1-10`, or WS-084) and a second user approves it before dispatch | maker/checker (`IIS-T2-06`) | `V510020:97-98`; `WhSupplierReturnService.java:58-59` | `FR-139` |
+
+### 13.2 Unreachable
+
+| ID | Forbidden | What makes it unreachable | Source |
+|---|---|---|---|
+| RQP-UNR-21 | A reconciliation case moving stock | Resolve records the pointer only; `WhReconciliationCaseService` calls no movement writer (grep) | `FR-138` |
+| RQP-UNR-22 | A supplier return reducing inventory before dispatch | the dispatch movement is stamped on the lines at despatch (`WhSupplierReturnDemandEffects.java:83`); approve and pick move nothing | `FR-139` |
+| RQP-UNR-23 | A QC fail raising a supplier return or an RMA on its own | `IIS-UNR-01` | `FR-139` |
+| RQP-UNR-24 | One quantity standing for the PO, ASN, GRN, bill and on-hand | `RQP-GRD-35`; WS-073 reads each child (`RQP-T4-18`) | `FR-123` |
+
+### 13.3 T4 — cross-entity effects
+
+| ID | When | Then | Enforced in | Source |
+|---|---|---|---|---|
+| RQP-T4-20 | A GRN posts with a quantity variance, an over-receipt is refused, a receipt is reversed, or a count posts a variance | a reconciliation case opens by itself — `QUANTITY` / `OVER_RECEIPT` (severity `HIGH`, after the rollback) / `RECEIPT_REVERSAL` / `INVENTORY`; the case moves nothing (`RQP-UNR-21`) | `WhGoodsReceiptService.java:165-189`, `:416`; `WhReceiptReversalService.java:200`; `WhCountService.java:677` | `FR-138` |
+| RQP-T4-21 | A free quantity is received | the receipt movement and the `RECEIPT_LINE_CONFIRMED` event carry received + free in base units | `WhGoodsReceiptPostingService.java:854` | `FR-141` |
 
 <!-- Ratified 2026-09-14. Amend with /functional-contract: every change references a row id and adds a §7 row. -->

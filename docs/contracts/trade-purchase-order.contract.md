@@ -155,19 +155,20 @@ line: `po_line_id`, `schedule_line_id` (BLANKET) or null (OPEN call-off), qty, d
 
 ## 2. T2 — Action × role × state
 
-| ID | Action | Permission | Allowed from |
-|---|---|---|---|
-| TPO-T2-01 | Add / edit | `:create` / `:edit` | `DRAFT`, `REJECTED` |
-| TPO-T2-02 | Submit / withdraw | `:submit` | `DRAFT`, `REJECTED` / `SUBMITTED` |
-| TPO-T2-03 | Approve | `:approve` (`TAM`) + `warehouse:orders:port` | `SUBMITTED`; `PO_CANCEL` / `PO_SHORT_CLOSE` requests |
-| TPO-T2-04 | Issue / print | `:issue` / `:view` | `APPROVED`+ |
-| TPO-T2-05 | Acknowledge | `:acknowledge` | `ISSUED`, `ACKNOWLEDGED` with ack `PENDING` |
-| TPO-T2-06 | Release (OPEN/BLANKET) — create / submit / approve / cancel | `wht_po_releases:create` / `:submit` / `:approve` / `:cancel` (+ `warehouse:orders:port` for submit of a zero-level release, approve and cancel) | PO `APPROVED`, `ISSUED`, `ACKNOWLEDGED`; release per T1 |
-| TPO-T2-07 | Amend | `:amend` (`TOA`) | `APPROVED`, `ISSUED`, `ACKNOWLEDGED` |
-| TPO-T2-08 | Short-close | `:short_close` | non-terminal |
-| TPO-T2-09 | Cancel | `:cancel` | non-terminal, `TPO-GRD-09` |
-| TPO-T2-10 | Follow-up | `wht_po_followups:create` | non-terminal |
-| TPO-T2-11 | Export | `:export` (auditor: none) | — |
+| ID | Action | Permission | Allowed from | Source |
+|---|---|---|---|---|
+| TPO-T2-01 | Add / edit | `:create` / `:edit` | `DRAFT`, `REJECTED` | — |
+| TPO-T2-02 | Submit / withdraw | `:submit` | `DRAFT`, `REJECTED` / `SUBMITTED` | — |
+| TPO-T2-03 | Approve | `:approve` (`TAM`) + `warehouse:orders:port` | `SUBMITTED`; `PO_CANCEL` / `PO_SHORT_CLOSE` requests | — |
+| TPO-T2-04 | Issue / print | `:issue` / `:view` | `APPROVED`+ | — |
+| TPO-T2-05 | Acknowledge | `:acknowledge` | `ISSUED`, `ACKNOWLEDGED` with ack `PENDING` | — |
+| TPO-T2-06 | Release (OPEN/BLANKET) — create / submit / approve / cancel | `wht_po_releases:create` / `:submit` / `:approve` / `:cancel` (+ `warehouse:orders:port` for submit of a zero-level release, approve and cancel) | PO `APPROVED`, `ISSUED`, `ACKNOWLEDGED`; release per T1 | — |
+| TPO-T2-07 | Amend | `:amend` (`TOA`) | `APPROVED`, `ISSUED`, `ACKNOWLEDGED` | — |
+| TPO-T2-08 | Short-close | `:short_close` | non-terminal | — |
+| TPO-T2-09 | Cancel | `:cancel` | non-terminal, `TPO-GRD-09` | — |
+| TPO-T2-10 | Follow-up | `wht_po_followups:create` | non-terminal | — |
+| TPO-T2-11 | Export | `:export` (auditor: none) | — | — |
+| TPO-T2-12 | Every action in this table, and the auditor | `wht_<table>:<verb>` per FRD-TRADE FR-617 (`view`, `create`, `edit`, `export` + the workflow verbs above); `permission_dependencies` seeded; the auditor bundle holds `:view` only; record scope follows core's company / site grants; a bundle whose action calls a core port is also granted `warehouse:orders:port` in the trade seed | — | FR-617 |
 
 ## 3. T3 — Time-driven rules
 

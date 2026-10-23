@@ -69,22 +69,22 @@
 
 ### 1.2 Transitions
 
-| ID | From | Event / action | To | Guard (service, first) | Actor (permission) | Side effects | Comment/reason required | UI entry point |
-|---|---|---|---|---|---|---|---|---|
-| PRC-T1-01 | — | **Create receipt** for an order: `occurred_at`, `posting_date`, `is_final`; outputs pre-filled from order outputs (open planned qty), scrap pre-filled from confirmed operation scrap and rejection from in-process QC since the last receipt (FR-651, `WH-SC-637`) | `DRAFT` | `PRC-GRD-01` | `whm_production_receipts:create` | `FGR-` number at create (gapless per site); consumption proposal computed (`PRC-T1-03`) | no | WS-324 *Receipts* **Receive**; WS-326 **Add** (order picker) |
-| PRC-T1-02 | `DRAFT` | Edit outputs: qty, UoM, location, lot code, manufacture date, expiry override, serials, disposition (`GOOD`/`REJECTED`/`SCRAPPED`), scrap reason | unchanged | `PRC-GRD-02`…`-04`, `-07`…`-10`, `-16`, `-17` | `whm_production_receipts:edit` | proposal recomputed on any main-output qty change (edited consumption lines kept, flagged) | scrap reason on `SCRAPPED` | WS-326 **Edit** modal, *Outputs* tab |
-| PRC-T1-03 | `DRAFT` | **Backflush proposal / edit consumption**: for each `STAGE_BACKFLUSH`/`BACKFLUSH` component, proposed base = required per unit × (good + rejected + scrapped main output of this receipt); lots FEFO/FIFO from line side, then supply location; supervisor may edit qty, lot, location, add component scrap | unchanged | `PRC-GRD-11`, `-13` | `whm_production_receipts:edit` | `proposed_base_quantity` kept beside `base_quantity` | `PRODUCTION_DEVIATION` reason under `WARN` beyond tolerance | WS-326 modal *Consumption* tab |
-| PRC-T1-04 | `DRAFT`, scrap value ≤ `scrap_value_approval_threshold` (or null) | **Post** | `POSTED` | `PRC-GRD-01`…`-14`, `-16`…`-20` re-run under the order row lock; then every `MPR-T1-01` guard (`MPR-GRD-01`, `-05`, `-07`, `-08`, `-09`/`-10`, `-15`, `-16`, `-21`, `-26`) | `whm_production_receipts:post` | `PRC-T4-01`…`-08` in **one transaction**; order → `IN_PROGRESS` (if `RELEASED`) and, when `is_final`, → `COMPLETED` (`PRO-T1-17`) | close-short reason when final under tolerance | WS-326 row **Post** |
-| PRC-T1-05 | `DRAFT`, scrap value > threshold | **Post** (submits) | `PENDING_APPROVAL` | `PRC-GRD-01`…`-14`, `-16`…`-20` (validated, nothing written to the ledger) | `whm_production_receipts:post` | `scrap_value` stored; approvers notified (`PRC-T3-01`) | as `PRC-T1-04` | WS-326 row **Post** (modal says *needs approval*) |
-| PRC-T1-06 | `PENDING_APPROVAL` | **Approve** | `POSTED` | `PRC-GRD-15`; **all post guards re-run** (stock may have moved: `PRC-GRD-12` can now refuse) | `whm_production_receipts:approve` | `approved_by/at`; as `PRC-T1-04`, `posted_by` = submitter, actor recorded as approver | no | WS-326 row **Approve** |
-| PRC-T1-07 | `PENDING_APPROVAL` | **Return to draft** (MD-22) | `DRAFT` | `PRC-GRD-15` | `whm_production_receipts:approve` | — | **yes** — note | WS-326 row **Return** |
-| PRC-T1-08 | `DRAFT` | **Cancel** | `CANCELLED` | — | `whm_production_receipts:cancel` | number stays issued; nothing posted | **yes** — `cancel_note` | WS-326 row **Cancel** |
-| PRC-T1-09 | `POSTED` | *(effect of `PRC-T1-13`)* | `REVERSED` | never set directly | `whm_production_receipt_reversals:post` | — | — | none — WS-326 **Reverse** routes to WS-327 |
-| PRC-T1-10 | receipt `POSTED` | **Request reversal** — whole receipt | reversal `REQUESTED` | `PRC-GRD-21`…`-24`, `-27` | `whm_production_receipt_reversals:create` | `PRV-` number (gapless per site) | **yes** — `PRODUCTION_REVERSAL` reason + note | WS-327 **Request**; WS-326 **Reverse** |
-| PRC-T1-11 | `REQUESTED` | **Approve** | `APPROVED` | `PRC-GRD-26`; `-22`, `-23` re-checked | `whm_production_receipt_reversals:approve` | `approved_by/at` | no | WS-327 row **Approve** |
-| PRC-T1-12 | `REQUESTED` · `APPROVED` | **Reject** (incl. an approved reversal whose post is refused) | `REJECTED` | — | `whm_production_receipt_reversals:approve` | uk on `receipt_id` frees (a new request is possible) | **yes** | WS-327 row **Reject** |
-| PRC-T1-13 | `APPROVED` | **Post reversal** | `POSTED`; receipt `REVERSED` | `PRC-GRD-22`…`-25` re-run under lock; then `MPR-T1-08` guards (`MPR-GRD-09`, `-11`…`-14`, `-29`, `-30`, `-35`) — current-dated, no soft-close override | `whm_production_receipt_reversals:post` — **not** `:approve` (`RJ-005`) | `PRC-T4-09`…`-12` in one transaction; order `COMPLETED → IN_PROGRESS` (`PRO-T1-19`) | the request's reason travels to the reversal movement (`MPR-GRD-11`) | WS-327 row **Post** |
-| PRC-T1-14 | `POSTED` · `REVERSED` | **Print FG receipt note** | unchanged | — | `whm_production_receipts:view` | `FG_RECEIPT_NOTE`: receipt + order numbers, outputs with lots, expiry, status, location; scrap / rejection with reasons; consumed components; QC reference; *REVERSED* watermark when reversed | no | WS-326 row **Print** |
+| ID | From | Event / action | To | Guard (service, first) | Actor (permission) | Side effects | Comment/reason required | UI entry point | Source |
+|---|---|---|---|---|---|---|---|---|---|
+| PRC-T1-01 | — | **Create receipt** for an order: `occurred_at`, `posting_date`, `is_final`; outputs pre-filled from order outputs (open planned qty), scrap pre-filled from confirmed operation scrap and rejection from in-process QC since the last receipt (FR-651, `WH-SC-637`) | `DRAFT` | `PRC-GRD-01` | `whm_production_receipts:create` | `FGR-` number at create (gapless per site); consumption proposal computed (`PRC-T1-03`) | no | WS-324 *Receipts* **Receive**; WS-326 **Add** (order picker) | — |
+| PRC-T1-02 | `DRAFT` | Edit outputs: qty, UoM, location, lot code, manufacture date, expiry override, serials, disposition (`GOOD`/`REJECTED`/`SCRAPPED`), scrap reason | unchanged | `PRC-GRD-02`…`-04`, `-07`…`-10`, `-16`, `-17` | `whm_production_receipts:edit` | proposal recomputed on any main-output qty change (edited consumption lines kept, flagged) | scrap reason on `SCRAPPED` | WS-326 **Edit** modal, *Outputs* tab | — |
+| PRC-T1-03 | `DRAFT` | **Backflush proposal / edit consumption**: for each `STAGE_BACKFLUSH`/`BACKFLUSH` component, proposed base = required per unit × (good + rejected + scrapped main output of this receipt); lots FEFO/FIFO from line side, then supply location; supervisor may edit qty, lot, location, add component scrap | unchanged | `PRC-GRD-11`, `-13` | `whm_production_receipts:edit` | `proposed_base_quantity` kept beside `base_quantity` | `PRODUCTION_DEVIATION` reason under `WARN` beyond tolerance | WS-326 modal *Consumption* tab | — |
+| PRC-T1-04 | `DRAFT`, scrap value ≤ `scrap_value_approval_threshold` (or null) | **Post** | `POSTED` | `PRC-GRD-01`…`-14`, `-16`…`-20` re-run under the order row lock; then every `MPR-T1-01` guard (`MPR-GRD-01`, `-05`, `-07`, `-08`, `-09`/`-10`, `-15`, `-16`, `-21`, `-26`) | `whm_production_receipts:post` | `PRC-T4-01`…`-08` in **one transaction**; order → `IN_PROGRESS` (if `RELEASED`) and, when `is_final`, → `COMPLETED` (`PRO-T1-17`) | close-short reason when final under tolerance | WS-326 row **Post** | — |
+| PRC-T1-05 | `DRAFT`, scrap value > threshold | **Post** (submits) | `PENDING_APPROVAL` | `PRC-GRD-01`…`-14`, `-16`…`-20` (validated, nothing written to the ledger) | `whm_production_receipts:post` | `scrap_value` stored; approvers notified (`PRC-T3-01`) | as `PRC-T1-04` | WS-326 row **Post** (modal says *needs approval*) | — |
+| PRC-T1-06 | `PENDING_APPROVAL` | **Approve** | `POSTED` | `PRC-GRD-15`; **all post guards re-run** (stock may have moved: `PRC-GRD-12` can now refuse) | `whm_production_receipts:approve` | `approved_by/at`; as `PRC-T1-04`, `posted_by` = submitter, actor recorded as approver | no | WS-326 row **Approve** | — |
+| PRC-T1-07 | `PENDING_APPROVAL` | **Return to draft** (MD-22) | `DRAFT` | `PRC-GRD-15` | `whm_production_receipts:approve` | — | **yes** — note | WS-326 row **Return** | — |
+| PRC-T1-08 | `DRAFT` | **Cancel** | `CANCELLED` | — | `whm_production_receipts:cancel` | number stays issued; nothing posted | **yes** — `cancel_note` | WS-326 row **Cancel** | — |
+| PRC-T1-09 | `POSTED` | *(effect of `PRC-T1-13`)* | `REVERSED` | never set directly | `whm_production_receipt_reversals:post` | — | — | none — WS-326 **Reverse** routes to WS-327 | — |
+| PRC-T1-10 | receipt `POSTED` | **Request reversal** — whole receipt | reversal `REQUESTED` | `PRC-GRD-21`…`-24`, `-27` | `whm_production_receipt_reversals:create` | `PRV-` number (gapless per site) | **yes** — `PRODUCTION_REVERSAL` reason + note | WS-327 **Request**; WS-326 **Reverse** | — |
+| PRC-T1-11 | `REQUESTED` | **Approve** | `APPROVED` | `PRC-GRD-26`; `-22`, `-23` re-checked | `whm_production_receipt_reversals:approve` | `approved_by/at` | no | WS-327 row **Approve** | — |
+| PRC-T1-12 | `REQUESTED` · `APPROVED` | **Reject** (incl. an approved reversal whose post is refused) | `REJECTED` | — | `whm_production_receipt_reversals:approve` | uk on `receipt_id` frees (a new request is possible) | **yes** | WS-327 row **Reject** | — |
+| PRC-T1-13 | `APPROVED` | **Post reversal** | `POSTED`; receipt `REVERSED` | `PRC-GRD-22`…`-25` re-run under lock; then `MPR-T1-08` guards (`MPR-GRD-09`, `-11`…`-14`, `-29`, `-30`, `-35`) — current-dated, no soft-close override | `whm_production_receipt_reversals:post` — **not** `:approve` (`RJ-005`) | `PRC-T4-09`…`-12` in one transaction; order `COMPLETED → IN_PROGRESS` (`PRO-T1-19`) | the request's reason travels to the reversal movement (`MPR-GRD-11`) | WS-327 row **Post** | — |
+| PRC-T1-14 | `POSTED` · `REVERSED` | **Print FG receipt note** | unchanged | — | `whm_production_receipts:view` | `FG_RECEIPT_NOTE`: receipt + order numbers, outputs with lots, expiry, status, location; scrap / rejection with reasons; consumed components; QC reference; *REVERSED* watermark when reversed | no | WS-326 row **Print** | FR-650 |
 
 ### 1.3 Guards
 
@@ -135,18 +135,18 @@
 
 ## 2. T2 — Action × role × state
 
-| ID | Action | Permission | Allowed from | Extra condition |
-|---|---|---|---|---|
-| PRC-T2-01 | Create receipt | `whm_production_receipts:create` | order `RELEASED`/`IN_PROGRESS`, not held | supervisor |
-| PRC-T2-02 | Edit outputs / consumption | `whm_production_receipts:edit` | `DRAFT` | — |
-| PRC-T2-03 | Post | `whm_production_receipts:post` | `DRAFT` | — |
-| PRC-T2-04 | Approve · Return | `whm_production_receipts:approve` | `PENDING_APPROVAL` | actor ≠ submitter; production manager |
-| PRC-T2-05 | Cancel | `whm_production_receipts:cancel` | `DRAFT` | — |
-| PRC-T2-06 | Print FG receipt note | `whm_production_receipts:view` | `POSTED`·`REVERSED` | — |
-| PRC-T2-07 | Request reversal | `whm_production_receipt_reversals:create` | receipt `POSTED` | no live reversal |
-| PRC-T2-08 | Approve · Reject reversal | `whm_production_receipt_reversals:approve` | `REQUESTED` · `REQUESTED`/`APPROVED` | actor ≠ requester |
-| PRC-T2-09 | Post reversal | `whm_production_receipt_reversals:post` | `APPROVED` | — |
-| PRC-T2-10 | Export | `:export` on either resource | any | not AUDITOR |
+| ID | Action | Permission | Allowed from | Extra condition | Source |
+|---|---|---|---|---|---|
+| PRC-T2-01 | Create receipt | `whm_production_receipts:create` | order `RELEASED`/`IN_PROGRESS`, not held | supervisor | — |
+| PRC-T2-02 | Edit outputs / consumption | `whm_production_receipts:edit` | `DRAFT` | — | — |
+| PRC-T2-03 | Post | `whm_production_receipts:post` | `DRAFT` | — | — |
+| PRC-T2-04 | Approve · Return | `whm_production_receipts:approve` | `PENDING_APPROVAL` | actor ≠ submitter; production manager | — |
+| PRC-T2-05 | Cancel | `whm_production_receipts:cancel` | `DRAFT` | — | — |
+| PRC-T2-06 | Print FG receipt note | `whm_production_receipts:view` | `POSTED`·`REVERSED` | — | FR-650 |
+| PRC-T2-07 | Request reversal | `whm_production_receipt_reversals:create` | receipt `POSTED` | no live reversal | — |
+| PRC-T2-08 | Approve · Reject reversal | `whm_production_receipt_reversals:approve` | `REQUESTED` · `REQUESTED`/`APPROVED` | actor ≠ requester | — |
+| PRC-T2-09 | Post reversal | `whm_production_receipt_reversals:post` | `APPROVED` | — | — |
+| PRC-T2-10 | Export | `:export` on either resource | any | not AUDITOR | — |
 
 ---
 
@@ -162,21 +162,21 @@
 
 ## 4. T4 — Cross-entity effects
 
-| ID | When this happens | Then this other record must change | Enforced in |
-|---|---|---|---|
-| PRC-T4-01 | Receipt post | **one `PRODUCTION_RECEIPT` movement** (INTERNAL, `source_document_type = PRODUCTION_RECEIPT`, key `PRODUCTION_RECEIPT:<id>`), lines: (a) each consumption −qty at line side / supply location, +qty at `VIRT-PRODUCTION-<site>`; (b) component scrap −qty at source, +qty at `VIRT-SCRAP-<site>`; (c) each `GOOD`/`REJECTED` output −qty at `VIRT-PRODUCTION`, +qty at its location in the resolved status, with lot, serials, frozen factor; (d) each `SCRAPPED` output −qty at `VIRT-PRODUCTION`, +qty at `VIRT-SCRAP`; balances per `(owner, item, lot, serial, duty)` (`MPR-GRD-01`, `I-1`); `movement_id`, `movement_line_id`s stored; the order's holds on the consumed positions — found by holder quad, never stored (MD-36) — passed as `consumedReservationIds`, their remainders re-created in the same transaction | receipt posting service → `WhbStockLedgerWriter.post` (`WH-SC-625`, `-630`) |
-| PRC-T4-02 | Receipt post | order `received_/scrapped_/rejected_quantity` (main, base); order output `received_quantity`; component `consumed_quantity`, `line_status`; `actual_start_at` when first | same transaction |
-| PRC-T4-03 | Receipt post | **`extendedCost` per real output line, `costBasis` null** (the type default; the VAS shape `WhWorkOrderPostingService.java:78-93` — R29 F19, MD-34); counter lines carry no cost: absorbed value = own backflush + share of the unabsorbed issued pool; by-product credit first; abnormal scrap share leaves the pool as the MFG-side record `scrap_value` (no ledger value, R29 F20); MAIN + CO split by largest remainder; a same-item output whose grain nets to zero states the engine's figure and leaves the extras to settlement (MD-33) — arithmetic in `mfg-costing-close` §1.5, **built in this task** (MD-37); a post with no absorption result is refused, never posted at the engine's fallback value | costing service in `p10-07` (`WH-SC-639`, `-640`) |
-| PRC-T4-04 | Receipt post | output lots created/resolved with `manufacture_date`, `expiry_date`; serials written | lot service |
-| PRC-T4-05 | Receipt post | one `whb_transformations` row (`transformation_type = PRODUCTION`, `work_order_ref_type = PRODUCTION_RECEIPT`, id, `movement_id`) via `WhbTransformationRecorder.record`: inputs = lots/serials backflushed by this receipt + **every** lot issued to the order up to this post (net of returns), whatever earlier receipt also listed it — the issued pool is absorbed across all receipts (R29 F14, MD-41); outputs = output lots | same transaction (`WH-SC-633`, `L-12`) |
-| PRC-T4-06 | Post with `is_final` | order → `COMPLETED` (`PRO-T1-17`); remaining reservations kept until close | order service |
-| PRC-T4-07 | Post, `GOOD` output in `QC_HOLD` | output lines exposed to `QualityInspectionSourceResolver` type `PRODUCTION_RECEIPT`; dispositions are core's (`mfg-qc-rework`) | resolver |
-| PRC-T4-08 | Post, order `reserve_output_for_demand`, good main output landing in an **allocatable** status | a reservation of that output for the demand line (holder = the core demand order line); output landing in `QC_HOLD` (or any non-allocatable status) is **not** reserved here — `QRW-T4-10` reserves it at QC release (R29 F15) | reservation service (`WH-SC-616`) |
-| PRC-T4-09 | Reversal post | one reversing movement through `WhbStockLedgerWriter.reverse` mirroring line for line (`MPR-T1-08`, `MPR-GRD-14`); `reversal_movement_id` | reversal service |
-| PRC-T4-10 | Reversal post | rollups regress (received / scrapped / rejected / consumed); absorbed value returns to the pool; MTO output reservation released; order `COMPLETED → IN_PROGRESS` (`PRO-T1-19`) | same transaction |
-| PRC-T4-11 | Reversal post | a reversing `whb_transformations` row (`transformation_type = PRODUCTION_REVERSAL`, ref `PRODUCTION_RECEIPT_REVERSAL`) — the original stays | `WhbTransformationRecorder` |
-| PRC-T4-12 | Reversal post | reservations the receipt consumed are **not** re-created automatically; the planner re-stages / re-releases if needed | by design |
-| PRC-T4-13 | Every write | audit `PRODUCTION_RECEIPT_*`, `RECEIPT_REVERSAL_*`; `@CacheEvict statistics.whmProductionReceipt`, `statistics.whmReceiptReversal`; outbox `stock.movement.posted` (`MPR-T4-07`); accounting handover envelope (`MPR-T4-08`, FR-657) | services |
+| ID | When this happens | Then this other record must change | Enforced in | Source |
+|---|---|---|---|---|
+| PRC-T4-01 | Receipt post | **one `PRODUCTION_RECEIPT` movement** (INTERNAL, `source_document_type = PRODUCTION_RECEIPT`, key `PRODUCTION_RECEIPT:<id>`), lines: (a) each consumption −qty at line side / supply location, +qty at `VIRT-PRODUCTION-<site>`; (b) component scrap −qty at source, +qty at `VIRT-SCRAP-<site>`; (c) each `GOOD`/`REJECTED` output −qty at `VIRT-PRODUCTION`, +qty at its location in the resolved status, with lot, serials, frozen factor; (d) each `SCRAPPED` output −qty at `VIRT-PRODUCTION`, +qty at `VIRT-SCRAP`; balances per `(owner, item, lot, serial, duty)` (`MPR-GRD-01`, `I-1`); `movement_id`, `movement_line_id`s stored; the order's holds on the consumed positions — found by holder quad, never stored (MD-36) — passed as `consumedReservationIds`, their remainders re-created in the same transaction | receipt posting service → `WhbStockLedgerWriter.post` (`WH-SC-625`, `-630`) | — |
+| PRC-T4-02 | Receipt post | order `received_/scrapped_/rejected_quantity` (main, base); order output `received_quantity`; component `consumed_quantity`, `line_status`; `actual_start_at` when first | same transaction | — |
+| PRC-T4-03 | Receipt post | **`extendedCost` per real output line, `costBasis` null** (the type default; the VAS shape `WhWorkOrderPostingService.java:78-93` — R29 F19, MD-34); counter lines carry no cost: absorbed value = own backflush + share of the unabsorbed issued pool; by-product credit first; abnormal scrap share leaves the pool as the MFG-side record `scrap_value` (no ledger value, R29 F20); MAIN + CO split by largest remainder; a same-item output whose grain nets to zero states the engine's figure and leaves the extras to settlement (MD-33) — arithmetic in `mfg-costing-close` §1.5, **built in this task** (MD-37); a post with no absorption result is refused, never posted at the engine's fallback value | costing service in `p10-07` (`WH-SC-639`, `-640`) | — |
+| PRC-T4-04 | Receipt post | output lots created/resolved with `manufacture_date`, `expiry_date`; serials written | lot service | — |
+| PRC-T4-05 | Receipt post | one `whb_transformations` row (`transformation_type = PRODUCTION`, `work_order_ref_type = PRODUCTION_RECEIPT`, id, `movement_id`) via `WhbTransformationRecorder.record`: inputs = lots/serials backflushed by this receipt + **every** lot issued to the order up to this post (net of returns), whatever earlier receipt also listed it — the issued pool is absorbed across all receipts (R29 F14, MD-41); outputs = output lots | same transaction (`WH-SC-633`, `L-12`) | FR-648 |
+| PRC-T4-06 | Post with `is_final` | order → `COMPLETED` (`PRO-T1-17`); remaining reservations kept until close | order service | — |
+| PRC-T4-07 | Post, `GOOD` output in `QC_HOLD` | output lines exposed to `QualityInspectionSourceResolver` type `PRODUCTION_RECEIPT`; dispositions are core's (`mfg-qc-rework`) | resolver | — |
+| PRC-T4-08 | Post, order `reserve_output_for_demand`, good main output landing in an **allocatable** status | a reservation of that output for the demand line (holder = the core demand order line); output landing in `QC_HOLD` (or any non-allocatable status) is **not** reserved here — `QRW-T4-10` reserves it at QC release (R29 F15) | reservation service (`WH-SC-616`) | — |
+| PRC-T4-09 | Reversal post | one reversing movement through `WhbStockLedgerWriter.reverse` mirroring line for line (`MPR-T1-08`, `MPR-GRD-14`); `reversal_movement_id` | reversal service | — |
+| PRC-T4-10 | Reversal post | rollups regress (received / scrapped / rejected / consumed); absorbed value returns to the pool; MTO output reservation released; order `COMPLETED → IN_PROGRESS` (`PRO-T1-19`) | same transaction | — |
+| PRC-T4-11 | Reversal post | a reversing `whb_transformations` row (`transformation_type = PRODUCTION_REVERSAL`, ref `PRODUCTION_RECEIPT_REVERSAL`) — the original stays | `WhbTransformationRecorder` | — |
+| PRC-T4-12 | Reversal post | reservations the receipt consumed are **not** re-created automatically; the planner re-stages / re-releases if needed | by design | — |
+| PRC-T4-13 | Every write | audit `PRODUCTION_RECEIPT_*`, `RECEIPT_REVERSAL_*`; `@CacheEvict statistics.whmProductionReceipt`, `statistics.whmReceiptReversal`; outbox `stock.movement.posted` (`MPR-T4-07`); accounting handover envelope (`MPR-T4-08`, FR-657) | services | — |
 
 ---
 

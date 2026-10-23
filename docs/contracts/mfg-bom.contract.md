@@ -107,16 +107,18 @@
 
 ### 1.4 Unreachable
 
-| ID | Must never happen |
-|---|---|
-| BOM-UNR-01 | An edit of an `APPROVED`, `SUBMITTED` or `OBSOLETE` version — `PUT` answers `409 BOM_APPROVED_IMMUTABLE` (`FR-625`) |
-| BOM-UNR-02 | A delete of anything but a never-referenced `DRAFT` |
-| BOM-UNR-03 | A BOM change altering an existing order's components, outputs or operations (`FR-633`, `WH-SC-612`) |
-| BOM-UNR-04 | Two `APPROVED` versions of one `(item, usage, alternative, site)` overlapping on a date |
-| BOM-UNR-05 | An approved structure containing a cycle; a stock-bearing movement line for a phantom item |
-| BOM-UNR-06 | Any write to `whb_kit_definitions` from MFG, or a `whb_`/`wh_` table gaining an FK to `whm_boms` (`D-1`, `FR-620`) |
-| BOM-UNR-07 | A BOM posting a movement or creating a reservation |
-| BOM-UNR-08 | Explosion, where-used or roll-up arithmetic in a page component (rule 8) |
+| ID | Must never happen | Source |
+|---|---|---|
+| BOM-UNR-01 | An edit of an `APPROVED`, `SUBMITTED` or `OBSOLETE` version — `PUT` answers `409 BOM_APPROVED_IMMUTABLE` (`FR-625`) | FR-625 |
+| BOM-UNR-02 | A delete of anything but a never-referenced `DRAFT` | — |
+| BOM-UNR-03 | A BOM change altering an existing order's components, outputs or operations (`FR-633`, `WH-SC-612`) | FR-633 |
+| BOM-UNR-04 | Two `APPROVED` versions of one `(item, usage, alternative, site)` overlapping on a date | — |
+| BOM-UNR-05 | An approved structure containing a cycle; a stock-bearing movement line for a phantom item | — |
+| BOM-UNR-06 | Any write to `whb_kit_definitions` from MFG, or a `whb_`/`wh_` table gaining an FK to `whm_boms` (`D-1`, `FR-620`) | FR-620 |
+| BOM-UNR-07 | A BOM posting a movement or creating a reservation | — |
+| BOM-UNR-08 | Explosion, where-used or roll-up arithmetic in a page component (rule 8) | — |
+| BOM-UNR-09 | An MFG registry row (movement, document or location type, code list, reason context, the `REWORK` disposition, print kind, number series) inserted without the `RL-003` owning-module guard (the `V525000` step-4 pattern, `warehouse-adapter-example`), or a re-seed of core's `COST_OBJECT_TYPE.PRODUCTION_ORDER` or `QC_SOURCE_TYPE.PRODUCTION_RECEIPT` / `IN_PROCESS` | FR-621 |
+| BOM-UNR-10 | An MFG grid without `grid_column_definitions` + `filter_definitions` + a `grid_preferences` row carrying both default filters and default columns in its table migration, or without its `COMMON_FILTER_CONFIGS` scope; an export narrower than its grid; an MFG verb that is not a `resource:action` permission with `permission_dependencies` on `:view`; an AUDITOR export grant; an MFG mobile screen; an L2 under L1 *Manufacturing* with more than 8 leaves | FR-669 |
 
 ## 2. T2 — Action × role × state (maker–checker)
 

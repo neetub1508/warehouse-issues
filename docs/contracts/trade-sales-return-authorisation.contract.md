@@ -86,6 +86,7 @@ Core RMA status → SRA (`POS-T1-22`; core statuses are exactly `OPEN`, `APPROVE
 | TSR-GRD-03 | SO not `CANCELLED`; customer exists (a blocked customer may still return goods — no block check) | field `422` | FR-612 |
 | TSR-GRD-04 | `WhRmaPort` bean present (`OD-33`) | `503 TRADE_RMA_PORT_ABSENT` — the screen states the dependency | FR-612 |
 | TSR-GRD-05 | Trade's `RmaChangeGuard` refuses core-screen `EDIT`, `APPROVE`, `CANCEL` of a trade-created RMA; `EXPIRE` is allowed (`OD-39`) | `409 RMA_OWNED_BY_SOURCE_MODULE` (raised by the guard, `POS-GRD-22`) | FR-612 |
+| TSR-GRD-06 | **Concurrency**: every edit, submit, transition and approval of a `wht_` document checks its optimistic `version`; a stale write changes nothing; every write through `WhRmaPort` (`TSR-T4-03`) carries a `PortEnvelope` whose idempotency key has the FRD-TRADE §12a shape `<SOURCE_DOCUMENT_TYPE>:<id>:<operation>:<sequence>`, and the port call commits with the trade transition, so a double-clicked action changes core once | `409` stale write (code per `TPR-OPEN-03`); `409 PORT_IDEMPOTENCY_CONFLICT` relayed | FR-618 |
 
 ### 1.4 Unreachable
 
@@ -98,13 +99,14 @@ Core RMA status → SRA (`POS-T1-22`; core statuses are exactly `OPEN`, `APPROVE
 
 ## 2. T2 — Action × role × state
 
-| ID | Action | Permission | Allowed from |
-|---|---|---|---|
-| TSR-T2-01 | Add / edit | `:create` / `:edit` | `DRAFT`, `REJECTED` |
-| TSR-T2-02 | Submit / withdraw / approve | `:submit` / `:submit` (maker) / `:approve` + `warehouse:orders:port` | per T1 |
-| TSR-T2-03 | Cancel | `:cancel` (+ `warehouse:orders:port` after approval) | `DRAFT`, `REJECTED`, `APPROVED` (not matched) |
-| TSR-T2-04 | Decline replacement | `:edit` | `RECEIVED`, `PARTIALLY_RECEIVED` with intent `REPLACE` |
-| TSR-T2-05 | Print / export | `:view` / `:export` (auditor: none) | numbered |
+| ID | Action | Permission | Allowed from | Source |
+|---|---|---|---|---|
+| TSR-T2-01 | Add / edit | `:create` / `:edit` | `DRAFT`, `REJECTED` | — |
+| TSR-T2-02 | Submit / withdraw / approve | `:submit` / `:submit` (maker) / `:approve` + `warehouse:orders:port` | per T1 | — |
+| TSR-T2-03 | Cancel | `:cancel` (+ `warehouse:orders:port` after approval) | `DRAFT`, `REJECTED`, `APPROVED` (not matched) | — |
+| TSR-T2-04 | Decline replacement | `:edit` | `RECEIVED`, `PARTIALLY_RECEIVED` with intent `REPLACE` | — |
+| TSR-T2-05 | Print / export | `:view` / `:export` (auditor: none) | numbered | FR-615 |
+| TSR-T2-06 | Every action in this table, and the auditor | `wht_<table>:<verb>` per FRD-TRADE FR-617 (`view`, `create`, `edit`, `export` + the workflow verbs above); `permission_dependencies` seeded; the auditor bundle holds `:view` only; record scope follows core's company / site grants; a bundle whose action calls a core port is also granted `warehouse:orders:port` in the trade seed | — | FR-617 |
 
 ## 3. T3 — Time-driven rules
 

@@ -64,25 +64,25 @@ row (`wh_gate_pass_revisions` is **not** created — the revision is an audit ro
 
 ### 1.2 Transitions
 
-| ID | From | Event / action | To | Guard | Actor (permission) | Side effects | Reason? | UI entry point |
-|---|---|---|---|---|---|---|---|---|
-| GTE-T1-01 | — | Gate-in: direction, purpose, party, vehicle, driver, mobile, transporter, LR no.; for an inward `PURCHASE_RECEIPT`: supplier, **PO(s)**, ASN(s), primary bill (type, no, date, amount, e-way bill no.) | `OPEN` | `GTE-GRD-01`…`-04` | `wh_gate_entries:create` | gapless `GE` number issued at create; `entered_at = now()` (server clock, `IRR-23`); `wh_gate_entry_documents` rows | no | WS-260 toolbar **Gate in** |
-| GTE-T1-02 | `OPEN` | Edit / link more inward documents | unchanged | same guards; vehicle and direction frozen | `wh_gate_entries:edit` | audit row per changed field | no | WS-261 **Edit** |
-| GTE-T1-02a | `OPEN` **outward** | **Link an outward document** (supplier return, shipment, store issue, job-work challan, gate pass) by `(outward_document_type, outward_document_id)` (R29 F35) | unchanged | `GTE-GRD-15` | `wh_gate_entries:edit` | `wh_gate_entry_documents` row `OUTWARD_DOCUMENT`; a gate pass linked here is the one `GTE-T1-05` moves to `OUT` | no | WS-261 **Link outward document** |
-| GTE-T1-03 | `OPEN` | Turn back | `TURNED_BACK` | `GTE-GRD-05` | `wh_gate_entries:turn_back` | `turned_back_at`; documents kept; nothing else | **yes** (reason code, context `GATE_TURN_BACK`) | WS-260 row **Turn back** |
-| GTE-T1-04 | `OPEN` (inward purchase) | Create receiving session | unchanged | `GTE-GRD-07` | `wh_receiving_sessions:create` | a session `ARRIVED` with `gate_entry_id`, supplier, vehicle, driver and the PO/ASN documents copied (`RQP-T1-01` with a pre-fill) | no | WS-261 **Create receiving session** |
-| GTE-T1-05 | `OPEN` | Gate-out | `CLOSED` | `GTE-GRD-08`, `GTE-GRD-09`; when a gate pass is linked, the actor **also** holds `wh_gate_passes:gate_out`, else `403 GATE_PASS_GATE_OUT_PERMISSION_REQUIRED` (R29 F15) | `wh_gate_entries:gate_out` (+ `wh_gate_passes:gate_out` when a pass is linked) | `exited_at`; linked session's `departed_at` stamped; any gate pass named on the entry moves by `GTE-T1-12` in the same transaction | no | WS-260 row **Gate out** |
-| GTE-T1-06 | `OPEN` | Cancel (entered in error) | `CANCELLED` | no session, GRN or gate pass references it | `wh_gate_entries:cancel` | number stays issued | **yes** | WS-261 **Cancel** |
-| GTE-T1-07 | `OPEN` | Gate event `ENTRY` from the barrier | `OPEN` (new or matched) | vehicle number normalised; an `OPEN` entry for that vehicle at that site in the last `warehouse.gate.event_match_minutes` (default 240) is matched, else a skeleton entry is created with purpose `OTHER` | system (`WarehouseGateEventHandler`, outcome `CLAIMED`) | a new entry's `entered_at` = **the server clock when the event is claimed** (`IRR-23`, `FRD-STORES` FR-507 — never the device's clock); the event's `occurredAt` is kept as `barrier_occurred_at` for display and the dwell tile (R29 F28) | no | none (event) |
-| GTE-T1-08 | `OPEN` | Gate event `EXIT` | unchanged | — | system | sets `exit_proposed_at`; **does not close** — the guard set of `GTE-T1-05` may not hold | no | WS-260 tile *Exit proposed* |
-| GTE-T1-10 | — | Create gate pass: kind, purpose, party, expected return date (RGP), lines (item **or** description, qty, UoM, approx. value, source document) | `DRAFT` | `GTE-GRD-10`…`-12` | `wh_gate_passes:create` | gapless `GP` number | no | WS-262 **Add** |
-| GTE-T1-11 | `DRAFT` | Approve | `APPROVED` | approver ≠ creator (`FR-408`, `403 GATE_PASS_SELF_APPROVAL`, R29 F26) | `wh_gate_passes:approve` | `approved_by/at` | no | WS-262 row **Approve** |
-| GTE-T1-12 | `APPROVED` | Gate-out against an **outward** gate entry | `OUT` | `GTE-GRD-13` | `wh_gate_passes:gate_out` | `out_gate_entry_id`, `gated_out_at`, `quantity_out` = line quantity | no | WS-263 **Gate out** / WS-260 **Gate out** of the entry |
-| GTE-T1-13 | `OUT` · `PARTIALLY_RETURNED` (RGP) | Record return of some lines against an **inward** gate entry | `PARTIALLY_RETURNED` | `GTE-GRD-14` | `wh_gate_passes:record_return` | `wh_gate_pass_returns` row (line, qty, condition `RETURN_CONDITION`, in-gate entry, remarks); line `returned_quantity` += | no | WS-263 **Record return** |
-| GTE-T1-14 | `OUT` · `PARTIALLY_RETURNED` | the return that makes every line returned = out | `RETURNED` | — | same | `returned_at` | — | effect of `-13` |
-| GTE-T1-15 | `APPROVED` · `OUT` · `PARTIALLY_RETURNED` (RGP) | Extend expected return date | unchanged | new date > old date; extender ≠ creator, else `403 GATE_PASS_SELF_APPROVAL` | `wh_gate_passes:extend` | audit row (old, new, reason); overdue episode reset (`GTE-T3-01`) | **yes** | WS-263 **Extend** |
-| GTE-T1-16 | `OUT` · `PARTIALLY_RETURNED` (RGP) | Close short (lost, scrapped by the party, sold) | `CLOSED_SHORT` | closer ≠ creator, else `403 GATE_PASS_SELF_APPROVAL` | `wh_gate_passes:close_short` | unreturned quantity → `closed_quantity` per line | **yes** | WS-263 **Close short** |
-| GTE-T1-18 | `DRAFT` · `APPROVED` | Cancel | `CANCELLED` | — | `wh_gate_passes:cancel` | number stays issued | **yes** | WS-262 row **Cancel** |
+| ID | From | Event / action | To | Guard | Actor (permission) | Side effects | Reason? | UI entry point | Source |
+|---|---|---|---|---|---|---|---|---|---|
+| GTE-T1-01 | — | Gate-in: direction, purpose, party, vehicle, driver, mobile, transporter, LR no.; for an inward `PURCHASE_RECEIPT`: supplier, **PO(s)**, ASN(s), primary bill (type, no, date, amount, e-way bill no.) | `OPEN` | `GTE-GRD-01`…`-04` | `wh_gate_entries:create` | gapless `GE` number issued at create; `entered_at = now()` (server clock, `IRR-23`); `wh_gate_entry_documents` rows | no | WS-260 toolbar **Gate in** | — |
+| GTE-T1-02 | `OPEN` | Edit / link more inward documents | unchanged | same guards; vehicle and direction frozen | `wh_gate_entries:edit` | audit row per changed field | no | WS-261 **Edit** | — |
+| GTE-T1-02a | `OPEN` **outward** | **Link an outward document** (supplier return, shipment, store issue, job-work challan, gate pass) by `(outward_document_type, outward_document_id)` (R29 F35) | unchanged | `GTE-GRD-15` | `wh_gate_entries:edit` | `wh_gate_entry_documents` row `OUTWARD_DOCUMENT`; a gate pass linked here is the one `GTE-T1-05` moves to `OUT` | no | WS-261 **Link outward document** | — |
+| GTE-T1-03 | `OPEN` | Turn back | `TURNED_BACK` | `GTE-GRD-05` | `wh_gate_entries:turn_back` | `turned_back_at`; documents kept; nothing else | **yes** (reason code, context `GATE_TURN_BACK`) | WS-260 row **Turn back** | — |
+| GTE-T1-04 | `OPEN` (inward purchase) | Create receiving session | unchanged | `GTE-GRD-07` | `wh_receiving_sessions:create` | a session `ARRIVED` with `gate_entry_id`, supplier, vehicle, driver and the PO/ASN documents copied (`RQP-T1-01` with a pre-fill) | no | WS-261 **Create receiving session** | — |
+| GTE-T1-05 | `OPEN` | Gate-out | `CLOSED` | `GTE-GRD-08`, `GTE-GRD-09`; when a gate pass is linked, the actor **also** holds `wh_gate_passes:gate_out`, else `403 GATE_PASS_GATE_OUT_PERMISSION_REQUIRED` (R29 F15) | `wh_gate_entries:gate_out` (+ `wh_gate_passes:gate_out` when a pass is linked) | `exited_at`; linked session's `departed_at` stamped; any gate pass named on the entry moves by `GTE-T1-12` in the same transaction | no | WS-260 row **Gate out** | — |
+| GTE-T1-06 | `OPEN` | Cancel (entered in error) | `CANCELLED` | no session, GRN or gate pass references it | `wh_gate_entries:cancel` | number stays issued | **yes** | WS-261 **Cancel** | — |
+| GTE-T1-07 | `OPEN` | Gate event `ENTRY` from the barrier | `OPEN` (new or matched) | vehicle number normalised; an `OPEN` entry for that vehicle at that site in the last `warehouse.gate.event_match_minutes` (default 240) is matched, else a skeleton entry is created with purpose `OTHER` | system (`WarehouseGateEventHandler`, outcome `CLAIMED`) | a new entry's `entered_at` = **the server clock when the event is claimed** (`IRR-23`, `FRD-STORES` FR-507 — never the device's clock); the event's `occurredAt` is kept as `barrier_occurred_at` for display and the dwell tile (R29 F28) | no | none (event) | — |
+| GTE-T1-08 | `OPEN` | Gate event `EXIT` | unchanged | — | system | sets `exit_proposed_at`; **does not close** — the guard set of `GTE-T1-05` may not hold | no | WS-260 tile *Exit proposed* | — |
+| GTE-T1-10 | — | Create gate pass: kind, purpose, party, expected return date (RGP), lines (item **or** description, qty, UoM, approx. value, source document) | `DRAFT` | `GTE-GRD-10`…`-12` | `wh_gate_passes:create` | gapless `GP` number | no | WS-262 **Add** | — |
+| GTE-T1-11 | `DRAFT` | Approve | `APPROVED` | approver ≠ creator (`FR-408`, `403 GATE_PASS_SELF_APPROVAL`, R29 F26) | `wh_gate_passes:approve` | `approved_by/at` | no | WS-262 row **Approve** | — |
+| GTE-T1-12 | `APPROVED` | Gate-out against an **outward** gate entry | `OUT` | `GTE-GRD-13` | `wh_gate_passes:gate_out` | `out_gate_entry_id`, `gated_out_at`, `quantity_out` = line quantity | no | WS-263 **Gate out** / WS-260 **Gate out** of the entry | — |
+| GTE-T1-13 | `OUT` · `PARTIALLY_RETURNED` (RGP) | Record return of some lines against an **inward** gate entry | `PARTIALLY_RETURNED` | `GTE-GRD-14` | `wh_gate_passes:record_return` | `wh_gate_pass_returns` row (line, qty, condition `RETURN_CONDITION`, in-gate entry, remarks); line `returned_quantity` += | no | WS-263 **Record return** | — |
+| GTE-T1-14 | `OUT` · `PARTIALLY_RETURNED` | the return that makes every line returned = out | `RETURNED` | — | same | `returned_at` | — | effect of `-13` | — |
+| GTE-T1-15 | `APPROVED` · `OUT` · `PARTIALLY_RETURNED` (RGP) | Extend expected return date | unchanged | new date > old date; extender ≠ creator, else `403 GATE_PASS_SELF_APPROVAL` | `wh_gate_passes:extend` | audit row (old, new, reason); overdue episode reset (`GTE-T3-01`) | **yes** | WS-263 **Extend** | FR-515 |
+| GTE-T1-16 | `OUT` · `PARTIALLY_RETURNED` (RGP) | Close short (lost, scrapped by the party, sold) | `CLOSED_SHORT` | closer ≠ creator, else `403 GATE_PASS_SELF_APPROVAL` | `wh_gate_passes:close_short` | unreturned quantity → `closed_quantity` per line | **yes** | WS-263 **Close short** | — |
+| GTE-T1-18 | `DRAFT` · `APPROVED` | Cancel | `CANCELLED` | — | `wh_gate_passes:cancel` | number stays issued | **yes** | WS-262 row **Cancel** | — |
 
 ### 1.3 Guards
 
@@ -121,42 +121,42 @@ row (`wh_gate_pass_revisions` is **not** created — the revision is an audit ro
 
 Every query and action is limited to the user's allowed warehouses (`p1-18`); an auditor is read-only.
 
-| ID | Action | Permission | Allowed from | Extra condition |
-|---|---|---|---|---|
-| GTE-T2-00 | See any gate document | `:view` + the scope pair (`:view:all` or `:view:branch`, R29 F1) | — | site scope from `WhbWarehouseScopeService` |
-| GTE-T2-01 | Gate in | `wh_gate_entries:create` | — | gate security |
-| GTE-T2-02 | Edit / link | `wh_gate_entries:edit` | `OPEN` | — |
-| GTE-T2-03 | Turn back | `wh_gate_entries:turn_back` | `OPEN` | no session |
-| GTE-T2-04 | Create receiving session | `wh_receiving_sessions:create` | `OPEN` inward | receiving clerk |
-| GTE-T2-05 | Gate out | `wh_gate_entries:gate_out` (+ `wh_gate_passes:gate_out` when a pass is linked) | `OPEN` | `GTE-GRD-08/09` |
-| GTE-T2-06 | Cancel entry | `wh_gate_entries:cancel` | `OPEN` | nothing references it |
-| GTE-T2-07 | Create / edit gate pass | `wh_gate_passes:create` / `:edit` | — / `DRAFT` | — |
-| GTE-T2-08 | Approve gate pass | `wh_gate_passes:approve` | `DRAFT` | ≠ creator |
-| GTE-T2-09 | Gate out pass | `wh_gate_passes:gate_out` | `APPROVED` | outward entry open |
-| GTE-T2-10 | Record return | `wh_gate_passes:record_return` | `OUT`, `PARTIALLY_RETURNED` (RGP) | inward entry open |
-| GTE-T2-11 | Extend | `wh_gate_passes:extend` | `APPROVED`, `OUT`, `PARTIALLY_RETURNED` (RGP) | ≠ creator |
-| GTE-T2-12 | Close short | `wh_gate_passes:close_short` | `OUT`, `PARTIALLY_RETURNED` (RGP) | ≠ creator |
-| GTE-T2-13 | Cancel pass | `wh_gate_passes:cancel` | `DRAFT`, `APPROVED` | — |
-| GTE-T2-14 | Print gate entry slip / gate pass | `wh_print_jobs:create` + `:view` on the subject | entry any; pass `APPROVED` onward | `SYS-GATE-ENTRY`, `SYS-GATE-PASS` (`P8-12`) |
-| GTE-T2-15 | Export | `:export` or ADMIN | — | superset of grid columns |
+| ID | Action | Permission | Allowed from | Extra condition | Source |
+|---|---|---|---|---|---|
+| GTE-T2-00 | See any gate document | `:view` + the scope pair (`:view:all` or `:view:branch`, R29 F1) | — | site scope from `WhbWarehouseScopeService` | — |
+| GTE-T2-01 | Gate in | `wh_gate_entries:create` | — | gate security | — |
+| GTE-T2-02 | Edit / link | `wh_gate_entries:edit` | `OPEN` | — | — |
+| GTE-T2-03 | Turn back | `wh_gate_entries:turn_back` | `OPEN` | no session | — |
+| GTE-T2-04 | Create receiving session | `wh_receiving_sessions:create` | `OPEN` inward | receiving clerk | — |
+| GTE-T2-05 | Gate out | `wh_gate_entries:gate_out` (+ `wh_gate_passes:gate_out` when a pass is linked) | `OPEN` | `GTE-GRD-08/09` | — |
+| GTE-T2-06 | Cancel entry | `wh_gate_entries:cancel` | `OPEN` | nothing references it | — |
+| GTE-T2-07 | Create / edit gate pass | `wh_gate_passes:create` / `:edit` | — / `DRAFT` | — | — |
+| GTE-T2-08 | Approve gate pass | `wh_gate_passes:approve` | `DRAFT` | ≠ creator | — |
+| GTE-T2-09 | Gate out pass | `wh_gate_passes:gate_out` | `APPROVED` | outward entry open | — |
+| GTE-T2-10 | Record return | `wh_gate_passes:record_return` | `OUT`, `PARTIALLY_RETURNED` (RGP) | inward entry open | — |
+| GTE-T2-11 | Extend | `wh_gate_passes:extend` | `APPROVED`, `OUT`, `PARTIALLY_RETURNED` (RGP) | ≠ creator | — |
+| GTE-T2-12 | Close short | `wh_gate_passes:close_short` | `OUT`, `PARTIALLY_RETURNED` (RGP) | ≠ creator | — |
+| GTE-T2-13 | Cancel pass | `wh_gate_passes:cancel` | `DRAFT`, `APPROVED` | — | — |
+| GTE-T2-14 | Print gate entry slip / gate pass | `wh_print_jobs:create` + `:view` on the subject | entry any; pass `APPROVED` onward | `SYS-GATE-ENTRY`, `SYS-GATE-PASS` (`P8-12`) | FR-538 |
+| GTE-T2-15 | Export | `:export` or ADMIN | — | superset of grid columns | — |
 
 ## 3. T3 — Time-driven rules
 
-| ID | Rule | Trigger | What it changes | Who is notified | Channel | Job | Notify-once? |
-|---|---|---|---|---|---|---|---|
-| GTE-T3-01 | RGP **overdue** | `expected_return_date < today` (site TZ), status `OUT`/`PARTIALLY_RETURNED` | nothing — backend filter `overdueOnly`, tile | approver + stores in-charge (role setting) | platform notification | `WhGatePassOverdueJob` daily 08:00 site time | once per pass per `warehouse.gate.rgp_overdue_reminder_days` (default 7; 0 = once only); an extend resets the episode |
-| GTE-T3-02 | Vehicle **dwell** | `OPEN` inward entry older than `warehouse.gate.max_dwell_hours` (default 12) | nothing — tile *Long dwell* | none | — | computed on read | — |
+| ID | Rule | Trigger | What it changes | Who is notified | Channel | Job | Notify-once? | Source |
+|---|---|---|---|---|---|---|---|---|
+| GTE-T3-01 | RGP **overdue** | `expected_return_date < today` (site TZ), status `OUT`/`PARTIALLY_RETURNED` | nothing — backend filter `overdueOnly`, tile | approver + stores in-charge (role setting) | platform notification | `WhGatePassOverdueJob` daily 08:00 site time | once per pass per `warehouse.gate.rgp_overdue_reminder_days` (default 7; 0 = once only); an extend resets the episode | FR-515 |
+| GTE-T3-02 | Vehicle **dwell** | `OPEN` inward entry older than `warehouse.gate.max_dwell_hours` (default 12) | nothing — tile *Long dwell* | none | — | computed on read | — | — |
 
 ## 4. T4 — Cross-entity effects
 
-| ID | When | Then | Enforced in |
-|---|---|---|---|
-| GTE-T4-01 | `GTE-T1-04` | session created with `gate_entry_id` and copied PO/ASN junction rows; **every** GRN created on it copies the entry's **primary bill** into `wh_goods_receipt_bills` with `bill_group_key = gate_entry_id`, so the duplicate-bill guard treats all GRNs of one entry as one bill (`GBM-GRD-01`, R29 F24) | gate-entry service → session service, one transaction |
-| GTE-T4-02 | `GTE-T1-05` inward | session `departed_at` = `exited_at` (only if null) | same transaction |
-| GTE-T4-03 | a weighing record with `subject_type = GATE_ENTRY` and `subject_id` = the GE number is saved with gross **and** tare (`P5-17`; the tare is weighed at exit, so the net exists only then — `V510213:127-133`) | entry shows net and the **bill weight** (Σ `bill_weight` of its bill rows, converted to kg through the UoM; R29 F9). The variance `abs(net − bill weight) / bill weight` is evaluated **once per entry, at the later of** (a) the weighing record reaching a net and (b) the first GRN of the entry posting — whichever happens second triggers it; when it exceeds `warehouse.gate.weight_variance_percent` (default null = off) one `QUANTITY` reconciliation case opens on that GRN — never a refusal. No bill weight → no evaluation, shown *bill weight not recorded* | weighing-record save hook and GRN post (`WhReconciliationCaseRecorder.open`), idempotent on the entry |
-| GTE-T4-04 | `GTE-T1-12` | pass `OUT`; the source documents are untouched | gate-pass service |
-| GTE-T4-05 | `GTE-T1-13` for a sourced line | the source document is **not** touched: a stock item coming back is received on its own document (job-work receipt in `warehouse-india`, supplier replacement GRN, store return) | — (no effect, stated) |
-| GTE-T4-06 | GRN posting refuses excess (`GBM-T1-06`) | the refused quantity is listed on the inward entry's gate-out view as *leaving with the vehicle* | read model |
+| ID | When | Then | Enforced in | Source |
+|---|---|---|---|---|
+| GTE-T4-01 | `GTE-T1-04` | session created with `gate_entry_id` and copied PO/ASN junction rows; **every** GRN created on it copies the entry's **primary bill** into `wh_goods_receipt_bills` with `bill_group_key = gate_entry_id`, so the duplicate-bill guard treats all GRNs of one entry as one bill (`GBM-GRD-01`, R29 F24) | gate-entry service → session service, one transaction | — |
+| GTE-T4-02 | `GTE-T1-05` inward | session `departed_at` = `exited_at` (only if null) | same transaction | — |
+| GTE-T4-03 | a weighing record with `subject_type = GATE_ENTRY` and `subject_id` = the GE number is saved with gross **and** tare (`P5-17`; the tare is weighed at exit, so the net exists only then — `V510213:127-133`) | entry shows net and the **bill weight** (Σ `bill_weight` of its bill rows, converted to kg through the UoM; R29 F9). The variance `abs(net − bill weight) / bill weight` is evaluated **once per entry, at the later of** (a) the weighing record reaching a net and (b) the first GRN of the entry posting — whichever happens second triggers it; when it exceeds `warehouse.gate.weight_variance_percent` (default null = off) one `QUANTITY` reconciliation case opens on that GRN — never a refusal. No bill weight → no evaluation, shown *bill weight not recorded* | weighing-record save hook and GRN post (`WhReconciliationCaseRecorder.open`), idempotent on the entry | FR-510 |
+| GTE-T4-04 | `GTE-T1-12` | pass `OUT`; the source documents are untouched | gate-pass service | — |
+| GTE-T4-05 | `GTE-T1-13` for a sourced line | the source document is **not** touched: a stock item coming back is received on its own document (job-work receipt in `warehouse-india`, supplier replacement GRN, store return) | — (no effect, stated) | — |
+| GTE-T4-06 | GRN posting refuses excess (`GBM-T1-06`) | the refused quantity is listed on the inward entry's gate-out view as *leaving with the vehicle* | read model | — |
 
 ## 5. T5 — Screen contract (web only)
 

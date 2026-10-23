@@ -159,19 +159,20 @@ per-order counter, at submit), `release_date`, `planned_dispatch_date`, `status`
 
 ## 2. T2 — Action × role × state
 
-| ID | Action | Permission | Allowed from |
-|---|---|---|---|
-| TSO-T2-01 | Add / edit | `:create` / `:edit` | `DRAFT`, `REJECTED` |
-| TSO-T2-02 | Submit / withdraw | `:submit` | `DRAFT`, `REJECTED` / `SUBMITTED` |
-| TSO-T2-03 | Approve | `:approve` (`TAM`) + `warehouse:orders:port` | `SUBMITTED`; `SO_CANCEL` / `SO_SHORT_CLOSE` requests |
-| TSO-T2-04 | Send acknowledgement / print | `:issue` / `:view` | `APPROVED`+ |
-| TSO-T2-05 | Re-send acknowledgement | `:issue` | `ISSUED` with ack `PENDING` |
-| TSO-T2-06 | Dispatch release — create / submit / approve / cancel | `wht_so_dispatch_releases:create` / `:submit` / `:approve` / `:cancel` (+ `warehouse:orders:port` as `TPO-T2-06`) | SO `APPROVED`, `ISSUED`; release per T1 |
-| TSO-T2-07 | Amend / revise schedule | `:amend` (`TOA`) | `APPROVED`, `ISSUED` |
-| TSO-T2-08 | Short-close | `:short_close` | non-terminal |
-| TSO-T2-09 | Cancel | `:cancel` | non-terminal, `TSO-GRD-09` |
-| TSO-T2-10 | Commitment follow-up | `wht_so_commitment_followups:create` | non-terminal |
-| TSO-T2-11 | Export | `:export`; `wht_so_dispatch_releases:export`; `wht_so_commitment_followups:export` (auditor: none) | — |
+| ID | Action | Permission | Allowed from | Source |
+|---|---|---|---|---|
+| TSO-T2-01 | Add / edit | `:create` / `:edit` | `DRAFT`, `REJECTED` | — |
+| TSO-T2-02 | Submit / withdraw | `:submit` | `DRAFT`, `REJECTED` / `SUBMITTED` | — |
+| TSO-T2-03 | Approve | `:approve` (`TAM`) + `warehouse:orders:port` | `SUBMITTED`; `SO_CANCEL` / `SO_SHORT_CLOSE` requests | — |
+| TSO-T2-04 | Send acknowledgement / print | `:issue` / `:view` | `APPROVED`+ | — |
+| TSO-T2-05 | Re-send acknowledgement | `:issue` | `ISSUED` with ack `PENDING` | — |
+| TSO-T2-06 | Dispatch release — create / submit / approve / cancel | `wht_so_dispatch_releases:create` / `:submit` / `:approve` / `:cancel` (+ `warehouse:orders:port` as `TPO-T2-06`) | SO `APPROVED`, `ISSUED`; release per T1 | — |
+| TSO-T2-07 | Amend / revise schedule | `:amend` (`TOA`) | `APPROVED`, `ISSUED` | — |
+| TSO-T2-08 | Short-close | `:short_close` | non-terminal | — |
+| TSO-T2-09 | Cancel | `:cancel` | non-terminal, `TSO-GRD-09` | — |
+| TSO-T2-10 | Commitment follow-up | `wht_so_commitment_followups:create` | non-terminal | — |
+| TSO-T2-11 | Export | `:export`; `wht_so_dispatch_releases:export`; `wht_so_commitment_followups:export` (auditor: none) | — | — |
+| TSO-T2-12 | Every action in this table, and the auditor | `wht_<table>:<verb>` per FRD-TRADE FR-617 (`view`, `create`, `edit`, `export` + the workflow verbs above); `permission_dependencies` seeded; the auditor bundle holds `:view` only; record scope follows core's company / site grants; a bundle whose action calls a core port is also granted `warehouse:orders:port` in the trade seed | — | FR-617 |
 
 ## 3. T3 — Time-driven rules
 

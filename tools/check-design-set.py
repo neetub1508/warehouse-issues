@@ -31,6 +31,10 @@ Checks
   11  no id is used for two different kinds of thing
   12  every screen id (WS-nnn) cited resolves to BUILD-SPEC-SCREENS.md
   13  every grid-bearing screen block states its columns table, empty state and statistics tiles
+  14  every active FR (not WITHDRAWN / DEFERRED / VOID) is cited in a Source/FR cell of at least one
+      rule row of docs/contracts/*.contract.md — a §0 range or baseline citation does not count
+  15  every live (not VOID) task's `**Functional contracts:**` line names every contract whose rule
+      rows cite an FR the task closes in IMPLEMENTATION-PLAN.md §2, and only contracts that exist
 
 Self-declared exemptions
   Some citations are *deliberately* unresolvable and reporting them buries the live defects and
@@ -255,6 +259,8 @@ CHECK_TITLES = {
     11: "no id is used for two different kinds of thing",
     12: "WS-nnn citations resolve to BUILD-SPEC-SCREENS.md",
     13: "grid blocks state columns, empty state and statistics tiles (P2-29 §9.6)",
+    14: "every active FR is cited by a contract rule row (CP-FR-007)",
+    15: "every live task names the contracts whose rule rows cite its FRs",
 }
 
 # rule name -> the check it exempts. A directive naming any other rule is a violation of the
@@ -1607,6 +1613,241 @@ def check_screen_blocks(root):
     return sorted(out, key=lambda v: v.key())
 
 
+# --- check 14 -------------------------------------------------------------
+
+CONTRACT_DIR = "docs/contracts"
+# A requirement cell that opens with one of these is not active and needs no rule.
+FR_INACTIVE_RE = re.compile(r"^\*\*(?:WITHDRAWN|DEFERRED|VOID)\b", re.IGNORECASE)
+# Contract sections that only *name* FRs: R30 §0 method ("weak" citations).
+WEAK_SECTION_RE = re.compile(
+    r"identity|out of scope|amendments|open rows|resolved rows|invariants", re.IGNORECASE)
+RULE_ID_RE = re.compile(r"^\**`?([A-Z][A-Z0-9]*(?:-[A-Z0-9]+)*-\d+[a-z]?)`?\**$")
+SOURCE_HEADERS = ("source", "sources", "fr", "source fr")
+FR_RANGE_RE = re.compile(r"FR-(\d{3})`?\s*(?:…|\.\.\.|–|—|-)\s*`?(?:FR-)?(\d{3})\b")
+
+
+def split_cells(text):
+    """Split a markdown table row on `|`, ignoring pipes inside code spans or escaped."""
+    cells, cur, in_code, i = [], [], False, 0
+    body = text.strip()
+    if body.startswith("|"):
+        body = body[1:]
+    if body.endswith("|") and not body.endswith("\\|"):
+        body = body[:-1]
+    while i < len(body):
+        ch = body[i]
+        if ch == "\\" and i + 1 < len(body) and body[i + 1] == "|":
+            cur.append("|")
+            i += 2
+            continue
+        if ch == "`":
+            in_code = not in_code
+        if ch == "|" and not in_code:
+            cells.append("".join(cur).strip())
+            cur = []
+        else:
+            cur.append(ch)
+        i += 1
+    cells.append("".join(cur).strip())
+    return cells
+
+
+def fr_ids_in(cell):
+    """Explicit FR ids in a cell, with written ranges (FR-480…FR-499, FR-556–561) expanded."""
+    out = set(int(n) for n in FR_CITE_RE.findall(cell))
+    for lo, hi in FR_RANGE_RE.findall(cell):
+        lo, hi = int(lo), int(hi)
+        if lo < hi <= lo + 40:
+            out |= set(range(lo, hi + 1))
+    return out
+
+
+def active_frs(root):
+    """{fr: (file, section)} for every FR row not opened by WITHDRAWN / DEFERRED / VOID."""
+    out = {}
+    for path in [FRD] + area_files(root):
+        section = "(no section)"
+        for lineno, text, fenced in iter_lines(read_lines(root, path)):
+            if fenced:
+                continue
+            if text.startswith("#"):
+                section = text.lstrip("#").strip()
+                continue
+            m = FR_DEF_RE.match(text)
+            if not m:
+                continue
+            cells = split_cells(text)
+            requirement = cells[1] if len(cells) > 1 else ""
+            if FR_INACTIVE_RE.match(requirement):
+                continue
+            out[int(m.group(1))] = (path, section)
+    return out
+
+
+def contract_rule_rows(root):
+    """(contract path, lineno, {FR ids}) for every contract *rule row*: the row's first cell is a rule
+    id, it sits outside a weak section, it is not an `-OPEN-` row, and the FR is in its Source/FR column
+    or in a cell that opens with an FR id. Checks 14 and 15 read rule rows through this one parser."""
+    d = os.path.join(root, CONTRACT_DIR)
+    names = sorted(n for n in os.listdir(d) if n.endswith(".contract.md")) if os.path.isdir(d) else []
+    for name in names:
+        path = "%s/%s" % (CONTRACT_DIR, name)
+        weak, source_cols = True, ()
+        for lineno, text, fenced in iter_lines(read_lines(root, path)):
+            if fenced:
+                continue
+            if text.startswith("## "):
+                weak = bool(re.match(r"^##\s+0\b", text)) or bool(WEAK_SECTION_RE.search(text))
+                source_cols = ()
+                continue
+            if not text.startswith("|"):
+                source_cols = () if not text.strip() else source_cols
+                continue
+            cells = split_cells(text)
+            if cells and cells[0].strip("* ").upper() == "ID":
+                source_cols = tuple(i for i, c in enumerate(cells)
+                                    if c.strip("* ").lower() in SOURCE_HEADERS)
+                continue
+            if weak or not cells:
+                continue
+            m = RULE_ID_RE.match(cells[0])
+            if not m or "-OPEN-" in m.group(1):
+                continue
+            ids = set()
+            for i, cell in enumerate(cells[1:], start=1):
+                if i in source_cols or re.match(r"^[`*\s]*FR-\d{3}", cell):
+                    ids |= fr_ids_in(cell)
+            if ids:
+                yield path, lineno, ids
+
+
+def contract_rule_citations(root):
+    """{fr: (contract path, lineno)} — the first rule row citing each FR."""
+    covered = {}
+    for path, lineno, ids in contract_rule_rows(root):
+        for fr in ids:
+            covered.setdefault(fr, (path, lineno))
+    return covered
+
+
+def contract_rule_frs(root):
+    """{fr: {contract name}} — every contract with a rule row citing the FR (name = file stem)."""
+    out = {}
+    for path, _lineno, ids in contract_rule_rows(root):
+        stem = os.path.basename(path)[:-len(".contract.md")]
+        for fr in ids:
+            out.setdefault(fr, set()).add(stem)
+    return out
+
+
+def check_contract_coverage(root):
+    """CP-FR-007 / D-17 item a: every active FR is proved by at least one contract rule row.
+
+    The functional reviewer checks rules, not requirements. An FR no rule cites is an FR nobody
+    verifies, and an FR named only in a contract's §0 baseline range, its out-of-scope list, its
+    amendments, open rows or invariants section is the same thing with a citation attached (R30
+    calls these "weak"). One violation per uncovered FR, anchored at its definition row, grouped
+    in the output by the FRD section that defines it.
+    """
+    frs = active_frs(root)
+    if not frs:
+        die("check 14 found no active FR rows - the parser is out of date")
+    covered = contract_rule_citations(root)
+    if not covered:
+        die("check 14 found no FR cited by any contract rule row in %s - the parser is out of date"
+            % CONTRACT_DIR)
+    anchors = {}
+    for path in [FRD] + area_files(root):
+        for lineno, text in enumerate(read_lines(root, path), 1):
+            m = FR_DEF_RE.match(text)
+            if m:
+                anchors[int(m.group(1))] = (path, lineno)
+    out = []
+    for fr in sorted(frs):
+        if fr in covered:
+            continue
+        path, section = frs[fr]
+        v = Violation(14, path, anchors[fr][1],
+                      "[%s] FR-%03d is active but no contract rule row cites it in a "
+                      "Source/FR cell" % (section, fr))
+        v.group = "%s § %s" % (path, section)
+        v.fr = fr
+        out.append(v)
+    return out
+
+
+# --- check 15 -------------------------------------------------------------
+
+FUNCTIONAL_CONTRACTS_RE = re.compile(r"^\*\*Functional contracts:\*\*")
+CONTRACT_NAME_RE = re.compile(r"\b([a-z0-9][a-z0-9-]*)\.contract\.md\b")
+VOID_HEADER_RE = re.compile(r"^>\s*\*\*VOID\b")
+
+
+def task_is_void(lines):
+    """A task whose header block opens `> **VOID` (DECISIONS.md D-17 item 6). PARTIALLY VOID is live."""
+    return any(VOID_HEADER_RE.match(t) for t in lines[:15])
+
+
+def check_task_contract_links(root):
+    """Every live task names, on its `**Functional contracts:**` line, every contract whose rule rows cite
+    an FR the task closes (IMPLEMENTATION-PLAN.md §2 `Closes`), and every contract it names exists.
+
+    Check 14 proves each FR has a rule; this proves the task that builds the FR points its builder and its
+    reviewer at that rule. A task with no such line, or a line missing one of those contracts, is a task
+    whose functional reviewer is never told which contract to prove.
+    """
+    frc = contract_rule_frs(root)
+    if not frc:
+        die("check 15 found no contract rule row - the parser is out of date")
+    rows, _section = plan_rows(root)
+    existing = set(n[:-len(".contract.md")] for n in os.listdir(os.path.join(root, CONTRACT_DIR))
+                   if n.endswith(".contract.md"))
+    out = []
+    for path in task_files(root):
+        lines = read_lines(root, path)
+        if task_is_void(lines):
+            continue
+        task = task_id(path)
+        hits = rows.get(task)
+        frs = expand_frs(hits[0][1][5]) if hits and len(hits[0][1]) > 5 else set()
+        required = {}
+        for fr in sorted(frs):
+            for con in frc.get(fr, ()):
+                required.setdefault(con, []).append(fr)
+        line_no, named = None, set()
+        for lineno, text in enumerate(lines, 1):
+            if FUNCTIONAL_CONTRACTS_RE.match(text):
+                line_no, named = lineno, set(CONTRACT_NAME_RE.findall(text))
+                break
+        if line_no is None:
+            if required:
+                out.append(Violation(15, path, 1,
+                                     "%s has no `**Functional contracts:**` line; its FRs are cited by %s"
+                                     % (task, ", ".join(sorted(required)))))
+            continue
+        for con in sorted(named - existing):
+            out.append(Violation(15, path, line_no,
+                                 "%s names %s.contract.md, which is not in %s" % (task, con, CONTRACT_DIR)))
+        for con in sorted(set(required) - named):
+            out.append(Violation(15, path, line_no,
+                                 "%s closes %s, cited by a rule row of %s.contract.md, which its "
+                                 "Functional contracts line does not name"
+                                 % (task, " ".join("FR-%03d" % fr for fr in required[con]), con)))
+    return sorted(out, key=lambda v: v.key())
+
+
+def render_grouped(found):
+    """Check 14's report: the uncovered FR ids, one line per FRD section, in file order."""
+    groups, order = {}, []
+    for v in found:
+        if v.group not in groups:
+            groups[v.group] = []
+            order.append(v.group)
+        groups[v.group].append(v.fr)
+    return ["%s (%d): %s" % (g, len(groups[g]), " ".join("FR-%03d" % fr for fr in groups[g]))
+            for g in order]
+
+
 def run(root, selected):
     files = markdown_files(root)
     ledger = ExemptionLedger()
@@ -1641,6 +1882,10 @@ def run(root, selected):
         results[12] = check_screens(root, scanner)
     if 13 in selected:
         results[13] = check_screen_blocks(root)
+    if 14 in selected:
+        results[14] = check_contract_coverage(root)
+    if 15 in selected:
+        results[15] = check_task_contract_links(root)
     return results, ledger, notes, directives
 
 
@@ -1649,7 +1894,7 @@ def main():
         description="Design-set integrity checker for the Classic Warehouse design set.")
     parser.add_argument("--summary", action="store_true", help="print counts only")
     parser.add_argument("--check", type=int, action="append", choices=sorted(CHECK_TITLES),
-                        metavar="N", help="run only this check (repeatable, 1-13)")
+                        metavar="N", help="run only this check (repeatable, 1-15)")
     parser.add_argument("--root", default=os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                         help="repository root (default: the checkout this script lives in)")
     parser.add_argument("--no-advisory", action="store_true",
@@ -1678,7 +1923,10 @@ def main():
         total += len(found)
         print("check-%-2d %-4s %4d  %s"
               % (check, "FAIL" if found else "pass", len(found), CHECK_TITLES[check]))
-        if not args.summary:
+        if not args.summary and check == 14:
+            for line in render_grouped(found):
+                print("  " + line)
+        elif not args.summary:
             for violation in found:
                 print("  " + violation.render())
         if check in notes:

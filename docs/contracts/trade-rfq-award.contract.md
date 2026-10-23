@@ -106,6 +106,7 @@ partial uk among statements not `REJECTED`), `status`, `prepared_by`, `is_stale`
 | TRA-GRD-08 | Award to a rank ≠ 1 ⇒ `award_reason_code` + note; alternative-item award ⇒ reason | field `422` | FR-567 |
 | TRA-GRD-09 | At approval: each awarded quotation `valid_until ≥ today`; supplier still not blocked; AVL still valid | `422 TRADE_QUOTATION_EXPIRED` / blocked | FR-569 |
 | TRA-GRD-10 | Every awarded quotation line is in the statement's currency (other-currency quotations are shown unranked and awardable only on their own currency's statement) | `422 TRADE_CS_MIXED_CURRENCY` | FR-566 |
+| TRA-GRD-11 | **Concurrency**: every edit, submit, transition and approval of a `wht_` document checks its optimistic `version`; a stale write changes nothing | `409` stale write (code per `TPR-OPEN-03`) | FR-618 |
 
 ### 1.4 Unreachable
 
@@ -118,15 +119,16 @@ partial uk among statements not `REJECTED`), `status`, `prepared_by`, `is_stale`
 
 ## 2. T2 — Action × role × state
 
-| ID | Action | Permission | Allowed from |
-|---|---|---|---|
-| TRA-T2-01 | Edit RFQ / invitees | `wht_rfqs:edit` | `DRAFT` |
-| TRA-T2-02 | Issue / close bids | `wht_rfqs:issue` | `DRAFT` / `ISSUED` |
-| TRA-T2-03 | Cancel | `wht_rfqs:cancel` | `DRAFT`, `ISSUED` |
-| TRA-T2-04 | Capture / revise / withdraw quotation | `wht_vendor_quotations:create`/`edit` | RFQ `ISSUED`/`BIDS_CLOSED` (revise up to award) |
-| TRA-T2-05 | Prepare / edit / submit CS | `wht_comparative_statements:create`/`edit`/`submit` | per T1 |
-| TRA-T2-06 | Approve award | `wht_comparative_statements:approve` via `TAM` | CS `SUBMITTED` |
-| TRA-T2-07 | Print RFQ, CS | `:view` | issued / submitted |
+| ID | Action | Permission | Allowed from | Source |
+|---|---|---|---|---|
+| TRA-T2-01 | Edit RFQ / invitees | `wht_rfqs:edit` | `DRAFT` | — |
+| TRA-T2-02 | Issue / close bids | `wht_rfqs:issue` | `DRAFT` / `ISSUED` | — |
+| TRA-T2-03 | Cancel | `wht_rfqs:cancel` | `DRAFT`, `ISSUED` | — |
+| TRA-T2-04 | Capture / revise / withdraw quotation | `wht_vendor_quotations:create`/`edit` | RFQ `ISSUED`/`BIDS_CLOSED` (revise up to award) | — |
+| TRA-T2-05 | Prepare / edit / submit CS | `wht_comparative_statements:create`/`edit`/`submit` | per T1 | — |
+| TRA-T2-06 | Approve award | `wht_comparative_statements:approve` via `TAM` | CS `SUBMITTED` | — |
+| TRA-T2-07 | Print RFQ, CS | `:view` | issued / submitted | — |
+| TRA-T2-08 | Every action in this table, and the auditor | `wht_<table>:<verb>` per FRD-TRADE FR-617 (`view`, `create`, `edit`, `export` + the workflow verbs above); `permission_dependencies` seeded; the auditor bundle holds `:view` only; record scope follows core's company / site grants; a bundle whose action calls a core port is also granted `warehouse:orders:port` in the trade seed | — | FR-617 |
 
 ## 3. T3 — Time-driven rules
 

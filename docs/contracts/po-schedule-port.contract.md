@@ -132,16 +132,16 @@ Quantities on a PO schedule line: `scheduled_quantity`, `received_quantity`, `ca
 
 ## 4. T4 — Cross-entity effects
 
-| ID | When | Then | Enforced in |
-|---|---|---|---|
-| POS-T4-01 | GRN line with `po_line_id` posts | quantity = `received − excess_refused` (free quantity excluded, as today; `GBM-T4-01`) | GRN post |
-| POS-T4-02 | same, line has schedule lines | allocate oldest `scheduled_date` first across `FIRM` open lines, each up to `scheduled − received − cancelled`, the remainder (excess) to the last allocated line; one `wh_goods_receipt_line_schedule_allocations` row per (GRN line, schedule line) with the schedule line's `unit_price` frozen on it (`POS-GRD-12`); schedule `received_quantity` and `status` recomputed (short-receipt tolerance applies per schedule line); then the PO line roll-up `RQP-T1-12` | GRN posting service, same transaction |
-| POS-T4-03 | receipt reversal post | allocations of the GRN's lines reversed (rows kept, `reversed_at` stamped), schedule lines recomputed | reversal service |
-| POS-T4-04 | any PO receipt, close, cancel, amend of a port-owned PO | outbox `WH_PO_LINE_RECEIVED` / `WH_PO_SCHEDULE_LINE_RECEIVED` / `WH_PO_CLOSED` / `WH_PO_CANCELLED` / `WH_PO_AMENDED` with `source_*` so trade updates drawn-down quantity | outbox |
-| POS-T4-05 | demand despatch | demand schedule lines' shipped qty allocated oldest-first; outbox `WH_DEMAND_SHIPPED` with `sales_order_ref`, per schedule line `release_ref` and shipped qty; a schedule-driven order follows `POS-T1-12b` | despatch service |
-| POS-T4-07 | `getFulfilmentPosition(demandOrderId)` (R29 TS-F25, TRADE `TSO-OPEN-02`) | returns per line and per schedule line: `kind`, `quantity`, `allocated`, `picked`, `shipped`, `cancelled`, `backordered`, picked-not-shipped, status, `release_ref`; header status, `is_schedule_driven`, `release_closed_at` | read, no lock |
-| POS-T4-08 | `WhAvailableToPromiseQuery.atp(...)` (R29 TS-F11) | per item × site × owner: allocatable on-hand, open reservations, `availableNow` = on-hand allocatable − open reservations, and firm scheduled receipts by date (open firm PO schedule quantity) up to the horizon — backend-computed, read only, never a reservation | query bean (core) |
-| POS-T4-06 | `RQP-T3-01` PO overdue | for a line with schedule lines, overdue reads the schedule lines, not `expected_delivery_date` | query |
+| ID | When | Then | Enforced in | Source |
+|---|---|---|---|---|
+| POS-T4-01 | GRN line with `po_line_id` posts | quantity = `received − excess_refused` (free quantity excluded, as today; `GBM-T4-01`) | GRN post | — |
+| POS-T4-02 | same, line has schedule lines | allocate oldest `scheduled_date` first across `FIRM` open lines, each up to `scheduled − received − cancelled`, the remainder (excess) to the last allocated line; one `wh_goods_receipt_line_schedule_allocations` row per (GRN line, schedule line) with the schedule line's `unit_price` frozen on it (`POS-GRD-12`); schedule `received_quantity` and `status` recomputed (short-receipt tolerance applies per schedule line); then the PO line roll-up `RQP-T1-12` | GRN posting service, same transaction | FR-122 |
+| POS-T4-03 | receipt reversal post | allocations of the GRN's lines reversed (rows kept, `reversed_at` stamped), schedule lines recomputed | reversal service | — |
+| POS-T4-04 | any PO receipt, close, cancel, amend of a port-owned PO | outbox `WH_PO_LINE_RECEIVED` / `WH_PO_SCHEDULE_LINE_RECEIVED` / `WH_PO_CLOSED` / `WH_PO_CANCELLED` / `WH_PO_AMENDED` with `source_*` so trade updates drawn-down quantity | outbox | — |
+| POS-T4-05 | demand despatch | demand schedule lines' shipped qty allocated oldest-first; outbox `WH_DEMAND_SHIPPED` with `sales_order_ref`, per schedule line `release_ref` and shipped qty; a schedule-driven order follows `POS-T1-12b` | despatch service | — |
+| POS-T4-07 | `getFulfilmentPosition(demandOrderId)` (R29 TS-F25, TRADE `TSO-OPEN-02`) | returns per line and per schedule line: `kind`, `quantity`, `allocated`, `picked`, `shipped`, `cancelled`, `backordered`, picked-not-shipped, status, `release_ref`; header status, `is_schedule_driven`, `release_closed_at` | read, no lock | — |
+| POS-T4-08 | `WhAvailableToPromiseQuery.atp(...)` (R29 TS-F11) | per item × site × owner: allocatable on-hand, open reservations, `availableNow` = on-hand allocatable − open reservations, and firm scheduled receipts by date (open firm PO schedule quantity) up to the horizon — backend-computed, read only, never a reservation | query bean (core) | — |
+| POS-T4-06 | `RQP-T3-01` PO overdue | for a line with schedule lines, overdue reads the schedule lines, not `expected_delivery_date` | query | — |
 
 ## 5. T5 — Screen contract
 
@@ -180,21 +180,21 @@ Agreements, rate contracts, RFQ, amendment approval, PO approval matrix, vendor 
 
 ## 8a. RMA-creation port and supplier-return intent (`FR-506`, `P8-15`, TRADE `OD-33`)
 
-| ID | From | Event | To | Guard | Actor | Side effects | Reason? | UI |
-|---|---|---|---|---|---|---|---|---|
-| POS-T1-20 | — | **Port `createRma`** | RMA `APPROVED` (default for a port call, R29 TS-F21) or `OPEN` | `POS-GRD-20`…`-22`; `initialStatus = APPROVED` requires `approvedByUserId` (the source's approver), else `422 PORT_APPROVER_REQUIRED` | calling user + `warehouse:orders:port` + `wh_rmas:create` | `WhRmaService.create` (`:186`) then `approve` (`:234`) in the same transaction when `APPROVED` (the `wh_rmas_assert_ladder` trigger allows only `OPEN → APPROVED`, `V510050:204`); `approved_by` = `approvedByUserId`, audit note `approval_source = SOURCE_MODULE`; `source_*` recorded; each line's `original_demand_order_line_id` stored (R29 F13) | no | none (port) |
-| POS-T1-21 | RMA `OPEN`·`APPROVED` | **Port `cancelRma`** | `CANCELLED` | not `MATCHED`/`EXPIRED` (terminal, `V510050:200`); a replay on a `CANCELLED` RMA returns it | port + `wh_rmas:edit` | `WhRmaService.cancel` (`:271`); outbox `WH_RMA_CANCELLED` | **yes** | port |
-| POS-T1-22 | RMA `OPEN`·`APPROVED` | *(effects)* a posted return receipt is matched (`WhRmaService.match` `:249`) / the RMA expires (`expire` `:259`) | `MATCHED` / `EXPIRED` | — | core | outbox `WH_RMA_MATCHED` (with the matching return receipt id and received quantity per RMA line) / `WH_RMA_EXPIRED`, each with `source_*`. **Core RMA statuses are exactly `OPEN`, `APPROVED`, `MATCHED`, `EXPIRED`, `CANCELLED`** (`WhRma.java:53-64`); there is no `PARTIALLY_RECEIVED` in core — a partial receipt is a `MATCHED` RMA whose received quantity is below the RMA quantity, and the selling module maps it (R29 TS-F3) | — | none |
-| POS-T1-25 | any | **`getRmaPosition(rmaId)`** (R29 F14) | — | — | port + `wh_rmas:view` | returns status, `approved_by/at`, expiry date, matched return receipt ids, and per line: RMA quantity, received quantity, `original_demand_order_line_id` | — | — |
-| POS-T1-23 | supplier return `DRAFT` | Set intent (`REPLACE`/`CREDIT`/`NO_ACTION`) | unchanged | active code-list row | `wh_supplier_returns:edit` | — | no | WS-084 |
-| POS-T1-24 | supplier return `PICKED` | *(effect of despatch)* `DISPATCHED` | unchanged ladder | — | core | outbox `WH_SUPPLIER_RETURN_DISPATCHED` (intent, origin GRN/PO lines, PO `source_*`, item, lot, qty, movement id); **no PO change in core** | — | none |
+| ID | From | Event | To | Guard | Actor | Side effects | Reason? | UI | Source |
+|---|---|---|---|---|---|---|---|---|---|
+| POS-T1-20 | — | **Port `createRma`** | RMA `APPROVED` (default for a port call, R29 TS-F21) or `OPEN` | `POS-GRD-20`…`-22`; `initialStatus = APPROVED` requires `approvedByUserId` (the source's approver), else `422 PORT_APPROVER_REQUIRED` | calling user + `warehouse:orders:port` + `wh_rmas:create` | `WhRmaService.create` (`:186`) then `approve` (`:234`) in the same transaction when `APPROVED` (the `wh_rmas_assert_ladder` trigger allows only `OPEN → APPROVED`, `V510050:204`); `approved_by` = `approvedByUserId`, audit note `approval_source = SOURCE_MODULE`; `source_*` recorded; each line's `original_demand_order_line_id` stored (R29 F13) | no | none (port) | FR-506 |
+| POS-T1-21 | RMA `OPEN`·`APPROVED` | **Port `cancelRma`** | `CANCELLED` | not `MATCHED`/`EXPIRED` (terminal, `V510050:200`); a replay on a `CANCELLED` RMA returns it | port + `wh_rmas:edit` | `WhRmaService.cancel` (`:271`); outbox `WH_RMA_CANCELLED` | **yes** | port | FR-506 |
+| POS-T1-22 | RMA `OPEN`·`APPROVED` | *(effects)* a posted return receipt is matched (`WhRmaService.match` `:249`) / the RMA expires (`expire` `:259`) | `MATCHED` / `EXPIRED` | — | core | outbox `WH_RMA_MATCHED` (with the matching return receipt id and received quantity per RMA line) / `WH_RMA_EXPIRED`, each with `source_*`. **Core RMA statuses are exactly `OPEN`, `APPROVED`, `MATCHED`, `EXPIRED`, `CANCELLED`** (`WhRma.java:53-64`); there is no `PARTIALLY_RECEIVED` in core — a partial receipt is a `MATCHED` RMA whose received quantity is below the RMA quantity, and the selling module maps it (R29 TS-F3) | — | none | — |
+| POS-T1-25 | any | **`getRmaPosition(rmaId)`** (R29 F14) | — | — | port + `wh_rmas:view` | returns status, `approved_by/at`, expiry date, matched return receipt ids, and per line: RMA quantity, received quantity, `original_demand_order_line_id` | — | — | — |
+| POS-T1-23 | supplier return `DRAFT` | Set intent (`REPLACE`/`CREDIT`/`NO_ACTION`) | unchanged | active code-list row | `wh_supplier_returns:edit` | — | no | WS-084 | — |
+| POS-T1-24 | supplier return `PICKED` | *(effect of despatch)* `DISPATCHED` | unchanged ladder | — | core | outbox `WH_SUPPLIER_RETURN_DISPATCHED` (intent, origin GRN/PO lines, PO `source_*`, item, lot, qty, movement id); **no PO change in core** | — | none | FR-506 |
 
-| ID | Predicate | Refusal | Backstop |
-|---|---|---|---|
-| POS-GRD-20 | idempotency on `(source_module, idempotency_key)` with fingerprint | `409 PORT_IDEMPOTENCY_CONFLICT` | partial uk on `wh_rmas` |
-| POS-GRD-21 | the original demand order is the same customer's, shipped; each port line names `originalDemandOrderLineId` (stored in the new `wh_rma_lines.original_demand_order_line_id → wh_demand_order_lines`, R29 F13; nullable for manual RMAs, required for port-created ones) of that order and the same item; qty ≤ shipped − Σ live (`OPEN`/`APPROVED`/`MATCHED`) RMA lines for that demand line, under a lock on the demand line | `422 RMA_EXCEEDS_SHIPPED` · `lines[i].quantity` / `422 RMA_DEMAND_LINE_INVALID` · `lines[i].originalDemandOrderLineId` | FK |
-| POS-GRD-22 | manual change on a port-owned RMA allowed only if every `RmaChangeGuard` allows | `409 RMA_OWNED_BY_SOURCE_MODULE` | — |
-| POS-GRD-23 | intent frozen once the return is `APPROVED` | `409 SUPPLIER_RETURN_INTENT_FROZEN` | — |
+| ID | Predicate | Refusal | Backstop | Source |
+|---|---|---|---|---|
+| POS-GRD-20 | idempotency on `(source_module, idempotency_key)` with fingerprint | `409 PORT_IDEMPOTENCY_CONFLICT` | partial uk on `wh_rmas` | FR-506 |
+| POS-GRD-21 | the original demand order is the same customer's, shipped; each port line names `originalDemandOrderLineId` (stored in the new `wh_rma_lines.original_demand_order_line_id → wh_demand_order_lines`, R29 F13; nullable for manual RMAs, required for port-created ones) of that order and the same item; qty ≤ shipped − Σ live (`OPEN`/`APPROVED`/`MATCHED`) RMA lines for that demand line, under a lock on the demand line | `422 RMA_EXCEEDS_SHIPPED` · `lines[i].quantity` / `422 RMA_DEMAND_LINE_INVALID` · `lines[i].originalDemandOrderLineId` | FK | — |
+| POS-GRD-22 | manual change on a port-owned RMA allowed only if every `RmaChangeGuard` allows | `409 RMA_OWNED_BY_SOURCE_MODULE` | — | FR-506 |
+| POS-GRD-23 | intent frozen once the return is `APPROVED` | `409 SUPPLIER_RETURN_INTENT_FROZEN` | — | FR-506 |
 
 Unreachable: core reinstating PO quantity on a `REPLACE` dispatch (trade calls `amendOrder`/`releaseSchedule`); any financial document on `CREDIT` (`RN-054`). Scenarios `WH-SC-478`, `WH-SC-479`.
 

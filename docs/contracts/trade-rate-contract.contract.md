@@ -100,6 +100,7 @@ order line qty, `OD-35`). Amendment: `amendment_number` (`<contract number>-Ann`
 | TRC-GRD-03 | Revision `effective_from ≥ today` (no retro price, `OD-36`); extension keeps `EXCLUDE`; ceiling ≥ consumed; one open amendment per contract; termination date ≥ today and ≤ `valid_to` | field `422` / `409 TRADE_AMENDMENT_OPEN` | FR-572 |
 | TRC-GRD-04 | Purchase only: line item on AVL (FR-544) when the item has AVL rows | `TRADE_SUPPLIER_NOT_ON_AVL` | FR-544 |
 | TRC-GRD-05 | Price list: no other effective price list of the same company, currency and **priority** whose applicability intersects (`ALL` intersects everything; categories intersect when they share one) prices the same item × UoM on an overlapping date range — service check at approval, under a lock on the company's price-list set | `422 TRADE_PRICE_LIST_OVERLAP {listCode}` | FR-602 |
+| TRC-GRD-06 | **Concurrency**: every edit, submit, transition and approval of a `wht_` document checks its optimistic `version`; a stale write changes nothing | `409` stale write (code per `TPR-OPEN-03`) | FR-618 |
 
 ### 1.4 Unreachable
 
@@ -112,14 +113,15 @@ order line qty, `OD-35`). Amendment: `amendment_number` (`<contract number>-Ann`
 
 ## 2. T2 — Action × role × state
 
-| ID | Action | Permission | Allowed from |
-|---|---|---|---|
-| TRC-T2-01 | Add / edit | `:create` / `:edit` | `DRAFT`, `REJECTED` |
-| TRC-T2-02 | Submit | `:submit` | `DRAFT`, `REJECTED` |
-| TRC-T2-03 | Approve | `:approve` | `SUBMITTED` |
-| TRC-T2-04 | Draft amendment / termination; approve it | `:amend` + `:submit` / `:approve` (`TAM`) | contract `APPROVED` |
-| TRC-T2-05 | Import price rows (CSV, dry-run then apply; only into a `DRAFT` or an amendment) | `:edit` | `DRAFT`, amendment `DRAFT` |
-| TRC-T2-06 | Export | `:export` | — |
+| ID | Action | Permission | Allowed from | Source |
+|---|---|---|---|---|
+| TRC-T2-01 | Add / edit | `:create` / `:edit` | `DRAFT`, `REJECTED` | — |
+| TRC-T2-02 | Submit | `:submit` | `DRAFT`, `REJECTED` | — |
+| TRC-T2-03 | Approve | `:approve` | `SUBMITTED` | — |
+| TRC-T2-04 | Draft amendment / termination; approve it | `:amend` + `:submit` / `:approve` (`TAM`) | contract `APPROVED` | — |
+| TRC-T2-05 | Import price rows (CSV, dry-run then apply; only into a `DRAFT` or an amendment) | `:edit` | `DRAFT`, amendment `DRAFT` | — |
+| TRC-T2-06 | Export | `:export` | — | — |
+| TRC-T2-07 | Every action in this table, and the auditor | `wht_<table>:<verb>` per FRD-TRADE FR-617 (`view`, `create`, `edit`, `export` + the workflow verbs above); `permission_dependencies` seeded; the auditor bundle holds `:view` only; record scope follows core's company / site grants; a bundle whose action calls a core port is also granted `warehouse:orders:port` in the trade seed | — | FR-617 |
 
 ## 3. T3 — Time-driven rules
 
