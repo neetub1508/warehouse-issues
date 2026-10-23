@@ -5,14 +5,13 @@
 
 **Order (user, 2026-10-23): `P7` first, then the rest.** *Must run after P7* is **true** where a `P7` task edits a file, class, table or permission the item touches, or the item adds a migration or schema change (`P7` rewrites the migration set in place once, `D-16` item 4, and `P7-13` rebuilds on it); all of `P8`–`P10` are true by `P7-13`'s rule. *Scope* says whether the whole task is to build or only its *Reopened scope* items.
 
-**Totals: 122 open issues** — P7 7 · P8 17 · P9 15 · P10 15 · P5/P6 survivors 11 · reopened 41 · new findings 2 · old open findings 4 · other 10 (#539 #543 closed as carried by `P10-14` #605, 2026-10-23).
+**Totals: 121 open issues** — P7 6 · P8 17 · P9 15 · P10 15 · P5/P6 survivors 11 · reopened 41 · new findings 2 · old open findings 4 · other 10 (#539 #543 closed as carried by `P10-14` #605, 2026-10-23).
 
-## 1. P7 — removal and the clean rebuild (run first) — 7 open
+## 1. P7 — removal and the clean rebuild (run first) — 6 open
 
 | Issue | Task file | Title | Scope | Must run after P7 | Why |
 |---|---|---|---|---|---|
 | #545 | `issues/09-EPIC-p7.md` | EPIC: P7 — Remove dealer and retail code, rename the dual-use items, rebuild on a clean… | epic (checklist of its tasks) | false | is P7 |
-| #555 | `issues/p7-07.md` | P7-07 · Remove OEM obsolescence returns and the OBSOLESCENCE claim type; supplier claim… | whole task | false | is P7 |
 | #556 | `issues/p7-08.md` | P7-08 · Remove the trade portal, the Warehouse Trade Customer role and the customer per… | whole task | false | is P7 |
 | #558 | `issues/p7-10.md` | P7-10 · Remove the dealer and retail seeded vocabulary and the dead adapter switches; w… | whole task | false | is P7 |
 | #559 | `issues/p7-11.md` | P7-11 · Rename the dual-use codes in storage — LINE_STOP, PRODUCTION_STORE, MANUFACTURE… | whole task (+1 tracking item 2026-10-23) | false | is P7 |

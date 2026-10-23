@@ -4,6 +4,8 @@
 
 ## Done
 
+- **P7-07 #555 closed 2026-10-24** — OEM obsolescence returns and the OBSOLESCENCE claim type removed; supplier claims keep 4 types (classic b620cfbfd9 + S4 b1877a1410). Gates: reviewer PASS, functional PASS after floor fix, tester PASS.
+
 - **P7-06 #554 closed 2026-10-24** — Channels L1 replaced by Shipping › Carrier Tracking & Planning, 4 leaves (classic 30163e54d2). REM-D15 default built; user confirmation pending. Gates: reviewer PASS, functional PASS, tester PASS.
 
 - **P7-05 #553 closed 2026-10-24** — RTO consignments and marketplace claims removed; RETURN_TYPE 10→8 (classic 1ca178e148 + barrier aa4fd1a4e1 + S4 6e6e58ce3e). Gates: reviewer PASS, functional PASS after floor fix, tester PASS.
