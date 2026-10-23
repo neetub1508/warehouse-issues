@@ -4,6 +4,10 @@
 
 ## Done
 
+- **P7-06 #554 closed 2026-10-24** — Channels L1 replaced by Shipping › Carrier Tracking & Planning, 4 leaves (classic 30163e54d2). REM-D15 default built; user confirmation pending. Gates: reviewer PASS, functional PASS, tester PASS.
+
+- **P7-05 #553 closed 2026-10-24** — RTO consignments and marketplace claims removed; RETURN_TYPE 10→8 (classic 1ca178e148 + barrier aa4fd1a4e1 + S4 6e6e58ce3e). Gates: reviewer PASS, functional PASS after floor fix, tester PASS.
+
 - **P7-04 #552 closed 2026-10-23** — Channel accounts, channel order import and stock publishing removed; demand-order payment mode / COD / original item dropped (classic 6592a7c20d + S4 88d987b7eb). Gates: reviewer PASS, functional PASS, tester PASS after two ratchet fixes.
 
 - **P7-03 #551 closed 2026-10-23** — NDR, COD remittances, customer tracking links and the public tracking page removed (classic 99b1767085 + S4 438a5bf4dc); failed delivery maps to EXCEPTION; supports_cod dropped. Gates: reviewer PASS, functional PASS, tester PASS after the floor fix.
