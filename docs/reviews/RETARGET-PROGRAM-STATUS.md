@@ -4,6 +4,8 @@
 
 ## Done
 
+- **P7-12 #560 closed 2026-10-24** — docs, QA notes, contracts and the ci-gate ledger aligned with the P7 removals (OD-1 neutral redaction + D-16 note); tools/check-ci-def.py added
+
 - **P7-11 #559 closed 2026-10-24** — LINE_STOP / PRODUCTION_STORE / MANUFACTURER_PART_NUMBER / Stock KPIs renames; MERGE_STOCK posts one SUPERSESSION_MERGE movement per site (item-master §10 row 2 FIXED); FR-073 enquiry carried to P8-14 #575
 
 - **P7-10 #558 closed 2026-10-24** — Base catalogues cleaned of dealer/retail rows (source systems 9→4, doc types 13→11, movement types 18→17, reason contexts 11→9, CHANNEL_KIND {B2B}); classic 7f7d298b96. Gates: reviewer PASS, functional PASS, tester PASS.
