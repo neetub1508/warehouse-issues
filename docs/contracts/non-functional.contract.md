@@ -63,7 +63,7 @@
 |---|---|---|---|
 | NFR-DIV-01 | The partition **and archive** strategy is in force | archiving is disclosed as deferred (`NonFunctionalFoundationsTest$ArchiveBoundary.shouldDiscloseArchivingDeferredInTheSupportedOffer`) — **Triage 2026-10-23: CARRIED** — `P6-01` #94 (archiving) | FR-423 |
 | NFR-DIV-02 | "Restore exists" | the test asserts restore, PITR and stated objectives are still **absent** and disclosed (PP-1) — **Triage 2026-10-23: CARRIED** — finding `W33` #227 (open; disaster recovery) | FR-429 |
-| NFR-DIV-03 | Six v2 dated junction families | only the reason-code tax treatments junction exists; no supplier UoM default, supplier preference, owner-set cage, item / UoM tax-scheme or configuration-scope junction table — **Triage 2026-10-23: FIX-CODE** — owners by parent table, each reopened: `P1-05` #54 `V500070` (**owner-set cage part CLOSED 2026-10-24**: `whb_location_owner_dedications` built, `NFR-21`), `P0-11` #89 `V500074`, `P1-01` #13 `V500075`, `P1-02` #20 `V500076`, `P1-03` #33 `V500077` | FR-468 |
+| NFR-DIV-03 | Six v2 dated junction families | the reason-code tax treatments and owner-set cage junctions exist; no supplier UoM default, supplier preference, item / UoM tax-scheme or configuration-scope junction table — **Triage 2026-10-23: FIX-CODE** — owners by parent table, each reopened: `P1-05` #54 `V500070` (**owner-set cage part CLOSED 2026-10-24**: `whb_location_owner_dedications` built, `NFR-21`), `P0-11` #89 `V500074`, `P1-01` #13 `V500075`, `P1-02` #20 `V500076`, `P1-03` #33 `V500077` | FR-468 |
 | NFR-DIV-04 | `FR-456` / `FR-457`: "no `P7`…`P10` task builds it" (R30 note in the FRD) | the regulated-goods pack is built and tested in `warehouse-india` (`V540183`, licence services, dispatch guard, Schedule H1 register, recall notifications) — **resolved R31**: `FR-456` / `FR-457` WITHDRAWN by `D-18`; the pack is kept and fenced behind `warehouse.regulated_profile` = `NONE` (`V511200`), menus hidden while `NONE` (`P4-13`) — **Triage 2026-10-23: FIX-CODE** — resolved R31; menu hiding owner `P4-13` #88, reopened | FR-456, FR-457 |
 | NFR-DIV-05 | `FR-422` is WITHDRAWN | `NonFunctionalFoundationsTest$PerformanceTargets` still asserts the eight `FR-422` numbers (R30 `CP-FR-003`) — **Triage 2026-10-23: AMEND-SPEC** — rule: the eight numbers belong to `FR-534`'s system performance envelope (`FRD-STORES.md`, R30 `CP-FR-003`); the test and its numbers stand under that id | FR-422 |
 | NFR-DIV-06 | `FR-425` names **waybill** claiming | waybill / AWB pools are removed by `D-16` item 2; only task and zone claiming remain — **Triage 2026-10-23: P7-REMOVES** — `P7-02` #550 removes the waybill / AWB pools | FR-425 |
@@ -77,6 +77,7 @@
 | 2026-10-23 | v0 derived for R30 `CP-FR-007` row 24 (`D-17` item a) |
 | 2026-10-23 | R31: `F-CB-014` (`NFR-15` evidence, `NFR-DIV-08`), `F-CB-015` (`NFR-23`, `NFR-24`), `F-CB-020` (`NFR-17` column); `D-18` item 2 (`NFR-18`…`NFR-20`, `NFR-DIV-04`); `NFR-OPEN-01`…`-03` closed |
 | 2026-10-24 | R31 `P1-05` #54 S4: `NFR-21` evidence gains `whb_location_owner_dedications` (`V500070`); `NFR-DIV-03`'s owner-set cage part (#54) closed — the other junction parts stay open under their owners |
+| 2026-10-24 | R31 `P1-05` #54 S4b: `NFR-DIV-03`'s "no … junction" list no longer names the owner-set cage |
 
 ## 4. Open rows
 
