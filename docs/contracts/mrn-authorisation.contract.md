@@ -107,7 +107,7 @@
 | ID | When | Then | Enforced in |
 |---|---|---|---|
 | MRA-T4-01 | setting on, and (a) GRN post (PO, blind or non-PO, `MRA-UNR-04`) of a line whose resolved received status is allocatable, or (b) QC disposition `RESTOCK_SELLABLE` of a GOODS_RECEIPT source | (a) the line is received into **`MRN_PENDING`** instead, **no putaway task** (`RQP-T1-24` suppressed); (b) the release `STATUS_CHANGE` targets `MRN_PENDING` instead of `AVAILABLE`, no putaway task | GRN posting service; disposition service |
-| MRA-T4-02 | `MRA-T1-03` | per line one balanced **`STATUS_CHANGE` `MRN_PENDING → AVAILABLE`** at the location(s) holding it (`MPR-T1-10`, reason code `MRN_AUTHORISED` context `RELEASE`), `source_document_type = MATERIAL_RECEIPT_NOTE`; **then** one putaway task per line for the authorised quantity (the `RQP-T1-24` rule, now triggered here); line `status_change_movement_id` stored; outbox `WH_MRN_AUTHORISED` | MRN service → writer → putaway service, one transaction |
+| MRA-T4-02 | `MRA-T1-03` | per line one balanced **`STATUS_CHANGE` `MRN_PENDING → AVAILABLE`** at the location(s) holding it (`MPR-T1-10`, reason code `MRN_AUTHORISED` context `RELEASE`), `source_document_type = MATERIAL_RECEIPT_NOTE`; **then** one putaway task per line for the authorised quantity (the `RQP-T1-24` rule, now triggered here); line `status_change_movement_id` stored; outbox `material_receipt_note.authorised` | MRN service → writer → putaway service, one transaction |
 | MRA-T4-03 | receipt reversal of a GRN with an `AUTHORISED` MRN | allowed per `RQP-GRD-26` (stock moved on is refused there); the MRN stays `AUTHORISED` and shows *GRN reversed* | reversal service |
 | MRA-T4-04 | setting off | no new receipt routes to `MRN_PENDING`; behaviour equals `RQP` v1 for them. Stock already in `MRN_PENDING` keeps its MRN path (`MRA-GRD-01`) | — |
 
@@ -136,6 +136,7 @@ MRN for non-purchase receipts; value-based authorisation limits (`OD-29`-style m
 | 2026-10-22 | v0 derived. Amends `RQP-T1-24` (putaway trigger) and `RQP-T1-20` (release target) under the setting |
 | 2026-10-22 | R29 dispositions: scope pair; MRN keyed on pending stock (setting change never strands it); MRN scope = every GRN; self-approval code on authorise and reject; `MRA-GRD-08` single exit; recall quarantine path stated |
 | 2026-10-23 | R31: QC lineage names `QCINSP` and the inspection-line → GRN-line join (`MRA-GRD-05`, F-SR-005); `OD-26` keyed to `PRODUCTION_STORE` (`MRA-OPEN-01`, F-SR-016); `MRA-OPEN-01`…`-03` resolved (`R31-decisions`) |
+| 2026-10-24 | P8 decision record `EV-1` (DECISIONS `D-19`): every outbox event code renamed to the dotted `whb_event_types` vocabulary of registry R.4 (PC-42) — e.g. `purchase_order.amended`, `demand_order.shipped`, `rma.matched`, `supplier_return.dispatched`; no behaviour change |
 
 ## 8. Invariants and scenarios
 

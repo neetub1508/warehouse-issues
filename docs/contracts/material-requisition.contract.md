@@ -133,7 +133,7 @@ Quantities per line (all stored, `DECIMAL(18,4)`, line UoM): `requested_quantity
 | MRQ-T4-02 | store-issue post | **consume-and-split inside the issue transaction** (R29 F4): per issue line, the line's open holds at the issued grain are locked (`WhbReservationStore.lockForRelease`) and consumed up to the issued base quantity with `WhbReservationStore.consume(hold, movementLineId, …)` (`:232`, closes the whole hold); when a hold is larger than what was issued, a residual hold for the remainder is inserted at once (`WhbReservationStore.insert`, same holder quad, grain, type and expiry — the shape of `WhbPickReservationService.reattach` `:137`). Then holds of the line at other grains are trimmed (released and re-inserted smaller) until Σ open holds ≤ open-to-issue. The same call is also passed as `consumedReservationIds` so the writer's availability check does not count them (`WhbMovementPostCommand.java:23-25`). **Owner-held holds (MFG):** core consumes them in the same way, by the ids `reservationsFor` returns, and passes the consumed and residual ids to `onIssuePosted` — MFG never consumes them itself. Line `issued_quantity`, header ladder | issue service, same transaction | — |
 | MRQ-T4-03 | close short / cancel | the line's own holds released (reason context `RESERVATION_RELEASE`, `releaseByHolder`); an owner-held reservation (`ownsReservations()`, MFG MD-16) is **not** released — the owner releases it | requisition service | — |
 | MRQ-T4-04 | store-return post (`SIR-T1-07`) | line `returned_quantity` += ; status unchanged | return service | — |
-| MRQ-T4-05 | hand-off | outbox `WH_REQUISITION_SHORTFALL_HANDED_OFF`; the buying module's later receipt is issued against the same line | handoff port | FR-532 |
+| MRQ-T4-05 | hand-off | outbox `material_requisition.shortfall_handed_off`; the buying module's later receipt is issued against the same line | handoff port | FR-532 |
 
 ## 5. T5 — Screen contract
 
@@ -165,6 +165,7 @@ Requisition of services; a multi-level approval matrix beyond `OD-29`'s optional
 | 2026-10-22 | Amended for MFG MD-16: owner-held reservations (`MRQ-T4-01`, `-03`); `WhMaterialRequisitionPort` named (`MRQ-OPEN-02`) |
 | 2026-10-22 | R29 dispositions: site scope pair + `:view_all_departments`; mutually exclusive approvals, recall clears the first approval; per-grain reservations, SOFT/HARD, top-up, consume-and-split, core consumes owner-held holds; `ownsReservations()` by type; close-short header outcome; department company rule; hand-off status row; §8a port rows; self-approval code |
 | 2026-10-23 | R31: the port caller also holds `wh_material_requisitions:view:all` (sibling service principal) or `:view:branch` (sibling bundles) — core checks site scope first (registry R.1, F-SR-004); the `warehouse:orders:port → wh_material_requisitions:{view,create,cancel,close}` dependency rows are seeded by `V511408` (F-SR-006); `MRQ-OPEN-01`/`-02` resolved (`R31-decisions`) |
+| 2026-10-24 | P8 decision record `EV-1` (DECISIONS `D-19`): every outbox event code renamed to the dotted `whb_event_types` vocabulary of registry R.4 (PC-42) — e.g. `purchase_order.amended`, `demand_order.shipped`, `rma.matched`, `supplier_return.dispatched`; no behaviour change |
 
 ## 8. Invariants and scenarios
 

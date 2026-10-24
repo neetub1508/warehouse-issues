@@ -55,8 +55,8 @@ from the shipment), `received_quantity` (projection of core, `getRmaPosition`).
 | `SUBMITTED` | `-02` | `TAM`, `-02a` | active |
 | `REJECTED` | `TAM` | edit → `DRAFT`, `-06` | active |
 | `APPROVED` | `-03` (core RMA `APPROVED`) | `-04`, `-07`, `-08`, `TSR-T4-01` | active |
-| `RECEIVED` | `TSR-T4-01` (core `WH_RMA_MATCHED`, matched = authorised) | `-05` | active |
-| `PARTIALLY_RECEIVED` | `TSR-T4-01` (core `WH_RMA_MATCHED`, matched < authorised — final, core takes no further receipt on a `MATCHED` RMA) | `-05` | active |
+| `RECEIVED` | `TSR-T4-01` (core `rma.matched`, matched = authorised) | `-05` | active |
+| `PARTIALLY_RECEIVED` | `TSR-T4-01` (core `rma.matched`, matched < authorised — final, core takes no further receipt on a `MATCHED` RMA) | `-05` | active |
 | `CLOSED` | `-05`, `-07` | none | terminal |
 | `CANCELLED` | `-04`, `-06`, `-08` | none | terminal |
 
@@ -74,8 +74,8 @@ Core RMA status → SRA (`POS-T1-22`; core statuses are exactly `OPEN`, `APPROVE
 | TSR-T1-04 | `APPROVED` | Cancel (customer withdrew) | `CANCELLED` | core RMA not `MATCHED` (`getRmaPosition`) | `:cancel` | **`WhRmaPort.cancelRma(CancelRmaCommand{ rmaId, reasonCodeId (a `TRADE_ORDER_CLOSE`-context `whb_reason_codes` id, FR-546), note })`**, key `WHT_SRA:<id>:RMA_CANCEL:1` | **yes** | row action | FR-612 |
 | TSR-T1-05 | `RECEIVED`, `PARTIALLY_RECEIVED` | Close | `CLOSED` | `REPLACE`: the replacement release is `RELEASED`/`CLOSED`, or declined with a reason (also when the SO is `SHORT_CLOSED` / `CANCELLED`, `TSO-T4-07`); `CREDIT`: `accounting_handover_marked_at` stamped; `REWORK`: none | system (after the replacement release is released or declined), or `:edit` for *Decline replacement* | — | reason on decline | *Decline replacement* | FR-612 |
 | TSR-T1-06 | `DRAFT`, `REJECTED` | Cancel | `CANCELLED` | — | maker | — | no | row action | FR-612 |
-| TSR-T1-07 | `APPROVED` | Core RMA expired (`WH_RMA_EXPIRED`) | `CLOSED`, outcome *expired*, received 0 | — | system | none sent to core; the customer may raise a new SRA | — | — | FR-612 |
-| TSR-T1-08 | `APPROVED` | Core RMA cancelled outside trade's call (`WH_RMA_CANCELLED` not caused by `-04` — only possible if a guard is removed) | `CANCELLED` | — | system | logged for the sales executive | — | — | FR-612 |
+| TSR-T1-07 | `APPROVED` | Core RMA expired (`rma.expired`) | `CLOSED`, outcome *expired*, received 0 | — | system | none sent to core; the customer may raise a new SRA | — | — | FR-612 |
+| TSR-T1-08 | `APPROVED` | Core RMA cancelled outside trade's call (`rma.cancelled` not caused by `-04` — only possible if a guard is removed) | `CANCELLED` | — | system | logged for the sales executive | — | — | FR-612 |
 
 ### 1.3 Guards
 
@@ -118,10 +118,10 @@ Core RMA status → SRA (`POS-T1-22`; core statuses are exactly `OPEN`, `APPROVE
 
 | ID | When | Then | Enforced in | Source |
 |---|---|---|---|---|
-| TSR-T4-01 | `WH_RMA_MATCHED` for the SRA's RMA (`source_document_id`) | `received_quantity` per line from the event (reconciled through `getRmaPosition`); SRA `RECEIVED` when Σ matched = authorised, else `PARTIALLY_RECEIVED` with `received_short = true` (the rest of the authorisation lapses); `WH_RMA_EXPIRED` → `TSR-T1-07`; `WH_RMA_CANCELLED` → `-04` / `-08`; projection reconciled nightly | outbox subscriber | FR-612 |
+| TSR-T4-01 | `rma.matched` for the SRA's RMA (`source_document_id`) | `received_quantity` per line from the event (reconciled through `getRmaPosition`); SRA `RECEIVED` when Σ matched = authorised, else `PARTIALLY_RECEIVED` with `received_short = true` (the rest of the authorisation lapses); `rma.expired` → `TSR-T1-07`; `rma.cancelled` → `-04` / `-08`; projection reconciled nightly | outbox subscriber | FR-612 |
 | TSR-T4-02 | `REPLACE` and matched quantity > 0 | replacement dispatch release `DRAFT` on the SO for the matched qty at the original net price, `is_replacement`, `source_sra_id` (`TSO-T1-16`); the planner submits it and `SO_RELEASE` approves it; the SO stays open until the SRA closes (`TSO-T3-03`) | same handler | FR-612 |
 | TSR-T4-03 | Approved | `WhRmaPort.createRma(CreateRmaCommand{ envelope(sourceModule 'warehouse-trade', idempotencyKey 'WHT_SRA:<id>:RMA_CREATE:1', actingUserId = last approver), sourceDocumentType 'WHT_SRA', sourceDocumentId, sourceDocumentRef <sra_number>, customerCounterpartyId, ownerId, warehouseId = return-to site, originalDemandOrderId = the SO's core demand order, reasonCodeId = the header `reason_code_id` (a `RETURN`-context `whb_reason_codes` id, as `WhRmaValidationService.validateHeader` requires), expectedConditionCode, expiryDate = return_by_date, initialStatus 'APPROVED', approvedByUserId = last approver, lines[ originalDemandOrderLineId, itemId, quantity, uomCode, lotCode?, serialNumber? ] })` → core `wh_rmas` `APPROVED` (`POS-T1-20`); `core_rma_id` stored | approval transaction | FR-612 |
-| TSR-T4-04 | `WH_SUPPLIER_RETURN_DISPATCHED` with intent `REPLACE` for a trade-created PO | `TPO-T4-07`: a system amendment of origin `SUPPLIER_RETURN` is drafted for the buyer (version + 1 on apply, `amendOrder` adds the `FIRM` schedule quantity); on a `SHORT_CLOSED` / `CANCELLED` PO nothing is reinstated and the buyer is told | outbox subscriber (`OD-33`) | FR-613 |
+| TSR-T4-04 | `supplier_return.dispatched` with intent `REPLACE` for a trade-created PO | `TPO-T4-07`: a system amendment of origin `SUPPLIER_RETURN` is drafted for the buyer (version + 1 on apply, `amendOrder` adds the `FIRM` schedule quantity); on a `SHORT_CLOSED` / `CANCELLED` PO nothing is reinstated and the buyer is told | outbox subscriber (`OD-33`) | FR-613 |
 | TSR-T4-05 | Any | `RETURN_RATE` metric reads SRA quantities (`TCE`) | evaluation run | FR-614 |
 
 ## 5. T5 — Screen contract
@@ -150,6 +150,7 @@ Empty state: *No return authorisations.*
 | 2026-10-22 | all | R29 TS-F3, F12, F16, F21 and contract quality: core RMA statuses mapped exactly (`MATCHED` / `EXPIRED` / `CANCELLED`), `PARTIALLY_RECEIVED` closable, RMA created `APPROVED` with the approver, `return_by_date` field for `expiryDate`, registry-exact command and keys, `RmaChangeGuard` row, withdraw, replacement through `TSO-T1-16`, supplier-return reinstatement through the amendment engine | R29 |
 | 2026-10-23 | every T1, guard, unreachable, T3 and T4 row | `Source` column added, filled from FRD-TRADE §4, so every rule traces to the FR it proves | R30 `CP-FR-008` |
 | 2026-10-23 | §0 fields, `TSR-GRD-01`…`-03`, `-T1-04`, `-T4-03`, `-GRD-06`, every T2 row | R31: header `reason_code_id` and line reasons as `whb_reason_codes` (F-TR-007); allowance counts live + matched only (F-TR-015); `REPLACE` needs an open SO (F-TR-002); stale-write code `409 CONCURRENT_MODIFICATION` (`TPR-OPEN-03`); T2 Source FRs (F-TR-019) | R31 |
+| 2026-10-24 | every row citing a core event | P8 decision record `EV-1` (DECISIONS `D-19`): every outbox event code renamed to the dotted `whb_event_types` vocabulary of registry R.4 (PC-42) — e.g. `purchase_order.amended`, `demand_order.shipped`, `rma.matched`, `supplier_return.dispatched`; no behaviour change | decision record P8 wave 1/2 |
 
 ## 8. Invariants and scenarios
 

@@ -276,7 +276,7 @@ All paths below are relative to the design repo unless marked `classic:`.
 - Source: Claude
 - Evidence:
   - `po-schedule-port.contract.md:72-75,128,165-167` has no rows for `cancelDemand`, `getFulfilmentPosition` or `getRmaPosition`.
-  - It has no DemandOrderChangeGuard guard row (the PO side has `:88`), no idempotency key for demand releases, and no `WH_DEMAND_CANCELLED` / `WH_DEMAND_AMENDED` events.
+  - It has no DemandOrderChangeGuard guard row (the PO side has `:88`), no idempotency key for demand releases, and no `demand_order.cancelled` / `demand_order.amended` events.
   - The tasks do list them (`issues/p8-02.md:22`, `issues/p8-15.md:29`).
 - Fix: add the missing POS rows.
 
