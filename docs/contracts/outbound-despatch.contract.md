@@ -80,7 +80,7 @@
 | ODS-T1-22 | `REQUESTED` | Confirm a pickup request (vehicle window) | `CONFIRMED` | — | `wh_pickup_requests:confirm` | — | `FR-194` |
 | ODS-T1-22a | `CONFIRMED` | The handover naming the request is handed over (`ODS-T1-21`) | `COMPLETED` | — | system — there is no Complete verb (`WhPickupRequestService.java:30-35`) | `ODS-T4-12` | `FR-194` |
 | ODS-T1-23 | live label | Void | voided | `ODS-GRD-14` | `wh_shipping_labels:void` | label kept, `voided_at` | `FR-197` |
-| ODS-T1-24 | — | Record a drop-shipment confirmation (v2) | — (a movement) | `ODS-GRD-18` | `wh_demand_orders:drop_ship` / `:drop_ship_reverse` | `ODS-T4-09` | `FR-467` |
+| ODS-T1-24 | — | Record a drop-shipment confirmation (v2) | — (a movement) | `ODS-GRD-18`, `-23` | `wh_demand_orders:drop_ship` / `:drop_ship_reverse` | `ODS-T4-09` | `FR-467` |
 
 ### 1.3 Guards
 
@@ -108,6 +108,7 @@
 | ODS-GRD-20 | A wave admits only allocated, un-held orders of a supported wave type; v1.1 adds batch pick, other methods are refused | `WAVE_ORDER_NOT_ALLOCATED`, `WAVE_ORDER_HELD`, `WAVE_TYPE_NOT_SUPPORTED`, `WAVE_NO_ORDERS`, `WAVE_NOT_OPEN` | names the order | `FR-186`, `FR-187` |
 | ODS-GRD-21 | A carrier connector is an adapter registered in the bean registry and named by `wh_carriers.owning_module`; with none on the classpath `api_enabled` is inert and the manual path stands | — (inert flag) | — | `FR-196` |
 | ODS-GRD-22 | **Seals at load and at unload.** The seal applied at load is captured on the outbound handover (`wh_handovers.seal_number`) and, inbound, declared on the ASN (`wh_asns.seal_number`); the seal found at unload is the receiving session's `seal_number_in`; a load-vs-unload difference is surfaced (`sealMismatch`), never silently accepted. The **receiving session owns** the seal, the gate-pass reference, the driver and the arrival photograph | — (captured, compared, shown) | the WS-074 grid shows both seals and the mismatch | `FR-211` |
+| ODS-GRD-23 | **Drop-ship against a scheduled PO line** (P8 decision `OD-3`, `POS-GRD-17`): the PO line needs `po_type = FIXED` and no schedule line, checked at drop-ship create and at confirm; a schedule add or release on a PO line a live drop-shipment references is refused. Allocating drop-ships to schedule lines is out of P8 (re-entry: its own contract row) | `PO_LINE_SCHEDULED` (422), `PO_LINE_DROP_SHIPPED` (409) | `poLineId` | `FR-467` |
 
 ### 1.4 Transitions that must be unreachable
 
@@ -193,6 +194,7 @@ statuses are fixed by the owning task.
 |---|---|
 | 2026-10-23 | v0 derived for `D-17` item 1 (R30 `CP-FR-007` row 10) |
 | 2026-10-23 | R31: `F-CA-004` (`ODS-T1-11a` roll-up, `-11b` cancel); `F-CA-005` (Load is `:dispatch`; Seal's two paths, `ODS-DIV-07`); `F-CA-013` (`ODS-T1-22` split, `-22a`, `ODS-T4-12`); `F-CA-003` parity (`ODS-T4-13`); `ODS-OPEN-01`, `-02` decided |
+| 2026-10-24 | P8 decision `OD-3` (DECISIONS `D-19`): drop-ship only against a `FIXED` PO line with no schedule lines (`422 PO_LINE_SCHEDULED`); schedule add/release on a drop-shipped line refused (`409 PO_LINE_DROP_SHIPPED`) |
 
 ## 8. Invariants and scenarios
 

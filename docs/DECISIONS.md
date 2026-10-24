@@ -641,6 +641,52 @@ re-litigated here. They read with `D-16` and `D-17` and amend them where they sa
    that extent); `P6-02` stays VOID. **`FR-397` stays withdrawn** — accessories coexistence is removed, so
    there is no second inventory to report on.
 
+### D-19 · P8 wave 1/2 decisions — port verbs, SYSTEM approval, drop-ship, per-line QC plans, requisition owner and holds, event-code vocabulary
+
+**Reviewer decisions, 2026-10-24**, from the P8 wave 1/2 DECISION RECORD (dual-engine functional review in
+decision mode over the S1 reports of `P8-01`, `P8-05` and `P8-09`; baseline classic `43d07787e9`, design set
+`26503fb`). All 16 items are settled from a decision id, a contract row or the code; **no owner question
+remains**. The contracts stay v0 and unratified — these amendments do not ratify them. Each item is applied in
+the rows named; the contracts' §7 carry a 2026-10-24 row.
+
+1. **`OD-1` Port verbs.** A port verb is never weaker than the manual verb for the same change: `cancelOrder`
+   `wh_purchase_orders:cancel`, `cancelDemand`/`cancelLine` `wh_demand_orders:cancel`, `cancelRma`
+   `wh_rmas:cancel`; a create with `initialStatus = APPROVED` (PO, RMA, MRQ) additionally needs the resource's
+   `:approve` on `actingUserId`, SYSTEM-approved calls included. `V511400` / `V511408` widen the
+   `warehouse:orders:port` dependency rows (and `V511408` adds `→ wh_landed_cost_documents:apply`). A replay is
+   authorised again. Registry R.1, R.2; `POS` §0, `POS-T1-05`, `-08`, `-12`, `-20`, `-21`; `MRQ-T1-20`.
+2. **`OD-2` SYSTEM approval.** A SYSTEM PO approval writes `approved_by` NULL (never the submitter), stamps
+   `approved_at` and records `approval_source = SOURCE_MODULE`; `V511310` replaces
+   `chk_wh_purchase_orders_approved_stamp` with the null-safe form. The RMA and MRQ ports still require an
+   approver — intentional. `POS-T1-05`; DATA-MODEL `wh_purchase_orders`.
+3. **`OD-3` Drop-ship** only against a `FIXED` PO line with no schedule lines (`422 PO_LINE_SCHEDULED`); a schedule
+   add or release on a drop-shipped line is refused (`409 PO_LINE_DROP_SHIPPED`). `POS-GRD-17`, `ODS-GRD-23`.
+4. **`SEQ-1`** The approved-excess term of R31 F-SR-013 is `P8-04`'s; `P8-01` ships the seam
+   `excessApprovedQuantity(poLineId)` returning 0. `p8-01`, `p8-04` acceptance.
+5. **`G5`, `G6b` QC plans.** Plan, assignment and scheme are resolved and stored per inspection line (header only
+   when all agree); `NO_INSPECTION` skips a QC-held item × site rung, falling to the `RECEIPT` movement-type
+   default, else `422 RECEIVED_STATUS_UNRESOLVED`; no `AVAILABLE` literal. `IIS-T1-05`, `RQP-GRD-07`, `-07a`; `p8-05`.
+6. **`G2`, `G3`, `G4`, `G11`, `G12`, `G17` Requisitions.** House `owner_id` on the requisition, issue and return;
+   the department-axis verb is sibling-seeded; Submit refuses `422 REQUISITION_NO_ELIGIBLE_APPROVER`; SOFT holds
+   at priority 100 yield only to a strictly higher priority, with no notification; `soft_hold_until` bounds the
+   SOFT window and the daily top-up; `estimated_value` is last receipt-layer cost, NULL counted above the
+   threshold. `MRQ` contract; `SIR` §0; `p8-09`, `p10-01`; DATA-MODEL.
+7. **`G13`** core `WORK_ORDER` refuses issuing an `INPUT`/`PACKAGING` component (`SIR-GRD-01a`). **`G21`** the
+   output-charge port refuses multiple sites and follows `CVL-GRD-09a` on reverse (registry R.2, `TPO-T1-19`,
+   `TPO-T4-14`).
+8. **`EV-1` Event codes.** Outbox event codes follow the dotted `whb_event_types` vocabulary (PC-42),
+   `<aggregate>[.<part>].<past_verb>`, no module prefix; the 20 R.4 codes were renamed in one commit across every
+   citing file (e.g. `purchase_order.amended`, `demand_order.shipped`, `rma.matched`, `goods_receipt.posted`).
+   Upper-snake `WH_*` names that remain are audit action or refusal codes, never event codes. Registry R.4.
+9. **`EV-2`** Event source lineage rides the existing typed `whb_outbox` columns (`source_system`,
+   `source_document_type`, `source_document_id`, `source_line_ref`, `subject_type`/`subject_id`); no payload, no
+   new column, no `source_document_ref`. Registry R.1.
+
+S1 contract-quality corrections applied with them: `POS-GRD-11` drops `WhOrderAmendmentRecorder`;
+`POS-T2-03` aligned to `POS-T1-04`; `409 PO_REVISION_CONFLICT`; port create defaults `order_date` /
+`order_source`; WS-275 five tiles; `P8-05` S1 `G11` rows (`IIS` §0 migration owner, `IIS-T1-03b`, `-06`, `-09`,
+`IIS-OPEN-03`); `P8-09` S1 `G6`, `G14`, `G16`, `G20`, `G22`, `G24`.
+
 ---
 
 ## 3. OD — open decisions. Each names its deadline and who decides.
