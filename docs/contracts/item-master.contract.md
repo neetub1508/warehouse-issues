@@ -109,6 +109,7 @@
 | ITM-T2-01 | Create / edit / deactivate item | `whb_items:create` / `:edit` | — / active | FR-048, FR-051 |
 | ITM-T2-02 | Maintain conversions, identifiers, packaging, external refs | the WS-024…WS-031 resources | — | FR-055, FR-057, FR-058, FR-061 |
 | ITM-T2-03 | Merge stock on a supersession | `whb_item_supersessions:merge` | `KEEP_SEPARATE` · `MERGE_DEMAND` | FR-072 |
+| ITM-T2-04 | Read an item's PURCHASE unit default for a PO line: `GET /warehouse/inbound/purchase-orders/items/{itemId}/uom-default?counterpartyId&warehouseId&orderDate` (`orderDate` ISO date; all optional) → 200 with the resolved row, 204 when there is none. An unknown item is 404 (as `/items/{itemId}/uoms`); a named site outside the caller's branch tier is 403 before the resolver runs (as `/owners`). Ship-to is never applied on a PO. The base `GET /warehouse/masters/items/{id}/uom-defaults/resolve` (`whb_items:view`, optional `at` instant) stays the master's own lookup | `wh_purchase_orders:view` | any (read) | RG-010, #13 G2 |
 
 ## 3. T3 — Time-driven rules
 
@@ -144,6 +145,10 @@
 | ITM-T5-06 | WS-013 Attribute Keys | install-created keys (`owning_module = INSTALL`) are the custom-field answer; subject list and value type shown | FR-076, FR-078 |
 | ITM-T5-07 | WS-035 Kit Definitions | kit type `PHANTOM` / `STOCKED`; a phantom kit's availability is `MIN(component available ÷ required)`, computed by the backend | FR-075 |
 | ITM-T5-08 | WS-027 Item × Site · WS-028 Item × Location | the operative reorder numbers and classes; the item row's values appear only as defaults on create | FR-053, FR-070 |
+| ITM-T5-09 | WS-072 PO modal — unit default, date → instant | the UI sends the order **date**; the service reads the default at the site's local midnight (`whb_warehouses.timezone`), or at **now** when the date is the site's today (a default the item gained earlier today starts after midnight). No site: a UTC day by the same rule. No date: now | R22 §1.3 rule 1, RG-010 |
+| ITM-T5-10 | WS-072 PO modal — pinned / unpinned unit | a line's unit is **pinned** when the user picks it or the saved line carries it; the default never overwrites a pinned unit. An unpinned line takes its item's default and follows supplier, site and date changes. A new item, or an owner change, clears and unpins the unit. Picking the unit that is already pre-filled fires no change and leaves the line unpinned (noted for ratification) | RG-010, #13 G2 |
+| ITM-T5-11 | WS-072 PO modal — convertible units only | the pre-fill offers only a unit that converts to the item's base unit at the read instant (FR-143): the endpoint answers 204 for a non-convertible default (the same `convertibleUnits` source as `/items/{itemId}/uoms`), and the modal pre-fills only a code present in the line's unit list | FR-143, RG-010 |
+| ITM-T5-12 | WS-072 PO modal — pending / failed lookup | a supplier, site or date change blanks every unpinned line's unit until the new lookup answers; a pending lookup leaves it blank, a failed lookup leaves it blank (required-unit validation then asks the user). Pinned lines are never touched | RG-010, #13 G2 |
 
 ## 6. Out of scope
 
@@ -157,6 +162,7 @@ ABC recompute (`FR-463`); variants and style matrices (`FR-443`…`445`, segment
 |---|---|
 | 2026-10-23 | v0 derived for R30 `CP-FR-007` row 2; `FR-072`/`FR-073` re-homed to `P7-11` per `D-17` item 5 |
 | 2026-10-23 | R31 `F-CA-012`: guards `ITM-GRD-20`…`-22` added; `ITM-OPEN-01` decided |
+| 2026-10-24 | #13 G2 (RG-010 PO pre-fill): `ITM-T2-04`, `ITM-T5-09`…`-12` added. **Owed, not made here:** `DATA-MODEL.md:816` still names the UoM-default scope column `channel_id`; settled S1 / NFR-OPEN-03 uses `ship_to_address_id` — amend `DATA-MODEL.md` |
 
 ## 8. Invariants and scenarios
 
