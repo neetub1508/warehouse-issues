@@ -1,11 +1,11 @@
 # Open work index — every open warehouse issue, once
 <!-- check-design-set: issue-citations file #323 #324 #386 #397 #519 #520 #539 #543 #610 — real issues in this repository filed as follow-ups outside create-issues.sh, so they have no task file and no CREATED.md row; listed here so every open issue appears once -->
 
-**Updated 2026-10-24 (#566 and #113 closed, #610 filed).** One row per open issue in `neetub1508/warehouse-issues`. Every piece of warehouse work sits in exactly one open issue; this file says which. Rebuild it whenever an issue opens or closes, and re-run the reconcile in §11.
+**Updated 2026-10-24 (#566, #113, #123 closed, #610 filed).** One row per open issue in `neetub1508/warehouse-issues`. Every piece of warehouse work sits in exactly one open issue; this file says which. Rebuild it whenever an issue opens or closes, and re-run the reconcile in §11.
 
 **Order (user, 2026-10-23): `P7` first, then the rest.** *Must run after P7* is **true** where a `P7` task edits a file, class, table or permission the item touches, or the item adds a migration or schema change (`P7` rewrites the migration set in place once, `D-16` item 4, and `P7-13` rebuilds on it); all of `P8`–`P10` are true by `P7-13`'s rule. *Scope* says whether the whole task is to build or only its *Reopened scope* items.
 
-**Totals: 115 open issues** — P7 1 · P8 16 · P9 15 · P10 15 · P5/P6 survivors 11 · reopened 40 · new findings 2 · old open findings 4 · other 11 (#539 #543 closed as carried by `P10-14` #605, 2026-10-23).
+**Totals: 114 open issues** — P7 1 · P8 16 · P9 15 · P10 15 · P5/P6 survivors 11 · reopened 39 · new findings 2 · old open findings 4 · other 11 (#539 #543 closed as carried by `P10-14` #605, 2026-10-23).
 
 ## 1. P7 — removal and the clean rebuild (run first) — 1 open
 
@@ -90,7 +90,7 @@
 | #131 | `issues/p6-08.md` | P6-08 · The `logistics` module — trips, ePOD and freight settlement, posting through th… | whole task (+1 tracking item 2026-10-23) | **true** | P7 also edits: `CacheConfiguration`, `filterUtils`, `wh_carrier_accounts`, `wh_carrier_services` |
 | #138 | `issues/p6-10.md` | P6-10 · The real-time operations dashboard on the platform widget framework | whole task | **true** | P7 also edits: `CacheConfiguration`, `registry` |
 
-## 6. Reopened — R30/R31 scope (`reopened-r31`) — 40 open
+## 6. Reopened — R30/R31 scope (`reopened-r31`) — 39 open
 
 | Issue | Task file | Title | Scope | Must run after P7 | Why |
 |---|---|---|---|---|---|
@@ -124,7 +124,6 @@
 | #106 | `issues/p2-15.md` | P2-15 · Replenishment as a document, demand history maintained by posting, and lost sal… | reopened items only (2) | **true** | P7 also edits: `wh_purchase_orders` |
 | #110 | `issues/p0-14.md` | P0-14 · The adapter contract as artefacts — the example adapter, the coupling test, the… | reopened items only (1) | false | no P7 file in scope |
 | #115 | `issues/p2-16.md` | P2-16 · The costing engine (D-6) — layers, consumption, weighted average and FIFO | reopened items only (2) | **true** | P7 also edits: `filterUtils` |
-| #123 | `issues/p5-23.md` | P5-23 · One supplier claim register — short shipment, damage, quality reject, obsolesce… | reopened items only (1) | **true** | P7 also edits: `WhSupplierClaim` |
 | #128 | `issues/p2-18.md` | P2-18 · The accounting handover — one valued envelope per event, and a rejected-handove… | reopened items only (1) | **true** | P7 also edits: `filterUtils` |
 | #130 | `issues/p2in-01.md` | P2-IN-01 · The fifth module — `warehouse-india` scaffold, GSTIN profiles and compliance… | reopened items only (1) | false | no P7 file in scope |
 | #133 | `issues/p1-17.md` | P1-17 · Transfer-order schema with the India and ownership hooks | reopened items only (1) | false | no P7 file in scope |
