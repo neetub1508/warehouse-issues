@@ -730,7 +730,7 @@ That is 17 leaves. Containers: L1 `warehouse_channels`, L2 `warehouse_channels_f
 | `warehouse/docs/contracts/order-flow-retry.contract.md:24,54,116` | remove the trade-portal rows | `P7-12` |
 | `warehouse-base/INSTALL.md` (38 hits: `:198,236,240,254,277,293,865,1096,1532-1850,2059-2102,2204-2291`) | section edits | `P7-12` |
 | `warehouse-base/docs/DATED-OBLIGATION-REGISTER.md:56-58,70-72,142-154` | remove the obligations | `P7-12` |
-| `warehouse-base/docs/QA/{Channels,Source Systems,Reason Codes,Item Categories,Document & Reference Types,Attribute Keys}.md` | line edits | `P7-12` |
+| `warehouse-base/docs/QA/{Channels,Source Systems,Reason Codes,Item Categories,Document & Reference Types,Attribute Keys}.md` | neutral redaction of each removed code (distinct values kept distinguishable) + one top `D-16` note; counts, verdicts and evidence unchanged; no section deleted (`OD-1`, 2026-10-24) | `P7-12` |
 | `warehouse-base/docs/contracts/import-batch.contract.md:300`; `warehouse-3pl/docs/contracts/billing-cycle.contract.md:124` (`OD-24`) | line edits | `P7-12` |
 | `warehouse/docs/QA/Warehouse Testing Resume.md:42,43,59,83,130` | drop the D3 QA links | `P7-12` |
 | `.claude/testing/reports/warehouse-p2-12-returns.report.md` | RTO section note | `P7-12` |

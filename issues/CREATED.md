@@ -1,14 +1,16 @@
 # Created issues
 
-Filed in `neetub1508/warehouse-issues`: **159 issues = 152 + 6 filed in round 4 + 1 filed in round 5
-(`#163`, `P1-22`).** Open: **1 master epic + 8 phase epics + 144 tasks = 153.** The six round-4 task issues `#156`–`#161` are **closed as
-duplicates** — each was folded into its most similar existing task on 2026-09-10 and has no task file.
+Filed in `neetub1508/warehouse-issues`, **regenerated from GitHub on 2026-10-24 (P7-12 `#560`, R30 `CP-GA-002`):**
+issue numbers **1–609** hold **604 issues and 5 pull requests** (`#2`, `#9`, `#155`, `#162`, `#164`). **Open: 120** = 7 epics +
+107 tasks + 6 other (`#185`, `#323`, `#324`, `#386`, `#519`, `#520`). **Closed: 484** = 451 completed + 25 not planned
+(`#142` and `#144` among them) + 8 duplicates. The rounds below explain how the numbers were filed.
 
 > Verified against the file glob, which is the authority:
-> `ls issues/p*.md | wc -l` → **144**; per phase
-> `for p in p0 p1 p2 p2in p3 p4 p5 p6; do ls issues/$p-[0-9][0-9].md | wc -l; done`
-> → **17 · 22 · 29 · 4 · 24 · 13 · 23 · 12**. `ls issues/*EPIC*.md | wc -l` → **9**
-> (1 master + 8 phase). The headline is correct.
+> `ls issues/p*.md | wc -l` → **201**; per phase
+> `for p in p0 p1 p2 p2in p3 p4 p5 p6 p7 p8 p9 p10; do ls issues/$p-[0-9][0-9].md | wc -l; done`
+> → **17 · 22 · 29 · 4 · 24 · 13 · 23 · 12 · 13 · 16 · 14 · 14**. `ls issues/*EPIC*.md | wc -l` → **13**
+> (1 master + 12 phase). Commands: `gh issue list --state all --limit 1000 --json number,state,stateReason,labels`,
+> `gh pr list --state all`. That the `--sync` ran **before** P7 started cannot be proved after the fact and is not claimed.
 
 > **Round 4 (2026-09-10) filed six tasks, `#156`–`#161`:** `P3-25` and `P5-24`…`P5-28`
 > (`docs/GAP-REGISTER-R4.md`), and the same day folded each into an existing host (user rule: no
