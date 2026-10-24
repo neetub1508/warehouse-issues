@@ -146,7 +146,7 @@
 | CCT-T4-01 | Count post | **one movement per non-zero variance line**, carrying the line's reason, balanced against the site's `COUNT_VARIANCE` virtual location, `source_document_type = COUNT`; routed counts post the approval-gated type, auto-posted counts the auto type; the count never writes positions | `WhCountPostingService` → writer | `FR-153`, `FR-159` |
 | CCT-T4-02 | Adjustment post | one writer movement (`ADJUST_UP` / `ADJUST_DOWN`, or the `_AUTO` pair on `CCT-T1-03`) carrying the reason; `posted_movement_id` stored | `WhStockAdjustmentPostingService` | `FR-145` |
 | CCT-T4-03 | A movement posts with a reason whose `affects_demand_history = false` | the movement is excluded from demand history, so a write-off does not inflate the reorder point | demand-history reader over `whb_reason_codes` | `FR-146` |
-| CCT-T4-04 | Freeze with `freeze_locations` | the scoped locations become `COUNTING` (cycle) or `FROZEN` (stocktake); the allocator admits only `AVAILABLE` locations; post and cancel release them | `WhCountService`, `WhbLocationCountStatusService` | `FR-156`, `FR-157` |
+| CCT-T4-04 | Freeze with `freeze_locations` | the scoped locations become `COUNTING` (cycle) or `FROZEN` (stocktake); the allocator admits only `AVAILABLE` locations; post and cancel release them. Hold and release lock the location rows `FOR UPDATE` in id order before reading them and save them as entities (`facility-branch-link` `FBL-GRD-16`), so a count never writes back a commingle policy or dedicated owner changed meanwhile | `WhCountService`, `WhbLocationCountStatusService` | `FR-156`, `FR-157` |
 | CCT-T4-05 | A pick leaves its source storage location with every position row exactly zero | a `ZERO_STOCK` count over that one location is raised and frozen inside the pick transaction, with an `EMPTY_BIN` task; none when an open `EMPTY_BIN` task exists or the location is not storage | `WhEmptyBinVerificationService` (called by `WhPickTaskWriter.pick`) | `FR-158` |
 | CCT-T4-06 | A hold is placed or released | allocation (`WhHoldAllocationGate`) and pick read open blocking holds by query at the moment of the action | hold gate | `FR-151` |
 | CCT-T4-07 | Mass action | one hold row (or release) per subject, all in one transaction, with the same reason; **no movement is posted and nothing is written to `whb_lots`** (`WhHoldService.java:220-225`, `FR-096`); a subject already holding an open hold of the type is skipped | `WhHoldService` | `FR-152`, `FR-096` |
@@ -183,6 +183,7 @@ the code or the as-built count contract; the rest are fixed by their owning task
 |---|---|
 | 2026-10-23 | v0 derived for `D-17` item 1 (R30 `CP-FR-007` row 8, the count / adjust half) |
 | 2026-10-23 | R31: `F-CA-006` (`CCT-T2-02`); `F-CA-009` (`CCT-T3-02`, `-T4-08` cite `LSS-GRD-02a`); `F-CA-010` (`CCT-T4-07`, `CCT-DIV-04`, FR-152 amended); `F-CA-011` (this contract owns holds; `lot-serial-status` cites it); `CCT-OPEN-01`…`-03` decided, `CCT-DIV-05` added |
+| 2026-10-24 | R31 `P1-05` #54 S4c: `CCT-T4-04` — hold / release take the location row lock in id order (`facility-branch-link` `FBL-GRD-16`) |
 
 ## 8. Invariants and scenarios
 
