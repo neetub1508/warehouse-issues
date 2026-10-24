@@ -12,6 +12,9 @@
 - **P8-05 #566 closed 2026-10-24** — sampling schemes (band tables, versioned), FIXED/PERCENTAGE plans, five-rung plan assignments incl. NO_INSPECTION recorded on the GRN line, Ac/Re lot verdict + suggested disposition; Z1.4 AQL seed → #610; destructive qty waits on P8-09 #570; CP-GB-008 still pending
 - **R31 P1-13 #113 re-closed 2026-10-24** — per-warehouse receiving defaults frozen onto each GRN (`V501236`/`V511419`); unblocks `P8-03` S2
 - **R31 P5-23 #123 re-closed 2026-10-24** — EXPIRY supplier claim type (no migration); feeds `P8-04`
+- **P8-01 #562 closed 2026-10-24** — PO types FIXED/OPEN/BLANKET_RELEASE, delivery schedules with firm/forecast releases, receipt allocation at release price, the purchase-order port (replay, verb parity incl. post-lock re-check); OPEN header value → #611; drop-ship refusals code-read only; CP-GB-008 still pending
+- **P8-16 #577 closed 2026-10-24** — external (MRP) replenishment suggestions through the port, converted once; markConverted/release success waits on P9's owner bean; empty-group replay status → #613
+- **R31 P2-13 #93 re-closed 2026-10-24** — case pending link + prefilled Resolve flows, ASN and SUPPLIER_RETURN cases per source line (`V511420`); INVOICE arm → `P8-04` #565; unblocks `P8-04`, `P8-07`
 
 - **P7-10 #558 closed 2026-10-24** — Base catalogues cleaned of dealer/retail rows (source systems 9→4, doc types 13→11, movement types 18→17, reason contexts 11→9, CHANNEL_KIND {B2B}); classic 7f7d298b96. Gates: reviewer PASS, functional PASS, tester PASS.
 
