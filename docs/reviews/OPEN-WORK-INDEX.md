@@ -5,14 +5,13 @@
 
 **Order (user, 2026-10-23): `P7` first, then the rest.** *Must run after P7* is **true** where a `P7` task edits a file, class, table or permission the item touches, or the item adds a migration or schema change (`P7` rewrites the migration set in place once, `D-16` item 4, and `P7-13` rebuilds on it); all of `P8`–`P10` are true by `P7-13`'s rule. *Scope* says whether the whole task is to build or only its *Reopened scope* items.
 
-**Totals: 119 open issues** — P7 4 · P8 17 · P9 15 · P10 15 · P5/P6 survivors 11 · reopened 41 · new findings 2 · old open findings 4 · other 10 (#539 #543 closed as carried by `P10-14` #605, 2026-10-23).
+**Totals: 118 open issues** — P7 3 · P8 17 · P9 15 · P10 15 · P5/P6 survivors 11 · reopened 41 · new findings 2 · old open findings 4 · other 10 (#539 #543 closed as carried by `P10-14` #605, 2026-10-23).
 
-## 1. P7 — removal and the clean rebuild (run first) — 4 open
+## 1. P7 — removal and the clean rebuild (run first) — 3 open
 
 | Issue | Task file | Title | Scope | Must run after P7 | Why |
 |---|---|---|---|---|---|
 | #545 | `issues/09-EPIC-p7.md` | EPIC: P7 — Remove dealer and retail code, rename the dual-use items, rebuild on a clean… | epic (checklist of its tasks) | false | is P7 |
-| #559 | `issues/p7-11.md` | P7-11 · Rename the dual-use codes in storage — LINE_STOP, PRODUCTION_STORE, MANUFACTURE… | whole task (+1 tracking item 2026-10-23) | false | is P7 |
 | #560 | `issues/p7-12.md` | P7-12 · Bring classic's docs, QA notes, contracts and the ci-gate ledger in line with t… | whole task | false | is P7 |
 | #561 | `issues/p7-13.md` | P7-13 · Rebuild the dev database once on the clean migration set, prove Flyway history … | whole task | false | is P7 |
 
@@ -223,7 +222,7 @@ Every `XXX-DIV-nn` row and every *Code divergences* table row in `docs/contracts
 | `india-movement-documents` | IMD-DIV-06 | FIX-CODE | owner `P2-IN-04` #147 (`FR-195`), reopened |
 | `india-movement-documents` | IMD-DIV-07 | FIX-CODE | owners `P2-IN-03` #140 and `P2-IN-04` #147, reopened |
 | `item-master` | §10/§11 row 1 | FIX-CODE | owner `P1-03` #33 (`FR-071`), reopened |
-| `item-master` | §10/§11 row 2 | FIX-CODE | owner `P7-11` #559 (open; `FR-072` re-homed by `D-17` item 5) — acceptance item added |
+| `item-master` | §10/§11 row 2 | FIXED | `P7-11` #559 closed 2026-10-24 — `mergeStock` posts one `SUPERSESSION_MERGE` movement per site (classic 906609a361, 7a7e699a38, 72e9dc87e2) |
 | `item-master` | §10/§11 row 3 | AMEND-SPEC | rule: quantity is owned by the packaging row; the identifier row holds a **trigger-maintained** copy of `uom_code` / `pack_quantity` that no caller writes and two AFTER triggers re-derive when the level changes (`IRR-43`). Evidence: `V500016__…:38-40`, `:214`, `:317-327`. `FR-057` amended |
 | `item-master` | §10/§11 row 4 | CARRIED | CARRIED → `P8-14` #575 (re-homed 2026-10-24, OD1) |
 | `lot-serial-status` | §10/§11 row 1 | AMEND-SPEC | rule: the HS / HSN code is an item attribute carried by `whb_items.tax_classification_code` (`P1-03`, snapshotted onto documents), not a lot column — it does not vary by lot. `FR-095` amended. reviewer-confirm |
