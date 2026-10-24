@@ -4,6 +4,8 @@
 
 ## Done
 
+- **P7-13 #561 closed 2026-10-24** — dev DB rebuilt once on the clean set (424 → 404 warehouse rows, 0 deleted versions, checksums match); side-stack proofs a/b/c; GATE-1..8 clean; MPR-OPEN-18 closed; ci-gate manual (INTEGRATION-WAREHOUSE-P7.md)
+
 - **P7-12 #560 closed 2026-10-24** — docs, QA notes, contracts and the ci-gate ledger aligned with the P7 removals (OD-1 neutral redaction + D-16 note); tools/check-ci-def.py added
 
 - **P7-11 #559 closed 2026-10-24** — LINE_STOP / PRODUCTION_STORE / MANUFACTURER_PART_NUMBER / Stock KPIs renames; MERGE_STOCK posts one SUPERSESSION_MERGE movement per site (item-master §10 row 2 FIXED); FR-073 enquiry carried to P8-14 #575
