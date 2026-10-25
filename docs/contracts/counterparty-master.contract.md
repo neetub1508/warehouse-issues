@@ -106,6 +106,7 @@ Supplier evaluation, AVL and approval (`trade-counterparty-evaluation`); counter
 | 2026-10-23 | R31 `F-CA-017`: `CPM-UNR-05` (the `FR-119` exclusion, with its address and tax-registration exception); `CPM-OPEN-01` decided |
 | 2026-10-26 | W72 #606 S2 (classic `8db39bb014`, `V501239`, `V511424`): `CPM-GRD-05` amended — all items, effective at `receivedAt`, site row first, the unlisted setting, target `SUSPECT`, never refuses, first rung; `CPM-T2-02`, `CPM-T4-03` added; `CPM-T5-02` detailed; §10 row 1 closed. Runbook: an install that narrows `RECEIPT.allowed_to_status_codes` to exclude `SUSPECT` gets `STATUS_TRANSITION_NOT_ALLOWED` on a suspect receipt — the same misconfiguration as excluding `QUARANTINE` today; keep `SUSPECT` allowed. The inspection arm (QC → `SUSPECT`) is **not built**: under `RQP-GRD-29` it would use the line's series cap and leave the stock unreleasable |
 | 2026-10-26 | W72 #606 S4 (classic `956d43c66f`): `CPM-GRD-05` — replenishment proposes authorised sources only (#106 H4); S3 F1 setting label, F2 help rule7, Re-source modal tabbed |
+| 2026-10-26 | W72 #606 S4 round b / S3 F-B1 (classic `b984bd1461`): `CPM-GRD-05` upstream rule — replenishment resolves the **effective row per supplier** (site row first, the same row this guard judges) before dropping unauthorised suppliers, so it never proposes a supplier this guard would land SUSPECT |
 
 ## 8. Invariants and scenarios
 
