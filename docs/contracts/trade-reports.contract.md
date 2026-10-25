@@ -104,7 +104,8 @@ Rows added by the R32 fold (FRD-TRADE §4.15). Numbers continue each kind's sequ
 | ID | Kind | Rule | Refusal / effect | Source |
 |---|---|---|---|---|
 | TRP-T4-03 | effect | Reports `wht_rpt_direct_po`, `wht_rpt_pr_to_po_lead_time`, `wht_rpt_purchase_price_history`, `wht_rpt_enquiry_conversion` — backend queries, grid + export, money grouped by currency; menu split *Trade Reports — Purchase* / *— Sales* | — | FR-759 |
-| TRP-T4-04 | effect | WS-315 Order Book and report `wht_rpt_so_pending_production` (ordered − produced − reserved free stock) read core production progress (`CN-19`), shipments and billings | — | FR-776 |
+| TRP-T4-04 | effect | WS-315 Order Book and report `wht_rpt_so_pending_production` (ordered − produced − reserved free stock; ordered = FIXED line qty / BLANKET `FIRM` qty / OPEN released qty) read core production progress (`CN-19`, declared by `P8-26`, MFG implements), shipments and billings | — | FR-776 |
+| TRP-T4-05 | effect | Report *Sample status* (PRD §13.1) under *Trade Reports — Sales*: enquiry lines with a sample request, MFG status and customer feedback read live through `SampleRequestPort.status` (`CN-19`); permissions `wht_rpt_sample_status:{view,export}`; empty with *No manufacturing module* without MFG | `403` without the verb | FR-776 |
 | TRP-T2-04 | action | WS-316 Customer 360 with `wht_customer_profiles:view_360`; trade + warehouse data only; each tab exports (audited) | `403` without the verb | FR-777 |
 
 ## 6. Out of scope
@@ -120,6 +121,7 @@ Rows added by the R32 fold (FRD-TRADE §4.15). Numbers continue each kind's sequ
 |---|---|---|---|
 | 2026-10-23 | all | v0 derived from `issues/p9-14.md` (Reports table) and FRD-TRADE FR-616, FR-619 | R30 `CP-SC-005` |
 | 2026-10-23 | §2 | R31: Source column added to the T2 table (F-TR-019) | R31 |
+| 2026-10-25 | `TRP-T4-04`, `TRP-T4-05` (new) | R32-fix: order-book ordered basis per SO type; *Sample status* report leaf (ledger `crm-so-dispatch-reports:13.1-04` reclassified AMEND) | R32 review F-R32TR-025, -035 |
 | 2026-10-25 | `TRP-T4-03`, `TRP-T4-04`, `TRP-T2-04` (new, *R32 additions*) | R32 fold of the client PRD (`D-20`): four reports, menu split, order book, SO pending to produce, customer 360 | R32 / `D-20` |
 
 ## 8. Invariants and scenarios

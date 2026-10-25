@@ -46,10 +46,14 @@
 | Store issue | `DRAFT` | `status` | `SIR-T1-01` | `-03`, `-04` | initial |
 | Store issue | `POSTED` | `status`; `issue_movement_id`, `posted_by/at` | `SIR-T1-03` | none | **terminal** |
 | Store issue | `CANCELLED` | `status`; reason | `SIR-T1-04` | none | **terminal** |
+| Store issue | kind `AGAINST_REQUISITION` · `DIRECT` · `EMERGENCY` (R32) | `issue_kind`; `post_facto_requisition_id` for `EMERGENCY` | `SIR-T1-01`, `-10` | — | attribute |
+| Store issue | acknowledgement `NOT_REQUIRED` · `PENDING` · `ACKNOWLEDGED` · `DISPUTED` (R32) | `acknowledgement_status` (`PENDING` at post under `issue_ack_mode = RECEIVER_CONFIRMS`, else `NOT_REQUIRED`) | `SIR-T1-03`, `-11` | `SIR-T1-11` | attribute of a `POSTED` issue |
 | Store return | `DRAFT` | `status` | `SIR-T1-05` | `-06`, `-09` | initial |
-| Store return | `SUBMITTED` | `status`; `submitted_by/at` | `SIR-T1-06` | `-07`, `-08`, `-09` | active |
-| Store return | `POSTED` | `status`; `return_movement_id`, `received_by/at` | `SIR-T1-07` | none | **terminal** |
-| Store return | `REJECTED` | `status`; reason | `SIR-T1-08` | none | **terminal** |
+| Store return | `SUBMITTED` | `status`; `submitted_by/at` | `SIR-T1-06` | `-13`, `-14`, `-16`, `-09` | active |
+| Store return | `DEPARTMENT_APPROVED` (R32) | `status`; `department_approved_by/at` | `SIR-T1-13` | `-14`, `-16` | active |
+| Store return | `VERIFIED` (R32) | `status`; `verified_by/at`, line `verified_quantity` | `SIR-T1-14` (with `STORE_APPROVAL` on) | `-15`, `-16` | active |
+| Store return | `POSTED` | `status`; `return_movement_id`, `received_by/at` | `SIR-T1-14` (with `STORE_APPROVAL` off) · `SIR-T1-15` — never `SIR-T1-07` (superseded) | none | **terminal** |
+| Store return | `REJECTED` | `status`; reason | `SIR-T1-16` (incl. verified 0 on every line) | none | **terminal** |
 | Store return | `CANCELLED` | `status`; reason | `SIR-T1-09` | none | **terminal** |
 | Cost centre | active / inactive | registry convention | — | — | master |
 
@@ -62,15 +66,15 @@
 | SIR-T1-03 | `DRAFT` | **Post** | `POSTED` | `SIR-GRD-01`…`-06` re-checked under lock, then `MPR-T1-01`'s guards | `wh_store_issues:post` | `SIR-T4-01`, `-02` in one transaction; `acknowledged_by_name` / `acknowledged_at` captured in the post modal | no | WS-271 **Post** |
 | SIR-T1-04 | `DRAFT` | Cancel | `CANCELLED` | — | `:cancel` | number stays issued | **yes** | WS-271 **Cancel** |
 | SIR-T1-05 | — | Create return: issue line(s), quantity, condition, reason, return location (default the site's `RETURNS` staging or the issue location) | `DRAFT` | `SIR-GRD-07`…`-09` | `wh_store_returns:create` | gapless `SRN`; cost object, unit cost and lot **copied from the issue line** (read-only) | no | WS-271 **Return**; WS-272 **Add** (pick a posted issue) |
-| SIR-T1-06 | `DRAFT` | Submit (department hands over) | `SUBMITTED` | — | `:submit` | — | no | WS-272 **Submit** |
-| SIR-T1-07 | `SUBMITTED` | **Post** (stores has the material) | `POSTED` | `SIR-GRD-07`…`-10` re-checked; receiver ≠ submitter, else `403 STORE_RETURN_SELF_APPROVAL` (R29 F26) | `:post` | `SIR-T4-03`…`-06` in one transaction | no | WS-272 **Post** |
-| SIR-T1-08 | `SUBMITTED` | Reject (not received / not as declared) | `REJECTED` | — | `:reject` | nothing posted | **yes** | WS-272 **Reject** |
+| SIR-T1-06 | `DRAFT` | Submit (department hands over) | `SUBMITTED` | — | `:submit` | with `DEPARTMENT_APPROVAL` in `return_approval_steps`, opens the `STORE_RETURN` engine request (`DAP` §0.1, `D-21` item 6; R32) | no | WS-272 **Submit** |
+| SIR-T1-07 | ~~`SUBMITTED`~~ | ~~**Post** at the declared quantity~~ — **superseded** by the R32 chain (`D-21` item 8, R32-fix F-R32CQ-003): a return posts **only** through `SIR-T1-14` (verify, `STORE_APPROVAL` off) or `SIR-T1-15`, always at the **verified** quantity; `STORE_VERIFY` cannot be removed (`SIR-GRD-15`), so no return ever posts unverified. `POST …/{id}/post` on a `SUBMITTED` / `DEPARTMENT_APPROVED` return answers `409 STORE_RETURN_NOT_VERIFIED` | — | — | — | — | — | — | — |
+| SIR-T1-08 | `SUBMITTED` | Reject (not received / not as declared) — as `SIR-T1-16` | `REJECTED` | — | `:reject` | nothing posted | **yes** | WS-272 **Reject** |
 | SIR-T1-09 | `DRAFT` · `SUBMITTED` | Cancel | `CANCELLED` | actor is the creator or holds `:reject` | `:cancel` | — | **yes** | WS-272 **Cancel** |
-| SIR-T1-10 | `DRAFT` emergency issue | **Post** an `EMERGENCY` issue (setting + `:issue_without_requisition`, reason) (R32) | `POSTED` | `SIR-GRD-11`, `SIR-GRD-13` | stores | the post-facto requisition (`MRQ-T1-28`) created and linked in the same transaction | yes | FR-714 · WS-270 *Emergency issues awaiting ratification* tile |
+| SIR-T1-10 | `DRAFT` emergency issue | **Post** an `EMERGENCY` issue (`warehouse.stores.emergency_issue_allowed`, default `true`, independent of `direct_issue_allowed` — R32-fix F-R32CQ-008, `D-21` item 8; `:issue_without_requisition`; reason) (R32) | `POSTED` | `SIR-GRD-11`, `SIR-GRD-13`, `MRQ-GRD-05` post-facto approver check (`MRQ-T1-28`) | stores | the post-facto requisition (`MRQ-T1-28`) created and linked in the same transaction | yes | FR-714 · WS-270 *Emergency issues awaiting ratification* tile |
 | SIR-T1-11 | `POSTED`, `acknowledgement_status = PENDING` | **Acknowledge** / **Dispute** (note) by a member of the issue's department | `ACKNOWLEDGED` / `DISPUTED` | `SIR-GRD-12` | `wh_store_issues:acknowledge` | `acknowledged_by_user_id`, `acknowledged_at`; a dispute alerts stores, moves no stock | dispute only | FR-714 · WS-270 *My pending acknowledgements* |
-| SIR-T1-12 | — | an issue line with no requisition line while `direct_issue_allowed = false` | — | `SIR-GRD-11` | — | refused | — | FR-714 · WS-271 |
-| SIR-T1-13 | `SUBMITTED` | **Department approve** (step `DEPARTMENT_APPROVAL`) | `DEPARTMENT_APPROVED` | `SIR-GRD-14` | `wh_store_returns:approve_department` (head / deputy) | `department_approved_by/at` | no | FR-715 · WS-272 |
-| SIR-T1-14 | `DEPARTMENT_APPROVED` (or `SUBMITTED` when that step is off) | **Verify** physical quantity per line | `VERIFIED` (or `POSTED` when `STORE_APPROVAL` is off) | `SIR-GRD-15` | `wh_store_returns:verify` | `verified_quantity`, variance reason | variance only | FR-715 · WS-272 verify modal |
+| SIR-T1-12 | — | an issue line with no requisition line while `direct_issue_allowed = false` on an issue of kind other than `EMERGENCY` (`EMERGENCY` is then the only kind allowed without a requisition) | — | `SIR-GRD-11` | — | refused | — | FR-714 · WS-271 |
+| SIR-T1-13 | `SUBMITTED` | **Department approve** (step `DEPARTMENT_APPROVAL`) | `DEPARTMENT_APPROVED` | `SIR-GRD-14` | `wh_store_returns:approve_department` (head / deputy) — the step of the `STORE_RETURN` engine request opened at Submit (`DAP` §0.1, `D-21` item 6) | `department_approved_by/at` | no | FR-715 · WS-272 **Department approve** |
+| SIR-T1-14 | `DEPARTMENT_APPROVED` (or `SUBMITTED` when that step is off) | **Verify** physical quantity per line | `VERIFIED` (or `POSTED` when `STORE_APPROVAL` is off) | `SIR-GRD-15`; posting at Verify also needs `:post` and `SIR-GRD-07`…`-10` re-checked (R32-fix F-R32CQ-016) | `wh_store_returns:verify` (+ `:post` when `STORE_APPROVAL` is off — else `403` permission refusal) | `verified_quantity`, variance reason; when posting, `SIR-T4-03`…`-06` at the verified quantity | variance only | FR-715 · WS-272 **Verify** modal |
 | SIR-T1-15 | `VERIFIED` | **Post** at the verified quantity | `POSTED` | `SIR-GRD-16` | `wh_store_returns:post` | `ISSUE_RETURN` of the **verified** quantity (`SIR-T4-03`); `returned_quantity` moves by verified | no | FR-715 · WS-272 |
 | SIR-T1-16 | `SUBMITTED` / `DEPARTMENT_APPROVED` / `VERIFIED` | **Reject** (reason); a return verified 0 on every line | `REJECTED` | — | the step's verb | nothing posted | yes | FR-715 · WS-272 |
 
@@ -78,10 +82,10 @@
 
 | ID | Predicate | Refusal | Backstop | Source |
 |---|---|---|---|---|
-| SIR-GRD-01 | each line's cost object: type active in `COST_OBJECT_TYPE` **and** a `CostObjectResolver` registered **and** the id valid (core: `DEPARTMENT` → `departments` active (no company column on `departments`, so no company check, R29 F33); `COST_CENTRE` → `wh_cost_centres` active, same company; `WORK_ORDER` → `wh_work_orders` `RELEASED`/`IN_PROGRESS`; `MACHINE`/`PROJECT` → `wh_cost_centres` rows of that kind until an owner exists (core registers all five resolvers, `FR-533`, R29 F34); MFG: `PRODUCTION_ORDER` released) ; never null | `422 COST_OBJECT_TYPE_UNSUPPORTED` / `422 COST_OBJECT_INVALID` / `422 COST_OBJECT_REQUIRED` · `lines[i].costObjectId` | `cost_object_type`, `cost_object_id`, `cost_object_ref` NOT NULL; composite FK to the code list | FR-533 |
+| SIR-GRD-01 | each line's cost object: type active in `COST_OBJECT_TYPE` **and** a `CostObjectResolver` registered **and** the id valid (core: `DEPARTMENT` → `departments` active (no company column on `departments`, so no company check, R29 F33); `COST_CENTRE` → `wh_cost_centres` active, same company; `WORK_ORDER` → `wh_work_orders` `RELEASED`/`IN_PROGRESS`; `MACHINE`/`PROJECT` → `wh_cost_centres` rows of that kind until an owner exists (core registers all five resolvers, `FR-533`, R29 F34); **`DEMAND_ORDER`** (R32, `P8-09` `V500508`) → `wh_demand_orders` of the same company, not cancelled (`MRQ-GRD-22`; R32-fix F-R32CQ-033); MFG: `PRODUCTION_ORDER` released) ; never null | `422 COST_OBJECT_TYPE_UNSUPPORTED` / `422 COST_OBJECT_INVALID` / `422 COST_OBJECT_REQUIRED` · `lines[i].costObjectId` | `cost_object_type`, `cost_object_id`, `cost_object_ref` NOT NULL; composite FK to the code list | FR-533 |
 | SIR-GRD-01a | the resolver's `assertIssuable(costObjectId, itemId, baseQty)` holds (MFG: order `RELEASED`/`IN_PROGRESS`/`COMPLETED`-not-settled, not on hold, no settlement awaiting approval, item on the order under `STRICT` — *amended for MFG MD-14*); **core `WORK_ORDER`:** the item is not on an `INPUT`/`PACKAGING` line of the order, else `422 WORK_ORDER_COMPONENT_ISSUE_NOT_ALLOWED` · `lines[i].itemId` — components are relieved by WO Complete (FR-261), so issuing them would consume twice; checked at create and again under the post lock; other consumables stay issuable (P8 decision `G13`) | the resolver's own `422`/`409` code, field `lines[i]` | — | FR-533 (SEAM-M2) |
 | SIR-GRD-02 | with a requisition line (R29 F17): the line belongs to **the requisition named on the issue header**; requisition `APPROVED`/`PARTIALLY_ISSUED`, same site; **the issue line's item equals the requisition line's item**; the UoM may differ only through the item's conversion, and quantities are compared in **base units** (`conversion_factor_used` on both lines): Σ this issue's lines for it ≤ approved − issued − closed | `422 ISSUE_LINE_NOT_ON_REQUISITION` / `422 ISSUE_ITEM_MISMATCH` · `lines[i].itemId` / `422 ISSUE_EXCEEDS_APPROVED` · `lines[i].quantity` | CHECK on the requisition line (`MRQ-GRD-07`) | FR-535 |
-| SIR-GRD-03 | without a requisition: `warehouse.stores.direct_issue_allowed = true` and the actor holds `:issue_without_requisition` | `403 DIRECT_ISSUE_NOT_ALLOWED` | — | FR-535 |
+| SIR-GRD-03 | without a requisition: kind `DIRECT` needs `warehouse.stores.direct_issue_allowed = true` (default `false`) and creates no requisition; kind `EMERGENCY` needs `warehouse.stores.emergency_issue_allowed = true` (default `true`) and always creates the post-facto requisition (`SIR-T1-10`); both need `:issue_without_requisition` (R32-fix F-R32CQ-008) | `403 DIRECT_ISSUE_NOT_ALLOWED` · `403 EMERGENCY_ISSUE_NOT_ALLOWED` | — | FR-535 FR-714 |
 | SIR-GRD-04 | the location is stock-holding at the site; status is allocatable; lot not expired / on hold (`P2-05`); serial captured when the item is serialised | `422 ISSUE_LOCATION_INVALID` / `422 STOCK_STATUS_NOT_ISSUABLE` / `422 LOT_NOT_ISSUABLE` / `422 SERIAL_REQUIRED` | ledger guards | FR-535 |
 | SIR-GRD-05 | the item is stock-holding (not `SERVICE`/`NON_STOCK`) | `422 ITEM_NOT_ISSUABLE` | — | FR-535 |
 | SIR-GRD-06 | on-hand at the grain ≥ quantity unless the negative-stock policy allows (`V500031`) | the writer's refusal (`MPR`) | ledger | L-1 |
@@ -89,7 +93,7 @@
 | SIR-GRD-08 | return lot/serial ⊆ the issue line's | `422 STORE_RETURN_LOT_MISMATCH` | — | FR-536 |
 | SIR-GRD-09 | condition active in `RETURN_CONDITION`; reason in context `STORE_RETURN` | `422` field-named | composite FK; FK `whb_reason_codes` | FR-536 |
 | SIR-GRD-10 | `warehouse.stores.return_window_days` > 0 ⇒ issue `posted_at` within the window | `409 STORE_RETURN_WINDOW_EXPIRED` | — | FR-536 |
-| SIR-GRD-11 | an issue line needs an approved requisition line unless `direct_issue_allowed` (default **false**) and the user holds `:issue_without_requisition`; an `EMERGENCY` issue needs an `EMERGENCY_ISSUE` reason, a department and a cost object | `409 ISSUE_REQUIRES_REQUISITION` · `422 EMERGENCY_REASON_REQUIRED` | — | FR-714 |
+| SIR-GRD-11 | an issue line needs an approved requisition line unless the issue is `DIRECT` under `direct_issue_allowed` (default **false**) or `EMERGENCY` under `emergency_issue_allowed` (default **true**), and the user holds `:issue_without_requisition`; an `EMERGENCY` issue needs an `EMERGENCY_ISSUE` reason, a department and a cost object | `409 ISSUE_REQUIRES_REQUISITION` · `422 EMERGENCY_REASON_REQUIRED` | — | FR-714 |
 | SIR-GRD-12 | the acknowledging user belongs to the issue's department and is not the issuing store user | `403 ISSUE_ACK_NOT_DEPARTMENT_MEMBER` · `403 ISSUE_ACK_SELF` | — | FR-714 |
 | SIR-GRD-13 | a store issue never posts below free stock: it is not a backflush consumption, so the negative-stock resolver returns `BLOCK` whatever the policy | `409 INSUFFICIENT_STOCK` naming the shortfall | `I-6` resolver (`P1-03` R32) | FR-714 |
 | SIR-GRD-14 | the department approver is the head / deputy of the return's department and ≠ submitter | `403 STORE_RETURN_SELF_APPROVAL` · `403 STORE_RETURN_APPROVER_NOT_HEAD` | — | FR-715 |
@@ -116,7 +120,10 @@
 | SIR-T2-02 | Post issue | `:post` | `DRAFT` | — | — |
 | SIR-T2-03 | Cancel issue | `:cancel` | `DRAFT` | reason | — |
 | SIR-T2-04 | Create / submit return | `wh_store_returns:create`/`:submit` | — / `DRAFT` | department requester (own departments) | — |
-| SIR-T2-05 | Post / reject return | `:post` / `:reject` | `SUBMITTED` | stores; ≠ submitter | — |
+| SIR-T2-05 | Post / reject return | `:post` / `:reject` (or the step's verb) | post: `VERIFIED` (or at Verify with `STORE_APPROVAL` off, `:verify` + `:post`); reject: `SUBMITTED`, `DEPARTMENT_APPROVED`, `VERIFIED` | stores manager; ≠ submitter, ≠ verifier when `STORE_APPROVAL` is on (R32-fix F-R32CQ-003, -016) | FR-715 |
+| SIR-T2-08 | Department approve return | `wh_store_returns:approve_department` | `SUBMITTED` | head / deputy, ≠ submitter; the `STORE_RETURN` engine step | FR-715 |
+| SIR-T2-09 | Verify return | `wh_store_returns:verify` | `DEPARTMENT_APPROVED` (or `SUBMITTED` with that step off) | store keeper | FR-715 |
+| SIR-T2-10 | Emergency / direct issue; acknowledge / dispute | `wh_store_issues:issue_without_requisition`; `wh_store_issues:acknowledge` | `DRAFT`; `POSTED` with acknowledgement `PENDING` | `SIR-GRD-03`, `-11`, `-12` | FR-714 |
 | SIR-T2-06 | Cost centres | `wh_cost_centres:*` | — | admin | — |
 | SIR-T2-07 | Print issue slip / return note | `wh_print_jobs:create` | `POSTED` (issue), `SUBMITTED`/`POSTED` (return) | `SYS-STORE-ISSUE`, `SYS-STORE-RETURN` | FR-538 |
 
@@ -147,16 +154,16 @@
 | | |
 |---|---|
 | **Grid** | `wh_store_issues` · scope `WAREHOUSE_STORE_ISSUE` · sort `e.created_at DESC` |
-| **Tiles** | `DRAFT` · `POSTED` today · value issued today (view-cost) · *Direct issues* |
-| **Columns** | `issueNumber`, `warehouseName`, `requisitionNumber`, `departmentName`, `costObjectSummary` (one type/ref, or *mixed*), `issuedToName`, `lineCount`, `quantity`, `value`, `status`, `postedByName`, `postedAt`, `acknowledgedByName`, audit |
-| **Filters** | `warehouseId`; `departmentId`; `costObjectType` → `costObjectId`; `status`; `requisitionNumber` (text); `itemId`; `postedFrom/To` (date); `directOnly` |
-| **Row actions** | View · Edit · Post · Cancel · Return · Print |
+| **Tiles** | `DRAFT` · `POSTED` today · value issued today (view-cost) · *Emergency issues awaiting ratification* · *Pending acknowledgement* (R32-fix F-R32CQ-033 — replaces *Direct issues*, which is the `issueKind = DIRECT` filter) |
+| **Columns** | `issueNumber`, `warehouseName`, `issueKind`, `requisitionNumber`, `postFactoRequisitionNumber`, `departmentName`, `costObjectSummary` (one type/ref, or *mixed*), `issuedToName`, `lineCount`, `quantity`, `value`, `status`, `acknowledgementStatus`, `postedByName`, `postedAt`, `acknowledgedByName`, audit |
+| **Filters** | `warehouseId`; `departmentId`; `costObjectType` → `costObjectId`; `status`; `issueKind`; `acknowledgementStatus`; `myPendingAcknowledgements`; `requisitionNumber` (text); `itemId`; `postedFrom/To` (date) — every field in `COMMON_FILTER_CONFIGS.WAREHOUSE_STORE_ISSUE` (`directOnly` retired for `issueKind`) |
+| **Row actions** | View · Edit · Post · Cancel · Return · Acknowledge · Dispute · Print |
 | **Detail** | lines (`item`, `lot`, `serials`, `location`, `quantity`, `uom`, `unitCost`, `value`, `costObjectType`, `costObjectRef`, `returnedQuantity`); returns tab |
 | **Export** | grid + lines sheet + `createdByName`, `updatedByName` |
 
 ### 5.2 WS-272 Store Returns
 
-Grid `wh_store_returns` · scope `WAREHOUSE_STORE_RETURN` · columns `returnNumber`, `warehouseName`, `issueNumber`, `departmentName`, `costObjectRef`, `lineCount`, `quantity`, `value`, `condition` (or *mixed*), `status`, `submittedByName`, `receivedByName`, `postedAt`, audit; filters site, department, status, condition, issue number, date range; actions View · Submit · Post · Reject · Cancel · Print; export superset + audit names.
+Grid `wh_store_returns` · scope `WAREHOUSE_STORE_RETURN` · columns `returnNumber`, `warehouseName`, `issueNumber`, `departmentName`, `costObjectRef`, `returnReason`, `lineCount`, `declaredQuantity`, `verifiedQuantity`, `value`, `condition` (or *mixed*), `status`, `submittedByName`, `departmentApprovedByName`, `verifiedByName`, `receivedByName`, `postedAt`, audit; filters site, department, status (incl. `DEPARTMENT_APPROVED`, `VERIFIED`), condition, return reason, issue number, date range — every field in `COMMON_FILTER_CONFIGS.WAREHOUSE_STORE_RETURN`; tiles `SUBMITTED` · `DEPARTMENT_APPROVED` · `VERIFIED` (awaiting post) · posted today · variance this month; actions View · Submit · Department approve · Verify · Post · Reject · Cancel · Print (R32-fix F-R32CQ-033); export superset + audit names.
 
 ### 5.3 WS-273 Cost Centres (reference: **Department**)
 
@@ -190,6 +197,7 @@ Production issue / backflush / WIP (MFG); tool-crib custody (FRD §12 row 13); e
 | 2026-10-23 | R31: `ISSUE_RETURN` seeded irreversible (`SIR-T4-03`, F-SR-008); ninth KPI row `ISSUE_TO_RETURN` and a target per measure (`SIR-T5-07`, F-SR-017); `SIR-OPEN-01`…`-03` resolved (`R31-decisions`; `P8-13` names each tab's grid id and scope) |
 | 2026-10-24 | P8 decision record `EV-1` (DECISIONS `D-19`): every outbox event code renamed to the dotted `whb_event_types` vocabulary of registry R.4 (PC-42) — e.g. `purchase_order.amended`, `demand_order.shipped`, `rma.matched`, `supplier_return.dispatched`; no behaviour change |
 | 2026-10-24 | P8 decision record (DECISIONS `D-19`): issue and return carry the requisition's house owner (`G2`, §0); `SIR-GRD-01a` core `WORK_ORDER` refuses an `INPUT`/`PACKAGING` item, `422 WORK_ORDER_COMPONENT_ISSUE_NOT_ALLOWED` (`G13`) |
+| 2026-10-25 | **R32-fix** (`R32-functional-review-core-quality.md`, `D-21` items 6, 8). `SIR-T1-07` superseded — a return posts only at the verified quantity through `SIR-T1-14` / `-15` (F-R32CQ-003); posting at Verify needs `:post` (F-016); `emergency_issue_allowed` (default `true`) separate from `direct_issue_allowed`, kind `DIRECT`, `EMERGENCY` the only no-requisition kind when direct is off (`SIR-GRD-03`, `-11`, `SIR-T1-10`, `-12`; F-008); §1.1 adds `DEPARTMENT_APPROVED`, `VERIFIED`, issue kind and acknowledgement; T2 rows for department approve / verify / acknowledge; §5.1 / §5.2 columns, filters, tiles, actions; `DEMAND_ORDER` resolver in `SIR-GRD-01` (F-033); department step on the `STORE_RETURN` engine request (`SIR-T1-13`) |
 | 2026-10-25 | **R32 (PRD 2026-10-24 §7, `D-20` #10, #15, 2-13a, 5).** `P8-10`: direct issue off by default, emergency issue → post-facto requisition, receiver acknowledgement in own login, never below free stock `SIR-T1-10`…`-12`, `SIR-GRD-11`…`-13`, `SIR-T3-03` (`C2`; OTP / mobile `C9` not built). `P8-11`: PRD reasons, condition mapping, configurable chain department approve → verify (verified quantity) → post, photos `SIR-T1-13`…`-16`, `SIR-GRD-14`…`-17` (`C3`); landing per status store `P8-22` (`C10`). Contract stays v0 |
 
 ## 8. Invariants and scenarios

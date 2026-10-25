@@ -294,6 +294,8 @@ ladder; every one of the 575 findings is dispositioned into a task in
 
 ### D-13 · Mobile is not optional
 
+> **Superseded in part (2026-10-25, R32-fix F-R32MS-028):** the user rule of 2026-09-11 and `D-20` item 5 keep mobile out of the warehouse product; the paragraph below is the historical rule and binds no warehouse task.
+
 Every user-visible warehouse capability that has a web screen has a mobile counterpart in the same
 task, per CLAUDE.md's web↔mobile mirroring rule. A warehouse product whose operators cannot work from a
 handheld is not a warehouse product. Note the correction to CLAUDE.md found by R1 `CM-1`:
@@ -729,6 +731,48 @@ in warehouse scope, 326 gaps + 55 accounting) is folded into the design set. Rul
    labelled `needs-client-decision`; web screens get scan-friendly inputs where the PRD scans.
 6. **Tracking.** Closed issues that gain work are reopened with label `reopened-r32` and a `## Reopened scope (R32)`
    section; work with no task gets a new task file. Every R32 item lands in exactly one open issue.
+
+### D-21 · R32 review — cross-area settlements for the fix wave
+
+**Reviewer decisions, 2026-10-25**, from the R32 dual-engine functional review (`docs/reviews/R32-functional-review-{core-quality,
+core-approvals,trade,mfg-eng,mfg-shop}.md`, 174 findings, Claude + GPT). Each takes the reviewers' recommended fix; no owner question.
+
+1. **Tax (F-R32TR-001, -013, -021).** OD-9 stands: warehouse computes no tax. CN-16 tax preview goes to **accounting's tax
+   determination** through the accounting adapter (`P8-23`); warehouse-india keeps reference masters only. Without an adapter,
+   documents show "Taxes extra as applicable". Supply kinds `DOMESTIC / IMPORT / EXPORT / SEZ`; bill-to-ship-to uses IGST s.10(1)(b);
+   RCM decided by the provider from supplier registration + HSN/SAC; tax heads are typed child rows (UTGST included).
+2. **One producer per accounting event (F-R32TR-002, -010, -011, F-R32CA-016).** Core emits one shipment-level `INVOICE_REQUEST`
+   per shipment id and one `CREDIT_NOTE_PROPOSAL` per return receipt + disposition; trade enriches price/tax/billing through a
+   core-declared enrichment SPI; trade never emits its own invoice/return kinds. Receiver dedupes on event id. Replacement shipments are
+   excluded from invoicing, billed-vs-shipped closure and release credit checks. A4 becomes one movement envelope + one linked
+   document envelope; only the movement envelope carries COGS value.
+3. **Invoice acknowledgement (F-R32MS-002, F-R32TR-017, -030, F-R32MS-020).** Core publishes `INVOICE_ACKNOWLEDGED` with
+   shipment → invoice no./date and serial list; consumers are trade billing and the MFG unit registry (`DISPATCHED → SOLD`, warranty
+   start). For unit-serial items the MFG registry is the warranty authority and writes core serial warranty fields. Gate-out of a
+   trade sale requires an acknowledged invoice when an accounting target is configured (CGST s.31(1)(a)); otherwise a delivery challan.
+4. **Credit seam (F-R32TR-007, -008, F-R32CA-012).** One core SPI `WhbCustomerCreditProvider.check(company, customer, candidate,
+   excludeDocumentRef)` returning exposure buckets, overdue amount/days, advances and a decision, implemented by the accounting adapter
+   over a **check-only** accounting entry point (filed in `neetub1508/accounting`, label `prd-r32`). Trade owns the one override
+   approval (`SO_CREDIT_OVERRIDE`); accounting's APPROVE mode maps to it — never two overrides. Buckets are non-overlapping.
+5. **Owed SPIs get a carrier (F-R32TR-006, -012, -028).** New core task **P8-26** declares CN-15 (receipt exchange-rate + BoE
+   valuation payload), CN-16, CN-17, CN-19 (production progress query; implemented by MFG), CN-20 (`allocateImmediately`, transport
+   details on every release command incl. `firmScheduleLine`), the gate-out guard and the pre-ship (checklist) guard SPI. MFG port
+   names win: trade calls `CostEstimatePort` and `SampleRequestPort`.
+6. **One approval engine, complete (F-R32CA-002…008, -010, F-R32MS-008, F-R32ME-006, -007, F-R32CQ-028, -038).** DAP §0.1
+   lists every approving document type with verb, opening event (Submit), policy, kept refusal code and owner — the 11 built
+   `WhbMakerChecker` paths included, GRN excess moved to P8-04, plus `MRN`, `NCR_CLOSURE`, `STORE_RETURN`, `INSPECTION_RESULT`,
+   `QUALITY_DEVIATION`, `WHM_PRODUCTION_ORDER`, `WHM_SHORTAGE_RELEASE`, `WHM_PDI`, `WHM_DRAWING_RELEASE`, `WHM_SAMPLE_DISPATCH`,
+   `WHM_BOM`, `WHM_ROUTING`, `WHM_ECN`. Levels carry `required_authority`; requests freeze `excludedActorIds`; the approver limit is
+   enforced (above it → next level); escalation re-checks that distinct people can still complete the request. Below-threshold
+   adjustment/count self-approval becomes `DOCUMENT_DEFINED` zero-level with the submitter as acting user. No interim single-checker
+   fallback: P8-30 is a hard dependency. Built pending-alert providers are folded into the engine alert job as types migrate.
+7. **Upgrade-safe QC defaults (F-R32CQ-001, F-R32CA-023).** `inspector_authorisation_required = false`, `result_approval_mode = NONE`
+   by default (no behaviour change on upgrade); the PRD behaviour is a setting (client Q-I4).
+8. **Others.** Store return posts only through the new chain at the verified quantity (SIR-T1-07 superseded); `emergency_issue_allowed`
+   is its own setting (default true) and always creates the post-facto MR; `document_ref` is read live and number assignment is
+   idempotent; MFG gets a unit-WIP table for pre-receipt unit state; the sample gate lifts only on customer `APPROVED` or an explicit
+   waiver, and tests a "sample approval required" mark on the SO line / item × customer; masters are deactivated, never deleted once
+   referenced.
 
 ---
 

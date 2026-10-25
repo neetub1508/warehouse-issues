@@ -97,7 +97,8 @@ MRP (`P10`); no switching rules or skip-lot dynamics; no gate pass that moves st
 | `V500509`, `V511507`, `V511558` | base / app / app seeds | `P8-03` | gate purposes `SAMPLE_IN` / `FREE_OF_COST_IN`, package types; gate entry package / GSTIN / IRN columns (R32 reopen) |
 | `V500508`, `V511508`, `V511559` | base / app / app seeds | `P8-09` | `REQUISITION_EXCESS`, `EMERGENCY_ISSUE`, `RETURN_REASON` codes; requisition SO / lot / excess / post-facto columns (R32 reopen) |
 | `V500505` | base | `P8-23` | `whb_accounting_handovers` document-envelope columns, envelope kinds (R32, #174) |
-| `V500506` | base | `P8-25` | `whb_accounting_handovers.negotiated_version`, `warehouse.accounting.envelope_max_version` (R32, #173) |
+| `V500506` | base | `P8-25` | `whb_accounting_handovers.negotiated_version`, `blocked_reason` + the replaced blocked-predecessor CHECK (R32-fix), `warehouse.accounting.envelope_max_version` (R32, #173) |
+| `V511620`, `V511621` | app / app seeds | `P8-26` | GRN line BoE / customs-rate columns, shipment transport columns; `wh_landed_cost_documents:apply` (R32-fix, `D-21` item 5) |
 
 `V511411` is unused. All blocks are **new files** sorting after the `P7` rebuild (`STO-D12`).
 
@@ -134,7 +135,8 @@ upgraded database now apply base `V50123x` → app schema `V5113xx` → app seed
 | `wh_quality_inspection_lines` / `wh_quality_inspections` / `wh_quality_inspection_results` | + `defect_code_id`, `deviation_id`, `coa_*`; + `result_approval_*`, `inspection_stage_code`; + `instrument_id` (R32) | P8-17, P8-18, P8-19, P8-20, P8-06 |
 | `wh_gate_entries` / `wh_gate_entry_documents` | + package, GSTIN mismatch; + `supplier_gstin`, `irn` (R32) | P8-03 |
 | `wh_material_requisitions` / `_lines`, `wh_store_issues`, `wh_store_returns` / `_lines`, `wh_supplier_returns` | R32 columns (DATA-MODEL §2.2.11) | P8-09, P8-10, P8-11, P8-07 |
-| `whb_accounting_handovers` | `movement_id` nullable, document-envelope columns, `negotiated_version` (R32) | P8-23, P8-25 |
+| `whb_accounting_handovers` | `movement_id` nullable, document-envelope columns, `warehouse_id`, `linked_handover_id`, `external_document_date`, `negotiated_version`, `blocked_reason` (R32 + R32-fix) | P8-23, P8-25 |
+| `wh_goods_receipt_lines`, `wh_shipments` | BoE line / customs rate / base unit value; transporter, vehicle, LR (R32-fix) | P8-26 |
 | `whb_stock_statuses`, `whb_movement_types`, `whb_document_types`, `whb_code_list_values`, `whb_reason_codes` | seed rows only | P8-03…P8-11 |
 
 ## Tasks
@@ -169,11 +171,12 @@ __TASKS__
 | `P8-23` | Warehouse → accounting adapter and document envelopes (#174, R32) | FR-718 |
 | `P8-24` | Prove INTEGRATED end to end (#175, R32) | — |
 | `P8-25` | Accounting envelope v2 (#173, R32) | FR-719 |
+| `P8-26` | Core SPIs owed to trade and MFG — CN-15…CN-22 incl. gate-out and pre-ship guards (R32-fix, `D-21` item 5) | — (core half of trade FRs) |
 
 **Order:** `P7` → `P8-01` → `{P8-02, P8-03}` → `P8-04` → `P8-05` → `P8-06` → `{P8-07, P8-08}` → `P8-09` →
 `P8-10` → `P8-11` → `{P8-12, P8-13, P8-15}` → `P8-14`. `P8-15` needs only `P8-01`, `P8-02` and `P8-07` and may run as soon as they land; `P8-16` needs only `P8-01`. **R32:** `P8-30` (approval engine) needs `P8-09` and lands before `P8-08`, `P8-11` and every `P9` / `P10` task that approves; it re-homes `P9-03`'s engine into core.
 
-**R32 core fold order:** `P8-06` (reopened) → `P8-17` → `{P8-18, P8-19, P8-20}` → `P8-21`; `P8-22` after `P8-06`, `P8-08`, `P8-11`; `P8-03`, `P8-09`, `P8-10`, `P8-11`, `P8-07`, `P8-12` R32 sections ride their task; `P8-25` → `P8-23` → `P8-24` (accounting side: `neetub1508/accounting` `prd-r32`). R32 rows on existing tasks: `P8-03` FR-712, `P8-06` FR-704–707, `P8-07` FR-716, `P8-09` FR-713, `P8-10` FR-714, `P8-11` FR-715, `P8-12` FR-717.
+**R32 core fold order:** `P8-06` (reopened) → `P8-17` → `{P8-18, P8-19, P8-20}` → `P8-21`; `P8-22` after `P8-06`, `P8-08`, `P8-11`; `P8-03`, `P8-09`, `P8-10`, `P8-11`, `P8-07`, `P8-12` R32 sections ride their task; `P8-25` → `P8-23` → `P8-24`, and `P8-26` after `P8-23` / `P8-25` and before `P9-09`, `P9-15`, `P9-17`…`P9-21` (R32-fix) (accounting side: `neetub1508/accounting` `prd-r32`). R32 rows on existing tasks: `P8-03` FR-712, `P8-06` FR-704–707, `P8-07` FR-716, `P8-09` FR-713, `P8-10` FR-714, `P8-11` FR-715, `P8-12` FR-717.
 
 **Downstream:** `P9` needs `P8-01`, `P8-02`, `P8-09` (hand-off port), `P8-15` (`p9-13`, TRADE `OD-33`); `P10` needs `P8-06` (incl. non-stock-bearing sources, SEAM-M4), `P8-09`
 (requisition port, cost-object resolver with counter purpose and hooks, SEAM-M1/M2), `P8-10`, `P8-11`, `P8-16` (SEAM-M3).

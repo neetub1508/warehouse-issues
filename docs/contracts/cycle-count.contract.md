@@ -56,7 +56,7 @@
 |---|---|---|---|---|---|---|---|
 | CCT-T1-01 | — | Create adjustment, lines with signed variance | `DRAFT` | `CCT-GRD-01` | `wh_stock_adjustments:create` | number issued | `FR-145` |
 | CCT-T1-02 | `DRAFT` | Submit | `SUBMITTED` | `CCT-GRD-01`, `-02`; at least one line, no zero-variance line | `wh_stock_adjustments:submit` | the resolved policy and the applied thresholds are stored (`resolved_policy_id`, `threshold_quantity_applied`, `threshold_value_applied`) | `FR-145` |
-| CCT-T1-03 | `DRAFT` | Submit, every line inside **both** thresholds and `warehouse.adjustment.auto_post_below_thresholds` on | `POSTED` | `CCT-GRD-02`; `WhStockAdjustmentAutoPostGuard` admits the auto type only | `wh_stock_adjustments:submit` | `CCT-T4-02` in the same transaction | `FR-145` |
+| CCT-T1-03 | `DRAFT` | Submit, every line inside **both** thresholds and `warehouse.adjustment.auto_post_below_thresholds` on | `POSTED` | `CCT-GRD-02`; `WhStockAdjustmentAutoPostGuard` admits the auto type only — once `p8-30` adopts the type, it admits a request with `rule_source = ZERO_LEVEL` (`DAP-T1-04`: `DOCUMENT_DEFINED` zero levels, `acting_user_id` = submitter) instead of testing `approved_by = submitted_by`; the count's `isApprovedOnSubmission` likewise (R32-fix) | `wh_stock_adjustments:submit` | `CCT-T4-02` in the same transaction | `FR-145` |
 | CCT-T1-04 | `SUBMITTED` | Approve | `APPROVED` | `CCT-GRD-03` | `wh_stock_adjustments:approve` | `approved_at`, note | `FR-145` |
 | CCT-T1-05 | `SUBMITTED` | Reject | `REJECTED` | reason code required | `wh_stock_adjustments:approve` | none | `FR-145` |
 | CCT-T1-06 | `DRAFT` · `SUBMITTED` | Cancel | `CANCELLED` | reason code required | `wh_stock_adjustments:cancel` | none | `FR-145` |
@@ -87,7 +87,7 @@
 | CCT-GRD-04 | The book quantity is the one frozen at `CCT-T1-11` and stored on the line; the variance is `counted − (book + movement at the line's grain after the snapshot and up to counted_at)`, excluding the count's own movements — never live on-hand | — (computed; asserted by test) | — | `FR-153` |
 | CCT-GRD-05 | While blind and not submitted, book, window movement and every variance figure are absent from the API and the export | — (never on the wire) | — | `FR-154` |
 | CCT-GRD-06 | Tolerance gates posting by quantity percentage (`tolerance_pct`) **and** value (`tolerance_value`), defaulted from `warehouse.count.default_tolerance_pct` / `_value` | — (routes to `PENDING_APPROVAL`, `CCT-T1-14`) | — | `FR-155` |
-| CCT-GRD-07 | The approver differs from every maker of the count — every submitter, every `counted_by` (superseded lines included), every zone assignee | `403 COUNT_SELF_APPROVAL` · `approvedBy` | *"a counter may not approve the count"* | `FR-155` |
+| CCT-GRD-07 | The approver differs from every maker of the count — every submitter, every `counted_by` (superseded lines included), every zone assignee | `403 COUNT_SELF_APPROVAL` · `approvedBy` — under the engine these makers are the request's frozen `excludedActorIds` (`DAP-GRD-03`, R32-fix) | *"a counter may not approve the count"* | `FR-155` |
 | CCT-GRD-08 | A keyed-back sheet's `countedAt` lies in `[book_snapshot_taken_at, now]` | `422 COUNT_COUNTED_AT_INVALID` · `countedAt` | names the window | `FR-154`, `FR-153` |
 | CCT-GRD-09 | A line's variance reason, when given, is an ACTIVE `COUNT_VARIANCE` reason; none → `COUNT_OVER` / `COUNT_SHORT` by sign | `422 COUNT_REASON_INVALID` · `lines[n].reasonCodeId` | names the reason | `FR-159` |
 | CCT-GRD-10 | A count programme names a type (`ABC` · random · full · zone · item · discrepancy-triggered), a scope, a cadence and the policy fields (blind flag, recount threshold, approval threshold, `freeze_locations`, per-run task cap) | `COUNT_PROGRAM_TYPE_INVALID`, `COUNT_PROGRAM_SCOPE_REQUIRED`, `COUNT_PROGRAM_CADENCE_REQUIRED`, `COUNT_PROGRAM_CRON_INVALID` | names the missing field | `FR-156` |
@@ -184,6 +184,7 @@ the code or the as-built count contract; the rest are fixed by their owning task
 | 2026-10-23 | v0 derived for `D-17` item 1 (R30 `CP-FR-007` row 8, the count / adjust half) |
 | 2026-10-23 | R31: `F-CA-006` (`CCT-T2-02`); `F-CA-009` (`CCT-T3-02`, `-T4-08` cite `LSS-GRD-02a`); `F-CA-010` (`CCT-T4-07`, `CCT-DIV-04`, FR-152 amended); `F-CA-011` (this contract owns holds; `lot-serial-status` cites it); `CCT-OPEN-01`…`-03` decided, `CCT-DIV-05` added |
 | 2026-10-24 | R31 `P1-05` #54 S4c: `CCT-T4-04` — hold / release take the location row lock in id order (`facility-branch-link` `FBL-GRD-16`) |
+| 2026-10-25 | `CCT-T1-03`, `CCT-GRD-07` | **R32-fix (`F-R32CA-002`, `-010`).** Below-threshold auto-post under the engine is a `DOCUMENT_DEFINED` zero-level request with the submitter as acting user, so the auto-post guard and `isApprovedOnSubmission` test `rule_source = ZERO_LEVEL`; the count's makers become frozen excluded actors. No behaviour change | R32 review |
 
 ## 8. Invariants and scenarios
 

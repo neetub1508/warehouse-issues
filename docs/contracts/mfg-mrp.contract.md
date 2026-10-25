@@ -206,8 +206,8 @@ of the visible columns incl. `createdByName`/`updatedByName` where shown. Modals
 This section and the WS-336 row above are authoritative for the rule and the column set; `p10-13` owns the
 report and `mfg-production-order.contract.md` §5.3 cites this section.
 
-Load per work centre per day = open operations (`OPEN`/`STARTED`) of `PLANNED`/`RELEASED`/`IN_PROGRESS`
-orders: setup (if not `STARTED`) + run minutes × (1 − confirmed good ÷ planned), spread evenly over the
+Load per work centre per day = open operations (`OPEN`/`STARTED`) of `PLANNED`/`APPROVED`/`RELEASED`/`IN_PROGRESS`
+orders (`APPROVED` added by the R32 fix, F-R32ME-013): setup (if not `STARTED`) + run minutes × (1 − confirmed good ÷ planned), spread evenly over the
 working days of `[planned_start_date, planned_end_date]` (`MRP-OPEN-09`); plus, when
 `includeProposals`, current-run `OPEN` and live `FIRMED` (any run) MAKE proposals with BOM operations (setup + run per unit ×
 qty over `[start_date, need_date]`). `WH-SC-659`: 480 × 90 % × 1 = 432; 610 ÷ 432 = **141 %**, overload,
@@ -232,6 +232,7 @@ nothing rescheduled.
 | 2026-10-22 | T3, §9 | Consistency pass: suggestion publish/cover/withdraw (MD-24), `PRODUCTION_ORDER` MRQs excluded (MD-16), `current_due_date` (MD-27), SEAM-M3 = `p8-16` (MD-28) | FRD-MFG §9 |
 | 2026-10-22 | `MRP-GRD-09`, `-T2-05`, `-N-03`, `-N-04`, `-N-08`, `-T1-14`, `-T3-04`, `-T2-02`, §5.1, `MRP-OPEN-09` | R29: firmed proposals actionable across runs (F1); safety stock counted once (F9); live FIRMED MAKE proposals exploded (F10); withdraw-then-replan with per-proposal outcomes and `conversionLive` (F13); one capacity-load rule (F25, MD-39); `ACTIVE` lines editable (F26, MD-40); process loss in explosion (F29); port calls per the FRD-STORES registry | `R29-functional-review-mfg.md` |
 | 2026-10-25 | R32 (`D-20`): §12 — production parameters per item × site and batch-size rounding of MAKE proposals (FR-830) |
+| 2026-10-25 | §5.1 capacity load, `MRP-N-21` | R32 fix wave: `APPROVED` orders count in the capacity load (F-R32ME-013); variant demand explodes through the `BASE` selection (F-R32ME-021) | `R32-functional-review-mfg-eng.md` |
 
 ## 8. Invariants and scenarios this workflow must not break
 
@@ -268,3 +269,4 @@ Owning task: `issues/p10-11.md` `## R32 additions (PRD 2026-10-24)` (FR-830); th
 |---|---|---|---|
 | MRP-GRD-20 | Production parameters: `standard_batch_size > 0` when `is_batch_produced`; `uses_job_cards` forced `true` when batch-produced; `unit_serial_series_id` of the same item × site; `pdi_required` only for a serial-controlled item | `422 PRODUCTION_PARAMETERS_INVALID` · field | FR-830 |
 | MRP-N-20 | A `MAKE` proposal of a batch-produced item is rounded up to a multiple of `standard_batch_size` after the lot-sizing rule | proposal quantity | FR-830 |
+| MRP-N-21 | Demand for a **variant** item explodes through the BOM selection of `BOM-T1-20`: the variant's own effective `STANDARD` BOM, else the model's effective `BASE` BOM filtered to the lines applicable to that variant (option groups resolved, `BOM-GRD-35`); the model item itself is never planned `MAKE` from a `BASE` BOM (`BASE_BOM_NOT_ORDERABLE`); dependent demand and the proposal's `base_bom_id` follow the same selection | proposal lines; `WH-SC-770` | FR-781 |

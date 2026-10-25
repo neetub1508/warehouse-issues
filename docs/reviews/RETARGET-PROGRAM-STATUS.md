@@ -126,6 +126,7 @@ Reference: `docs/reviews/BATCH-PATTERN-REFERENCE.md`, which summarises `classic/
 - `classic/CLAUDE.md`:
   - The SafeTranslation list names a non-existent `WarehouseAdapterDealerSafeTranslation.tsx`.
   - The MODULES table lacks `warehouse-trade` (V550000) and `warehouse-manufacturing` (V560000).
+  - The MODULES table lacks `accounting-adapter-warehouse` (**V621000–V621999**, backend-only; reserved in `docs/MODULE-INTEGRATION.md` §0 for `P8-23` #174, R32-fix `F-R32CA-031`). Add the row only with the user's go.
 - Defaults to confirm:
   - REM-D15: new "Shipping" L1 menu.
   - OD-22: drop `supports_cod`.

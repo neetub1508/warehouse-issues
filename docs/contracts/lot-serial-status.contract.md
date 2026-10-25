@@ -106,7 +106,7 @@
 
 | ID | When | Then | Enforced in | Source |
 |---|---|---|---|---|
-| LSS-T4-01 | A serial is despatched / sold | `sold_to_counterparty_id`, warranty start and end, current custody and the carrying shipment are recorded, so "where is it now, who received it, is it in warranty" is answerable | serial service, despatch | FR-099 |
+| LSS-T4-01 | A serial is despatched / sold | `sold_to_counterparty_id`, warranty start and end, current custody and the carrying shipment are recorded, so "where is it now, who received it, is it in warranty" is answerable. **R32-fix (`D-21` item 3, F-R32MS-020):** for a unit-serial item (an item with an MFG unit-serial series, `warehouse-manufacturing` installed) core records custody and the carrying shipment only — the MFG unit registry is the warranty authority and writes `sold_to_counterparty_id` and warranty start / end through the serial service (`PUR-T4-04`), at the sale (`INVOICE_ACKNOWLEDGED`) or dispatch per `warranty_starts_at` | serial service, despatch; MFG registry for unit-serial items | FR-099, FR-817 |
 | LSS-T4-02 | A hold is open on a lot | allocation, pick and issue skip or refuse the lot everywhere at once — the allocator skips held subjects through `WhbAllocationHoldGate` and refuses `ALLOCATION_HELD` (`cycle-count` `CCT-GRD-12`); nothing moves | `WhbAllocationHoldGate` | FR-096 |
 | LSS-T4-03 | An LPN moves | **one** movement whose lines the service expands from the LPN's current contents and stores (`lpn_id`, `from_lpn_id` / `to_lpn_id`) | LPN service → writer | FR-101, FR-100 |
 | LSS-T4-04 | A kit, repack, decant, split or merge posts | a `whb_transformations` row with its inputs and outputs is written in the same transaction; WS-039 answers forward (where did this lot go) and backward (what went into this unit) for the retention period | transformation service | FR-105 |
@@ -135,6 +135,7 @@ the RFID reader endpoint (v2); holds (owned by `cycle-count`).
 |---|---|
 | 2026-10-23 | v0 derived for R30 `CP-FR-007` row 4 |
 | 2026-10-23 | R31: `F-CA-003` (LPN `SHIPPED`, `CONSUMED` unreachable); `F-CA-008` (`LSS-T1-05`, `-05a`, `LSS-GRD-06`, `-06a`, `LSS-T2-02`); `F-CA-009` (`LSS-GRD-02a` the one shelf-life rule, `LSS-T3-01` both effects); `F-CA-011` (holds owned by `cycle-count`, `LOT_NOT_ISSUABLE` dropped); `F-CA-014` (`lotStatus`, `soldToCounterpartyName`); `LSS-OPEN-01` decided |
+| 2026-10-25 | R32-fix `F-R32MS-020` (`D-21` item 3): `LSS-T4-01` — for unit-serial items the MFG registry writes the warranty fields; core keeps custody and shipment only |
 
 ## 8. Invariants and scenarios
 

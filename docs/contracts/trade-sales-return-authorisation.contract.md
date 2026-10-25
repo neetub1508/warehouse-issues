@@ -141,14 +141,14 @@ Rows added by the R32 fold (FRD-TRADE §4.15). Numbers continue each kind's sequ
 
 | ID | Kind | Rule | Refusal / effect | Source |
 |---|---|---|---|---|
-| TSR-GRD-07 | guard | Intent `WARRANTY_REPLACEMENT`: the shipped unit's serial named; within the item's warranty days from the core shipment date; never proposes a credit note | `422 TRADE_RETURN_OUT_OF_WARRANTY` | FR-758 |
-| TSR-T4-06 | effect | Intent `CREDIT`, RMA `RECEIVED` and core QC disposition posted → one `SALES_RETURN` proposal (accepted qty × SO price, tax reversal, original invoice no) handed over (`CN-18`) | — | FR-775 |
+| TSR-GRD-07 | guard | Intent `WARRANTY_REPLACEMENT`: the shipped unit's serial named; within warranty — core's serial warranty fields (written by the MFG unit registry from the sale date for unit-serial items, `D-21` item 3), else the item's warranty days from the core shipment date; the replacement release is `is_replacement` — not invoiced, not in billed-vs-shipped, not credit- / advance-checked; answered `NOT_CREDITABLE` to core's credit-note proposal | `422 TRADE_RETURN_OUT_OF_WARRANTY` | FR-758 |
+| TSR-T4-06 | effect | Core emits one `CREDIT_NOTE_PROPOSAL` per return receipt + QC disposition (core orders the two events; partial returns one per receipt; `D-21` item 2) and asks trade's `WhAccountingEnvelopeEnricher` (`CN-18`, `P8-26`); for an RMA from an SRA of intent `CREDIT` trade answers accepted qty × SO price, tax reversal as typed head rows, original invoice no — a `SALES_RETURN` enrichment row keyed by `source_event_id`; `REPLACE` / `WARRANTY_REPLACEMENT` → `NOT_CREDITABLE`. Trade waits for no RMA status | — | FR-775 |
 
 ## 6. Out of scope
 
 | Item | Decision |
 |---|---|
-| Credit note | refused (R3) |
+| Issuing the credit note | accounting — raised from core's `CREDIT_NOTE_PROPOSAL`, which trade enriches (`TSR-T4-06`) |
 | Return receipt, grading, disposition | core |
 
 ## 7. Amendments
@@ -160,6 +160,7 @@ Rows added by the R32 fold (FRD-TRADE §4.15). Numbers continue each kind's sequ
 | 2026-10-23 | every T1, guard, unreachable, T3 and T4 row | `Source` column added, filled from FRD-TRADE §4, so every rule traces to the FR it proves | R30 `CP-FR-008` |
 | 2026-10-23 | §0 fields, `TSR-GRD-01`…`-03`, `-T1-04`, `-T4-03`, `-GRD-06`, every T2 row | R31: header `reason_code_id` and line reasons as `whb_reason_codes` (F-TR-007); allowance counts live + matched only (F-TR-015); `REPLACE` needs an open SO (F-TR-002); stale-write code `409 CONCURRENT_MODIFICATION` (`TPR-OPEN-03`); T2 Source FRs (F-TR-019) | R31 |
 | 2026-10-24 | every row citing a core event | P8 decision record `EV-1` (DECISIONS `D-19`): every outbox event code renamed to the dotted `whb_event_types` vocabulary of registry R.4 (PC-42) — e.g. `purchase_order.amended`, `demand_order.shipped`, `rma.matched`, `supplier_return.dispatched`; no behaviour change | decision record P8 wave 1/2 |
+| 2026-10-25 | `TSR-GRD-07`, `TSR-T4-06`, §6 | R32-fix: credit note from core's `CREDIT_NOTE_PROPOSAL` (per receipt + disposition) enriched by trade, no wait on an RMA `RECEIVED` status core lacks; warranty validity from core serial warranty fields (MFG registry); replacement excluded from invoicing / closure / credit checks | R32 review F-R32TR-002, -003, -011, -030 |
 | 2026-10-25 | `TSR-GRD-07`, `TSR-T4-06` (new, *R32 additions*) | R32 fold of the client PRD (`D-20`): warranty-replacement intent, credit-note proposal | R32 / `D-20` |
 
 ## 8. Invariants and scenarios

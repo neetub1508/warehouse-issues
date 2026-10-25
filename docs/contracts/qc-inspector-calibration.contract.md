@@ -43,10 +43,10 @@
 
 | Entity | Status | Represented by | Kind |
 |---|---|---|---|
-| Inspector authorisation | current / ended | `[valid_from, valid_to)`, `is_active` | dated fact |
+| Inspector authorisation | current / ended | `[valid_from, valid_to]` (both inclusive; null `valid_to` = open), `is_active` | dated fact |
 | Inspection result approval | `NOT_REQUIRED` · `PENDING` · `APPROVED` · `RETURNED` | `wh_quality_inspections.result_approval_status` | fact on the inspection |
 | Instrument service status | `IN_SERVICE` · `OUT_FOR_CALIBRATION` · `OUT_OF_SERVICE` · `SCRAPPED` | `wh_qc_instruments.service_status` | registry |
-| Instrument calibration status | `VALID` · `DUE_SOON` · `OVERDUE` · `FAILED` · `NEVER_CALIBRATED` | computed on read from the latest live calibration and the site-local today | derived |
+| Instrument calibration status | `VALID` · `DUE_SOON` · `OVERDUE` · `FAILED` · `NEVER_CALIBRATED` | computed on read from the latest live calibration and the site-local today; `FAILED` = the latest live record's result is `FAIL` (an `ADJUSTED_PASS` with as-found false is not `FAILED`, R32-fix F-R32CQ-015) | derived |
 
 ### 1.2 Transitions
 
@@ -54,27 +54,29 @@
 |---|---|---|---|---|---|---|---|
 | QIC-T1-01 | — | Grant an authorisation (user, site?, stage?, category?, level, dates, qualification ref) | current | `QIC-GRD-06` | `wh_qc_inspector_authorisations:create` | audited | FR-697 |
 | QIC-T1-02 | current | End / deactivate | ended | — | `:edit` | never deleted once used by an inspection | FR-697 |
-| QIC-T1-03 | *in progress* | **Complete** under mode `ALL`, or `REJECT_ONLY` with a reject | *completed*, `PENDING` | `QIC-GRD-01`…`-03` | inspector | disposition blocked until approved | FR-699 |
-| QIC-T1-04 | `PENDING` | **Approve result** | `APPROVED` | `QIC-GRD-04`, `-05` | `wh_quality_inspections:approve_result` + `APPROVER` grant | `result_approved_by/at`; disposition allowed | FR-699 |
-| QIC-T1-05 | `PENDING` | **Return** (reason) | `RETURNED`, inspection *in progress* | `QIC-GRD-04` | same | `lot_verdict` cleared with an audit row; results editable again | FR-699 |
-| QIC-T1-06 | — | **Complete** with mode `NONE`, or `REJECT_ONLY` without a reject | *completed*, `NOT_REQUIRED` | `QIC-GRD-01`…`-03` | inspector | as today | FR-699 |
+| QIC-T1-03 | *in progress* | **Complete** under mode `ALL`, or `REJECT_ONLY` with a reject (default mode `NONE`, `D-21` item 7) | *completed*, `PENDING` | `QIC-GRD-01`…`-03` | inspector | opens an `INSPECTION_RESULT` request (`DAP` §0.1, `SINGLE_LEVEL`, `D-21` item 6; `excludedActorIds` = every result recorder — R32-fix F-R32CQ-028); disposition and the non-stock `onDisposition` held until approved (`QIC-T4-02`) | FR-699 |
+| QIC-T1-04 | `PENDING` | **Approve result** (the engine step) | `APPROVED` | `QIC-GRD-04`, `-05` | `wh_quality_inspections:approve_result` + `APPROVER` grant | `result_approved_by/at`; disposition allowed; non-stock `onDisposition` called once (`QIC-T4-02`) | FR-699 |
+| QIC-T1-05 | `PENDING` | **Return** (reason from `APPROVAL_RETURN`; the engine step) | `RETURNED`, inspection *in progress* | `QIC-GRD-04` | same | `lot_verdict` cleared with an audit row; results editable again; a re-complete opens a new request | FR-699 |
+| QIC-T1-06 | — | **Complete** with mode `NONE`, or `REJECT_ONLY` without a reject | *completed*, `NOT_REQUIRED` | `QIC-GRD-01`…`-03` | inspector | as today (a non-stock source's `onDisposition` is called here, once — `QIC-T4-02`) | FR-699 |
 | QIC-T1-07 | — | Read calibration status | derived | — | any `:view` | — | FR-700 |
 | QIC-T1-08 | any | **Record calibration** (date, agency, certificate, result, as-found, next due) | `VALID` / `FAILED` | `QIC-GRD-10` | `wh_qc_instruments:record_calibration` | `last_calibrated_on`, `calibration_due_on` set; `FAIL` → `service_status = OUT_OF_SERVICE` | FR-700 |
 | QIC-T1-09 | `IN_SERVICE` | Send out on an RGP of purpose `CALIBRATION` | `OUT_FOR_CALIBRATION` | gate pass approved (`FR-514`) | stores | `gate_pass_id` on the next calibration record | FR-700 |
-| QIC-T1-10 | any | Scrap | `SCRAPPED` | no open RGP | `:edit` | readings with it refused | FR-700 |
+| QIC-T1-10 | any | Scrap | `SCRAPPED` | no open RGP | `:edit` | readings with it refused; terminal | FR-700 |
+| QIC-T1-11 | `OUT_OF_SERVICE` / `OUT_FOR_CALIBRATION` | **Record calibration** with result `PASS` / `ADJUSTED_PASS` (R32-fix F-R32CQ-004) | `IN_SERVICE` | `QIC-GRD-10` | `wh_qc_instruments:record_calibration` | `calibration_due_on` set; readings allowed again | FR-700 |
+| QIC-T1-12 | `OUT_FOR_CALIBRATION` | the `CALIBRATION` RGP is returned (`FR-512`) | `IN_SERVICE` when a `PASS` / `ADJUSTED_PASS` record citing that `gate_pass_id` exists; else `OUT_OF_SERVICE` (*awaiting certificate*) until `QIC-T1-11` | — | stores (RGP return) | — | FR-700 |
 
 ### 1.3 Guards
 
 | ID | Predicate | Refusal | Backstop | Source |
 |---|---|---|---|---|
-| QIC-GRD-01 | with `inspector_authorisation_required`, Start / Record / Complete need a current `INSPECTOR` or `APPROVER` grant matching site, stage and **any** category of the item, valid on the site-local today; Disposition needs `APPROVER` | `403 INSPECTOR_NOT_AUTHORISED` · `403 INSPECTION_APPROVER_NOT_AUTHORISED` (scope named) | the permission verb is checked first | FR-697 |
+| QIC-GRD-01 | with `inspector_authorisation_required` (default **`false`** — upgrade-safe, `D-21` item 7, R32-fix F-R32CQ-001; switching it on for a site with no current grant there is refused `409 INSPECTOR_AUTHORISATION_NONE_GRANTED`), Start / Record / Complete need a current `INSPECTOR` or `APPROVER` grant matching site, stage and **any** category of the item, valid on the site-local today; Disposition needs `APPROVER` | `403 INSPECTOR_NOT_AUTHORISED` · `403 INSPECTION_APPROVER_NOT_AUTHORISED` (scope named) | the permission verb is checked first | FR-697 |
 | QIC-GRD-02 | `GOODS_RECEIPT` source: the GRN's creator / poster does not record results or complete, unless `inspector_may_be_receiver` | `403 INSPECTOR_IS_RECEIVER` | audit row | FR-698 |
 | QIC-GRD-03 | production sources: a user in the resolver's `producedByUserIds` does not inspect, unless `inspector_may_be_producer`; `STORE_RETURN`: the return's submitter does not inspect | `403 INSPECTOR_IS_PRODUCER` · `403 INSPECTOR_IS_RETURNER` | audit row | FR-698 |
 | QIC-GRD-04 | result approver ≠ every user who recorded a result on the inspection | `403 RESULT_SELF_APPROVAL` | — | FR-699 |
 | QIC-GRD-05 | Disposition while `PENDING` or `RETURNED` | `409 RESULT_APPROVAL_PENDING` | — | FR-699 |
-| QIC-GRD-06 | no two overlapping identical grants | `409 INSPECTOR_AUTHORISATION_OVERLAP` | `EXCLUDE USING gist` on scope + daterange | FR-697 |
-| QIC-GRD-07 | a criterion with `instrument_required` gets a result only with an instrument of its `instrument_type_code` | `422 INSTRUMENT_REQUIRED` · `422 INSTRUMENT_TYPE_MISMATCH` | — | FR-701 |
-| QIC-GRD-08 | the instrument is `IN_SERVICE` and its calibration status is `VALID` / `DUE_SOON` (under `instrument_reading_policy = WARN`: saved with acknowledgement + audit) | `422 INSTRUMENT_NOT_CALIBRATED` naming the due date | `instrument_due_on_at_reading` frozen | FR-701 |
+| QIC-GRD-06 | no two overlapping identical active grants; a null scope column ("every site / stage / category") is one value for this test | `409 INSPECTOR_AUTHORISATION_OVERLAP` | `btree_gist`; `EXCLUDE USING gist` on `user_id`, `COALESCE(scope, sentinel)` per scope column, level, `daterange(valid_from, valid_to, '[]')` `WHERE is_active` (R32-fix F-R32CQ-030) | FR-697 |
+| QIC-GRD-07 | a criterion with `instrument_required` gets a result (criterion result **or per-serial result**, R32-fix F-R32CQ-026) only with an instrument of its `instrument_type_code` | `422 INSTRUMENT_REQUIRED` · `422 INSTRUMENT_TYPE_MISMATCH` | — | FR-701 |
+| QIC-GRD-08 | the instrument is `IN_SERVICE` and its calibration status is `VALID` / `DUE_SOON` (under `instrument_reading_policy = WARN`: saved with acknowledgement + audit) | `422 INSTRUMENT_NOT_CALIBRATED` naming the due date | `instrument_due_on_at_reading` frozen on `wh_quality_inspection_results` and `wh_quality_inspection_serial_results` | FR-701 |
 | QIC-GRD-09 | the reading lies inside the instrument's `range_min`…`range_max` | `422 READING_OUTSIDE_INSTRUMENT_RANGE` | — | FR-701 |
 | QIC-GRD-10 | `next_due_on` > `calibrated_on` and ≤ `calibrated_on + calibration_interval_days`; calibration records are append-only (`supersedes_id` corrections) | `422 CALIBRATION_DUE_BEYOND_INTERVAL` | CHECK; trigger refuses `UPDATE`/`DELETE` | FR-700 |
 
@@ -104,7 +106,8 @@
 
 | ID | When | Then | Enforced in | Source |
 |---|---|---|---|---|
-| QIC-T4-01 | a calibration recorded with `as_found_in_tolerance = false` | the *Impact* list = every result recorded with this instrument since its previous in-tolerance calibration; event `qc_instrument.calibration_failed`; an NCR of source `CALIBRATION_FAILURE` may be raised from it (`NCR-T1-02`) | instrument service (read model) | FR-701 |
+| QIC-T4-01 | a calibration recorded with `as_found_in_tolerance = false` | the *Impact* list = every result and per-serial result recorded with this instrument since its previous in-tolerance calibration (R32-fix F-R32CQ-026); event `qc_instrument.calibration_failed`; an NCR of source `CALIBRATION_FAILURE` may be raised from it (`NCR-T1-02`) | instrument service (read model) | FR-701 |
+| QIC-T4-02 | a non-stock-bearing source's inspection completes (SEAM-M4, `IIS-GRD-07a`) | the resolver's `onDisposition` runs at Complete when the result is `NOT_REQUIRED`, else in the `INSPECTION_RESULT` `onApproved` transaction — never while `PENDING` / `RETURNED`; exactly once per inspection (`outcome_dispatched_at` latch) across Return and re-complete (R32-fix F-R32CQ-010; built `WhQualityInspectionService.java:609-620` amended) | inspection service | FR-699 |
 
 ## 5. T5 — Screen contract
 
@@ -123,6 +126,7 @@ MSA / gauge R&R studies, SPC, the legal-metrology weighing register (`FR-223`, `
 | Date | Change |
 |---|---|
 | 2026-10-25 | v0 derived (R32, `D-20` item 3): `P8-19` authorisation / segregation / result approval, `P8-20` instruments and calibration |
+| 2026-10-25 | **R32-fix** (`R32-functional-review-core-quality.md`, `D-21` items 6, 7). Upgrade-safe defaults `inspector_authorisation_required = false`, `result_approval_mode = NONE` (`QIC-GRD-01`, `QIC-T1-03`; F-R32CQ-001); result approval on the engine as `INSPECTION_RESULT` (`QIC-T1-03`…`-05`; F-028); non-stock outcome held until approval, exactly once (`QIC-T4-02`; F-010); back into service after a passing calibration or RGP return (`QIC-T1-11`, `-12`; F-004); `FAILED` = latest result `FAIL` (§1.1; F-015); per-serial readings under the same guards and impact list (`QIC-GRD-07`, `-08`, `QIC-T4-01`; F-026); overlap constraint with sentinels, inclusive range, `btree_gist` (`QIC-GRD-06`; F-030) |
 
 ## 8. Invariants and scenarios
 

@@ -162,6 +162,7 @@ Debit/credit notes; bill booking; price variance (`P5-10`); landed cost (`P2-17`
 | 2026-10-22 | R29 dispositions: `supplier_billed_quantity` beside the untouched helpers; free and dock-rejected quantity in the posting rule; §1.5 excess arithmetic with frozen examples; duplicate-bill guard per bill group; short-claim ceiling on billed − received; reversal resolves the cases; self-approval codes |
 | 2026-10-23 | R31: supplementary bill dated after the receipt accepted, ≥ the primary bill's date (`GBM-GRD-02`, F-SR-007); `bill_required_for_po_receipt` default stated (`GBM-GRD-04`, F-SR-014); `GBM-OPEN-01`/`-02` resolved (`R31-decisions`) |
 | 2026-10-24 | P8 decision record `EV-1` (DECISIONS `D-19`): every outbox event code renamed to the dotted `whb_event_types` vocabulary of registry R.4 (PC-42) — e.g. `purchase_order.amended`, `demand_order.shipped`, `rma.matched`, `supplier_return.dispatched`; no behaviour change |
+| 2026-10-25 | **R32-fix (`F-R32CA-006`, `D-21` item 6).** `GBM-T1-05`: the excess decision is document type `GRN_EXCESS` on the one approval engine (`DAP` §0.1 (c)), wired by `P8-04` — opened at the receive-line save recording the undecided excess, verb `wh_goods_receipts:approve_excess`, `SINGLE_LEVEL`, excluded actors {last line editor, GRN creator}, kept code `GRN_EXCESS_SELF_APPROVAL`; no `WhbMakerChecker` beside it |
 
 ## 8. Invariants and scenarios
 

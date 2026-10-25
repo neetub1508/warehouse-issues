@@ -182,7 +182,7 @@ Rows added by the R32 fold (FRD-TRADE §4.15). Numbers continue each kind's sequ
 
 | ID | Kind | Rule | Refusal / effect | Source |
 |---|---|---|---|---|
-| TRA-T4-05 | effect | Vendor quotation lines get tax rows from `WhTaxPreviewProvider` (`CN-16`) at the supplier's state vs the receiving site; a vendor-stated rate that differs is shown, the computed one is used | no provider → no tax rows | FR-761 |
+| TRA-T4-05 | effect | Vendor quotation lines get tax rows from `WhTaxPreviewProvider` (`CN-16`, `P8-26`; accounting's tax determination through the adapter, `D-21` item 1) with the supplier's registration and state vs the receiving site, reverse charge decided by the provider; a foreign supplier's quotation (import) asks none; a vendor-stated rate that differs is shown, the computed one is used | no provider → no tax rows | FR-761 |
 | TRA-T4-06 | effect | CS shows landed price **excluding recoverable GST** and **gross incl. GST**; rank (L1) on `warehouse.trade.cs.rank_basis` (default `LANDED_NET_OF_ITC`, else `GROSS`), still only within one currency (`OD-34`) | — | FR-762 |
 | TRA-T1-15 | transition | *Share* an `ISSUED` RFQ to each invited supplier by e-mail / WhatsApp (`wht_document_shares`); supersedes `TRA-OPEN-01` | `422 TRADE_SHARE_DOCUMENT_NOT_APPROVED`; `503 TRADE_SHARE_CHANNEL_UNAVAILABLE` | FR-763 |
 
@@ -202,6 +202,7 @@ Rows added by the R32 fold (FRD-TRADE §4.15). Numbers continue each kind's sequ
 | 2026-10-22 | §0, §1.1, `TRA-T1-04`, `-08`, `-10`, `-11`, `-13`, `-14`, `TRA-GRD-07`, `-10`, T3, `TRA-T4-02`…`-04`, §5.2, §5.3 | R29 TP-F2, F3, F16, F25, F26, F28 and *in code, not in contract*: rejected/returned statement exits, cancel from `BIDS_CLOSED`/`EVALUATION`, revise from `EXPIRED`, one statement per currency, OPEN-PO targets release allocations, target maker, `:award` dropped, screen contracts | R29 |
 | 2026-10-23 | every T1, guard, unreachable, T3 and T4 row | `Source` column added, filled from FRD-TRADE §4, so every rule traces to the FR it proves | R30 `CP-FR-008` |
 | 2026-10-23 | §1.1 `BIDS_CLOSED`, `TRA-T3-02`, `-T2-03`, `-GRD-11`, `TRA-OPEN-01`, every T2 row | R31: the due date never closes bids (F-TR-023); cancel states aligned with `TRA-T1-04` (F-TR-018); `TRA-OPEN-01` settled; stale-write code (`TPR-OPEN-03`); T2 Source FRs (F-TR-019) | R31 |
+| 2026-10-25 | `TRA-T4-05`; FR-746 directness | R32-fix: tax provider is accounting's tax determination via `CN-16` (`P8-26`), not a warehouse-india engine; an award of a manual RFQ with no PR behind it makes the drafted PO direct (`TPO-GRD-21`) | R32 review F-R32TR-001, -005 |
 | 2026-10-25 | `TRA-T4-05`, `TRA-T4-06`, `TRA-T1-15` (new, *R32 additions*) | R32 fold of the client PRD (`D-20`): GST on vendor quotations and the CS (rank net of ITC), RFQ share by e-mail / WhatsApp (`TRA-OPEN-01` superseded) | R32 / `D-20` |
 
 ## 8. Invariants and scenarios

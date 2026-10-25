@@ -45,6 +45,7 @@
 | `warehouse-india` | `ai.warehouseindia` | platform + base + `warehouse` | **V540000–V549999** | `whin_` | `ENABLE_WAREHOUSE_INDIA` | `enable.warehouse.india` | **yes** (v2, e-way bill / challan screens) |
 | `warehouse-trade` *(D-16)* | `ai.warehousetrade` | platform + base + `warehouse` | **V550000–V559999** | `wht_` | `ENABLE_WAREHOUSE_TRADE` | `enable.warehouse.trade` | `with-warehouse-trade` | **yes** (P9 — PR, RFQ, quotation, rate contract, order agreement screens) |
 | `warehouse-manufacturing` *(D-16)* | `ai.warehousemanufacturing` | platform + base + `warehouse` (+ `warehouse-india` seams) | **V560000–V569999** | `whm_` | `ENABLE_WAREHOUSE_MANUFACTURING` | `enable.warehouse.manufacturing` | `with-warehouse-manufacturing` | **yes** (P10 — BOM, production order, MRP screens) |
+| `accounting-adapter-warehouse` *(R32, `P8-23` #174 — reserved, design set only)* | `ai.accountingadapterwarehouse` | platform + `warehouse-base` + `accounting-base` (the **only** module importing both, `AHO-GRD-14`) | **V621000–V621999** (adapter DDL, if any; next to `accounting-adapter-dealer` V620000–V620999; free per R1 §3.1 `V621000–V699999`) | `aaw_` (only if it ever owns a table) | `ENABLE_ACCOUNTING_ADAPTER_WAREHOUSE` | `enable.accounting.adapter.warehouse` (+ declares `enable.warehouse.accounting_sink=true`) | `with-accounting-adapter-warehouse` | **no** (backend-only, as `accounting-adapter-dealer`) |
 
 **Since `D-16`:** the landing is base, app, `warehouse-adapter-example` (CI only), `warehouse-3pl`,
 `warehouse-india`, `warehouse-trade` and `warehouse-manufacturing`. The env-flag and property names for
@@ -67,6 +68,26 @@ If an adapter ever needs a screen it becomes frontend-bearing and costs, in one 
 `COPY` + merge block, a `jest.config.js` `roots`/`testMatch` pair, and a `NEXT_PUBLIC_*` env. Decide
 per adapter, before it is scaffolded; R7 `B10` says an adapter must not ship a screen that duplicates
 a base grid, which is the usual reason it does not need one.
+
+### `accounting-adapter-warehouse` — integration points (R32-fix `F-R32CA-031`; reserved, not yet scaffolded)
+
+`P8-23` (#174) names the module; until this section it had no band and no registration. Band **V621000–V621999**,
+re-verify with the free-band command below (bounded to `621000..621999`) before the first migration. Backend-only, so
+the frontend points (§6, §7, §11, §12.1) do not apply. The points it does need, each copied from
+`accounting-adapter-dealer` (the precedent) and the §2 matrix:
+
+| # | Point | What the adapter adds |
+|---|---|---|
+| 1 | `accounting-adapter-warehouse/backend/pom.xml` (§4) | parent + `platform-backend` + `warehouse-base-backend` + `accounting-base-backend`, the full test / compiler / surefire block |
+| 2 | root `pom.xml` Maven profile (§3) | `with-accounting-adapter-warehouse`, ordered **after** both `with-warehouse-base` and `with-accounting-base` |
+| 3 | `shared/docker/Dockerfile.backend` (§5.1, §5.2) | the seven edits + the assertion that both sides' jars are present |
+| 4 | `ModuleImportSelector.java` + `AccountingAdapterWarehouseModuleConfig` (§8, §8.1) | conditional on `enable.accounting.adapter.warehouse` **and** both siblings enabled |
+| 5 | env / property (§9) | `ENABLE_ACCOUNTING_ADAPTER_WAREHOUSE` → `enable.accounting.adapter.warehouse`; it declares `enable.warehouse.accounting_sink=true` (`AHO-GRD-02` boot reconciliation) |
+| 6 | platform module CHECK constraints (§10, `V600200` prescription) | add the module value only if it registers menus / settings rows (it does not today — no rows, no CHECK edit) |
+| 7 | seam tests (§13.2, §13.3) | `WhbAccountingSeamContractTest` allowlists this module as the one importer of `ai.warehousebase.*` and `ai.accounting*`; its own `ArchitectureInvariantsTest` |
+| 8 | test gate | a `shared/scripts/ci-gate.sh` `.def` entry for the adapter's integration tests (`P8-24`) |
+| 9 | `start.sh --docker` module flag | enable with `warehouse-base` + `accounting-base` |
+| 10 | `classic/CLAUDE.md` MODULES table | a row for the module and band — **pending user approval** (`RETARGET-PROGRAM-STATUS.md` *Pending user items*); this design set does not edit `CLAUDE.md` |
 
 ### Free-band proof (D-2)
 

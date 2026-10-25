@@ -32,7 +32,7 @@ Requirements, the mirror table, screens, scenarios, decisions, open decisions an
 **What P9 deliberately does not do:** no credit limit, invoice, bill, debit or credit note, payment or
 MSME due-date tracking (accounting deferred, `RN-054`); no tax computation or FX; no supplier portal,
 e-auction or EDI; no service / capex POs and no subcontract PO **except** the service-line PO linked to an MFG
-subcontract order (`D-18` item 3, FR-682…FR-689, `p9-07`); no mobile. FRD-TRADE §11 lists all eighteen. **R32 (`D-20`) narrows this:** credit checks through the accounting credit service (`p9-17`), GST shown through the india engine (`p9-15`), service + sample POs (`p9-07`), import / bill of entry (`p9-18`), invoice and credit-note **proposals** handed to accounting (`p9-20`), e-mail / WhatsApp to counterparties (`p9-16`) — trade still issues no invoice, debit or credit note and keeps no payment ledger.
+subcontract order (`D-18` item 3, FR-682…FR-689, `p9-07`); no mobile. FRD-TRADE §11 lists all eighteen. **R32 (`D-20`) narrows this:** credit checks through the accounting credit service (`p9-17`), GST previewed by accounting's tax determination through the core SPI and the accounting adapter (`p9-15`, `D-21` item 1), service + sample POs (`p9-07`), import / bill of entry (`p9-18`), **enrichment** of core's invoice-request and credit-note events for accounting (`p9-20`, `D-21` item 2), e-mail / WhatsApp to counterparties (`p9-16`) — trade still issues no invoice, debit or credit note and keeps no payment ledger.
 
 ## Exit criterion — a Mode-D-plus install: platform + `warehouse-base` + `warehouse` + `warehouse-trade`
 
@@ -46,7 +46,7 @@ Run in order on a clean database:
 7. **`WH-SC-550` → `WH-SC-554` → `WH-SC-555` → `WH-SC-557` → `WH-SC-559` → `WH-SC-580`** — enquiry, quotation, won, blanket SO, dispatch release (WS-313), shipment visible, core demand order back `OPEN` until trade closes it.
 8. **`WH-SC-560`, `WH-SC-562`, `WH-SC-547`** — schedule revision, return authorisation, vendor rating.
 9. **`WH-SC-565`** — the auditor sees everything and exports nothing.
-10. **R32:** **`WH-SC-750` → `WH-SC-752` → `WH-SC-753` → `WH-SC-755` → `WH-SC-757` → `WH-SC-758` → `WH-SC-761` → `WH-SC-766` → `WH-SC-768`** — HOD → Purchase PR, PO over PR, direct PO, GST, share, credit block + override, feasibility, invoice hand-off + close on invoice, order book (each needs its `CN-15`…`CN-20` seam; with a seam missing the step is skipped and listed).
+10. **R32:** **`WH-SC-750` → `WH-SC-752` → `WH-SC-753` → `WH-SC-755` → `WH-SC-757` → `WH-SC-758` → `WH-SC-761` → `WH-SC-766` → `WH-SC-768`** — HOD → Purchase PR, PO over PR, direct PO, GST, share, credit block + override, feasibility, invoice hand-off + close on invoice, order book (each needs its `CN-15`…`CN-22` seam, carried by core `P8-26` / `p8-23`; with a seam missing the step is skipped and listed).
 
 ## The invariants and properties this phase establishes
 
@@ -115,16 +115,16 @@ __TASKS__
 | [`p9-12`](p9-12.md) | Vendor and customer evaluation | p9-07, p9-09, p9-13, `p8-06` |
 | [`p9-13`](p9-13.md) | Sales return authorisation → RMA; supplier-return replacement | p9-07, p9-09, p9-11, `p8-15` (`OD-33`) |
 | [`p9-14`](p9-14.md) | Print documents + reports | p9-04 … p9-13 |
-| [`p9-15`](p9-15.md) | GST on PO / RFQ / quotation / SO through the existing india engine *(R32)* | p9-05, p9-07, p9-08, p9-09, `CN-16` |
+| [`p9-15`](p9-15.md) | GST on PO / RFQ / quotation / SO through accounting's tax determination (core SPI `CN-16`, `P8-26`) *(R32)* | p9-05, p9-07, p9-08, p9-09, `CN-16` |
 | [`p9-16`](p9-16.md) | Share documents by e-mail / WhatsApp, supplier reminders *(R32)* | p9-05, p9-07 … p9-10 |
 | [`p9-17`](p9-17.md) | Credit / overdue / advance checks via the accounting credit service + override *(R32)* | p9-03, p9-09, p9-15, p9-20, `CN-17` |
 | [`p9-18`](p9-18.md) | Import PO, bill of entry, BoE landed cost *(R32)* | p9-07, p9-20, `CN-15` |
 | [`p9-19`](p9-19.md) | Feasibility review + queue, pre-sale costing, sample hook *(R32)* | p9-03, p9-08, `CN-19` |
-| [`p9-20`](p9-20.md) | Accounting hand-off: invoice + credit-note proposals, billing status, close on invoice *(R32)* | p9-09, p9-10, p9-13, p9-15, `CN-18` |
+| [`p9-20`](p9-20.md) | Accounting hand-off: enrichment of core's invoice request / credit-note proposal, billing status, close on invoice, gate-out on invoice *(R32)* | p9-09, p9-10, p9-13, p9-15, `CN-18`, `CN-21` |
 | [`p9-21`](p9-21.md) | Order book, SO progress status, SO pending to produce, Customer 360 *(R32)* | p9-09, p9-14, p9-17, p9-20, `CN-19` |
 
 Parallel lanes after p9-03: {p9-04 → p9-05}, {p9-06}, then {p9-07 ‖ p9-08 → p9-09}, then {p9-10 ‖ p9-11},
-then {p9-13 → p9-12}, then p9-14. **R32:** after p9-09 → {p9-15 ‖ p9-16 ‖ p9-19}, then p9-20 → {p9-17 ‖ p9-18}, then p9-21 (each also waits for its `CN-15`…`CN-20` seam). Shared-registry edits (`filterUtils.ts`, `CacheConfiguration.java`,
+then {p9-13 → p9-12}, then p9-14. **R32:** after p9-09 → {p9-15 ‖ p9-16 ‖ p9-19}, then p9-20 → {p9-17 ‖ p9-18}, then p9-21 (each also waits for its `CN-15`…`CN-22` seam; carrier core `P8-26`). Shared-registry edits (`filterUtils.ts`, `CacheConfiguration.java`,
 SafeTranslation, i18n) serialize at the barrier.
 
 ## Admin settings seeded by P9 (each by the task that first reads it)

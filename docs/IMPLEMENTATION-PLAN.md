@@ -5,7 +5,7 @@
 
 <!-- check-design-set: issue-citations file #2 — `#2` and `#9` are ordinals in prose, not issue references — *Refusal #2*, *Adapter #2 (services)*, *ship-blocker #2*, *logistics needs #1, #2, #3, #5, #6, #10* — and at COMPETITOR-BENCHMARK.md:70/:146 `#9` is the markdown in-page anchor `[§9](#9--where-the-audits-disagree)`. In this repository `#2` and `#9` are in fact the two **pull requests** opened while the backlog was being filed, so no issue row can ever exist for either: see issues/CREATED.md -->
 
-**144 tasks · 8 phases · 4 versions · 5 modules · 469 requirements · 317 tables · 239 screens.**
+**144 tasks · 8 phases · 4 versions · 5 modules · 469 requirements · 317 tables · 239 screens.** *(P0–P6 as first decomposed; with the 87 re-target tasks of P7–P10 the plan holds **231 tasks in 12 phases**, recounted 2026-10-25 — §2.)*
 *(Round 4, 2026-09-10: six task files, ten requirements and two screens added by `GAP-REGISTER-R4.md`
 §4.0. The table figure is `DATA-MODEL.md` §8.2's to regenerate.)*
 
@@ -414,7 +414,7 @@ screen.
 
 ## 2. The task list
 
-**144 tasks, plus 56 re-target tasks in P7–P10 (`D-16`, §2.8.1–§2.8.4) — 200 in all.** The count fell out of the decomposition; it was not targeted. Round 5 (2026-09-14) added `P1-22` to correct built work under `D-14` item 8. Round 4 filed six —
+**144 tasks, plus 87 re-target tasks in P7–P10 (`D-16`, §2.8.1–§2.8.4: P7 13 · P8 27 · P9 21 · P10 26) — 231 in all** (recounted from `issues/` task files 2026-10-25, R32-fix: P0 17 · P1 22 · P2 29 · P2-IN 4 · P3 24 · P4 13 · P5 23 · P6 12). The count fell out of the decomposition; it was not targeted. Round 5 (2026-09-14) added `P1-22` to correct built work under `D-14` item 8. Round 4 filed six —
 `P3-25` at v1.1 and `P5-24`…`P5-28` at v2 — under `D-14` item 7, and on 2026-09-10 folded each into its
 most similar existing task under the user rule *no duplicate tasks* (`GAP-REGISTER-R4.md` §4.6). A
 folded item keeps its own version and is marked in its host as a *v1.1* or *v2 increment*. Sizing rule: one task is
@@ -662,7 +662,7 @@ Runs **first** among P7–P10: every later phase builds on the cleaned schema an
 | **P7-12** | Bring classic's docs, QA notes, contracts and the ci-gate ledger in line with the removal | app | — | — | — | P7-02 P7-11 |
 | **P7-13** | Rebuild the dev database once on the clean migration set, prove Flyway history and every grep gate, and turn ci-gate green | app | — | — | `FR-498` `FR-499` | P7-01 P7-12 |
 
-### 2.8.2 · P8 — Manufacturing stores in core `warehouse` · 26 tasks (16 + 10 added by R32) · v1.1 (`D-16`)
+### 2.8.2 · P8 — Manufacturing stores in core `warehouse` · 27 tasks (16 + 11 added by R32) · v1.1 (`D-16`)
 
 After P7, before P9 and P10 — the ports (`p8-01`, `p8-02`, `p8-09`, `p8-15`, `p8-16`) are what TRADE and MFG consume. Requirements: [`frd/FRD-STORES.md`](frd/FRD-STORES.md). `P8-16` closes no FR of its own; `P8-14` closes only `FR-073` (re-homed from `P7-11`, 2026-10-24).
 
@@ -694,6 +694,7 @@ After P7, before P9 and P10 — the ports (`p8-01`, `p8-02`, `p8-09`, `p8-15`, `
 | **P8-23** | The warehouse → accounting adapter (`accounting-adapter-warehouse`) and the five document envelope kinds (#174, R32 `D-20` item 3) | base + adapter | `V500505` | `WS-052` | `FR-718` | P2-18 P8-04 P8-07 P8-08 P8-15 P8-25 |
 | **P8-24** | Prove INTEGRATED mode end to end against the real accounting port (#175, R32) | base + adapter | — | — | — | P8-23 P8-25 |
 | **P8-25** | Accounting envelope v2 — document header, currency, per-line duty / lot / serial / quantities, version negotiation (#173, R32) | base | `V500506` | `WS-052` | `FR-719` | P2-18 |
+| **P8-26** | Core SPIs and port changes owed to trade and MFG — import receipt valuation + receipt landed cost (CN-15), tax preview (CN-16), customer credit check (CN-17), envelope enricher (CN-18), production progress + MFG ports (CN-19), `allocateImmediately` + transport on release (CN-20), gate-out guard (CN-21), pre-ship guard (CN-22) (R32-fix, `D-21` item 5) | app + base | `V511620` `V511621` | `WS-077` `WS-262` | — | P7 P8-23 P8-25 |
 
 ### 2.8.3 · P9 — `warehouse-trade`: purchase and sales, mirrored · 21 tasks (14 + 7 added by R32) · v1 (`D-16`)
 
@@ -731,7 +732,7 @@ After P8; **parallel with P9**. Requirements: [`frd/FRD-MFG.md`](frd/FRD-MFG.md)
 |---|---|---|---|---|---|---|
 | **P10-01** | The manufacturing module — `warehouse-manufacturing` scaffold, enable flag, menu tree, settings registry and the platform touchpoints | mfg | `V560000` `V561000` `V563000` | — | `FR-620` `FR-669` `FR-834` *(R32)* | P8-01 P8-02 P8-03 P8-06 P8-09 P8-10 P8-11 P8-16 P8-14 |
 | **P10-02** | Manufacturing registries — movement, document and location types, code lists, reason contexts, the REWORK disposition, print kinds and number series, under the RL-003 owning-module guard | mfg | `V560001` `V562001` | — | `FR-621` `FR-835` *(R32)* | P10-01 P8-06 P8-09 P8-12 |
-| **P10-03** | Bill of materials — multi-level, versioned, maker–checker BOMs with alternates, scrap, phantoms, co-/by-products; explosion, where-used and cost roll-up | mfg | `V560010` `V561010` `V562200` `V563200` | `WS-320` `WS-321` | `FR-622…FR-629` `FR-780…FR-784` *(R32)* | P10-01 P10-02 |
+| **P10-03** | Bill of materials — multi-level, versioned, maker–checker BOMs with alternates, scrap, phantoms, co-/by-products; explosion, where-used and cost roll-up | mfg | `V560010` `V561010` `V562200` `V563200` | `WS-320` `WS-321` | `FR-622…FR-629` `FR-780…FR-784` *(R32)* | P10-01 P10-02 P8-30 |
 | **P10-04** | Work centres and the optional BOM operation list — a lightweight routing that is never mandatory | mfg | `V560020` `V561020` `V562005` `V563005` | `WS-322` `WS-320` | `FR-630` `FR-631` `FR-785` `FR-786` *(R32)* | P10-01 P10-02 P10-03 |
 | **P10-05** | Production orders — BOM snapshot, release with availability check and component reservations, hold, complete, reopen, MTO link, the PRODUCTION_ORDER cost-object resolver and the traveller | mfg | `V560030` `V561030` `V562220` `V563220` | `WS-323` `WS-324` | `FR-632…FR-637` `FR-824…FR-826` *(R32)* | P10-01 P10-02 P10-03 P10-04 P8-09 P8-02 P8-12 |
 | **P10-06** | Material to the order — staging to line-side, manual issue and return through core store documents, component substitution and the consumption policy | mfg | `V560040` `V561040` | `WS-325` `WS-324` | `FR-638…FR-643` `FR-827` *(R32)* | P10-05 P8-09 P8-10 P8-11 P8-12 |
@@ -747,7 +748,7 @@ After P8; **parallel with P9**. Requirements: [`frd/FRD-MFG.md`](frd/FRD-MFG.md)
 | **P10-16** | Operation master and the routing master — versioned, approved routings, mandatory for job-card items (R32, `D-20` item 17) | mfg | `V562010` `V563010` | `WS-382` `WS-383` | `FR-789…FR-791` | P10-03 P10-04 P8-30 |
 | **P10-17** | Engineering change notice — ECN request → approval → implement with effectivity and stock / WIP disposition (R32, `D-20` item 1) | mfg | `V562030` `V563030` | `WS-384` | `FR-792…FR-794` | P10-03 P10-16 P10-05 P8-30 |
 | **P10-18** | Drawings — revisions with release states, the DrawingRevisionPort, controlled / uncontrolled copies and the issue log (R32) | mfg | `V562040` `V563040` | `WS-385` | `FR-795…FR-797` | P10-01 P10-02 P8-30 |
-| **P10-19** | Samples — sample requests, SAMPLE orders on a trial BOM, iterations, customer approval and the SampleRequestPort (R32, `D-20` item 16) | mfg | `V562050` `V563050` | `WS-386` | `FR-798…FR-801` | P10-03 P10-05 P10-18 P8-22 |
+| **P10-19** | Samples — sample requests, SAMPLE orders on a trial BOM, iterations, customer approval and the SampleRequestPort (R32, `D-20` item 16) | mfg | `V562050` `V563050` | `WS-386` | `FR-798…FR-801` | P10-03 P10-05 P10-18 P8-22 P8-30 P8-26 |
 | **P10-20** | Production batches and job cards — batching, stage sequencing, crew / machine / shift booking, stage consumption and stage job work (R32) | mfg | `V562060` `V563060` | `WS-387` `WS-388` | `FR-802…FR-807` | P10-05 P10-15 P10-16 P10-06 P10-10 |
 | **P10-21** | Unit serials and as-built binding — VIN / unit serial series and part-serial binding per unit (R32) | mfg | `V562070` `V563070` | `WS-389` | `FR-811` `FR-812` | P10-20 P10-11 |
 | **P10-22** | PDI gate per vehicle — checklist + SO points, outcomes, signed PDI certificate, receipt after PDI and PDI before dispatch (R32) | mfg | `V562080` `V563080` | `WS-390` | `FR-813…FR-816` | P10-21 P10-20 P10-08 P10-07 P8-06 P8-19 |

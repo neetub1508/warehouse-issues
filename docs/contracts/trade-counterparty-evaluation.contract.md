@@ -211,6 +211,7 @@ actions View · Edit · New version · Versions.
 | 2026-10-23 | every T1, guard, unreachable, T3 and T4 row | `Source` column added, filled from FRD-TRADE §4, so every rule traces to the FR it proves | R30 `CP-FR-008` |
 | 2026-10-23 | `TCE-T4-08`, `-GRD-08`, `TCE-OPEN-01`, `-02`, every T2 row | R31 decisions: task-type seed settled; T&C version copied at create, refreshed in `DRAFT` only by an audited act, frozen at submit / issue; stale-write code (`TPR-OPEN-03`); T2 Source FRs (F-TR-019) | R31 |
 | 2026-10-25 | `TCE-GRD-R32A-01`, `-02`, §5 WS-280 / WS-281 Contacts tab, WS-282 make columns | R32: trade counterparty contacts (`FR-119` keeps them off the base counterparty), AVL required scope by item type / QC-required, approved make per supplier × item | R32 (`D-20` items 2-7, 2-14) |
+| 2026-10-25 | `TCE-OPEN-03` (new) | **R32-fix (`F-R32CA-027`).** The PPAP-before-AVL ledger row's NO-CHANGE did not hold (no quality slice owns it); recorded as a deferred open row with its owner and the reason | R32 review |
 
 ## 8. Invariants and scenarios
 
@@ -222,3 +223,4 @@ actions View · Edit · New version · Versions.
 |---|---|---|
 | TCE-OPEN-01 | Does base let a sibling seed a `whb_task_types` row (`TRADE_AVL_REVIEW`)? | **Settled (R31 decisions):** yes — seeded under the owning-module guard like code lists (`whb_task_types.owning_module`, `V500010`), by `p9-12` (`D-16` item 5) |
 | TCE-OPEN-02 | `FR-584` says the T&C version is "frozen on the document" but not at which transition (create, submit or approval), nor whether a `DRAFT` re-reads the current version | **Settled (R31 decisions, default replaced):** copied at create; refreshed while `DRAFT` only by an explicit, audited user action; frozen at submit (RFQ: at issue) — `TCE-T4-08` |
+| TCE-OPEN-03 | PPAP / first-article approval **before** an AVL row is approved (IATF 16949 §8.3.4.4 / AIAG PPAP; R32 ledger `BP-ppap`). Today `TCE-T1-04a` approves an AVL row with no FAI / PPAP prerequisite, and core's first-article inspection (`P8-06`) is recorded at the GRN, after supply has started | **Deferred — recorded, not dropped (R32-fix F-R32CA-027).** The gate needs a core query of passed `FIRST_ARTICLE` inspections per supplier × item that trade may read (a new core port, not in `P8-26`'s set) and a trade setting defaulting off. Until then an install records the PPAP outcome as an AVL attachment and the approver checks it (`TCE-T1-04a` comment). Owner when scheduled: `P9-02` (gate) + a core query task; v1.1 |

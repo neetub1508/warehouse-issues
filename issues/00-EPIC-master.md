@@ -175,7 +175,7 @@ adapter proves nothing*) · field-service and assets **v1.1** · logistics **v3*
 | P9 | __P9__ | TRADE — `warehouse-trade`, purchase + sales mirrored (`D-16`) | **14** | after P8, ‖ P10 |
 | P10 | __P10__ | MFG — `warehouse-manufacturing`, BOM, production, MRP (`D-16`) | **13** | after P8, ‖ P9 |
 
-**200 tasks** — `ls issues/p*.md | wc -l`: the original 144 (17 + 22 + 29 + 4 + 24 + 13 + 23 + 12) plus the `D-16` re-target's 56 (13 + 16 + 14 + 13; `docs/IMPLEMENTATION-PLAN.md` §2.8.1–§2.8.4). Round 4 filed six
+**231 tasks** — `ls issues/p*.md | wc -l`: the original 144 (17 + 22 + 29 + 4 + 24 + 13 + 23 + 12) plus the `D-16` re-target's 87 (13 + 27 + 21 + 26 after the R32 fold and fix wave, recounted 2026-10-25; `docs/IMPLEMENTATION-PLAN.md` §2.8.1–§2.8.4). Round 4 filed six
 (`P3-25`, `P5-24`…`P5-28`, `#156`–`#161`) and on 2026-09-10 folded each into its most similar existing
 task; the six issues are closed as duplicates (`issues/CREATED.md`, `GAP-REGISTER-R4.md` §4.6).
 **471 requirements**, each owned by **exactly one** task. **305 scenarios** (computed:

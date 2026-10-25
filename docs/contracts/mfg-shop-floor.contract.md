@@ -38,26 +38,37 @@
 | SFL-T1-02 | — | Create an operator; add an authorisation | active | `SFL-GRD-02` | `whm_operators:create` / `:authorise` | `authorised_by/at` stamped | FR-788 |
 | SFL-T1-03 | — | Create / edit an operation | active | code upper, unique per company; required skill in `WHM_SKILL`; `operators_required ≥ 1` | `whm_operations:create` / `:edit` | — | FR-789 |
 | SFL-T1-04 | — | Create a routing (blank or *Copy from BOM operations*) | `DRAFT` | `SFL-GRD-03` | `whm_routings:create` | `version_no` = 1, operations default from the operation master | FR-790 |
-| SFL-T1-05 | `DRAFT` | Submit | `SUBMITTED` | `SFL-GRD-03`, ≥ 1 operation | `whm_routings:submit` | approval request in the engine (`p8-30`, doc type `WHM_ROUTING`, levels per FR-782) | FR-790 |
-| SFL-T1-06 | `SUBMITTED` | Last level approves | `APPROVED` | no overlapping approved effectivity (`SFL-GRD-04`); not governed by an ECN (`409 VERSION_GOVERNED_BY_ECN`, FR-794) | engine | predecessor end-dated / obsoleted as `BOM-T1-06` | FR-790, FR-782 |
+| SFL-T1-05 | `DRAFT` | Submit | `SUBMITTED` | `SFL-GRD-03`, ≥ 1 operation | `whm_routings:submit` | approval request in the engine (`p8-30`, doc type `WHM_ROUTING`, verb `whm_routings:approve`, levels per FR-782; no single-checker fallback, `D-21` item 6) | FR-790 |
+| SFL-T1-06 | `SUBMITTED` | Last level approves | `APPROVED` | no overlapping approved effectivity (`SFL-GRD-04`); BOM ↔ routing pairing (`SFL-GRD-30`); not governed by an ECN (`409 VERSION_GOVERNED_BY_ECN`, FR-794) | engine | predecessor end-dated / obsoleted as `BOM-T1-06` | FR-790, FR-782 |
 | SFL-T1-07 | `APPROVED` | *New version* | new `DRAFT` | an ECN when the setting requires it (`409 ECN_REQUIRED`) | `whm_routings:new_version` | deep copy, `supersedes_routing_id` | FR-790, FR-794 |
+| SFL-T1-08 | `SUBMITTED` | Return (any level, note) | `DRAFT` | note required | engine | engine request closed; the routing editable again (the engine has no reject for routings — a return is the refusal) | FR-782, FR-790 |
+| SFL-T1-09 | `APPROVED` | *Obsolete* | `OBSOLETE` | no open order (`PLANNED`…`IN_PROGRESS`) froze this routing and no live ECN names it (`409 ROUTING_IN_USE`) | `whm_routings:obsolete` | `effective_to` = today if open; never selected again | FR-790 |
 | SFL-T1-10 | order `RELEASED` (job-card item) | release creates batches | batches `OPEN` | `SFL-GRD-05` | system, in the release transaction | `whm_production_batches` of `standard_batch_size`, `batch_no` = order no. + `-B<nn>` | FR-802 |
+| SFL-T1-10a | batch `OPEN` | first job card of the batch starts | `IN_PROGRESS` | — | system | — | FR-802 |
+| SFL-T1-10b | batch `IN_PROGRESS` | the last operation's card completes and no rework card of the batch is open | `COMPLETED` | — | system | a later rework card (PDI rework) re-opens it `IN_PROGRESS` | FR-802, FR-810 |
+| SFL-T1-10c | batch `OPEN` | *(effect)* order unreleased or cancelled (`PRO-T1-12`, `-20`; refused once a card started, `PRO-GRD-10`) | `CANCELLED` | — | system | its job cards `PENDING`/`READY` → `CANCELLED`; its `PLANNED` units `CANCELLED` with serial values voided (`PUR-T1-08`) | FR-802, FR-803 |
 | SFL-T1-11 | batch `OPEN` | release creates job cards | job cards `PENDING`; first operation `READY` | routing snapshot exists (FR-791) | system | one card per batch × operation, `JCB-` numbers in routing sequence | FR-803 |
-| SFL-T1-12 | batch `OPEN` (no booking) | *Re-split* | batches re-created | Σ = order quantity; no job card started | `whm_job_cards:resplit_batch` | job cards regenerated | FR-802 |
+| SFL-T1-12 | batch `OPEN` (no booking) | *Re-split* | batches re-created | Σ = order quantity; no job card started; no unit of the order `IN_PROCESS` (`409 UNIT_IN_PROCESS`) | `whm_job_cards:resplit_batch` | job cards regenerated; units assigned at release (`unit_serial.assign_at = RELEASE`) move to the new batches in serial order, serial values kept | FR-802, FR-811 |
 | SFL-T1-13 | `PENDING` | predecessor transfers output | `READY` | available input > 0 | system | — | FR-804 |
-| SFL-T1-14 | `READY` · `PAUSED` | *Start* / *Resume* | `STARTED` | `SFL-GRD-06`; machine and tool available (`SFL-GRD-09`, `-10`) | `whm_job_cards:start` | event row; first card of a unit-serial batch triggers serial assignment (`PUR-T1-01`) | FR-804, FR-805 |
+| SFL-T1-14 | `READY` · `PAUSED` | *Start* / *Resume* | `STARTED` | `SFL-GRD-06`; order not on hold (`PRO-GRD-11`); the starting user passes `SFL-GRD-08`'s authorisation predicate for the operation; machine and tool available (`SFL-GRD-09`, `-10`) | `whm_job_cards:start` | event row; first card of a unit-serial batch triggers serial assignment (`PUR-T1-01`) | FR-804, FR-805 |
 | SFL-T1-15 | `STARTED` | *Pause* (reason `JOB_CARD_PAUSE`) | `PAUSED` | reason given | `whm_job_cards:pause` | event row | FR-805 |
-| SFL-T1-16 | `STARTED` | *Book* | `STARTED` or `HELD_QC` | `SFL-GRD-07`, `-08`, `-09`, `-10` | `whm_job_cards:book` | one `OPC-` confirmation with crew, machine, shift, tool; conversion cost rows (`CST-T4-20`); tool life entry; stage consumption (`SFL-T4-02`); → `HELD_QC` when the checkpoint blocks (`QRW-T1-20`) | FR-805, FR-806 |
+| SFL-T1-16 | `STARTED` | *Book* | `STARTED` or `HELD_QC` | `SFL-GRD-07`, `-08`, `-09`, `-10`, `-14` | `whm_job_cards:book` | one `OPC-` confirmation with crew, machine, shift, tool, productive and idle minutes (idle with a `DOWNTIME` reason); conversion cost rows (`CST-T4-20`, idle minutes `is_abnormal`, `CST-T4-22`); tool life entry; stage consumption (`SFL-T4-02`); a unit-serial batch records each unit's outcome (`PUR-T1-06`); **rework** quantity → a rework job card (`QRW-T1-22`); **rejected** quantity → `rejected_open_quantity` awaiting `SFL-T1-21`; → `HELD_QC` when the checkpoint blocks (`QRW-T1-20`) | FR-805, FR-806, FR-810 |
 | SFL-T1-17 | `STARTED` | *Complete* | `COMPLETED` | `SFL-GRD-11`; no open blocking PQC | `whm_job_cards:complete` | good transfers to the next card (`SFL-T4-01`); batch rollups | FR-804, FR-805 |
-| SFL-T1-18 | any booking `RECORDED` | *Cancel booking* | booking `CANCELLED` | the transferred quantity has not been started on downstream (`409 DOWNSTREAM_STARTED`) | `whm_job_cards:cancel_booking` | rollups, consumption, conversion rows and tool life reversed | FR-805 |
+| SFL-T1-16a | `HELD_QC` | *(effect)* the result-final event (`QRW-T1-23`) of the **last** open blocking inspection on the card | `STARTED` | while any blocking inspection on the card is not final the card stays `HELD_QC` | system | accepted quantity transfers (`QRW-T1-21`); further bookings and *Complete* allowed again; there is no manual hold release | FR-809 |
+| SFL-T1-18 | any booking `RECORDED` | *Cancel booking* | booking `CANCELLED` | the transferred quantity has not been started on downstream (`409 DOWNSTREAM_STARTED`); the booking is not the source of an inspection (`QRW-GRD-07`, `409 CONFIRMATION_INSPECTED`); its rework card not started and its rejected quantity not dispositioned | `whm_job_cards:cancel_booking` | rollups, consumption, conversion rows and tool life reversed | FR-805 |
 | SFL-T1-19 | `READY` (job-work operation) | *Start* | `STARTED` | job worker set | `whm_job_cards:start` | child `SUBCONTRACT` order created and linked (`SUB-T1-20`) | FR-807 |
 | SFL-T1-20 | `STARTED` (job-work) | child order completes | `COMPLETED` | — | system | good = processed quantity received; transfers | FR-807 |
+| SFL-T1-21 | card with `rejected_open_quantity` > 0 | *Disposition rejected* — `REWORK` or `SCRAP` (MRB on the work-in-progress, never an FG `REJECTED` receipt pre-fill) | quantity moved off `rejected_open_quantity` | reason (`PRODUCTION_REJECTION` for rework, `PRODUCTION_SCRAP` for scrap); `REWORK` within `QRW-GRD-20` | `whm_job_cards:disposition_reject` | `REWORK` → rework job card (`QRW-T1-22`); `SCRAP` → card / batch `scrap_quantity` +=, units `SCRAPPED` (`PUR-T1-07`), no movement (WIP is not stock) — normal vs abnormal per the scrap reason (`CST-T4-03`) | FR-805, FR-810 |
+| SFL-T1-22 | `PENDING` · `READY` | *(effect)* batch `CANCELLED` (`SFL-T1-10c`) | `CANCELLED` | — | system | — | FR-803 |
 | SFL-T1-30 | `DRAFT` | Publish daily plan | `PUBLISHED` | ≥ 1 line; one plan per site × date | `whm_daily_plans:publish` | board shows plan vs actual | FR-822 |
 | SFL-T1-40 | — | Create a tool | `AVAILABLE` | `SFL-GRD-12` | `whm_tools:create` | — | FR-832 |
 | SFL-T1-41 | `AVAILABLE` · `IN_USE` | *Scrap* | `SCRAPPED` | no open maintenance order | `whm_tools:scrap` | reason required | FR-832 |
-| SFL-T1-42 | — | Create PM / breakdown order | `OPEN` | machine or tool, not both | `whm_maintenance_orders:create` | `MNT-` number | FR-833 |
+| SFL-T1-42 | — | Create PM / breakdown order (`planned_start_at`, `planned_duration_minutes`) | `OPEN` | machine or tool, not both | `whm_maintenance_orders:create` | `MNT-` number; a **breakdown** order sets the machine `BREAKDOWN` at once (bookings refused from creation, F-R32ME-022) | FR-833 |
 | SFL-T1-43 | `OPEN` | *Start* | `IN_PROGRESS` | — | `whm_maintenance_orders:start` | machine → `UNDER_MAINTENANCE` (`BREAKDOWN` for a breakdown order), tool → `UNDER_MAINTENANCE` | FR-833 |
 | SFL-T1-44 | `IN_PROGRESS` | *Complete* | `COMPLETED` | downtime reason (`DOWNTIME`) | `whm_maintenance_orders:complete` | machine / tool back to `ACTIVE` / `AVAILABLE`; plan `next_due_*` re-dated; tool life reset when the plan says so | FR-833 |
+| SFL-T1-50 | `OPEN` · `IN_PROGRESS` | *Cancel* | `CANCELLED` | reason required (`422 REASON_REQUIRED`) | `whm_maintenance_orders:cancel` | machine / tool back to `ACTIVE` / `AVAILABLE` unless another open order holds it; downtime so far recorded when `IN_PROGRESS`; the plan's `next_due_*` unchanged; planned minutes no longer deducted | FR-833 |
+| SFL-T1-51 | `AVAILABLE` | Dispatched to a job worker on an india challan as capital goods (FR-660) | `AT_JOB_WORKER` | no open maintenance order; not `IN_USE` | challan dispatch (system) | bookings refused (`SFL-GRD-10`) | FR-832 |
+| SFL-T1-52 | `AT_JOB_WORKER` | Challan receipt back | `AVAILABLE` | — | challan receipt (system) | life used by the job worker entered as a `whm_tool_life_entries` row (no confirmation) | FR-832 |
 
 ### 1.2 Guards
 
@@ -67,15 +78,19 @@
 | SFL-GRD-02 | Authorisation names an operation **or** a skill; `valid_from ≤ valid_to`; authoriser ≠ the operator's user | `422 AUTHORISATION_SCOPE_REQUIRED`; `403 AUTHORISATION_SELF_GRANT` | FR-788 |
 | SFL-GRD-03 | Routing: item active and make; operation seqs unique and ascending; each work centre of the routing's site; a machine belongs to its operation's work centre; job-work operations name input, output item and job worker | `422 ROUTING_INVALID` · `operations[i]` | FR-790 |
 | SFL-GRD-04 | One approved routing per `(item, site scope)` per date (gist EXCLUDE + pre-check with `flush()`) | `409 ROUTING_EFFECTIVITY_OVERLAP` | FR-790 |
-| SFL-GRD-05 | A job-card item × site has an approved routing effective on the planned start date; batch-produced items have `standard_batch_size > 0` | `409 ROUTING_NOT_EFFECTIVE`; `422 STANDARD_BATCH_SIZE_REQUIRED` | FR-791, FR-802 |
+| SFL-GRD-05 | A job-card item × site has an approved routing effective on the planned start date — the item's own, else for a variant its model's (`whm_product_variants`, FR-791), site-specific before all-sites; a `SAMPLE` order may name a trial routing (`is_trial`, `DRAFT`/`SUBMITTED`) instead (`PRO-T1-50`); batch-produced items have `standard_batch_size > 0` | `409 ROUTING_NOT_EFFECTIVE`; `422 STANDARD_BATCH_SIZE_REQUIRED` | FR-791, FR-802 |
 | SFL-GRD-06 | Available input > 0 (previous card's transferred good, or the batch quantity for the first operation) | `409 PREVIOUS_STAGE_NOT_COMPLETE` | FR-804 |
-| SFL-GRD-07 | good + rejected + scrap (cumulative on the card) ≤ available input; rejected and scrap carry reasons | `422 STAGE_QUANTITY_EXCEEDS_INPUT`; `422 REASON_REQUIRED` | FR-804, FR-805 |
+| SFL-GRD-07 | good + rework + rejected + scrap (cumulative on the card) ≤ available input; rework, rejected and scrap carry reasons | `422 STAGE_QUANTITY_EXCEEDS_INPUT`; `422 REASON_REQUIRED` | FR-804, FR-805 |
 | SFL-GRD-08 | Crew size ≥ `operators_required`; every member an active operator of the site authorised on the booking date for the operation (or its skill at ≥ level) | `422 CREW_TOO_SMALL`; `403 OPERATOR_NOT_AUTHORISED` (names user, operation) | FR-788, FR-805 |
 | SFL-GRD-09 | Machine of the operation's work centre and `ACTIVE`; with `maintenance.overdue_mode = BLOCK` no overdue plan | `422 MACHINE_NOT_OF_WORK_CENTRE`; `409 MACHINE_UNAVAILABLE`; `409 MAINTENANCE_OVERDUE` | FR-786, FR-833 |
-| SFL-GRD-10 | Each required tool `AVAILABLE`/`IN_USE` with `life_used + booked × life_per_unit ≤ life_total` | `409 TOOL_UNAVAILABLE` (names tool and remaining life) | FR-832 |
+| SFL-GRD-10 | The booking names every tool it uses (each required tool at least); each `AVAILABLE`/`IN_USE` (never `AT_JOB_WORKER`, `UNDER_MAINTENANCE`, `SCRAPPED`) with `life_used + booked × life_per_unit ≤ life_total` | `409 TOOL_UNAVAILABLE` (names tool and remaining life) | FR-832 |
 | SFL-GRD-11 | Complete: every unit of a unit-serial batch has its required bindings (`PUR-GRD-03`); stage consumption posted without shortage | `422 UNIT_BINDING_INCOMPLETE`; `422 BACKFLUSH_SHORTAGE` | FR-806, FR-812 |
 | SFL-GRD-12 | Tool code unique per company; `life_total > 0`; `warn_at_percent` in (0, 100] | `422 TOOL_INVALID` | FR-832 |
 | SFL-GRD-13 | Registry rows (`V562001`) inserted under the owning-module guard; menu sections ≤ 8 leaves | migration `RAISE` (`RL-003`) | FR-835, FR-834 |
+| SFL-GRD-30 | **BOM ↔ routing pairing** at the last approval level of a BOM or routing version of a `uses_job_cards` item and at ECN implement: every BOM version effective in the routing's date range has each line's `operation_seq` in the routing, and every routing effective in the BOM's range covers the BOM's lines; `whm_routings.bom_id` records the BOM version validated | `422 BOM_OPERATION_NOT_IN_ROUTING` naming BOM, line, seq | FR-791 |
+| SFL-GRD-31 | Masters (shifts, operators, operations, routings, tools, maintenance plans, machines) are deleted only while unreferenced; a referenced master is deactivated (`is_active = false`), never deleted | `409 MASTER_IN_USE` naming the first reference | FR-787…FR-790, FR-832, FR-833 |
+| SFL-GRD-14 | Unit-serial batch booking: the units named per outcome are the card's units in process and their counts equal the booked good / rework / rejected / scrap | `422 UNIT_OUTCOME_MISMATCH` · `units` | FR-805, FR-812 |
+| SFL-GRD-15 | A job-card order takes no generic confirmation (WS-328 *Add*, WS-324 *Confirm*): every confirmation goes through the job-card booking service | `409 JOB_CARD_BOOKING_REQUIRED` · `orderId` (`QRW-GRD-16`) | FR-805 |
 
 ### 1.3 Unreachable
 
@@ -85,6 +100,8 @@
 | SFL-UNR-02 | A booking edited | cancel + re-book only (`SFL-T1-18`) | FR-805 |
 | SFL-UNR-03 | A job-card order released without an approved routing | `SFL-GRD-05` | FR-791 |
 | SFL-UNR-04 | A mobile shop-floor screen | `D-20` item 5; web screens accept a scanner as keyboard | FR-834 |
+| SFL-UNR-05 | A job card stuck `HELD_QC` after its inspections are final | `SFL-T1-16a` | FR-809 |
+| SFL-UNR-06 | Rejected stage output received as FG `REJECTED` | `SFL-T1-21`; `QRW-T4-03`/`-04` apply only to orders without job cards | FR-805 |
 
 ## 2. T2 — Action × role × state
 
@@ -94,9 +111,9 @@
 | SFL-T2-02 | Authorise an operator | `whm_operators:authorise` | — | production manager (≠ operator) | FR-788 |
 | SFL-T2-03 | Maintain operations / routings | `whm_operations:*`, `whm_routings:create/edit/submit` | `DRAFT` | design / production engineer | FR-789, FR-790 |
 | SFL-T2-04 | Approve a routing level | engine level role | `SUBMITTED` | Design Head, Plant Head | FR-782, FR-790 |
-| SFL-T2-05 | Start / pause / book / complete | `whm_job_cards:start/pause/book/complete` | per T1 | supervisor or operator | FR-805 |
+| SFL-T2-05 | Start / pause / book / complete / disposition rejected | `whm_job_cards:start/pause/book/complete/disposition_reject` | per T1 | supervisor or operator (disposition: supervisor) | FR-805 |
 | SFL-T2-06 | Board, daily plan | `whm_reports:view`, `whm_daily_plans:*` | — | planner, supervisor | FR-821, FR-822 |
-| SFL-T2-07 | Tools, maintenance | `whm_tools:*`, `whm_maintenance_*:*` | per T1 | maintenance planner | FR-832, FR-833 |
+| SFL-T2-07 | Tools, maintenance (incl. *Cancel* an order) | `whm_tools:*`, `whm_maintenance_*:*` (`:delete` only while unreferenced, `SFL-GRD-31`) | per T1 | maintenance planner | FR-832, FR-833 |
 | SFL-T2-08 | AUDITOR | `:view` only, never `:export` | any | auditor | FR-834 |
 
 ## 3. T3 — Time-driven rules
@@ -111,10 +128,10 @@
 | ID | Cause | Effect | Source |
 |---|---|---|---|
 | SFL-T4-01 | Job card completes (or books with `allow_partial_transfer`) | good quantity becomes the next card's available input; WIP by stage moves | FR-804 |
-| SFL-T4-02 | Booking on an operation that consumes `BACKFLUSH`/`STAGE_BACKFLUSH` lines | one `PRODUCTION_STAGE_CONSUMPTION` movement (lines → `VIRT-PRODUCTION`), idempotency `JOB_CARD:<id>:CONSUME:<seq>`; lot / serial items never negative (`D-20` item 13a) | FR-806 |
+| SFL-T4-02 | Booking on an operation that consumes `BACKFLUSH`/`STAGE_BACKFLUSH` lines | one `PRODUCTION_STAGE_CONSUMPTION` movement (lines → `VIRT-PRODUCTION`), idempotency `JOB_CARD:<id>:CONSUME:<seq>`; lot / serial items never negative (`D-20` item 13a); posted by the **job-card booking service** (the confirmation service still holds no ledger writer, `QRW-UNR-02`); its value enters the order's pool as `P_S` and its lots / serials the receipt's genealogy inputs (`PRC-T4-05`); a cancelled booking reverses the movement and both | FR-806, FR-648 |
 | SFL-T4-03 | Job-work job card starts | child `SUBCONTRACT` order `PLANNED` → released with the batch quantity; dispatch, challan, receipt as `mfg-subcontracting` | FR-807 |
-| SFL-T4-04 | Maintenance order `IN_PROGRESS` | capacity load deducts its planned minutes; bookings refused on the machine / tool | FR-833 |
-| SFL-T4-05 | Booking with a tool | `whm_tool_life_entries` row; status `IN_USE` while a card using it is `STARTED` | FR-832 |
+| SFL-T4-04 | Maintenance order `OPEN` / `IN_PROGRESS`, and a plan's next due occurrence with no order | capacity load deducts the order's remaining planned minutes inside `[planned_start_at, + planned_duration_minutes)`, or the plan's `planned_duration_minutes` on its due date — an occurrence with an order counts only through the order (never twice); bookings refused on the machine / tool while `IN_PROGRESS` (and on a `BREAKDOWN` machine from creation) | FR-833 |
+| SFL-T4-05 | Booking with tools | one `whm_tool_life_entries` row per tool used (partial uk booking × tool — the booking's tool child rows; no scalar `tool_id`); status `IN_USE` while a card using it is `STARTED` | FR-832 |
 
 ## 5. T5 — Screen contract
 
@@ -122,8 +139,8 @@
 |---|---|---|---|
 | SFL-T5-01 | WS-380 Operators & Skills · WS-381 Shifts | Customer (authorisations child editor) · Department; operator name through the platform user-display helper; validity dates `formatDateSync` | FR-787, FR-788 |
 | SFL-T5-02 | WS-382 Operations · WS-383 Routings | Department · Customer multi-tab (Header · Operations · Tools · Approval · Compare); compare is a backend diff | FR-789, FR-790 |
-| SFL-T5-03 | WS-387 Job Cards · WS-388 Production Batches | Service Vehicle with Start / Pause / Book / Complete modals (refusals inside the modal `AlertBox`); a scan field accepts the job-card QR and serials; Batches read grid + re-split | FR-803…FR-805 |
-| SFL-T5-04 | WS-393 Production Board · WS-394 Daily Plans | report board (status columns, batch Kanban, WIP by stage) — backend aggregates; Daily Plans Customer with plan-vs-actual tab | FR-821, FR-822 |
+| SFL-T5-03 | WS-387 Job Cards · WS-388 Production Batches | Service Vehicle with Start / Pause / Book / Complete / *Disposition rejected* modals (refusals inside the modal `AlertBox`; the Book modal lists the batch's units per outcome for a unit-serial batch); a scan field accepts the job-card QR and serials; Batches read grid + re-split | FR-803…FR-805 |
+| SFL-T5-04 | WS-393 Production Board · WS-394 Daily Plans | report board (status columns, batch Kanban, WIP by stage) — backend aggregates; Daily Plans Customer with plan-vs-actual tab — a line's actual is matched on the line's own dimensions (work centre × item, plus order / batch / shift when the line names them; R32-fix F-R32MS-024) | FR-821, FR-822 |
 | SFL-T5-05 | WS-396 Tools & Dies · WS-397 Maintenance | Department + life history · Service Vehicle (plans tab, orders ladder) | FR-832, FR-833 |
 | SFL-T5-06 | Menus | L2 *Engineering* (5), *Shop Floor* (7), *Quality & Units* (6) under *Manufacturing* (`V563000`) | FR-834 |
 
@@ -132,7 +149,8 @@
 `SHIFT_OVERLAP`, `AUTHORISATION_SCOPE_REQUIRED`, `AUTHORISATION_SELF_GRANT`, `ROUTING_INVALID`, `ROUTING_EFFECTIVITY_OVERLAP`,
 `ROUTING_NOT_EFFECTIVE`, `STANDARD_BATCH_SIZE_REQUIRED`, `PREVIOUS_STAGE_NOT_COMPLETE`, `STAGE_QUANTITY_EXCEEDS_INPUT`,
 `CREW_TOO_SMALL`, `OPERATOR_NOT_AUTHORISED`, `MACHINE_NOT_OF_WORK_CENTRE`, `MACHINE_UNAVAILABLE`, `MAINTENANCE_OVERDUE`,
-`TOOL_UNAVAILABLE`, `TOOL_INVALID`, `DOWNSTREAM_STARTED`, `UNIT_BINDING_INCOMPLETE`, `BACKFLUSH_SHORTAGE` — all *(proposed)*.
+`TOOL_UNAVAILABLE`, `TOOL_INVALID`, `ROUTING_IN_USE`, `MASTER_IN_USE`, `BOM_OPERATION_NOT_IN_ROUTING`, `DOWNSTREAM_STARTED`, `UNIT_BINDING_INCOMPLETE`, `BACKFLUSH_SHORTAGE`, `UNIT_IN_PROCESS`,
+`UNIT_OUTCOME_MISMATCH`, `JOB_CARD_BOOKING_REQUIRED` — all *(proposed)*.
 
 ## 7. Edge cases
 
@@ -152,6 +170,8 @@ calibration (core `p8-20`).
 | Date | Change |
 |---|---|
 | 2026-10-25 | v0 derived from FRD-MFG §6.1 (R32, `D-20`) |
+| 2026-10-25 | R32 fix wave (`R32-functional-review-mfg-eng.md`): routing return / obsolete rows `SFL-T1-08`, `-09` (F-R32ME-028); breakdown sets `BREAKDOWN` at create, maintenance cancel `SFL-T1-50`, planned PM window and single deduction `SFL-T4-04` (F-022…-024); every tool of a booking as child rows `SFL-T4-05`, `SFL-GRD-10`, tool `AT_JOB_WORKER` rows `SFL-T1-51`, `-52` (F-025, -028, -031); variant → model routing fallback and the `SAMPLE` trial path in `SFL-GRD-05` (F-015, -008); BOM ↔ routing pairing at approval `SFL-GRD-30` (F-016, -017); masters deactivated once referenced `SFL-GRD-31` (F-033); engine verb, no single-checker fallback (F-006) |
+| 2026-10-25 | R32-fix (`R32-functional-review-mfg-shop.md`): `HELD_QC → STARTED` on result final, no manual release (F-R32MS-003); batch rollup and cancel transitions, card `CANCELLED` (F-R32MS-006); generic confirmations refused on job-card orders (F-R32MS-009); cancel cites `QRW-GRD-07`, stage consumption posted by the booking service (F-R32MS-011); stage consumption in pool and genealogy (F-R32MS-013); idle minutes abnormal (F-R32MS-016); rework → rework card, rejected → MRB disposition (F-R32MS-018); re-split keeps assigned units (F-R32MS-021); start checks hold and authorisation (F-R32MS-027); per-unit outcomes (F-R32MS-001) — `SFL-T1-10a`…`-10c`, `-12`, `-14`, `-16`, `-16a`, `-18`, `-21`, `-22`, `SFL-GRD-07`, `-14`, `-15`, `SFL-UNR-05`, `-06`, `SFL-T2-05`, `SFL-T4-02` |
 
 ## 10. Invariants and scenarios
 

@@ -13,7 +13,7 @@ the checker figures are from the run of **2026-09-02 08:25 IST** — the design 
 authoring, so re-run before quoting one.
 
 ```bash
-ls issues/p*.md | wc -l              # 200 tasks (#156–#161 folded into hosts, closed)
+ls issues/p*.md | wc -l              # 231 tasks (#156–#161 folded into hosts, closed; recounted 2026-10-25)
 ls issues/*-EPIC-*.md | wc -l        #  13 epics (1 master + 12 phase)
 ```
 
@@ -253,7 +253,7 @@ Run these after any change to the backlog. Each audit round of the accounting pr
 the *previous* round's findings were indexed and not traced; indexing feels like closure and is not.
 
 ```bash
-# 200 tasks, and the plan's §2 table agrees in both directions
+# 231 tasks, and the plan's §2 table agrees in both directions
 ls issues/p*.md | wc -l                                                  # 200
 python3 tools/check-design-set.py --check 8                              # pass
 
