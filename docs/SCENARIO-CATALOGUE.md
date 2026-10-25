@@ -1180,3 +1180,14 @@ Same rules as wave 2: each block is owned by one task, which replaces its reserv
 > `WH-SC-420`…`479`. Owners: `p8-17` (720, 721), `p8-07` (722), `p8-18` (723–725), `p8-19` (726–728), `p8-20` (729),
 > `p8-23` / `p8-24` (730), `p8-21` (731), `p8-22` (732), `p8-06` (733, 734), `p1-13` (735, 736), `p8-03` (737),
 > `p8-09` / `p8-10` (738), `p8-11` (739).
+
+## W72 · Counterfeit control at the receipt (WH-SC-800…803)
+
+> Authored 2026-10-26 by W72 #606 S2 (FR-455, `CPM-GRD-05`, `CPM-T4-03`). Owner: W72 (`issues/finding-w72.md`).
+
+| # | Given | When | Then | FR | L | Mod | V·Ph | Type |
+|---|---|---|---|---|---|---|---|---|
+| **WH-SC-800** | Item `CHIP-7` with a current source from `SUP-X` marked **not authorised** (`is_authorised_source = false`); the receiver names `AVAILABLE` on the line | Post the GRN from `SUP-X` | The receipt **posts** — never refused. The line and its serials land `SUSPECT` (not allocatable: no putaway task; GRN flagged awaiting QC), the stock is on the WS-080 candidate list, and one `WH_GRN_LINE_SUSPECT_SOURCE` audit entry names the GRN, line, item, supplier, source row and flag. A regulated class on the item does not change it: SUSPECT wins over FR-134 QUARANTINE | `FR-455` | — | warehouse | v1.1·P3 | edge |
+| **WH-SC-801** | The same item's source from `SUP-Y` is authorised (the default) | Post a GRN from `SUP-Y` | Nothing changes: the status resolves as before (line → item × site → movement type), and `NO_INSPECTION` is recorded where it decided the status | `FR-455` | — | warehouse | v1.1·P3 | happy |
+| **WH-SC-802** | Item `CHIP-9` has **no** source row for `SUP-Z` | Post a GRN from `SUP-Z`, once with `warehouse.receiving.unlisted_source_treatment = NOT_SUSPECT` (default) and once with `SUSPECT` | `NOT_SUSPECT`: received as before. `SUSPECT`: the line lands `SUSPECT` with the audit entry naming no source row. A GRN with no supplier is treated as unlisted | `FR-455` | — | warehouse | v1.1·P3 | config |
+| **WH-SC-803** | 10 units of `CHIP-7` in `SUSPECT` from WH-SC-800 | QA dispositions them `RESTOCK_SELLABLE` (or `REJECT` / `RTV` / `SCRAP`) on WS-080 | The disposition gate accepts SUSPECT stock (it is QC-held) and moves it by the chosen arm; the SUSPECT disposition itself cannot be retired or edited (system row) | `FR-455`, `FR-134` | — | warehouse | v1.1·P3 | happy |

@@ -136,6 +136,7 @@ the RFID reader endpoint (v2); holds (owned by `cycle-count`).
 | 2026-10-23 | v0 derived for R30 `CP-FR-007` row 4 |
 | 2026-10-23 | R31: `F-CA-003` (LPN `SHIPPED`, `CONSUMED` unreachable); `F-CA-008` (`LSS-T1-05`, `-05a`, `LSS-GRD-06`, `-06a`, `LSS-T2-02`); `F-CA-009` (`LSS-GRD-02a` the one shelf-life rule, `LSS-T3-01` both effects); `F-CA-011` (holds owned by `cycle-count`, `LOT_NOT_ISSUABLE` dropped); `F-CA-014` (`lotStatus`, `soldToCounterpartyName`); `LSS-OPEN-01` decided |
 | 2026-10-25 | `P2-05` #42 (`LSS-OPEN-01` built): `LSS-GRD-02a` refusal cell filled (`BEST_BEFORE_REASON_REQUIRED` / `BEST_BEFORE_REASON_INVALID` on `bestBeforeReasonCodeId`); reason context `BEST_BEFORE_DESPATCH` with system code `CUSTOMER_ACCEPTED` (`affects_demand_history = true`) seeded by `V511422`; picker endpoint `GET /wh-shipments/reason-codes` under `wh_shipments:dispatch` (no new permission); the reason is written to the affected lot's grain line only; §10 row 5 resolved |
+| 2026-10-26 | W72 #606 (FR-455, classic `8db39bb014`): a serial received on a suspect-source GRN line carries stock status `SUSPECT` (a QC-held, non-allocatable status, `V501239`) until a QA disposition moves it |
 | 2026-10-25 | R32-fix `F-R32MS-020` (`D-21` item 3): `LSS-T4-01` — for unit-serial items the MFG registry writes the warranty fields; core keeps custody and shipment only |
 
 ## 8. Invariants and scenarios
