@@ -1,11 +1,11 @@
 # Open work index — every open warehouse issue, once
-<!-- check-design-set: issue-citations file #323 #324 #386 #397 #519 #520 #539 #543 #610 #611 #613 — real issues in this repository filed as follow-ups outside create-issues.sh, so they have no task file and no CREATED.md row; listed here so every open issue appears once -->
+<!-- check-design-set: issue-citations file #323 #324 #386 #397 #519 #520 #539 #543 #610 #611 #613 #608 #609 #612 #614 #615 #616 #617 #618 #619 #620 #621 #622 #623 #624 #625 #626 #627 #628 #629 #630 #631 #632 #633 #634 — real issues in this repository filed as follow-ups outside create-issues.sh, so they have no task file and no CREATED.md row; listed here so every open issue appears once -->
 
-**Updated 2026-10-24 (#566, #113, #123, #562, #577, #93 closed; #610, #611, #613 filed).** One row per open issue in `neetub1508/warehouse-issues`. Every piece of warehouse work sits in exactly one open issue; this file says which. Rebuild it whenever an issue opens or closes, and re-run the reconcile in §11.
+**Updated 2026-10-24 (#566, #113, #123, #562, #577, #93, #567, #563, #564, #570, #54, #89, #13 closed; #608, #609, #610–#634 filed).** One row per open issue in `neetub1508/warehouse-issues`. Every piece of warehouse work sits in exactly one open issue; this file says which. Rebuild it whenever an issue opens or closes, and re-run the reconcile in §11.
 
 **Order (user, 2026-10-23): `P7` first, then the rest.** *Must run after P7* is **true** where a `P7` task edits a file, class, table or permission the item touches, or the item adds a migration or schema change (`P7` rewrites the migration set in place once, `D-16` item 4, and `P7-13` rebuilds on it); all of `P8`–`P10` are true by `P7-13`'s rule. *Scope* says whether the whole task is to build or only its *Reopened scope* items.
 
-**Totals: 113 open issues** — P7 1 · P8 14 · P9 15 · P10 15 · P5/P6 survivors 11 · reopened 38 · new findings 2 · old open findings 4 · other 13 (#539 #543 closed as carried by `P10-14` #605, 2026-10-23).
+**Totals: 130 open issues** — P7 1 · P8 10 · P9 15 · P10 15 · P5/P6 survivors 11 · reopened 35 · new findings 2 · old open findings 4 · other 37 (#539 #543 closed as carried by `P10-14` #605, 2026-10-23).
 
 ## 1. P7 — removal and the clean rebuild (run first) — 1 open
 
@@ -13,18 +13,14 @@
 |---|---|---|---|---|---|
 | #545 | `issues/09-EPIC-p7.md` | EPIC: P7 — Remove dealer and retail code, rename the dual-use items, rebuild on a clean… | epic (checklist of its tasks) | false | is P7 |
 
-## 2. P8 — stores in core — 14 open
+## 2. P8 — stores in core — 10 open
 
 | Issue | Task file | Title | Scope | Must run after P7 | Why |
 |---|---|---|---|---|---|
 | #546 | `issues/10-EPIC-p8.md` | EPIC: P8 — Manufacturing stores in core (gate, bill-matched GRN, sampling QC, MRN, requ… | epic (checklist of its tasks) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
-| #563 | `issues/p8-02.md` | P8-02 · The demand-order port for sales orders — SO and customer-PO references, a custo… | whole task | **true** | `P7-13`: P8–P10 start only after P7 is merged |
-| #564 | `issues/p8-03.md` | P8-03 · Gate entry register (inward / outward) with PO, bill and weighment on arrival, … | whole task | **true** | `P7-13`: P8–P10 start only after P7 is merged |
 | #565 | `issues/p8-04.md` | P8-04 · GRN bill number / date / billed quantity, the duplicate-bill guard, short recei… | whole task | **true** | `P7-13`: P8–P10 start only after P7 is merged |
-| #567 | `issues/p8-06.md` | P8-06 · QC with a polymorphic source — goods receipt, store return, production receipt,… | whole task | **true** | `P7-13`: P8–P10 start only after P7 is merged |
 | #568 | `issues/p8-07.md` | P8-07 · QC reject → an explicit, manual "Raise supplier return" action (FR-139 amended … | whole task | **true** | `P7-13`: P8–P10 start only after P7 is merged |
 | #569 | `issues/p8-08.md` | P8-08 · MRN — material receipt note authorised by a second person, MRN_PENDING as the s… | whole task | **true** | `P7-13`: P8–P10 start only after P7 is merged |
-| #570 | `issues/p8-09.md` | P8-09 · Material requisition (indent) for a department, cost centre or production order… | whole task | **true** | `P7-13`: P8–P10 start only after P7 is merged |
 | #571 | `issues/p8-10.md` | P8-10 · Store issue to VIRT-CONSUMED with a cost object (department / cost centre / pro… | whole task | **true** | `P7-13`: P8–P10 start only after P7 is merged |
 | #572 | `issues/p8-11.md` | P8-11 · Store return — linked to the issue line, partial, valued at the issue cost, con… | whole task | **true** | `P7-13`: P8–P10 start only after P7 is merged |
 | #573 | `issues/p8-12.md` | P8-12 · Stores print documents — gate entry slip, RGP/NRGP gate pass, GRN with the bill… | whole task | **true** | `P7-13`: P8–P10 start only after P7 is merged |
@@ -88,11 +84,10 @@
 | #131 | `issues/p6-08.md` | P6-08 · The `logistics` module — trips, ePOD and freight settlement, posting through th… | whole task (+1 tracking item 2026-10-23) | **true** | P7 also edits: `CacheConfiguration`, `filterUtils`, `wh_carrier_accounts`, `wh_carrier_services` |
 | #138 | `issues/p6-10.md` | P6-10 · The real-time operations dashboard on the platform widget framework | whole task | **true** | P7 also edits: `CacheConfiguration`, `registry` |
 
-## 6. Reopened — R30/R31 scope (`reopened-r31`) — 38 open
+## 6. Reopened — R30/R31 scope (`reopened-r31`) — 35 open
 
 | Issue | Task file | Title | Scope | Must run after P7 | Why |
 |---|---|---|---|---|---|
-| #13 | `issues/p1-01.md` | P1-01 · The item master, its four status facts, and the variant schema | reopened items only (2) | **true** | adds a migration / schema change — P7 rewrites the migration set (`D-16` item 4) |
 | #14 | `issues/p3-02.md` | P3-02 · Task assignment pull and push from one table, the supervisor exception console,… | reopened items only (1) | **true** | adds a migration / schema change — P7 rewrites the migration set (`D-16` item 4) |
 | #17 | `issues/p5-01.md` | P5-01 · `warehouse-3pl` scaffold, the client as an object, and the build-time proof tha… | reopened items only (3) | **true** | adds a migration / schema change — P7 rewrites the migration set (`D-16` item 4) |
 | #20 | `issues/p1-02.md` | P1-02 · UoM and identity — one scan-resolution service, and a barcode that resolves to … | reopened items only (1) | **true** | adds a migration / schema change — P7 rewrites the migration set (`D-16` item 4) |
@@ -107,7 +102,6 @@
 | #42 | `issues/p2-05.md` | P2-05 · Expiry is a state, not an alert — and the four shelf-life enforcement points na… | reopened items only (1) | false | no P7 file in scope |
 | #44 | `issues/p5-07.md` | P5-07 · SLA definitions, measurements and breaches as objects, and the portal's perform… | reopened items only (1) | false | no P7 file in scope |
 | #53 | `issues/p2-07.md` | P2-07 · Allocation — soft and hard reservations, expiry as a job, strategy as a configu… | reopened items only (1) | false | no P7 file in scope |
-| #54 | `issues/p1-05.md` | P1-05 · The facility model — warehouses, the location hierarchy and the virtual-locatio… | reopened items only (1) | **true** | adds a migration / schema change — P7 rewrites the migration set (`D-16` item 4) |
 | #57 | `issues/p3-11.md` | P3-11 · Work orders as VAS and light manufacturing — assembly that balances by value, r… | reopened items only (2) | false | no P7 file in scope |
 | #65 | `issues/p2-09.md` | P2-09 · Discrete picking to a real staging location, and dispatch as the only inventory… | reopened items only (1) | **true** | P7 also edits: `WhDemandOrderService` |
 | #66 | `issues/p3-13.md` | P3-13 · Order edit after release as a seeded rule matrix, and fulfilment policy per own… | reopened items only (1) | **true** | adds a migration / schema change — P7 rewrites the migration set (`D-16` item 4) |
@@ -115,7 +109,6 @@
 | #71 | `issues/p0-08.md` | P0-08 · The movement port — a wire contract you cannot take back | reopened items only (1) | false | no P7 file in scope |
 | #83 | `issues/p0-10.md` | P0-10 · Tasks — the execution object, in v1, because a duration cannot be backfilled | reopened items only (1) | false | no P7 file in scope |
 | #88 | `issues/p4-13.md` | P4-13 · The regulated-goods licence pack — one licence object, one expiry clock, one de… | reopened items only (1) | false | no P7 file in scope |
-| #89 | `issues/p0-11.md` | P0-11 · The transactional outbox — no precedent anywhere in this repository | reopened items only (1) | **true** | adds a migration / schema change — P7 rewrites the migration set (`D-16` item 4) |
 | #90 | `issues/p3-18.md` | P3-18 · Migration mapping profiles, twelve months of demand history, and the OEM price … | reopened items only (1) | false | no P7 file in scope |
 | #92 | `issues/p1-10.md` | P1-10 · The import framework in the handler-registry shape, with a reversal path | reopened items only (1) | false | no P7 file in scope |
 | #106 | `issues/p2-15.md` | P2-15 · Replenishment as a document, demand history maintained by posting, and lost sal… | reopened items only (2) | **true** | P7 also edits: `wh_purchase_orders` |
@@ -147,7 +140,7 @@
 | #240 | `issues/finding-w46.md` | [Finding] W46 · Optional tax-basis valuation remains deferred | whole task | false | no P7 file in scope |
 | #241 | `issues/finding-w47.md` | [Finding] W47 · Provider-backed operational features require actual connector evidence | whole task | false | no P7 file in scope |
 
-## 9. Other open issues (master epic and follow-ups without a task file) — 13 open
+## 9. Other open issues (master epic and follow-ups without a task file) — 37 open
 
 Dispositions 2026-10-23: none is unbatched. #1 counts via `CLOSE-1` of each batch; #173 #174 #175 are `[!] DEFERRED` (accounting) and #185 #323 #324 #386 #519 #520 `[!] BLOCKED`, all listed in `BATCH-WAREHOUSE-REOPENED-R31.md` § Deferred / blocked. #539 and #543 were **closed (duplicate) as CARRIED** by `P10-14` #605 (`issues/p10-14.md:164` — #539 items 1–2 added as an acceptance item — and `:168`; item 3 and #543 decided by `D-18` item 1). #397 was already closed.
 
@@ -157,6 +150,30 @@ Dispositions 2026-10-23: none is unbatched. #1 counts via `CLOSE-1` of each batc
 | #610 | — (follow-up of `issues/p8-05.md`) | P8-05 follow-up: seed the ISO 2859-1 / Z1.4 AQL sampling table family | whole issue | false | P8-05 carry G10; needs a licensed table |
 | #611 | — (follow-up of `issues/p8-01.md`) | P8-01 follow-up: an OPEN purchase order's header value is 0 while the value-on-order tile counts its firm lines | whole issue | false | P8-01 S5 deviation; no spec text for an OPEN header value |
 | #613 | — (follow-up of `issues/p8-16.md`) | P8-16 follow-up: replaying an empty published suggestion group answers 201 instead of 200 | whole issue | false | P8-16 S5 deviation (low); body correct, status only |
+| #608 | — (no task file; tracking hygiene) | Issue mirror sync never checks titles — #30 and #80 have drifted | whole issue | false | `issues/create-issues.sh` tooling only; no code |
+| #609 | — (no task file; settings governance) | GLOBAL-SETTINGS catalogue misses P8–P10 and contract-only setting keys | whole issue | false | doc-only (`GLOBAL-SETTINGS-DECISIONS.md`); P8 keys land with `P8-14` #575 |
+| #612 | — (follow-up of `issues/p1-05.md`) | WhbLocationCustodyModal uses raw HTML controls, a hand-rolled tab strip, window.confirm and useEffect fetching | whole issue | false | R31 #54 reviewer gate; sibling of the new Dedicated owners modal |
+| #614 | — (follow-up of `issues/p0-11.md`) | warehouse-base catalogue modals: replace native confirm() with ConfirmDialog (6 modals) | whole issue | false | R31 #89 S4 re-verify; `WhbLocationDedicatedOwnersModal` (#54) is the pattern |
+| #615 | — (follow-up of `issues/p1-01.md`) | WhWarehouseScopeContractTest.SITE_SCOPED_TABLES drifted from the warehouse-base list (3 tables missing) | whole issue | false | R31 #13 barrier added `whb_item_uom_defaults` to the base list only |
+| #616 | — (follow-up of `issues/p8-02.md`) | Port replay must re-check the post-lock verb: audit P8-01 PO port and P8-16 replenishment port (D8 template) | whole issue | false | P8-02 S3 F5/F11; P8-02 fixed (12305dfd73), closed siblings to audit |
+| #617 | — (follow-up of `issues/p8-01.md`) | P8-01 PO schedule overdue digest: stamp does not re-check overdue; re-notify period compares instants | whole issue | false | found fixing P8-03 #564 F7/F8 |
+| #618 | — (follow-up of `issues/p8-03.md`) | Audit single-id includeId pickers for scope widening (id = :includeId OR …) across warehouse | whole issue | false | P8-03 S4 read-leak fix; same shape elsewhere |
+| #619 | — (follow-up of the R31/P8 barrier) | warehouseHelp: 78 help keys missing for carrierStatusMappings and trackingEvents pages (en/fr/hi) | whole issue | false | barrier writer 7fcaa0c3fb cross-check; i18n only |
+| #620 | — (follow-up of `issues/p8-09.md`) | WhbAlertNotifier swallows delivery failures, so a once-only reminder latch is set for undelivered alerts (all stamp-and-tell jobs) | whole issue | false | P8-09 S3/S5; shared by P8-01 and P8-03 jobs |
+| #621 | — (follow-up of `issues/p8-09.md`) | reasonCode.byCode labels are code-only: DUPLICATE/OTHER show other groups' wording on requisition reason pickers | whole issue | false | P8-09 barrier writer (87dec2c996) |
+| #622 | — (follow-up of `issues/p8-06.md`) | GR line does not expose the inspection plan assignment that decided its status (P8-06 follow-up) | whole issue | false | P8-06 S5 deviation |
+| #623 | — (follow-up of `issues/p8-09.md`) | Requisitions: Approve shown to a non-head approver under DEPARTMENT_HEAD policy (then 403) (P8-09 #570 follow-up) | whole issue | false | P8-09 S5 deviation (UI flag; server refuses) |
+| #624 | — (follow-up of `issues/p8-09.md`) | Requisitions: contract decisions to ratify: zero estimate skips second approval, open required-by date, raw reason description (P8-09 #570) | whole issue | false | P8-09 decisions built as defaults; ratification owed |
+| #625 | — (follow-up of `issues/p8-09.md`) | Requisitions / CN-14: flows not runtime-testable without MFG and buying modules (P8-09 #570 test debt) | whole issue | false | needs P10 (MFG) and P9 (buying) owner beans |
+| #626 | — (follow-up of `issues/p8-03.md`) | Gate entries/passes: validation and flag gaps from P8-03 S5 (uomCode, direction/purpose, can* flags, cancel strictness) | whole issue | false | P8-03 S5 deviations (low) |
+| #627 | — (follow-up of `issues/p8-02.md`, `issues/p8-03.md`, `issues/p8-09.md`) | Grid /management with no sortBy returns oldest-first, not the contract default created DESC (shared BaseController) | whole issue | false | P8-02/P8-03/P8-09 S5; shared `BaseController` default |
+| #628 | — (follow-up of `issues/p8-02.md`) | Demand orders: port edge behaviours from P8-02 S5 (no-op amend bumps revision, null revision message, create-after-cancel, partial reduction after release) | whole issue | false | P8-02 S5 deviations |
+| #629 | — (follow-up of `issues/p1-01.md`) | Item UoM defaults: PO uom-default with unknown warehouseId returns 204 (not 404); effectiveFrom ignores its @JsonFormat (R31 #13) | whole issue | false | R31 #13 S5 deviations (low) |
+| #630 | — (follow-up of `issues/p1-05.md`) | Location dedications: runtime test gaps and same-owner re-add error ordering (R31 #54) | whole issue | false | R31 #54 S5 deviations / test debt |
+| #631 | — (follow-up of `issues/p8-06.md`) | Inspection plans: test-resolution reads at start of date; inspectable-stock picker positive case untested (P8-06 #567) | whole issue | false | P8-06 S5 deviation / test debt |
+| #632 | — (no task file; process) | Process: rebase.autoStash is on in both repos, contradicting the batch never-stash rule | whole issue | false | repo config; no code |
+| #633 | — (no task file; QA fixtures) | QA fixture residue needing manual cleanup after P8/R31 S5 runs | whole issue | false | local dev stack data only; no code |
+| #634 | — (follow-up of `issues/p8-09.md`) | Requisitions: first approver can still reject at the final-approval step (contract decision) | whole issue | false | P8-09 S5; contract decision owed |
 | #173 | — (no task file) | Follow-up · Accounting envelope v2 — duty status, lot, serial and exchange rate per line | whole issue | — | **DEFERRED-ACCOUNTING** — label `deferred-accounting`; `[!] DEFERRED` in `BATCH-WAREHOUSE-REOPENED-R31.md` § Deferred / blocked (receivers accounting #36/#37, adapter P4-01) |
 | #174 | — (no task file) | Follow-up · The accounting-facing adapter has no home — no module owns WhbAccountingHan… | whole issue | — | **DEFERRED-ACCOUNTING** — label `deferred-accounting`; `[!] DEFERRED` in `BATCH-WAREHOUSE-REOPENED-R31.md` § Deferred / blocked (adapter home accounting P4-01) |
 | #175 | — (no task file) | Follow-up · Prove INTEGRATED mode end to end — WH-SC-156, WH-SC-157, CONFIG-CASE-07/10 | whole issue | — | **DEFERRED-ACCOUNTING** — label `deferred-accounting`; `[!] DEFERRED` in `BATCH-WAREHOUSE-REOPENED-R31.md` § Deferred / blocked (needs receiver + #174 adapter) |
@@ -290,7 +307,7 @@ comm -3 <(gh issue list --repo neetub1508/warehouse-issues --state open --limit 
         <(grep -oE '^\| #[0-9]+ \|' docs/reviews/OPEN-WORK-INDEX.md | tr -dc '0-9\n' | sort -n)
 ```
 
-Result: **empty** — every open issue appears exactly once, nothing is missing (129 open issues on GitHub, 129 distinct rows here, 2026-10-23, after #539/#543 closed as carried by #605).
+Result: **empty** — every open issue appears exactly once, nothing is missing (130 open issues on GitHub, 130 distinct rows here, 2026-10-24, after #567 #563 #564 #570 #54 #89 #13 closed and #608–#634 listed; was 129/129 on 2026-10-23).
 
 **Batch reconcile (2026-10-23).** Every open issue has exactly one open batch line (`- [ ]` or `- [!]`) across `BATCH-WAREHOUSE-P4/P6/P7/P8/P9/P10/REOPENED-R31.md` in classic; the §9 follow-ups are the `[!] DEFERRED`/`[!] BLOCKED` lines in `REOPENED-R31.md` § Deferred / blocked, and the epics count via their close-out lines. Issues in no batch: **none**. (#88 also has a ticked `[x]` line in `P4.md`, its pre-reopen close; its one open line is in `REOPENED-R31.md`.)
 
