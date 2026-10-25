@@ -93,8 +93,8 @@
 | ITM-GRD-R32A-01 | A document line's flow (purchase, manufacture, sale, production issue) is allowed by the item's type flags (R32, PRD §4 "item type drives which flows apply") | `422 ITEM_TYPE_FLOW_NOT_ALLOWED` · `itemId` | `WhbItemFlowPolicy` | FR-730 |
 | ITM-GRD-R32A-02 | With `warehouse-india` on and `warehouse.item.hsn_must_resolve`, **on create, on an HSN change, or when an item becomes purchasable / saleable** (never on an unrelated edit of an existing item — R32-fix F-R32CA-025), a purchasable or saleable item's HSN resolves in `whin_hsn_tax_master` at today's date; the GST rate is shown, never stored on the item | `422 HSN_NOT_IN_TAX_MASTER` · `taxClassificationCode` | `WhbTaxRateLookup` | FR-731 |
 | ITM-GRD-R32A-03 | A `qc_required` item's receipt line resolves an inspection plan that inspects | `422 QC_PLAN_REQUIRED` · `itemId` | plan resolver | FR-731 |
-| ITM-GRD-R32A-04 | `default_location_id` is a physical, non-virtual location of the same site | `422 DEFAULT_LOCATION_INVALID` · `defaultLocationId` | — | FR-731 |
-| ITM-GRD-R32A-05 | A `WARN` / `ALLOW` negative-stock mode applies only to a non-lot, non-serial item on a `BACKFLUSH` consumption; saving one scoped to a tracked item is refused; the `I-6` resolver function returns `BLOCK` otherwise | `422 NEGATIVE_STOCK_NOT_ALLOWED_FOR_TRACKED_ITEM` · `itemId` | DB resolver (`V500601`) | FR-732 |
+| ITM-GRD-R32A-04 | `default_location_id` is an active, physical location or zone of the same site — not a virtual counterparty, not transit, not mobile. A retired store the row already carries is kept when unchanged (Z-005); putaway re-checks it at use | `422 DEFAULT_LOCATION_INVALID` · `defaultLocationId` | — | FR-731 |
+| ITM-GRD-R32A-05 | A `WARN` / `ALLOW` negative-stock mode applies only to a non-lot, non-serial item on a `BACKFLUSH` consumption (every inbound line at a `CONSUMED` / `PRODUCTION` virtual location) posted straight through — a movement held for approval loses the context and resolves `BLOCK` at approval; the `I-6` resolver function returns `BLOCK` otherwise. Saving a `WARN` / `ALLOW` item-site setting for a tracked item is refused; a `WARN` / `ALLOW` policy row scoped to a tracked item is refused by the database (no policy API). An item later edited from untracked to tracked is not refused — the resolver answers `BLOCK` for it. The site-level `negativeStockMode` is not read by the resolver (it reads `whb_negative_stock_policies` only) | `422 NEGATIVE_STOCK_NOT_ALLOWED_FOR_TRACKED_ITEM` · `negativeStockMode` (item-site setting); policy row: `RAISE NEGATIVE_STOCK_NOT_ALLOWED_FOR_TRACKED_ITEM`, no field | DB resolver + policy trigger (`V500601`) | FR-732 |
 
 ### 1.4 Unreachable
 
@@ -115,6 +115,7 @@
 | ITM-T2-02 | Maintain conversions, identifiers, packaging, external refs | the WS-024…WS-031 resources | — | FR-055, FR-057, FR-058, FR-061 |
 | ITM-T2-03 | Merge stock on a supersession | `whb_item_supersessions:merge` | `KEEP_SEPARATE` · `MERGE_DEMAND` | FR-072 |
 | ITM-T2-04 | Read an item's PURCHASE unit default for a PO line: `GET /warehouse/inbound/purchase-orders/items/{itemId}/uom-default?counterpartyId&warehouseId&orderDate` (`orderDate` ISO date; all optional) → 200 with the resolved row, 204 when there is none. An unknown item is 404 (as `/items/{itemId}/uoms`); a named site outside the caller's branch tier is 403 before the resolver runs (as `/owners`). Ship-to is never applied on a PO. The base `GET /warehouse/masters/items/{id}/uom-defaults/resolve` (`whb_items:view`, optional `at` instant) stays the master's own lookup | `wh_purchase_orders:view` | any (read) | RG-010, #13 G2 |
+| ITM-T2-05 | Edit a **system** item type (seeded by a module): only the six flow flags (`isPurchasable`, `isManufacturable`, `isSaleable`, `isProductionIssuable`, `avlRequiredDefault`, `qcRequiredDefault`) change; any other field is refused, and delete / deactivate stay locked. Each flag change is audited | `whb_item_types:edit` | active | FR-730, `ITM-GRD-R32A-01` |
 
 ## 3. T3 — Time-driven rules
 
@@ -154,6 +155,7 @@
 | ITM-T5-10 | WS-072 PO modal — pinned / unpinned unit | a line's unit is **pinned** when the user picks it or the saved line carries it; the default never overwrites a pinned unit. An unpinned line takes its item's default and follows supplier, site and date changes. A new item, or an owner change, clears and unpins the unit. Picking the unit that is already pre-filled fires no change and leaves the line unpinned (noted for ratification) | RG-010, #13 G2 |
 | ITM-T5-11 | WS-072 PO modal — convertible units only | the pre-fill offers only a unit that converts to the item's base unit at the read instant (FR-143): the endpoint answers 204 for a non-convertible default (the same `convertibleUnits` source as `/items/{itemId}/uoms`), and the modal pre-fills only a code present in the line's unit list | FR-143, RG-010 |
 | ITM-T5-12 | WS-072 PO modal — pending / failed lookup | a supplier, site or date change blanks every unpinned line's unit until the new lookup answers; a pending lookup leaves it blank, a failed lookup leaves it blank (required-unit validation then asks the user). Pinned lines are never touched | RG-010, #13 G2 |
+| ITM-T5-13 | WS-027 Item × Site — default store picker | `GET /warehouse/masters/item-site-settings/location-options?warehouseId&search&limit` under `whb_item_site_settings:view` (a site outside the caller's branch tier is 403); empty until a site is chosen; offers only active locations the save accepts (`ITM-GRD-R32A-04`), narrowed before the cap | FR-731, `ITM-GRD-R32A-04` |
 
 ## 6. Out of scope
 
@@ -170,6 +172,7 @@ ABC recompute (`FR-463`); variants and style matrices (`FR-443`…`445`, segment
 | 2026-10-24 | #13 G2 (RG-010 PO pre-fill): `ITM-T2-04`, `ITM-T5-09`…`-12` added. **Owed, not made here:** `DATA-MODEL.md:816` still names the UoM-default scope column `channel_id`; settled S1 / NFR-OPEN-03 uses `ship_to_address_id` — amend `DATA-MODEL.md` |
 | 2026-10-25 | R32 (`D-20` items 1, 2-13a, 2-14): guards `ITM-GRD-R32A-01`…`-05` — item-type flow flags and the manufacturing types, GST rate shown from the HSN master, `make_or_buy`, `qc_required`, default store, negative stock restricted to non-tracked backflush (`issues/p1-03.md` §R32) |
 | 2026-10-25 | `ITM-GRD-R32A-02` | **R32-fix (`F-R32CA-025`).** The HSN check runs on create, HSN change or becoming purchasable / saleable only; unrelated edits of existing items are not refused | R32 review |
+| 2026-10-25 | #33 lane A S3 (`cd7f3480c3`): `ITM-GRD-R32A-04` states the active / non-mobile / non-transit rule and the Z-005 retired-but-unchanged exception; `ITM-GRD-R32A-05` names the real refusal field (`negativeStockMode`; the policy guard is a database raise), the approval-path exclusion, the untracked → tracked edit and the unread site-level mode; `ITM-T2-05` (system item-type flow-flag edit) and `ITM-T5-13` (default-store picker) added |
 
 ## 8. Invariants and scenarios
 
