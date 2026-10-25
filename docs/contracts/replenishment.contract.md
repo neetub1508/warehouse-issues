@@ -115,7 +115,7 @@
 
 | ID | When | Then | Enforced in | Source |
 |---|---|---|---|---|
-| RPN-T4-01 | A run completes | per item × site below its reorder point: a suggestion carrying item, site, on-hand, allocated, on-order, ROP, suggested quantity, source (`PURCHASE`/`TRANSFER`), source site, supplier and reason | `WhReplenishmentEngine` | FR-253 |
+| RPN-T4-01 | A run completes | per item × site below its reorder point: a suggestion carrying item, site, on-hand, allocated, on-order, ROP, suggested quantity, source (`PURCHASE`/`TRANSFER`), source site, supplier and reason. The supplier is the item's preferred **authorised** source (`WhbPreferredSupplierSourceSql`, `is_authorised_source = true`, `CPM-GRD-05`): an unauthorised source is never proposed, the site's own row still beats an every-site row among authorised ones, and with no authorised current source the supplier is blank (the buyer names it at Accept) | `WhReplenishmentEngine` | FR-253, FR-455 |
 | RPN-T4-02 | A sister holds surplus | the suggestion is a `TRANSFER` from the sister with the largest surplus, before any purchase line | same | FR-254 |
 | RPN-T4-03 | A suggestion is converted | a **draft** purchase order (`PURCHASE`) or transfer order (`TRANSFER`) is created and linked (`resulting_document_*`); nothing is approved or sent | `WhReplenishmentSuggestionService` | FR-253 |
 | RPN-T4-04 | A short pick, a min / max breach, an idle face, or a case-level item at an each face | a `REPLEN` task with trigger `SHORT_PICK` (emergency priority, ahead of every open task), `MIN_MAX`, `OPPORTUNISTIC` or `BREAK_CASE`; priority = max(task type default, max priority of the picks starving on that face + 1) | `WhReplenishmentTaskGenerator` | FR-255, FR-259 |
@@ -149,6 +149,7 @@ fill-rate reports (`reports-kpis`); producing lost sales from trade enquiries an
 | 2026-10-23 | v0 derived (R30 `CP-FR-007` row 13) |
 | 2026-10-23 | R31: `F-CB-002` (`ACCEPTED` momentary, `RPN-T1-06` folded into `-05`); `RPN-OPEN-01` decided (manual capture removed); `FR-258` restored by `D-18` item 6 (`RPN-T3-03`, `RPN-OPEN-02`, §10 row 4); `RPN-GRD-11` — the reorder run skips items an `ExternalPlanningOwner` plans (`mfg-mrp` `MRP-OPEN-10`, `p8-16`) |
 | 2026-10-26 | R31 `P1-03` #33 S4 (S3 F5, F8 / G4): `FR-252` amended to two grains — §10 row 1 struck, `A1` and `RPN-GRD-01` pointers dropped; `RPN-GRD-12` added (MAKE / non-purchasable items get no purchase proposal; the excluded count is logged only) |
+| 2026-10-26 | W72 #606 S4 / #106 H4 (classic `956d43c66f`): `RPN-T4-01` — the proposed supplier is an authorised source only; site-before-every-site order kept (`WhReplenishmentPreferredSupplierSourceIntegrationTest.shouldNeverProposeAnUnauthorisedSource`) |
 
 ## 8. Invariants and scenarios
 
