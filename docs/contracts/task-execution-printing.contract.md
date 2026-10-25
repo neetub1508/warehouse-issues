@@ -81,6 +81,7 @@
 | TEP-GRD-09 | A routing rule resolves kind × scope to a printer in sequence; no rule → the browser path | `NO_RULE_MATCHED`; `PRINT_ROUTING_RULE_SEQUENCE_DUPLICATE`, `PRINT_ROUTING_RULE_PRINTER_INVALID` | names the kind | `FR-224` |
 | TEP-GRD-10 | One open labour timer per user; only its owner pauses, resumes or ends it; it times an open task | `LABOUR_TIMER_ALREADY_OPEN`, `LABOUR_TIMER_NOT_OWN`, `LABOUR_TIMER_NOT_RUNNING`, `LABOUR_TIMER_NOT_PAUSED`, `LABOUR_TIMER_ENDED`, `TASK_NOT_OPEN`, `LABOUR_TASK_ALREADY_TIMED` | names the timer | `FR-227` |
 | TEP-GRD-11 | An instrument carries a verification certificate number and validity window; a weighing on an instrument out of verification needs an explicit acknowledgement and is flagged on the receipt; tare ≤ gross; not in the future | `CERTIFICATE_INCOMPLETE`, `CERTIFICATE_WINDOW_INVALID`, `OUT_OF_VERIFICATION_NOT_ACKNOWLEDGED`, `TARE_EXCEEDS_GROSS`, `WEIGHED_AT_IN_FUTURE`, `INSTRUMENT_INACTIVE` | names the instrument and its certificate | `FR-223` |
+| TEP-GRD-R32A-01 | Lot and serial labels (`LOT_LABEL`, `SERIAL_LABEL`) print from a lot / serial that exists in the label's site scope; their QR payload resolves through the scan service to that lot / serial; print and reprint are audited (R32, PRD §13.3 labels) | `404` lot / serial · `422 LABEL_TARGET_OUT_OF_SCOPE` | *"This lot is not at a site you can print for"* | FR-739 |
 
 ### 1.4 Transitions that must be unreachable
 
@@ -138,6 +139,7 @@
 |---|---|
 | 2026-10-23 | v0 derived for `D-17` item 1 (R30 `CP-FR-007` row 11); mobile FRs deferred by `D-17` item 2 |
 | 2026-10-23 | R31 `F-CA-005`: `TEP-T1-02` actor corrected to the built permissions, `TEP-DIV-03` added; `TEP-OPEN-01` decided |
+| 2026-10-25 | R32: `TEP-GRD-R32A-01` — lot and serial labels (`p8-12` R32, `FR-739`) |
 
 ## 7. Invariants and scenarios
 

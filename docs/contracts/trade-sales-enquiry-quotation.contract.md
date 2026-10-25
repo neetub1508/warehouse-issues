@@ -164,6 +164,24 @@ won count / value, hit rate % (counts, currency-free), lost value; values are ne
 Filters: period (`DateRangePicker`), `customerId`, `salesExecId`, `lossReasonCode`, `currencyCode`. Export
 allowed (grouped by currency).
 
+## R32 additions (PRD 2026-10-24, `D-20`)
+
+Rows added by the R32 fold (FRD-TRADE §4.15). Numbers continue each kind's sequence; where a number exists on one side of the purchase / sales mirror only, the asymmetry is stated in FRD-TRADE §5 rows M35…M40.
+
+| ID | Kind | Rule | Refusal / effect | Source |
+|---|---|---|---|---|
+| TSQ-GRD-09 | guard | Enquiry has `customer_id` **or** prospect fields (`prospect_name` + mobile or e-mail, `prospect_state_code`); `lead_id` is a bare `leads-base` id, `lead_ref` frozen; no `dealer` / `leads` / `services` read | field `422` | FR-750 |
+| TSQ-T1-13 | transition | Win of a prospect quotation: counterparty (`CUSTOMER`) + address + GSTIN + trade profile created through base's counterparty service, `customer_id` set on enquiry and quotation, then the SO draft (FR-601) | SO on a prospect `422 TRADE_PROSPECT_NEEDS_CUSTOMER` | FR-750 |
+| TSQ-GRD-10 | guard | Enquiry line: `product_nature` (`STANDARD`/`CUSTOM`) required; `sample_needed`; model + variant axis values resolve to one SKU of the style × variant matrix or the line stays not-catalogued; attachments `WHT_SALES_ENQUIRY(_LINE)` | `422 TRADE_VARIANT_UNRESOLVED` | FR-751 |
+| TSQ-GRD-11 | guard | Quotation submit: every `CUSTOM` line (all lines when `warehouse.trade.feasibility.required_for` = `ALL`) has an `APPROVED` feasibility review | `422 TRADE_FEASIBILITY_NOT_APPROVED {enquiryLineId}` | FR-771 |
+| TSQ-T1-14 | transition | Feasibility review `DRAFT` → `SUBMITTED` → `APPROVED` / `REJECTED` (`FEASIBILITY`, `TAM-GRD-12`); an approved `NOT_FEASIBLE` offers *Regret* reason `NOT_FEASIBLE`; WS-314 lists lines without an approved review | — | FR-771 |
+| TSQ-T4-06 | effect | *Request costing*: cost sheet lines from `WhPreSaleCostingProvider.estimate` (`CN-19`) or by hand; margin and suggested price computed in the backend; quotation line keeps `cost_sheet_id` | MFG absent → manual lines only | FR-772 |
+| TSQ-GRD-12 | guard | Margin < `warehouse.trade.quotation.target_margin_pct` (15) sets `below_target_margin`; cost sheets need `wht_quotation_cost_sheets:view` | — | FR-772 |
+| TSQ-GRD-13 | guard | With `warehouse.trade.sales.sample_approval_before_order` = true, a `sample_needed` line is won only once its MFG sample (`WhSampleRequestPort.status`) is customer-approved | `422 TRADE_SAMPLE_NOT_APPROVED` | FR-772 |
+| TSQ-T4-07 | effect | Quotation line tax rows (`wht_customer_quotation_line_taxes`) at the ship-to state; frozen at approval; printed | `422 TRADE_TAX_CLASSIFICATION_MISSING {lineNo}` | FR-761, FR-762 |
+| TSQ-T2-10 | action | Print `CUSTOMER_QUOTATION` with watermark: `DRAFT` / `SUPERSEDED` text on unapproved / superseded versions, the company watermark on approved ones | — | FR-760 |
+| TSQ-T1-15 | transition | *Share* an approved / sent quotation or a regret letter by e-mail / WhatsApp (marks `SENT` as print does) | `422 TRADE_SHARE_DOCUMENT_NOT_APPROVED` | FR-763 |
+
 ## 6. Out of scope
 
 | Item | Decision |
@@ -181,6 +199,7 @@ allowed (grouped by currency).
 | 2026-10-23 | every T1, guard, unreachable, T3 and T4 row | `Source` column added, filled from FRD-TRADE §4, so every rule traces to the FR it proves | R30 `CP-FR-008` |
 | 2026-10-23 | §0, A9, `TSQ-UNR-04`, `TSQ-T4-05`, §8 | Lost sale from pre-sales: a line lost or regretted for stock calls core `captureLostSale` once (`D-17` item 4, FR-680) | R30 `CP-GA-003` |
 | 2026-10-23 | §0 fields, `TSQ-GRD-04`, `-GRD-08`, `-T4-05`, every T2 row | R31: quotation `dispatch_warehouse_id` (F-TR-009); a not-catalogued line can be regretted (F-TR-010); lost sale through `WhLostSalePort.captureLostSale` with an envelope (F-TR-011, `CN-11`); stale-write code (`TPR-OPEN-03`); T2 Source FRs (F-TR-019) | R31 |
+| 2026-10-25 | `TSQ-GRD-09`, `TSQ-T1-13`, `TSQ-GRD-10`, `TSQ-GRD-11`, `TSQ-T1-14`, `TSQ-T4-06`, `TSQ-GRD-12`, `TSQ-GRD-13`, `TSQ-T4-07`, `TSQ-T2-10`, `TSQ-T1-15` (new, *R32 additions*) | R32 fold of the client PRD (`D-20`): lead / prospect enquiry and conversion at win, model / variant / nature / sample flags, feasibility, pre-sale costing, sample gate, GST lines, watermark, share | R32 / `D-20` |
 
 ## 8. Invariants and scenarios
 

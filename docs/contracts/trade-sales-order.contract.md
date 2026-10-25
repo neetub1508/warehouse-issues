@@ -151,8 +151,8 @@ per-order counter, at submit), `release_date`, `planned_dispatch_date`, `status`
 |---|---|---|---|
 | TSO-UNR-01 | Trade writing `wh_demand_orders` | port only | FR-605, FR-608 |
 | TSO-UNR-02 | Core screens editing, releasing, cancelling or closing a trade-created demand order | trade's `DemandOrderChangeGuard` bean (`POS-GRD-14`) refuses `EDIT`, `RELEASE`, `CANCEL`, `CLOSE` with `409 DEMAND_OWNED_BY_SOURCE_MODULE`; `ALLOCATE` is allowed (`OD-39`) | FR-608 |
-| TSO-UNR-03 | Changing an approved SO except by amendment; a credit check blocking release | no edit after approval (`TOA`); credit refused (FRD §11 R1) — no such guard exists | FR-553 |
-| TSO-UNR-04 | Auto-release of a BLANKET schedule line; an SO invoice | releases are planner acts (twin of `TRD-11`); invoice refused (R2) | FR-605 |
+| TSO-UNR-03 | Changing an approved SO except by amendment; a credit check blocking release | no edit after approval (`TOA`); credit refused (FRD §11 R1) — no such guard exists · **R32 (`D-20` item 3): the credit half is superseded by `TSO-GRD-25` / `-26` — the credit check is now enforced through the accounting credit service** | FR-553 |
+| TSO-UNR-04 | Auto-release of a BLANKET schedule line; an SO invoice | releases are planner acts (twin of `TRD-11`); invoice refused (R2) · **R32 (`D-20` item 4): the invoice stays accounting's, now created from trade's dispatch hand-off (`TSO-T4-16`)** | FR-605 |
 | TSO-UNR-05 | Storing shipped quantity in `wht_`; a release blocked by ATP shortfall | `TRD-03`; FR-607: shown, never blocked | FR-607, FR-608 |
 | TSO-UNR-06 | Changing `so_type` after submit | not editable | FR-605 |
 | TSO-UNR-07 | A trade SO `CLOSED` while its core demand order can still take releases | auto-close and header short-close call `closeDemand` in the same transaction | FR-609 |
@@ -248,6 +248,27 @@ needed), released not shipped — counts. Columns: `soNumber`, `soType`, `custom
 Multi-select *Release* with per-line qty (BLANKET / OPEN rows only; FIXED rows show ATP only, `TRD-12`).
 Export ⊇ grid. Empty state: *Nothing due in the horizon.*
 
+## R32 additions (PRD 2026-10-24, `D-20`)
+
+Rows added by the R32 fold (FRD-TRADE §4.15). Numbers continue each kind's sequence; where a number exists on one side of the purchase / sales mirror only, the asymmetry is stated in FRD-TRADE §5 rows M35…M40.
+
+| ID | Kind | Rule | Refusal / effect | Source |
+|---|---|---|---|---|
+| TSO-GRD-20 | guard | `warehouse.trade.sales.so_requires_won_quotation` = true (default): SO only from a won quotation line or a sales rate contract | `422 TRADE_SO_NEEDS_WON_QUOTATION` | FR-752 |
+| TSO-GRD-21 | guard | Line from a quotation keeps `source_quotation_line_id`, `quoted_unit_price`; a different price / discount sets `price_differs_from_quotation`; customer PO copy (`WHT_SALES_ORDER`, `CUSTOMER_PO`) required when the profile's `customer_po_required`; ATP shown at submit and approval, never blocking | `422 TRADE_CUSTOMER_PO_COPY_REQUIRED` | FR-752 |
+| TSO-GRD-22 | guard | `bill_to_address_id` (role `BILL_TO`) required; `dispatch_mode_code` (`trade_dispatch_mode`); `CUSTOM` line `drawing_no` + `drawing_revision` frozen at approval | field `422` | FR-753 |
+| TSO-T4-14 | effect | `warehouse.trade.sales.reservation_timing` = `AT_APPROVAL` (default): approval / release asks core to allocate every `FIRM` line now (`allocateImmediately`, `CN-20`); shortfall shown; `FORECAST` never reserves | — | FR-754 |
+| TSO-GRD-23 | guard | Dispatch release: transporter, vehicle no, LR no / date, planned date required at approval when mode `TRANSPORTER`; `SO_RELEASE` rule per `warehouse.trade.sales.dispatch_release_approval` (`ONE_LEVEL` → role `trade_dispatch_incharge`); transport details go to the core shipment (`CN-20`) | `422 TRADE_DISPATCH_TRANSPORT_REQUIRED` | FR-755 |
+| TSO-GRD-24 | guard | With `warehouse.trade.sales.dispatch_checklist_required` (true): every required checklist item of the release's lines done (`wht_so_dispatch_release_checks`) before the shipment hand-off; `DISPATCH_LOADING_LIST` print with core-picked serials | `422 TRADE_DISPATCH_CHECKLIST_INCOMPLETE {releaseLineId, item}` | FR-756 |
+| TSO-T4-15 | effect | SO line tax rows (`wht_so_line_taxes`) at the ship-to state, frozen at approval; printed on the SO acknowledgement | `422 TRADE_TAX_CLASSIFICATION_MISSING {lineNo}` | FR-761, FR-762 |
+| TSO-T1-17 | transition | *Share* the SO acknowledgement by e-mail / WhatsApp; sets `ISSUED`, `ack_status = SENT` as print does | `422 TRADE_SHARE_DOCUMENT_NOT_APPROVED` | FR-763 |
+| TSO-GRD-25 | guard | Credit check (`WhCustomerCreditCheckProvider`, `CN-17`) at SO submit (shown), SO approval and dispatch release approval (enforced before any port call); candidate = gross value; exposure + open SO + shipped-not-invoiced; result row in `wht_credit_check_results`. **Supersedes `TSO-UNR-03`'s credit half** | `422 TRADE_CREDIT_LIMIT_EXCEEDED {limit, exposure, candidate}`; `503 TRADE_CREDIT_CHECK_UNAVAILABLE` when the setting is `BLOCK` | FR-765 |
+| TSO-T1-18 | transition | `SO_CREDIT_OVERRIDE` request from a blocked SO / release with reason (`trade_credit_override_reason` + note); approval covers that SO version or release up to its amount; audited `TRADE_CREDIT_OVERRIDDEN` | `422 TRADE_OVERRIDE_REASON_REQUIRED` | FR-766 |
+| TSO-GRD-26 | guard | Overdue beyond `warehouse.trade.sales.overdue_grace_days` (0) blocks SO approval; advance terms (`advance_required_pct` / `_amount`) vs advance read from accounting (or recorded fields without accounting) block dispatch release approval; both overridable by `TSO-T1-18` | `422 TRADE_OVERDUE_OUTSTANDING {amount, days}`; `422 TRADE_ADVANCE_NOT_RECEIVED {required, received}` | FR-767 |
+| TSO-T4-16 | effect | On core `demand_order.shipped`: one `SALES_INVOICE` proposal (`wht_accounting_proposals`: SO price, discount, tax rows, HSN, customer PO, e-way ref, shipped serials) handed over as `whb_accounting_handovers` kind `SALES_DISPATCH` (`CN-18`). **Supersedes `TSO-UNR-04`'s invoice half: the invoice is accounting's, created from this hand-off** | `REJECTED` ack shows accounting's reason; *Retry* | FR-773 |
+| TSO-T4-17 | effect | Accounting ack → `wht_so_line_billings`; line `billing_status` derived; `warehouse.trade.sales.close_rule` = `SHIPPED_AND_INVOICED` adds billed = shipped to auto-close (`TSO-T3-03`) | — | FR-774 |
+| TSO-T4-18 | effect | Display status `APPROVED` → `IN_PRODUCTION` → `PARTLY_DISPATCHED` → `FULLY_DISPATCHED` → `INVOICED` → `CLOSED`, derived from core production progress (`CN-19`), shipments and billings; stored status unchanged; WS-315 order-book row per line | — | FR-776 |
+
 ## 6. Out of scope
 
 | Item | Decision |
@@ -270,6 +291,7 @@ Export ⊇ grid. Empty state: *Nothing due in the horizon.*
 | 2026-10-23 | `TSO-T3-03`, A6 | SO mirror of FRD-TRADE `CN-8`: an SO `TOLERANCE` amendment pushes nothing to core (a core demand line holds no tolerance; `CreateDemandCommand` carries none); auto-close reads trade's amended `under_tolerance_pct` (`TOA-T4-02`). The PO side goes to core as `amendOrder` `lineChanges.overTolerancePct` / `underTolerancePct` (`STO-D25`) | R30 `CP-GB-002` |
 | 2026-10-23 | §0 fields, `TSO-T1-12`, `-13a`, `-16`, `-GRD-06`, `-T2-06`, `-T3-03`, `-T4-02`, `-T4-06`, `-T4-10`, `-T4-13`, `-UNR-08`, every T2 row | R31: replacement exempt from type / validity / schedule gates (F-TR-002); `firmScheduleLine(…, releaseRef)` (F-TR-003, `CN-9`); `closeScheduleLineShort` for partly picked lines and tolerated remainders (F-TR-005, F-TR-006, `CN-10`); port reasons `whb_reason_codes` (F-TR-007); lost-sale trigger, OPEN release line, principal (F-TR-008); `WhLostSalePort` (F-TR-011, `CN-11`); service principal (F-TR-012); T2 Source FRs (F-TR-019) | R31 |
 | 2026-10-24 | every row citing a core event | P8 decision record `EV-1` (DECISIONS `D-19`): every outbox event code renamed to the dotted `whb_event_types` vocabulary of registry R.4 (PC-42) — e.g. `purchase_order.amended`, `demand_order.shipped`, `rma.matched`, `supplier_return.dispatched`; no behaviour change | decision record P8 wave 1/2 |
+| 2026-10-25 | `TSO-GRD-20`, `TSO-GRD-21`, `TSO-GRD-22`, `TSO-T4-14`, `TSO-GRD-23`, `TSO-GRD-24`, `TSO-T4-15`, `TSO-T1-17`, `TSO-GRD-25`, `TSO-T1-18`, `TSO-GRD-26`, `TSO-T4-16`, `TSO-T4-17`, `TSO-T4-18` (new, *R32 additions*) | R32 fold of the client PRD (`D-20`): acceptance checks, bill-to / dispatch mode / frozen drawing revision, reservation at approval, dispatch transport + approval + checklist, GST, share, credit / overdue / advance checks and override, invoice hand-off, billing status + close on invoice, display status (`TSO-UNR-03`, `-04` superseded in part) | R32 / `D-20` |
 
 ## 8. Invariants and scenarios
 

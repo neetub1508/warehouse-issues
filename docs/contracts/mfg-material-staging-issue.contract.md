@@ -214,6 +214,7 @@ Tool-crib custody; kanban / pull replenishment of line-side; per-unit consumptio
 | 2026-10-22 | Consistency pass: late issues/returns on `COMPLETED` (MD-14), single reservation owner via `reservationsFor` (MD-16), no `onIssueReversed` (MD-17), staging close short (MD-22), `CST-` cross-references, `MSI-EC-` edge-case ids |
 | 2026-10-23 | §0, `MSI-GRD-11`, `MSI-T4-12` | Bonded / MOOWR stock to an order allowed under the bond rules; rules in `mfg-bonded-issue` | R30 `CP-GB-001`; `D-17` item 3 |
 | 2026-10-23 | `MSI-T1-01`, `-02`, `-06`, `-07`, `-13`, `MSI-GRD-06`, `-11`, `-12`, `MSI-T2-01`, `MSI-T4-01`, `-04`, `-06`…`-08`, Source column, `MSI-OPEN-03`, `-05` | R31: holds closed explicitly and remainders re-created (F-MF-002); bonded freeze after output refused (F-MF-004); closing a list keeps the line-side hold (F-MF-006); no issue or staging to a `SUBCONTRACT` order (F-MF-011); net STRICT formula (F-MF-012); Source FR on every rule row (F-MF-018); request extra on `COMPLETED` (F-MF-023); DECIDE rows applied (`R31-decisions.md`) |
+| 2026-10-25 | R32 (`D-20` items 10, 13a): §12 — MR per order / batch / stage, staging only for `STAGE_BACKFLUSH`, ad-hoc substitution under a deviation (FR-827) |
 
 ## 10. Invariants and scenarios
 
@@ -228,3 +229,14 @@ Tool-crib custody; kanban / pull replenishment of line-side; per-unit consumptio
 | MSI-OPEN-03 *(resolved — R31-decisions DECIDE: default stands)* | A core store-issue line carries no deviation reason, so `WARN` cannot be satisfied on the core screen | `MSI-T1-13` captures it on the order before the MRQ (adopted here) |
 | MSI-OPEN-04 *(resolved — MD-17; FRD-MFG SEAM-M2 corrected)* | FRD-MFG SEAM-M2 lists an `onIssueReversed` hook; FRD-STORES `FR-533` says there is none (`STO-D11`) | follow STORES: no reversal hook; correction is a store return |
 | MSI-OPEN-05 *(resolved — R31-decisions DECIDE: default stands)* | `whm_component_substitutions` has no status for a `STRICT` pending substitution | pending = `approved_by` null (adopted); a status column only if a reject path is wanted later |
+
+## 12. R32 rules (PRD 2026-10-24, `D-20`)
+
+Owning task: `issues/p10-06.md` `## R32 additions (PRD 2026-10-24)` (FR-827).
+
+| ID | Rule | Refusal / effect | Source |
+|---|---|---|---|
+| MSI-T1-20 | *Request materials* scope **order** / **batch** / **stage** / **batch × stage**: only open `ISSUE` lines in scope; required = BOM qty × (batch or order qty) × (1 + scrap %) net of issued − returned; MRQ lines carry `batch_ref` and `operation_seq` (core MRQ fields — core fold) | one MRQ per request, idempotency `PRODUCTION_ORDER:<id>:MRQ_CREATE:<seq>` | FR-827 |
+| MSI-GRD-20 | Staging lists are generated only from `STAGE_BACKFLUSH` lines; an `ISSUE` line goes through an MR (`D-20` item 10) | `409 ISSUE_LINE_REQUIRES_REQUISITION` | FR-827 |
+| MSI-GRD-21 | An ad-hoc substitute (not in the BOM's alternate group) with `adhoc_substitution_requires_deviation` = `true` needs a deviation consumed through `WhQualityDeviationPort` (`p8-18`, usage `ALTERNATE_ISSUE`) in the substitution transaction; BOM alternates need none | `409 DEVIATION_REQUIRED`; core `409 DEVIATION_NOT_APPLICABLE` / `DEVIATION_QUANTITY_EXCEEDED` | FR-827 |
+| MSI-UNR-20 | A `BACKFLUSH` line on an MR | backflush lines are consumed at stage or receipt only | FR-827 |

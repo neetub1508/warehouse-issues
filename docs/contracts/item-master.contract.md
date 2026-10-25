@@ -90,6 +90,11 @@
 | ITM-GRD-20 | An item's owner never changes; an item two owners stock is two items | `422 ITEM_OWNER_IMMUTABLE` · `ownerId` (`WhbItemValidationService.java:219`) | — | FR-048 |
 | ITM-GRD-21 | The lot and serial control modes do not change (a downgrade included) while the item has any non-zero position, virtual and negative included | `422 ITEM_HAS_STOCK` · the first changed mode field (`validateControlModesUnchanged`, `WhbItemValidationService.java:251-256`) | **database trigger** (`V500027`) — the service check only names the field | FR-098 |
 | ITM-GRD-22 | A conversion a posted ledger line has used is not edited or deleted; a new factor supersedes it (`ITM-T1-06`) | `409 CONVERSION_IN_USE` (`WhbItemUomConversionService.java:39`, `:49`) | database trigger | FR-055 |
+| ITM-GRD-R32A-01 | A document line's flow (purchase, manufacture, sale, production issue) is allowed by the item's type flags (R32, PRD §4 "item type drives which flows apply") | `422 ITEM_TYPE_FLOW_NOT_ALLOWED` · `itemId` | `WhbItemFlowPolicy` | FR-730 |
+| ITM-GRD-R32A-02 | With `warehouse-india` on and `warehouse.item.hsn_must_resolve`, a purchasable or saleable item's HSN resolves in `whin_hsn_tax_master` at today's date; the GST rate is shown, never stored on the item | `422 HSN_NOT_IN_TAX_MASTER` · `taxClassificationCode` | `WhbTaxRateLookup` | FR-731 |
+| ITM-GRD-R32A-03 | A `qc_required` item's receipt line resolves an inspection plan that inspects | `422 QC_PLAN_REQUIRED` · `itemId` | plan resolver | FR-731 |
+| ITM-GRD-R32A-04 | `default_location_id` is a physical, non-virtual location of the same site | `422 DEFAULT_LOCATION_INVALID` · `defaultLocationId` | — | FR-731 |
+| ITM-GRD-R32A-05 | A `WARN` / `ALLOW` negative-stock mode applies only to a non-lot, non-serial item on a `BACKFLUSH` consumption; saving one scoped to a tracked item is refused; the `I-6` resolver function returns `BLOCK` otherwise | `422 NEGATIVE_STOCK_NOT_ALLOWED_FOR_TRACKED_ITEM` · `itemId` | DB resolver (`V500601`) | FR-732 |
 
 ### 1.4 Unreachable
 
@@ -163,6 +168,7 @@ ABC recompute (`FR-463`); variants and style matrices (`FR-443`…`445`, segment
 | 2026-10-23 | v0 derived for R30 `CP-FR-007` row 2; `FR-072`/`FR-073` re-homed to `P7-11` per `D-17` item 5 |
 | 2026-10-23 | R31 `F-CA-012`: guards `ITM-GRD-20`…`-22` added; `ITM-OPEN-01` decided |
 | 2026-10-24 | #13 G2 (RG-010 PO pre-fill): `ITM-T2-04`, `ITM-T5-09`…`-12` added. **Owed, not made here:** `DATA-MODEL.md:816` still names the UoM-default scope column `channel_id`; settled S1 / NFR-OPEN-03 uses `ship_to_address_id` — amend `DATA-MODEL.md` |
+| 2026-10-25 | R32 (`D-20` items 1, 2-13a, 2-14): guards `ITM-GRD-R32A-01`…`-05` — item-type flow flags and the manufacturing types, GST rate shown from the HSN master, `make_or_buy`, `qc_required`, default store, negative stock restricted to non-tracked backflush (`issues/p1-03.md` §R32) |
 
 ## 8. Invariants and scenarios
 

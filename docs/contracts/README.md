@@ -94,6 +94,10 @@ the contracts that own its workflow. Open rows across all contracts are collecte
 | [`material-requisition`](material-requisition.contract.md) | material requisition (indent): approval, reservation, partial issue, closure, PR hand-off |
 | [`store-issue-return`](store-issue-return.contract.md) | store issue to consumption with a cost object, store return, stores registers (WS-277) |
 | [`po-schedule-port`](po-schedule-port.contract.md) | PO type and schedule lines, the purchase-order, demand-order and RMA-creation ports |
+| [`document-approval`](document-approval.contract.md) | **R32 / `D-20` item 18:** the one approval engine for every document type — rules, levels, maker ≠ checker, append-only actions with band used, escalation, e-mail / WhatsApp, amendment re-approval, My Approvals (`p8-30`) |
+| [`quality-ncr-capa-deviation`](quality-ncr-capa-deviation.contract.md) | **R32:** defect codes, NCR / CAPA with closure approval, deviation (accept under deviation) with usage cap, quality registers (`p8-17`, `p8-18`, `p8-21`) |
+| [`qc-inspector-calibration`](qc-inspector-calibration.contract.md) | **R32:** inspector authorisation by item group / stage, inspector ≠ GRN maker or own producer, instrument calibration gating results (`p8-19`, `p8-20`) |
+| [`status-stores`](status-stores.contract.md) | **R32 (`D-20` #16):** status kept as the control; optional dedicated location per non-allocatable status shown as a store (`p8-22`) |
 | **TRADE · `warehouse-trade`, P9 — [`FRD-TRADE.md`](../frd/FRD-TRADE.md)** | |
 | [`trade-purchase-requisition`](trade-purchase-requisition.contract.md) | purchase requisition → consolidation → conversion; also the trade module boundary (FR-540) |
 | [`trade-rfq-award`](trade-rfq-award.contract.md) | RFQ → vendor quotation → comparative statement → award |
@@ -103,7 +107,7 @@ the contracts that own its workflow. Open rows across all contracts are collecte
 | [`trade-sales-order`](trade-sales-order.contract.md) | sales order, delivery schedule, dispatch releases, acknowledgement, short-close |
 | [`trade-sales-return-authorisation`](trade-sales-return-authorisation.contract.md) | sales return authorisation → core RMA, and the purchase-side replacement twin |
 | [`trade-order-amendment`](trade-order-amendment.contract.md) | order amendment and versioning for POs and SOs |
-| [`trade-approval-matrix`](trade-approval-matrix.contract.md) | maker–checker approval matrix and My Approvals for every trade document |
+| [`trade-approval-matrix`](trade-approval-matrix.contract.md) | maker–checker approval matrix and My Approvals for every trade document — since R32 (`D-20` item 18) the trade **consumer** of [`document-approval`](document-approval.contract.md) |
 | [`trade-counterparty-evaluation`](trade-counterparty-evaluation.contract.md) | trade profiles, AVL, customer part approval, T&C templates, numbering, vendor / customer rating |
 | [`trade-reports`](trade-reports.contract.md) | trade reports pack (WS-312, eight read-only grids) |
 | **MFG · `warehouse-manufacturing`, P10 — [`FRD-MFG.md`](../frd/FRD-MFG.md)** | |

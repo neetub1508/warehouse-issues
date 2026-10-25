@@ -246,6 +246,7 @@ WS-324 *Receipts* tab lists the order's receipts with the same columns and actio
 | 2026-10-22 | `PRC-GRD-13`, `-14`, `PRC-T4-01`, `-03`, `-05`, `-08`, §0 | R29: named supply status consumable (F2, MD-30); cumulative genealogy (F14, MD-41); MTO reservation only into an allocatable status (F15); `extendedCost`, type-default basis (F19, MD-34); abnormal scrap MFG-side (F20); absorption built here (F23, MD-37); one in-process gate `INPROCESS_INSPECTION_OPEN` (F27); holds found by holder (MD-36) | `R29-functional-review-mfg.md` |
 | 2026-10-23 | §0, `PRC-GRD-01`, `-28`, `PRC-UNR-09`, `PRC-T4-01`, `-11`, `-14`, `-15`, Source column, `PRC-OPEN-05`, `-06` | R31: holds closed explicitly (F-MF-002); bonded output rows (F-MF-010); Legal Metrology declaration rows for FR-678 (F-MF-017); Source FR filled on every rule row (F-MF-018); `ORDER_HAS_OPEN_RECEIPT` one field (F-MF-019); reversal transformation additive, SEAM-M6 (F-MF-021); DECIDE rows applied | `R31-functional-review-mfg.md`, `R31-decisions.md` |
 | 2026-10-22 | T1, §9 | Consistency pass: no receipt on `COMPLETED` (MD-14), reversal refused while a settlement is live (MD-18), `:approve` on reversals (MD-20), `403` (MD-21), `PENDING_APPROVAL → DRAFT` (MD-22), `gate_entry_id` (MD-26) | FRD-MFG §9 |
+| 2026-10-25 | R32 (`D-20` items 3, 13a, 20): §12 — batch and unit-serial receipts, PDI-passed units only for PDI items, no negative backflush of lot / serial items, conversion absorbed per receipt (FR-828) |
 
 ---
 
@@ -275,3 +276,15 @@ WS-324 *Receipts* tab lists the order's receipts with the same columns and actio
 | PRC-OPEN-04 *(resolved — MD-21: `403`)* | Self-approval codes return `409` here; the house uses `403` (`MPR-GRD-19`, `MRQ-GRD-05`) | ratify family-wide | — | resolved |
 | PRC-OPEN-05 *(resolved — R31-decisions DECIDE: default stands; F-MF-021)* | "A reversing transformation is recorded" — `whb_transformations` has no reversal semantics and requires `base_quantity > 0` | a `PRODUCTION_REVERSAL` row linked to the original, same inputs/outputs as positive quantities — **no schema change** (`V500035` has no `CHECK` on `transformation_type`, `:24`); the trace reading it as a cancel marker is **SEAM-M6**, owned by `p0` and carried in `P10-07`; until then the trace over-includes (safe for a recall) — `PRC-T4-11`, FRD §3.2 | FR-649, evidence §3 | resolved |
 | PRC-OPEN-06 *(resolved — R31-decisions DECIDE: default stands)* | Whether a scrap-only final receipt (no good output) is legal | allowed (`PRC-GRD-02`; SAP scrap-only confirmation) | derived | resolved |
+
+## 12. R32 rules (PRD 2026-10-24, `D-20`)
+
+Owning task: `issues/p10-07.md` `## R32 additions (PRD 2026-10-24)` (FR-828); the PDI half is `mfg-pdi-unit-registry` (`p10-22`).
+
+| ID | Rule | Refusal / effect | Source |
+|---|---|---|---|
+| PRC-GRD-30 | A receipt of a batch-produced order names its batch; lot code = `batch_no`; unit-serial outputs are the batch's assigned serials that completed the last stage (never typed) and, for a `pdi_required` item, hold a signed `PASS` certificate | `422 BATCH_REQUIRED`; `422 SERIAL_NOT_OF_BATCH`; `422 PDI_NOT_PASSED` | FR-828 |
+| PRC-GRD-31 | Backflush (receipt or stage) of a lot- or serial-controlled item never goes negative whatever `negative_stock_mode` (`D-20` item 13a) | `422 BACKFLUSH_SHORTAGE` | FR-828 |
+| PRC-T4-20 | Posting a unit-serial receipt creates / updates the unit registry rows (`PUR-T1-20`) and turns the `PLANNED` serials into stock in the receipt status | registry `IN_STOCK` | FR-828 |
+| PRC-T4-21 | The receipt's absorbed value includes the order's unabsorbed conversion pool share (`CST-T4-20`) by the FR-654 proportion; the handover envelope carries the conversion breakdown | — | FR-828 |
+| PRC-T4-22 | Batch rollups (received, consumed vs required) update in the post transaction; WS-337 batch variance reads them | — | FR-828 |

@@ -687,6 +687,49 @@ S1 contract-quality corrections applied with them: `POS-GRD-11` drops `WhOrderAm
 `order_source`; WS-275 five tiles; `P8-05` S1 `G11` rows (`IIS` §0 migration owner, `IIS-T1-03b`, `-06`, `-09`,
 `IIS-OPEN-03`); `P8-09` S1 `G6`, `G14`, `G16`, `G20`, `G22`, `G24`.
 
+### D-20 · R32 — client PRD (Manufacturing, Purchase, Stores & Quality, 2026-10-24) folded; industry standard settles every conflict
+
+**User decisions, 2026-10-25.** The client PRD (`docs/reviews/R32-prd-gap-analysis.md`, 799 atomic requirements, 629
+in warehouse scope, 326 gaps + 55 accounting) is folded into the design set. Rules:
+
+1. **Industry standard decides.** When the PRD conflicts with a design decision, or is silent on something the
+   design set has, real-world industry practice decides (SAP/Oracle/Tally/Odoo, IATF 16949 / ISO 9001, Ind AS 2,
+   GST law). A capability industry requires is never removed or weakened because the PRD omits it. Where both
+   sides are legitimate, the design capability stays and the PRD behaviour is added as a configurable option.
+2. **The 21-conflict ruling** (`R32-prd-gap-analysis.md` §"21 conflicts"): ADD = 1 ECN (reverses FRD-MFG R-08),
+   3 credit check at SO + dispatch via the accounting credit service (reverses FRD-TRADE §11 R1), 5 GST on PO /
+   RFQ / SO lines via the existing GST engine (reverses TRD-06), 7 PO email/WhatsApp (reverses TRA-OPEN-01),
+   8 service PO + sample-purpose PO (narrows R8), 13a negative stock default BLOCK (ALLOW only for non-lot,
+   non-serial backflush items), 13b approvals append-only, 14 AVL enforced for RM / bought-out / QC-required items,
+   15 material return with store-verified quantity and configurable approval steps, 18 one approval engine for
+   every document type (supersedes the #160 duplicate closure of FR-466), 20 labour + overhead absorption into
+   WIP/FG (Ind AS 2; reverses OD-43 material-only), 21 import purchase / bill of entry / landed cost (reverses R17).
+   KEEP+ADD = 2 base BOM with variant-applicable lines (variant items stay; amends R-09), 4 invoice stays in
+   accounting + SO line billing status + dispatch→invoice hand-off, 6 supplier return stays + debit-note proposal
+   to accounting, 9 PO over PR balance: permission + tolerance (default 0), 10 backflush stays for flagged BOM lines,
+   MR mandatory otherwise, emergency issue auto-creates an MR for post-approval, 11 PQC blocks the next stage per
+   checkpoint (default block) + in-order rework loop with count (rework order kept), 12 shortage release modes
+   WARN/APPROVE/BLOCK default APPROVE, 17 separate routing master, mandatory for make items with job cards,
+   19 value bands stay + limit recorded + upward escalation + email/WhatsApp. KEEP = 16 quarantine / rejected /
+   scrap / sample stay stock statuses, with optional dedicated locations shown as stores.
+3. **New areas with owners.** warehouse-manufacturing (P10): batch-wise production + job cards per batch per stage,
+   unit serial binding (chassis ↔ part serials, MD-11/MD-41 narrowed for serial-tracked FG), PDI gate + certificate,
+   samples + drawings (revisions, release, watermark, sample production order, customer feedback iterations),
+   operator/skill + work-centre/machine masters, pre-sale costing feed, manufacturer unit registry for warranty,
+   Form 22 / VAHAN homologation data. Core warehouse (P8): NCR / CAPA, deviation (time/qty bound, expiring),
+   inspector authorisation, QC instrument calibration, generic approval engine. warehouse-trade (P9): direct-PO
+   governance, PR purpose/HOD statuses/auto-PR sources, enquiry feasibility, order book, credit check, GST lines,
+   vendor share. Accounting gaps are filed in `neetub1508/accounting` (label `prd-r32`); warehouse files only the
+   warehouse→accounting seam (#173, #174, #175 reopened).
+4. **Dealer fence.** The dealer vertical (dealer, automotive, services, accessories, insurance) is not reused or
+   edited. "Variant" means a manufacturing product configuration on the item/BOM. The PRD's "existing CRM" is the
+   client's own CRM. Warranty reads a manufacturer unit registry in warehouse-manufacturing, never `services`.
+   Form 21 and dealer schemes are dealer-side and out of scope; a dealer is only a customer counterparty.
+5. **Mobile stays out** (user rule 2026-09-11 stands). The PRD's mobile asks (Q-G4) are tracked in one open issue
+   labelled `needs-client-decision`; web screens get scan-friendly inputs where the PRD scans.
+6. **Tracking.** Closed issues that gain work are reopened with label `reopened-r32` and a `## Reopened scope (R32)`
+   section; work with no task gets a new task file. Every R32 item lands in exactly one open issue.
+
 ---
 
 ## 3. OD — open decisions. Each names its deadline and who decides.

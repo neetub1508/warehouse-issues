@@ -300,9 +300,9 @@ These existing GitHub reports have no source task file in this batch; listed for
 | #170 | `—` (existing report; no source file) | [Warehouse] P2-16 follow-up · Movement lines keep the approved cost, the source-currency amount and the cost source line |
 | #171 | `—` (existing report; no source file) | [Warehouse] P2-16 follow-up · Receipts, supplier returns, transfers and workshop returns give the costing engine what it needs |
 | #172 | `—` (existing report; no source file) | [Warehouse] P2-16 follow-up · Ratify costing defaults, contract codes and run the integration tests in the gate |
-| #173 | `—` (existing report; no source file) | [Warehouse] Follow-up · Accounting envelope v2 — duty status, lot, serial and exchange rate per line |
-| #174 | `—` (existing report; no source file) | [Warehouse] Follow-up · The accounting-facing adapter has no home — no module owns WhbAccountingHandoverSink or WhbGlBalanceProvider |
-| #175 | `—` (existing report; no source file) | [Warehouse] Follow-up · Prove INTEGRATED mode end to end — WH-SC-156, WH-SC-157, CONFIG-CASE-07/10 |
+| #173 | `p8-25.md` (R32 2026-10-25: task file written for the existing issue; body to be synced) | [Warehouse] Follow-up · Accounting envelope v2 — duty status, lot, serial and exchange rate per line |
+| #174 | `p8-23.md` (R32 2026-10-25: task file written for the existing issue; body to be synced) | [Warehouse] Follow-up · The accounting-facing adapter has no home — no module owns WhbAccountingHandoverSink or WhbGlBalanceProvider |
+| #175 | `p8-24.md` (R32 2026-10-25: task file written for the existing issue; body to be synced) | [Warehouse] Follow-up · Prove INTEGRATED mode end to end — WH-SC-156, WH-SC-157, CONFIG-CASE-07/10 |
 | #176 | `—` (existing report; no source file) | [Warehouse] P2-02 follow-up · FR-150 / WH-SC-285 bin-to-bin movement has no owning task — the deferral, not a closure |
 | #177 | `—` (existing report; no source file) | [Warehouse] P2-02 follow-up · RA-006 — P2-09's emergency replenish is specified as a BIN_TO_BIN transfer, which V511246 makes unbuildable |
 | #178 | `—` (existing report; no source file) | [Warehouse] OD-20 · Does v1 ship a union valuation report across the two ownership domains? (gates P2-20, P2-27) |

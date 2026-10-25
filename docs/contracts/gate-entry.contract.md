@@ -83,6 +83,7 @@ row (`wh_gate_pass_revisions` is **not** created — the revision is an audit ro
 | GTE-T1-15 | `APPROVED` · `OUT` · `PARTIALLY_RETURNED` (RGP) | Extend expected return date | unchanged | new date > old date; extender ≠ creator, else `403 GATE_PASS_SELF_APPROVAL` | `wh_gate_passes:extend` | audit row (old, new, reason); overdue episode reset (`GTE-T3-01`) | **yes** | WS-263 **Extend** | FR-515 |
 | GTE-T1-16 | `OUT` · `PARTIALLY_RETURNED` (RGP) | Close short (lost, scrapped by the party, sold) | `CLOSED_SHORT` | closer ≠ creator, else `403 GATE_PASS_SELF_APPROVAL` | `wh_gate_passes:close_short` | unreturned quantity → `closed_quantity` per line | **yes** | WS-263 **Close short** | — |
 | GTE-T1-18 | `DRAFT` · `APPROVED` | Cancel | `CANCELLED` | — | `wh_gate_passes:cancel` | number stays issued; **every OPEN outward link to the pass is released** (`is_open = false`), so the linked entry's gate-out is not held by a pass that will never move (#564 S4 F4) | **yes** (any active reason) | WS-262 row **Cancel** | — |
+| GTE-T1-19 | inward entry, not closed | **Attach** invoice / vehicle / seal photos (R32) | unchanged | `GTE-GRD-17` | `wh_gate_entries:edit` | `wh_document_attachments` rows, subject `GATE_ENTRY` | no | WS-261 *Attachments* tab (camera-friendly web upload) | FR-712 |
 
 ### 1.3 Guards
 
@@ -105,6 +106,9 @@ row (`wh_gate_pass_revisions` is **not** created — the revision is an audit ro
 | GTE-GRD-13 | the out entry is outward, `OPEN`, same site; each sourced line's document is dispatched | `409 GATE_OUT_DOCUMENT_NOT_DISPATCHED` | — | FR-514 |
 | GTE-GRD-14 | returned quantity per line ≤ quantity out − returned − closed; the in entry is inward, `OPEN`, same site | `422 GATE_PASS_RETURN_EXCEEDS_OUT` · `returns[i].quantity` | CHECK `returned_quantity + closed_quantity <= quantity_out` | FR-514 |
 | GTE-GRD-15 | an outward document linked to an outward entry resolves through its registered `GatePassSourceResolver` (the same bean answers for gate passes and entries; core also registers a **`GATE_PASS`** resolver that answers **only** outward-entry links — site = the pass's site, ready = `APPROVED`, or `OUT` against this entry; it is refused as a gate-pass line source, `422 GATE_PASS_SOURCE_TYPE_UNSUPPORTED`, R31 F-SR-002), is at the entry's site, and is not linked to another `OPEN` outward entry | `422 GATE_ENTRY_DOCUMENT_UNSUPPORTED` / `409 GATE_ENTRY_DOCUMENT_ALREADY_LINKED` · `documents[i].outwardDocumentId` | partial uk `(outward_document_type, outward_document_id)` on documents of `OPEN` entries | FR-511 |
+| GTE-GRD-16 | `PURCHASE_RECEIPT` inward entry carries `package_count > 0` and a `package_type` while `warehouse.gate.package_count_required` (R32) | `422 GATE_ENTRY_PACKAGE_COUNT_REQUIRED` · `packageCount` | CHECK `package_count > 0` when set | FR-712 |
+| GTE-GRD-17 | *Create receiving session* from a `PURCHASE_RECEIPT` entry needs an `INVOICE_PHOTO` attachment while `warehouse.gate.photos_required_for_purchase`; a closed entry's attachments are read-only | `409 GATE_ENTRY_PHOTO_REQUIRED` · `409 GATE_ENTRY_CLOSED` | — | FR-712 |
+| GTE-GRD-18 | `supplier_gstin` is a valid 15-character GSTIN; one matching none of the supplier's `whb_counterparty_tax_registrations` sets `gstin_mismatch` (warning) or, under `supplier_gstin_mismatch = BLOCK`, is refused | `422 GSTIN_FORMAT_INVALID` · `422 GATE_ENTRY_SUPPLIER_GSTIN_MISMATCH` · `documents[i].supplierGstin` | — | FR-712 |
 
 ### 1.4 Unreachable
 
@@ -158,6 +162,7 @@ Every query and action is limited to the user's allowed warehouses (`p1-18`); an
 | GTE-T4-04 | `GTE-T1-12` | pass `OUT`; the source documents are untouched | gate-pass service | — |
 | GTE-T4-05 | `GTE-T1-13` for a sourced line | the source document is **not** touched: a stock item coming back is received on its own document (job-work receipt in `warehouse-india`, supplier replacement GRN, store return) | — (no effect, stated) | — |
 | GTE-T4-06 | GRN posting refuses excess (`GBM-T1-06`) | the refused quantity is listed on the inward entry's gate-out view as *leaving with the vehicle* | read model | — |
+| GTE-T4-07 | a receiving session is created from a `SAMPLE_IN` / `FREE_OF_COST_IN` entry (R32) | its GRN is non-PO with `receipt_purpose` = the purpose; a `FREE_OF_COST_IN` line is received at zero unit cost with `cost_basis` `FREE_OF_CHARGE`; a `SAMPLE_IN` line lands in the sample status store when `P8-22` binds one | receiving service | FR-712 |
 
 ## 5. T5 — Screen contract (web only)
 
@@ -211,6 +216,7 @@ drivers (`P5-17`); a gate pass that posts stock (`STO-D4`); mobile.
 | 2026-10-22 | R29 dispositions: scope pair; bill weight and the once-per-entry variance point; outward-document link row; gate-out also needs the pass verb; server-stamped barrier entry; gate-pass `source_line_id`; one bill group per entry; self-approval code |
 | 2026-10-23 | R31 (`R31-functional-review-stores-rem.md`): a pass already `OUT` against this entry satisfies `GTE-GRD-09` (F-SR-001); core `GATE_PASS` outward-link resolver (`GTE-GRD-15`, F-SR-002); `GTE-GRD-03a` PO + primary bill on a purchase-receipt entry behind `warehouse.gate.purchase_documents_required` (F-SR-014); gate-security bundle holds `:turn_back` (§0, F-SR-015); `GTE-OPEN-01`/`-02` resolved (`R31-decisions`) |
 | 2026-10-24 | #564 S4: GRD-05 pass references; T1-06 complete reference set + cancel reason context; T1-18 releases links; GRD-09 lock order; T2-00 `includeIds` narrows; T3-01 cron, site-local period, approver + creator; GRD-06 field, live setting vs #113, WS-075 Gate-in withdrawn; OD-H seeding note; §5.3 in-code notes and accepted deviations |
+| 2026-10-25 | **R32 (PRD 2026-10-24 §6 Gate Entry, `D-20`).** `P8-03` reopened: package count `GTE-GRD-16`, photos `GTE-T1-19`/`GTE-GRD-17`, supplier IRN / GSTIN capture `GTE-GRD-18`, non-PO purposes `SAMPLE_IN` / `FREE_OF_COST_IN` `GTE-T4-07`. Contract stays v0 |
 
 ## 8. Invariants and scenarios
 

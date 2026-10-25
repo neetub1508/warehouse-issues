@@ -261,6 +261,7 @@ Every transition appends one `whm_production_order_events` row (`event_type`, `f
 | 2026-10-22 | `PRO-T1-04`, `-06`, `-07`, `-12`, `-20`, `PRO-GRD-08`, `-10`, `-23`, `PRO-T4-01`, `-02`, `-04`, `-08`, §5.3, `PRO-OPEN-06` | R29: rework line unreserved (F2, MD-30); cancel/unrelease block only on issued MRQs and cancel the rest through the port (F4); SOFT re-dated earlier by release + create (F18); no edit while release pending (F22); one capacity-load rule (F25, MD-39); confirmation never sets `IN_PROGRESS` (F28); process loss (F29); unconfigured series (F32) | `R29-functional-review-mfg.md` |
 | 2026-10-23 | `PRO-T1-03`, `-09`…`-12`, `PRO-GRD-04`, `-09`, `-15`, `-23`, §1.1, Source column on T1–T4, `PRO-OPEN-02` | R31: `release_requested_by/at` (`PRO-OPEN-02` DECIDE); close guard owned by CST and cited (F-MF-006); one code per predicate with SUB (F-MF-019); MRP converts a `SUBCONTRACT` order (F-MF-014); Source FR on every rule row (F-MF-018) | `R31-functional-review-mfg.md`, `R31-decisions.md` |
 | 2026-10-22 | T1, T4, §9 | Consistency pass: `COMPLETED` not settled (MD-14), no cancel after posting (MD-15), single reservation owner (MD-16), selection on planned start (MD-19), `403` (MD-21), SOFT expiry (MD-23), rework supply status (MD-26), `MACHINE_DOWN` seeded | FRD-MFG §9 |
+| 2026-10-25 | R32 (`D-20`): §12 — order approval mode and `SHORT_CLOSED`, shortage release modes (default `APPROVE`), shortage list with PO ETA and capacity, multi-demand orders, optional auto-create, routing / batch snapshot at release, ECN re-explode, R32 register tabs (FR-823…FR-826) |
 
 ---
 
@@ -290,3 +291,21 @@ Every transition appends one `whm_production_order_events` row (`event_type`, `f
 | PRO-OPEN-04 *(resolved — FRD §3.1 now seeds the four values)* | Reason context `PRODUCTION_HOLD` lists no values; `WH-SC-615` uses `MACHINE_DOWN` | seed `MACHINE_DOWN`, `MATERIAL_SHORTAGE`, `QUALITY_ISSUE`, `PLANNER_HOLD` in `V560001` | FRD §3.1 | resolved |
 | PRO-OPEN-05 *(resolved — MD-23)* | `component_reservation = SOFT` but `whb_reservations` requires `expires_at` for `SOFT` (`V500033:416-417`); FRD sets no expiry | SOFT expiry = `planned_end_date` + `staging_stale_days` | evidence §5 | resolved |
 | PRO-OPEN-06 *(resolved — R29 F28)* | Whether an operation confirmation (no movement) counts as the "first posting" that sets `IN_PROGRESS` | **no** — movements only; a confirmation stamps `actual_start_at` only (`QRW-T1-01`) | FR-634, FR-651 | resolved |
+
+## 12. R32 rules (PRD 2026-10-24, `D-20`)
+
+Owning task: `issues/p10-05.md` `## R32 additions (PRD 2026-10-24)` (FR-824…FR-826); registers `issues/p10-13.md` (FR-823).
+
+| ID | Rule | Refusal / effect | Source |
+|---|---|---|---|
+| PRO-T1-40 | *Approve* `PLANNED → APPROVED` when `order_approval_mode` applies (`MTS_ONLY`: no demand link; `ALL`) by `whm_production_orders:approve`, ≠ creator; an edit of an `APPROVED` order returns it to `PLANNED` | `403 ORDER_SELF_APPROVAL` | FR-824 |
+| PRO-GRD-40 | Release of an order the mode applies to needs `APPROVED` | `409 ORDER_NOT_APPROVED` | FR-824 |
+| PRO-T1-41 | *Close* of a `COMPLETED` order completed with a `PRODUCTION_CLOSE_SHORT` reason ends `SHORT_CLOSED` (terminal; same settlement guards as `CLOSED`, `CST-GRD-02`…`-08`) | status distinguishes short-closed orders | FR-824 |
+| PRO-T1-42 | Release with shortage under `APPROVE` (default): stamps `shortage_release_requested_by/at`, waits; a holder of `:approve_shortage_release` ≠ requester releases; `BLOCK` refuses; `WARN` releases with the list; `ALLOW` reads as `WARN` | `409 SHORTAGE_RELEASE_NEEDS_APPROVAL`; `403 ORDER_SELF_APPROVAL`; `409 RELEASE_SHORTAGE` | FR-825 |
+| PRO-T5-10 | The release dialog's shortage list shows per short component the open PO quantity and earliest ETA (core PO schedule lines) and the routing work centres' load over the order's dates (`mfg-mrp` §5.1 rule) | display | FR-825 |
+| PRO-GRD-41 | `whm_production_order_demands`: same item and site; Σ quantities ≤ planned; each demand line on one live order at a time | `422 DEMAND_EXCEEDS_ORDER`; `409 DEMAND_LINE_ON_OTHER_ORDER` | FR-826 |
+| PRO-T4-20 | Output reservations of a multi-demand order split by demand line in `seq` order at receipt / QC release (FR-637 rule per line) | — | FR-826 |
+| PRO-T1-43 | With `create_order_from_demand_line` = `true`, a new demand line of a MAKE item creates a `PLANNED` order (demand link set, never released automatically) | idempotent per demand line | FR-826 |
+| PRO-T1-44 | Release of a job-card item snapshots the routing (`SFL-GRD-05`) and creates batches and job cards (`SFL-T1-10`, `-11`) in the release transaction | `409 ROUTING_NOT_EFFECTIVE` | FR-633 |
+| PRO-T1-45 | ECN implement may re-explode a `RELEASED` order with nothing posted (decision `RE_EXPLODE_UNSTARTED`): reservations released and re-made on the new snapshot | `409 ORDER_HAS_POSTINGS` when something posted meanwhile | FR-633 |
+| PRO-T5-11 | WS-337 R32 tabs: time variance, operator output, first-pass yield by routing stage, PDI pass %, SPC, batch variance, full unit cost, sample cost — backend registers, exportable, AUDITOR read-only | display | FR-823 |

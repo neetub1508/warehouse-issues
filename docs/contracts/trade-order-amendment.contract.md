@@ -128,6 +128,15 @@ applied (period), rejected (period), firm-zone changes (SO). Columns: `amendment
 (change rows, old → new) · Edit · Submit · Withdraw · Cancel · Print. Export ⊇ grid. Empty state: *No
 amendments.* **Versions tab** on the order: list of versions, *Compare* (two pickers), *Reprint*.
 
+## R32 additions (PRD 2026-10-24, `D-20`)
+
+Rows added by the R32 fold (FRD-TRADE §4.15). Numbers continue each kind's sequence; where a number exists on one side of the purchase / sales mirror only, the asymmetry is stated in FRD-TRADE §5 rows M35…M40.
+
+| ID | Kind | Rule | Refusal / effect | Source |
+|---|---|---|---|---|
+| TOA-T4-07 | effect | SO amendment changing qty / date / cancelling a line: *Impact* panel from `WhDemandProductionProgressQuery` (`CN-19`); new qty < produced + in process sets `affects_production`; on approval planners get `TRADE_SO_AMENDMENT_AFFECTS_PRODUCTION` | — | FR-757 |
+| TOA-GRD-12 | guard | Change type `ATTACHMENT` (PO): adds / removes PO attachments after approval; the approved set is printed and shared | — | FR-748 |
+
 ## 6. Out of scope
 
 | Item | Decision |
@@ -145,6 +154,7 @@ amendments.* **Versions tab** on the order: list of versions, *Compare* (two pic
 | 2026-10-23 | every T1, guard, unreachable, T3 and T4 row | `Source` column added, filled from FRD-TRADE §4, so every rule traces to the FR it proves | R30 `CP-FR-008` |
 | 2026-10-23 | `TOA-T4-02` | PO `TOLERANCE` goes to core as `lineChanges.overTolerancePct` / `underTolerancePct` (`CN-8`); SO `TOLERANCE` stays trade-side by design (no core tolerance on a demand line) | R30 `CP-GB-002` |
 | 2026-10-23 | `TOA-T1-02`, `-03`, `TOA-GRD-11` (new), `TOA-T4-02`, every T2 row | R31: FIXED SO added schedule lines go `FIRM` (F-TR-001); `TOLERANCE` band pre-checked at submit and apply, `409 TOLERANCE_BELOW_RECEIVED` relayed (F-TR-016, F-SR-013); subcontract PO amendment trade-side only (FR-688); T2 Source FRs (F-TR-019) | R31 |
+| 2026-10-25 | `TOA-T4-07`, `TOA-GRD-12` (new, *R32 additions*) | R32 fold of the client PRD (`D-20`): production impact panel, attachment change type | R32 / `D-20` |
 
 ## 8. Invariants and scenarios
 

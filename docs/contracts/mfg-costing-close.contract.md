@@ -41,7 +41,7 @@
 | A3 | Close posts one value-only `PRODUCTION_SETTLEMENT` putting the residual on on-hand output lots and `VIRT-COST_OF_SALES` for the consumed/shipped part (`WH-SC-641`) | `CST-T1-01`, `CST-T1-04`, `CST-T4-05` |
 | A4 | Residual share above `close_variance_approval_percent` waits for a second user; the order stays `COMPLETED` (`WH-SC-642`) | `CST-T1-01`, `CST-T1-02`, `CST-GRD-06` |
 | A5 | Close requires no open staging list, draft receipt or open subcontract balance; releases reservations; closes the MRQ; `CLOSED` refuses further issues (`WH-SC-643`, `WH-SC-648`) | `CST-GRD-02`…`-05`, `CST-T4-06`…`-08` |
-| A6 | Non-own orders are never valued; labour/overhead recorded, not absorbed (`L-14`, `OD-43`) | `CST-GRD-09`, `CST-T4-10` |
+| A6 | Non-own orders are never valued; labour/overhead recorded, not absorbed (`L-14`, `OD-43`) *(second half superseded by `D-20` item 20: absorbed — `CST-T4-20`…`-22`)* | `CST-GRD-09`, `CST-T4-10` |
 | A7 | The cost sheet prints planned vs actual by component and output | §5.3 (cost sheet) |
 | A8 | Accounting is a handover only | `CST-T4-09`, `CST-UNR-04` |
 
@@ -167,7 +167,7 @@ goes to the largest remainder (A, 0.7) → **69,580.01 / 29,820.00**; a tie woul
 | CST-T4-07 | Settlement posted | order `CLOSED`, `closed_at`, `settlement_id`; every reservation of holder `(WAREHOUSE_MANUFACTURING, PRODUCTION_ORDER, orderId, *)` released (`WhbReservationService.releaseByHolder`, `L-10`); open MRQ closed via `WhMaterialRequisitionPort.close`; event `CLOSED` | same transaction | FR-656 |
 | CST-T4-08 | Order `CLOSED` | cost-object resolver refuses further issues/returns `409 ORDER_NOT_OPEN` (`WH-SC-643`); MRP stops counting the order as supply | resolver, MRP | FR-656 |
 | CST-T4-09 | Any MFG movement posts (`PRODUCTION_RECEIPT`, `PRODUCTION_SETTLEMENT`, `SUBCONTRACT_*`) | standard envelope row in `whb_accounting_handovers` (handover point only) | base writer (`accounting-handover.contract.md`) | FR-657 |
-| CST-T4-10 | Operation confirmation minutes × work-centre `cost_rate_per_hour` | shown on the cost sheet as *recorded, not absorbed*; never in `A_r` | cost-sheet provider (`OD-43`) | FR-654 |
+| CST-T4-10 | Operation confirmation minutes × work-centre `cost_rate_per_hour` | shown on the cost sheet as *recorded, not absorbed*; never in `A_r` *(superseded by `D-20` item 20 when `costing.absorb_conversion` = `true` (default): conversion rows `CST-T4-20` enter the pool)* | cost-sheet provider (`OD-43`) | FR-654 |
 | CST-T4-11 | Receipt reversal posted (FR-649) | absorbed values regress by the reversed movement's values; the pool record is restored | `mfg-production-receipt` | FR-649 |
 | CST-T4-12 | Subcontract dispatch / recall / approved write-off posted (`SUB-T4-01`, `-08`, `-10`) | `P_D` += dispatched value / −= restored value / −= written-off value (written-off value → the abnormal-loss record) (MD-32) | `mfg-subcontracting` → costing service | FR-654, FR-658 |
 
@@ -207,7 +207,7 @@ implements `WarehousePrintDataProvider`; kind seeded in `V560001`.
 | Not built | Where / why |
 |---|---|
 | Standard costing, price/quantity/lot-size variance accounts | R-05, `OD-40` re-entry path |
-| Labour / overhead absorption | `OD-43` — recorded only |
+| ~~Labour / overhead absorption~~ | ~~`OD-43` — recorded only~~ — **superseded by `D-20` item 20** (§12) |
 | GL postings, journals, debit/credit notes | R-14, FR-657 |
 | Subcontract processing charge in FG cost | the warehouse-trade subcontract service-line PO lands it on the processed item (FR-658, D-18 item 3, SEAM-M7); MFG posts no charge |
 | Period-end WIP revaluation | WIP stays at actual in the order's pool record (MFG); WS-337 reports it |
@@ -220,6 +220,7 @@ implements `WarehousePrintDataProvider`; kind seeded in `V560001`.
 | 2026-10-22 | §0, §1.5, `CST-T4-01`, `-03`, `-05`, `-06`, `-11`, `-12`, `CST-OPEN-04` | R29: subcontract dispatched value in the pool, recall and write-off out (F6, MD-32); same-item rework extras to settlement (F7, MD-33); settlement restates layers on the landed-cost path (F8); `extendedCost`, type-default basis (F19); abnormal scrap MFG-side (F20); absorption built in `p10-07` (F23, MD-37); `LANDED_COST_APPLY` row shape, `CST-OPEN-04` closed (F30, MD-34) | `R29-functional-review-mfg.md` |
 | 2026-10-23 | `CST-T1-01`, `CST-GRD-02`, `-04`, §1.5, `CST-T4-05`, `-06`, §6, Source column, `CST-OPEN-05`…`-08` | R31: CST owns the one close guard, line-side balance read whatever the list status, `DRAFT` dispatch blocks (F-MF-006); parent-order target, on-hand cap, zero residual (DECIDE rows); processing charge via the trade subcontract PO (D-18 item 3); Source FR on every rule row (F-MF-018) | `R31-functional-review-mfg.md`, `R31-decisions.md` |
 | 2026-10-22 | T1, §9 | Consistency pass: `DRAFT → POSTED` below threshold and partial unique index (MD-22), late issues on `COMPLETED` (MD-14), `403` self-approval (MD-21), `REQUESTED` write-off blocks close (MD-26) | FRD-MFG §9 |
+| 2026-10-25 | R32 (`D-20` item 20, Ind AS 2; `OD-43` reversed): §12 — conversion cost from bookings absorbed into WIP / FG, abnormal time excluded, GL left to accounting; pre-sale cost estimate service (FR-829, FR-831) |
 
 ## 8. Invariants and scenarios this workflow must not break
 
@@ -244,3 +245,16 @@ implements `WarehousePrintDataProvider`; kind seeded in `V560001`.
 | CST-OPEN-06 *(resolved — R31-decisions DECIDE: default replaced)* | FR-656 sends the consumed part to `VIRT-COST_OF_SALES`; output consumed by a **parent production order** (sub-assembly) is WIP of the parent, not cost of sales | quantity consumed into a parent follows the parent: while it is open, its `VIRT-PRODUCTION` pool (`PARENT_ORDER_WIP`); once closed, its output lots still on hand (capped as `CST-OPEN-07`), the remainder to COGS; the parent's closure alone is not a sale (`CST-T4-05`, FRD §4) | FR-656, FR-633 | resolved |
 | CST-OPEN-07 *(resolved — R31-decisions DECIDE: default stands)* | A negative residual larger than the on-hand lots' value would drive a lot's value below zero | cap the on-hand share at the positions' carried value; the remainder goes to the target `CST-OPEN-06` gives (`CST-T4-05`) | `L-15`, FR-656 | resolved |
 | CST-OPEN-08 *(resolved — R31-decisions DECIDE: default stands)* | Zero residual: the deferred trigger refuses `POSTED` with null `movement_id`, but a zero-value movement is pointless | exempt `residual_value = 0` from the trigger and post no movement (`CST-T1-01`, `CST-T4-06`, FRD §5) | FRD §5 | resolved |
+
+## 12. R32 rules (PRD 2026-10-24, `D-20`)
+
+Owning tasks: `issues/p10-09.md` (FR-829) and `issues/p10-25.md` (FR-831), each under its R32 section.
+
+| ID | Rule | Refusal / effect | Source |
+|---|---|---|---|
+| CST-T4-20 | Each booking adds `whm_order_conversion_costs` rows: crew minutes × labour rate, machine minutes × machine rate (machine override, else work centre), overhead per `costing.overhead_basis`; a cancelled booking adds reversing rows; orders without bookings take routing standard minutes at receipt | pool += conversion | FR-829 |
+| CST-T4-21 | Absorption: each receipt absorbs conversion by the FR-654 proportion; the settlement capitalises the residual conversion with the material residual; WS-337 WIP shows material and conversion separately | — | FR-829 |
+| CST-T4-22 | Time booked with an abnormal idle / downtime reason is valued and reported as abnormal, never absorbed into output (Ind AS 2 ¶16) | abnormal record | FR-829 |
+| CST-UNR-20 | MFG posting a GL entry for absorption or under / over-absorption | handover only; GL is accounting's (`neetub1508/accounting`) | FR-829 |
+| CST-T1-20 | `CostEstimatePort.estimate` (and WS-395 *Run estimate*): explode the BOM (variant-aware), price each component from current cost layers, else last purchase price (flagged), add routing minutes × rates and overhead, compute DVA % by item origin; store a `whm_cost_estimates` row | `422 BOM_NOT_FOUND` / `ROUTING_NOT_EFFECTIVE` when neither exists; `missing_cost_count` reported | FR-831 |
+| CST-UNR-21 | The estimate proposing a selling price or margin | pricing stays trade's | FR-831 |

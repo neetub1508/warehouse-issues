@@ -178,7 +178,7 @@ we do not sell processing.
 | ID | Forbidden | Why | Source |
 |---|---|---|---|
 | TPO-UNR-08 | A core PO, release, gate entry or GRN for a subcontract PO; trade reading or writing a `whm_` row | the processed item comes back by MFG's subcontract receipt; the link is a bare id resolved through core (`TRD-09`, `ArchitectureInvariantsTest` (d)) | FR-684, FR-682 |
-| TPO-UNR-09 | A service line on a `STOCK` PO, or a general service / capex PO | R8 stays refused (FRD-TRADE §11) | FR-689 |
+| TPO-UNR-09 | A service line on a `STOCK` PO, or a general service / capex PO | R8 stays refused (FRD-TRADE §11) · **R32 (`D-20` item 8): narrowed — a `SERVICE` PO with service-item lines and a cost object is built (`TPO-GRD-22`); a service line on a `STOCK` PO and capex / asset POs stay unreachable** | FR-689 |
 | TPO-UNR-10 | Editing or deleting a posted service confirmation | corrected only by reversal (`TPO-T1-19`) | FR-687 |
 
 ## 2. T2 — Action × role × state
@@ -264,6 +264,25 @@ FIXED), `supplierName`, `itemCode`, `deliveryDate` (agreed), `supplierConfirmedD
 `warehouseId`, `poType`, `dueSoon`, `overdue`, `followupDueToday`. Actions: Log follow-up · Open PO. Export
 ⊇ grid (`wht_po_followups:export`). Empty state: *Nothing to expedite.*
 
+## R32 additions (PRD 2026-10-24, `D-20`)
+
+Rows added by the R32 fold (FRD-TRADE §4.15). Numbers continue each kind's sequence; where a number exists on one side of the purchase / sales mirror only, the asymmetry is stated in FRD-TRADE §5 rows M35…M40.
+
+| ID | Kind | Rule | Refusal / effect | Source |
+|---|---|---|---|---|
+| TPO-GRD-21 | guard | Direct PO (a `STOCK`/`SAMPLE`/`SERVICE` line with no PR allocation and no award; `is_direct_po` set at submit): maker holds `wht_purchase_orders:create_without_pr`; with `warehouse.trade.po.direct_category_restriction` each direct line's category ∈ `wht_direct_po_categories`; `direct_po_reason_code` (+ note for `OTHER`); condition `direct_po` | `403 TRADE_DIRECT_PO_NOT_PERMITTED`; `422 TRADE_DIRECT_PO_CATEGORY_NOT_ALLOWED {lineNo, categoryCode}`; `422 TRADE_DIRECT_PO_REASON_REQUIRED` | FR-746 |
+| TPO-GRD-22 | guard | `po_purpose = SERVICE`: `FIXED`; only `line_kind = SERVICE` lines of `item_type_code = SERVICE` items, each with a `p8-10` cost object; approval creates no core PO | `422 TRADE_SERVICE_LINE_NOT_SERVICE_ITEM`; `422 TRADE_PO_PURPOSE_MIXED` | FR-747 |
+| TPO-T1-21 | transition | Service entry on a `SERVICE` line (`confirmation_kind = SERVICE_ENTRY`, qty ≤ ordered − entered, performed-on date, bill ref recorded) by a `:confirm_service` holder other than the PO maker → `POSTED`; hands a `SERVICE_RECEIPT` proposal (FR-773); reversal frees it | `403 TRADE_SERVICE_ENTRY_SELF_CONFIRM`; qty refusal field `422` | FR-747 |
+| TPO-GRD-23 | guard | `po_purpose = SAMPLE`: a stock PO through core as usual; a supplier with no AVL row is allowed with condition `sample_from_unlisted_vendor` in place of the AVL refusal | — | FR-747 |
+| TPO-T1-22 | transition | Attachments (`WHT_PURCHASE_ORDER`, `WHT_PURCHASE_ORDER_LINE`; `DRAWING` with no + revision, `SPECIFICATION`, `QUALITY_PLAN`, `OTHER`) added / removed while `DRAFT`/`REJECTED`; after approval only by amendment change `ATTACHMENT`; printed list | `409 TRADE_DOCUMENT_LOCKED` after approval | FR-748 |
+| TPO-T4-15 | effect | Blank line tolerances default from `wht_category_receipt_tolerances` (nearest category ancestor, effective on order date) and go to core in `createOrder` (`CN-1`) | — | FR-749 |
+| TPO-T4-16 | effect | Line tax rows (`wht_po_line_taxes`) from `WhTaxPreviewProvider` (`CN-16`), place of supply = receiving site state; recomputed on save while editable, frozen at approval; totals and print carry HSN, heads, rates, amounts | `422 TRADE_TAX_CLASSIFICATION_MISSING {lineNo}`; `422 TRADE_PLACE_OF_SUPPLY_UNRESOLVED` | FR-761, FR-762 |
+| TPO-T1-23 | transition | *Share* an approved PO / schedule release by e-mail / WhatsApp with the PDF + shareable attachments; a PO share sets `ISSUED` | `422 TRADE_SHARE_DOCUMENT_NOT_APPROVED`; `503 TRADE_SHARE_CHANNEL_UNAVAILABLE` | FR-763 |
+| TPO-T3-07 | time | `warehouse.trade.expedite.auto_remind_supplier` (false): `WHT_PO_FOLLOWUP_REMINDER` to the supplier `days_before` due and on the first overdue day, once per schedule line per trigger; logged as share + follow-up | — | FR-764 |
+| TPO-GRD-24 | guard | `supply_origin = IMPORT` (immutable after submit): incoterm required; foreign currency allowed; each line's GRN needs a `FILED` BoE covering it — trade's `WhReceiptExchangeRateProvider` returns the customs rate (`CN-15` (a)) | core `422 RECEIPT_EXCHANGE_RATE_REQUIRED` | FR-768 |
+| TPO-T1-24 | transition | Bill of entry `DRAFT` → `FILED` (BoE no + date + port unique, customs rate, assessable values, duty rows) → `COSTED` → `REVERSED` (`wht_bills_of_entry:{file,cost,reverse}`) | `409 TRADE_BOE_DUPLICATE`; `422 TRADE_BOE_EXCHANGE_RATE_REQUIRED` | FR-769 |
+| TPO-T4-17 | effect | *Apply duties* (auto on `goods_receipt.posted` when `warehouse.trade.import.auto_cost_on_grn`): non-recoverable duties + clearing charges → `WhLandedCostPort.applyReceiptCharge` onto the BoE's GRN lines, key `WHT_BILL_OF_ENTRY:<id>:BOE_LANDED_COST_APPLY:<seq>`; recoverable IGST / cess → `BILL_OF_ENTRY` proposal; reversal via `reverseReceiptCharge` | `409 LANDED_COST_LAYER_CONSUMED` rolls the reversal back | FR-770 |
+
 ## 6. Out of scope
 
 | Item | Decision |
@@ -284,6 +303,7 @@ FIXED), `supplierName`, `itemCode`, `deliveryDate` (agreed), `supplierConfirmedD
 | 2026-10-23 | `TPO-T1-10a`…`-10c`, `-T3-03`, `-T4-06`, `-T4-09`, `-T4-10`, `-T4-12`, §1.5 (new), `TPO-T2-13`, A14, §5.1, `TPO-OPEN-02`, every T2 row | R31: partly received release reduced by `amendOrder` (F-TR-004, `CN-12`); release reject / cancel releases PR allocations (F-TR-014); auto-close as the service principal (F-TR-012); port reasons are `whb_reason_codes` (F-TR-007); T2 Source FRs (F-TR-019); subcontract service PO rows for FR-682…FR-689 (`D-18` item 3); `TPO-OPEN-02` settled | R31 |
 | 2026-10-24 | every row citing a core event | P8 decision record `EV-1` (DECISIONS `D-19`): every outbox event code renamed to the dotted `whb_event_types` vocabulary of registry R.4 (PC-42) — e.g. `purchase_order.amended`, `demand_order.shipped`, `rma.matched`, `supplier_return.dispatched`; no behaviour change | decision record P8 wave 1/2 |
 | 2026-10-24 | `TPO-T1-19`, `TPO-T4-14` | P8 decision `G21` (DECISIONS `D-19`): output lots at one site, owner and company, else `422 COST_OBJECT_OUTPUT_MULTIPLE_SITES`; reverse follows `CVL-GRD-09a` (`409 LANDED_COST_LAYER_CONSUMED`) and the trade reversal rolls back | decision record P8 wave 1/2 |
+| 2026-10-25 | `TPO-GRD-21`, `TPO-GRD-22`, `TPO-T1-21`, `TPO-GRD-23`, `TPO-T1-22`, `TPO-T4-15`, `TPO-T4-16`, `TPO-T1-23`, `TPO-T3-07`, `TPO-GRD-24`, `TPO-T1-24`, `TPO-T4-17` (new, *R32 additions*) | R32 fold of the client PRD (`D-20`): direct-PO governance, service PO + service entry, sample purpose, attachments, category tolerance, GST lines, share + supplier reminders, import PO + bill of entry + BoE landed cost (`TPO-UNR-09` narrowed) | R32 / `D-20` |
 
 ## 8. Invariants and scenarios
 

@@ -87,7 +87,7 @@ junction), `closed_short_quantity`, `close_reason_code`, `line_status` (`OPEN`, 
 | TPR-GRD-01 | ≥ 1 line; qty > 0; item active and purchasable (`whb_items` purchase status); `required_by_date ≥ today` (site tz) at submit; department active; cost object valid per `p8-10` | field `422` | FR-556 |
 | TPR-GRD-02 | Source line not linked to another non-cancelled PR line (partial unique index on each source column `WHERE line_status <> 'CANCELLED'`); qty > shortfall needs `justification` | `409 TRADE_SOURCE_LINE_ALREADY_REQUISITIONED`; field `422` | FR-557 |
 | TPR-GRD-03 | Selected PR lines share company, and for a PO also deliver-to site; items match the target line (UoM convertible) | `422 TRADE_ALLOCATION_INCOMPATIBLE` | FR-559 |
-| TPR-GRD-04 | Under `SELECT … FOR UPDATE` on each PR line: Σ active allocations + new ≤ quantity − closed_short | `422 TRADE_ALLOCATION_EXCEEDS_OPEN {open}` | FR-560 |
+| TPR-GRD-04 | Under `SELECT … FOR UPDATE` on each PR line: Σ active allocations + new ≤ quantity − closed_short | `422 TRADE_ALLOCATION_EXCEEDS_OPEN {open}` · **R32: the bound is widened by `TPR-GRD-10` (tolerance + `exceed_pr`, default 0 = this row unchanged)** | FR-560 |
 | TPR-GRD-05 | No active allocation | `409 TRADE_PR_HAS_ALLOCATIONS` (offer close-short) | FR-561 |
 | TPR-GRD-06 | Requester cannot approve own PR | `TAM-GRD-03` | FR-549 |
 | TPR-GRD-07 | **Module start-up** (`warehouse-trade`, package `ai.warehousetrade`, band `V550000`–`V559999`, prefix `wht_`, switch `enable.warehouse.trade` read by `@ConditionalOnExpression`): the core port beans it calls unconditionally — `WhPurchaseOrderPort`, `WhDemandOrderPort`, `WhAvailableToPromiseQuery` — are present. `WhReplenishmentSuggestionPort` is **optional** (R31 F-TR-020, as `p9-01`): absent, *Import shortages* and suggestion conversion refuse `503` and are hidden; `WhRmaPort` absent disables only the SRA screens (`TSR-GRD-04`) | the module refuses to start, naming the missing bean | FR-540 |
@@ -158,6 +158,19 @@ Create RFQ · Create PO (type picker) · Add to release (agreement picker) — e
 quantity to allocate (defaults to open). Empty state: *No approved requisition lines are waiting.* No export of
 selection; grid export allowed (⊇ grid, incl. `createdByName` / `updatedByName`).
 
+## R32 additions (PRD 2026-10-24, `D-20`)
+
+Rows added by the R32 fold (FRD-TRADE §4.15). Numbers continue each kind's sequence; where a number exists on one side of the purchase / sales mirror only, the asymmetry is stated in FRD-TRADE §5 rows M35…M40.
+
+| ID | Kind | Rule | Refusal / effect | Source |
+|---|---|---|---|---|
+| TPR-GRD-09 | guard | Submit: `purpose_code` (`trade_pr_purpose`) set; `PRODUCTION_ORDER` → cost object `PRODUCTION_ORDER`; `SALES_ORDER` → `sales_order_id` of an `APPROVED`/`ISSUED` SO of the same company (`sales_order_ref` frozen); MR hand-off maps the MR purpose one-to-one | `422 TRADE_PR_PURPOSE_REFERENCE_REQUIRED {purpose}` | FR-741 |
+| TPR-T4-05 | effect | PR line and WS-287 rows read on hand and free stock (`WhAvailableToPromiseQuery.atp(site, item)`) and the last approved PO rate (PO no, date) at query time; never stored; blank without the core site scope | — | FR-742 |
+| TPR-T1-11 | transition | Rule level 1 `DEPARTMENT_HEAD` approved, later level pending → derived **`HOD_APPROVED`**; final → `APPROVED` (*Purchase approved*); MR hand-off PRs carry condition `from_approved_mr` | rejection shows the rejecting level | FR-743 |
+| TPR-T3-03 | time | `TradeAutoPrDraftJob` every `warehouse.trade.pr.auto_draft_interval_minutes` (60), service principal: open core suggestions of origin in `warehouse.trade.pr.auto_draft_sources` (`REORDER,MRP`) → `DRAFT` PRs per site × required week, department `warehouse.trade.pr.auto_draft_department_code` (`STORES`), `auto_drafted = true`, each suggestion `markConverted`; never submits; notifies `TRADE_PR_AUTO_DRAFTED` | a suggestion already linked is skipped (`TPR-GRD-02`) | FR-744 |
+| TPR-T1-02b | transition | MR hand-off one press: `TPR-T1-02a` also submits the PR when `warehouse.trade.pr.mr_handoff_auto_submit` = true (default), maker = the stores user | submit guards as `TPR-T1-03` | FR-744 |
+| TPR-GRD-10 | guard | Replaces `TPR-GRD-04`'s bound: Σ active allocations + new ≤ (quantity − closed_short) × (1 + `warehouse.trade.pr.over_allocation_pct` ÷ 100) (default 0); any excess over the balance needs `wht_purchase_orders:exceed_pr`, is stored as `excess_quantity` and sets PO condition `exceeds_pr`; audited `TRADE_PR_EXCEEDED` | `422 TRADE_ALLOCATION_EXCEEDS_OPEN {open, tolerancePct}`; `403 TRADE_EXCEED_PR_NOT_PERMITTED` | FR-745 |
+
 ## 6. Out of scope
 
 | Item | Decision |
@@ -174,6 +187,7 @@ selection; grid export allowed (⊇ grid, incl. `createdByName` / `updatedByName
 | 2026-10-22 | §0, §1.1, `TPR-T1-02`, `-02a`, `-04`, `-05`, `-08`…`-10`, `TPR-UNR-03`, T3, `TPR-T4-01`, `-02`, §5 | R29 TP-F5, F13, F18, F26, F28, F29: header close whatever the allocation, core hand-off row (created submitted, issued number), `releaseConversion`, `IN_RFQ`, conversion notification, workbench grid contract, *Import shortages* on WS-286 | R29 |
 | 2026-10-23 | every T1, guard, unreachable, T3 and T4 row | `Source` column added, filled from FRD-TRADE §4, so every rule traces to the FR it proves | R30 `CP-FR-008` |
 | 2026-10-23 | `TPR-GRD-07`, `-GRD-08`, `-UNR-05`, `-T4-03`, `TPR-OPEN-02`, `-03`, every T2 row | R31: `WhReplenishmentSuggestionPort` optional (F-TR-020); release-line allocations released (F-TR-014); `TPR-UNR-05` cites FR-540 (F-TR-019); `TPR-OPEN-02`, `-03` settled (`409 CONCURRENT_MODIFICATION`) | R31 |
+| 2026-10-25 | `TPR-GRD-09`, `TPR-T4-05`, `TPR-T1-11`, `TPR-T3-03`, `TPR-T1-02b`, `TPR-GRD-10` (new, *R32 additions*) | R32 fold of the client PRD (`D-20`): PR purpose + SO reference, current stock, HOD → Purchase statuses, auto-drafted PRs, one-press MR hand-off, PO over PR balance with `exceed_pr` and tolerance (default 0; `TPR-GRD-04` bound replaced by `TPR-GRD-10`) | R32 / `D-20` |
 
 ## 8. Invariants and scenarios
 

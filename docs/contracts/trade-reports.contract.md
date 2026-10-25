@@ -97,6 +97,16 @@ Empty state per tab: *No rows for the selected filters.* Export columns: the gri
 non-visible column of the definition (superset). Report grids have no created-by / updated-by column, so the
 export has none either (grid ↔ export parity).
 
+## R32 additions (PRD 2026-10-24, `D-20`)
+
+Rows added by the R32 fold (FRD-TRADE §4.15). Numbers continue each kind's sequence; where a number exists on one side of the purchase / sales mirror only, the asymmetry is stated in FRD-TRADE §5 rows M35…M40.
+
+| ID | Kind | Rule | Refusal / effect | Source |
+|---|---|---|---|---|
+| TRP-T4-03 | effect | Reports `wht_rpt_direct_po`, `wht_rpt_pr_to_po_lead_time`, `wht_rpt_purchase_price_history`, `wht_rpt_enquiry_conversion` — backend queries, grid + export, money grouped by currency; menu split *Trade Reports — Purchase* / *— Sales* | — | FR-759 |
+| TRP-T4-04 | effect | WS-315 Order Book and report `wht_rpt_so_pending_production` (ordered − produced − reserved free stock) read core production progress (`CN-19`), shipments and billings | — | FR-776 |
+| TRP-T2-04 | action | WS-316 Customer 360 with `wht_customer_profiles:view_360`; trade + warehouse data only; each tab exports (audited) | `403` without the verb | FR-777 |
+
 ## 6. Out of scope
 
 | Item | Decision |
@@ -110,6 +120,7 @@ export has none either (grid ↔ export parity).
 |---|---|---|---|
 | 2026-10-23 | all | v0 derived from `issues/p9-14.md` (Reports table) and FRD-TRADE FR-616, FR-619 | R30 `CP-SC-005` |
 | 2026-10-23 | §2 | R31: Source column added to the T2 table (F-TR-019) | R31 |
+| 2026-10-25 | `TRP-T4-03`, `TRP-T4-04`, `TRP-T2-04` (new, *R32 additions*) | R32 fold of the client PRD (`D-20`): four reports, menu split, order book, SO pending to produce, customer 360 | R32 / `D-20` |
 
 ## 8. Invariants and scenarios
 

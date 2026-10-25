@@ -84,6 +84,20 @@ MRP (`P10`); no switching rules or skip-lot dynamics; no gate pass that moves st
 | `V511413`, `V511414` | app seeds | `P8-14` | menus; settings registry completion |
 | `V511416` | app seeds | `P8-16` | suggestion grid `origin`, `needDate` columns and filters |
 | `V511415` | app seeds | `P8-15` | `warehouse:orders:port` reuse check, RMA grid columns/filters for source refs and supplier-return intent |
+| `V500600` | base | `P8-30` | reason contexts `APPROVAL_REJECT`, `APPROVAL_RETURN`, `DOCUMENT_AMENDMENT`, `DEVIATION`, `APPROVAL_OVERRIDE`; notification kinds `APPROVAL_PENDING` / `_ESCALATED` / `_DECIDED` |
+| `V511600` | app | `P8-30` | `wh_approval_rules`, `_rule_conditions`, `_rule_levels`, `_rule_level_users`, `_requests`, `_steps`, `_actions` (append-only trigger), `_delegations`, `_notifications` |
+| `V511601` | app seeds | `P8-30` | `wh_approval_rules:*`, `wh_approval_requests:*` permissions + deps; menus; grids `wh_approval_rules` / `_inbox` / `_register` / `_sod`; `warehouse.approval.*` settings |
+| `V500500`, `V511500`, `V511550` | base / app / app seeds | `P8-17` | defect categories, NCR source / responsibility / root-cause / CAPA code lists, document type `NONCONFORMANCE`; `wh_defect_codes`, `wh_nonconformances`, `wh_capa_actions`; permissions, menus, grids (R32) |
+| `V500501`, `V511501`, `V511551` | base / app / app seeds | `P8-18` | `DEVIATION_TYPE`, document type `QUALITY_DEVIATION`; `wh_quality_deviations`, `wh_quality_deviation_usages` (append-only); permissions, grids, `warehouse.quality.deviation_*` (R32) |
+| `V511502`, `V511552` | app / app seeds | `P8-19` | `wh_qc_inspector_authorisations`, `wh_quality_inspections.result_approval_*`; permissions, grid, settings (R32) |
+| `V500502`, `V511503`, `V511553` | base / app / app seeds | `P8-20` | instrument types, calibration results; `wh_qc_instruments`, `wh_qc_instrument_calibrations`; result / criterion instrument columns (R32) |
+| `V511554` | app seeds | `P8-21` | five quality-register grids, `wh_rpt_quality_registers` permission, menu (R32) |
+| `V511504`, `V511555` | app / app seeds | `P8-22` | `wh_status_store_locations`; grid, permission, `warehouse.stores.status_store_mode` (R32) |
+| `V500507`, `V511505`, `V511556` | base / app / app seeds | `P8-06` | stages `FIRST_ARTICLE` / `PERIODIC`, attachment subject / role code lists; `wh_document_attachments`, `wh_quality_inspection_serial_results`, plan / assignment columns (R32 reopen) |
+| `V500509`, `V511507`, `V511558` | base / app / app seeds | `P8-03` | gate purposes `SAMPLE_IN` / `FREE_OF_COST_IN`, package types; gate entry package / GSTIN / IRN columns (R32 reopen) |
+| `V500508`, `V511508`, `V511559` | base / app / app seeds | `P8-09` | `REQUISITION_EXCESS`, `EMERGENCY_ISSUE`, `RETURN_REASON` codes; requisition SO / lot / excess / post-facto columns (R32 reopen) |
+| `V500505` | base | `P8-23` | `whb_accounting_handovers` document-envelope columns, envelope kinds (R32, #174) |
+| `V500506` | base | `P8-25` | `whb_accounting_handovers.negotiated_version`, `warehouse.accounting.envelope_max_version` (R32, #173) |
 
 `V511411` is unused. All blocks are **new files** sorting after the `P7` rebuild (`STO-D12`).
 
@@ -117,6 +131,10 @@ upgraded database now apply base `V50123x` → app schema `V5113xx` → app seed
 | `wh_store_issue_lines` (new in P8-10) | `counter_location_purpose` | P8-10 |
 | `wh_rmas` / `wh_rma_lines` | + `source_module`, `source_document_type`, `source_document_id`, `source_document_ref`, `idempotency_key`, `request_fingerprint`; lines + `original_demand_order_line_id` | P8-15 |
 | `wh_replenishment_runs` | pairing CHECK replaced for `EXTERNAL` | P8-16 |
+| `wh_quality_inspection_lines` / `wh_quality_inspections` / `wh_quality_inspection_results` | + `defect_code_id`, `deviation_id`, `coa_*`; + `result_approval_*`, `inspection_stage_code`; + `instrument_id` (R32) | P8-17, P8-18, P8-19, P8-20, P8-06 |
+| `wh_gate_entries` / `wh_gate_entry_documents` | + package, GSTIN mismatch; + `supplier_gstin`, `irn` (R32) | P8-03 |
+| `wh_material_requisitions` / `_lines`, `wh_store_issues`, `wh_store_returns` / `_lines`, `wh_supplier_returns` | R32 columns (DATA-MODEL §2.2.11) | P8-09, P8-10, P8-11, P8-07 |
+| `whb_accounting_handovers` | `movement_id` nullable, document-envelope columns, `negotiated_version` (R32) | P8-23, P8-25 |
 | `whb_stock_statuses`, `whb_movement_types`, `whb_document_types`, `whb_code_list_values`, `whb_reason_codes` | seed rows only | P8-03…P8-11 |
 
 ## Tasks
@@ -141,9 +159,21 @@ __TASKS__
 | `P8-14` | Menus, settings, i18n, filter scopes | — |
 | `P8-15` | RMA-creation port; supplier-return intent (`REPLACE`/`CREDIT`/`NO_ACTION`) and dispatched event | FR-506 |
 | `P8-16` | External replenishment-suggestion port (MRP origin) and single conversion owner | FR-528 (SEAM-M3 amendment) |
+| `P8-30` | One document-approval engine for every document type (R32, `D-20` item 18) — core `wh_approval_*`, WS-284 / WS-285 re-homed from trade | FR-720–729, FR-737 |
+| `P8-17` | NCR / CAPA / defect codes (R32) | FR-690–693 |
+| `P8-18` | Quality deviation, accept under deviation (R32) | FR-694–696 |
+| `P8-19` | Inspector authorisation, segregation, result approval (R32) | FR-697–699 |
+| `P8-20` | QC instruments and calibration (R32) | FR-700–701 |
+| `P8-21` | Quality registers (R32) | FR-702 |
+| `P8-22` | Status stores (R32, `D-20` #16) | FR-703 |
+| `P8-23` | Warehouse → accounting adapter and document envelopes (#174, R32) | FR-718 |
+| `P8-24` | Prove INTEGRATED end to end (#175, R32) | — |
+| `P8-25` | Accounting envelope v2 (#173, R32) | FR-719 |
 
 **Order:** `P7` → `P8-01` → `{P8-02, P8-03}` → `P8-04` → `P8-05` → `P8-06` → `{P8-07, P8-08}` → `P8-09` →
-`P8-10` → `P8-11` → `{P8-12, P8-13, P8-15}` → `P8-14`. `P8-15` needs only `P8-01`, `P8-02` and `P8-07` and may run as soon as they land; `P8-16` needs only `P8-01`.
+`P8-10` → `P8-11` → `{P8-12, P8-13, P8-15}` → `P8-14`. `P8-15` needs only `P8-01`, `P8-02` and `P8-07` and may run as soon as they land; `P8-16` needs only `P8-01`. **R32:** `P8-30` (approval engine) needs `P8-09` and lands before `P8-08`, `P8-11` and every `P9` / `P10` task that approves; it re-homes `P9-03`'s engine into core.
+
+**R32 core fold order:** `P8-06` (reopened) → `P8-17` → `{P8-18, P8-19, P8-20}` → `P8-21`; `P8-22` after `P8-06`, `P8-08`, `P8-11`; `P8-03`, `P8-09`, `P8-10`, `P8-11`, `P8-07`, `P8-12` R32 sections ride their task; `P8-25` → `P8-23` → `P8-24` (accounting side: `neetub1508/accounting` `prd-r32`). R32 rows on existing tasks: `P8-03` FR-712, `P8-06` FR-704–707, `P8-07` FR-716, `P8-09` FR-713, `P8-10` FR-714, `P8-11` FR-715, `P8-12` FR-717.
 
 **Downstream:** `P9` needs `P8-01`, `P8-02`, `P8-09` (hand-off port), `P8-15` (`p9-13`, TRADE `OD-33`); `P10` needs `P8-06` (incl. non-stock-bearing sources, SEAM-M4), `P8-09`
 (requisition port, cost-object resolver with counter purpose and hooks, SEAM-M1/M2), `P8-10`, `P8-11`, `P8-16` (SEAM-M3).
@@ -155,8 +185,8 @@ __TASKS__
 [`mrn-authorisation`](../docs/contracts/mrn-authorisation.contract.md) ·
 [`material-requisition`](../docs/contracts/material-requisition.contract.md) ·
 [`store-issue-return`](../docs/contracts/store-issue-return.contract.md) ·
-[`po-schedule-port`](../docs/contracts/po-schedule-port.contract.md) — all v0; each goes through
-`functional-reviewer` (dual engine) before its task is filed (R28 §8c item 4).
+[`po-schedule-port`](../docs/contracts/po-schedule-port.contract.md) · [`document-approval`](../docs/contracts/document-approval.contract.md) (R32, `P8-30`) — all v0; each goes through
+`functional-reviewer` (dual engine) before its task is filed (R28 §8c item 4). **R32 core fold:** [`quality-ncr-capa-deviation`](../docs/contracts/quality-ncr-capa-deviation.contract.md) (`P8-17`, `P8-18`, `P8-21`) · [`qc-inspector-calibration`](../docs/contracts/qc-inspector-calibration.contract.md) (`P8-19`, `P8-20`) · [`status-stores`](../docs/contracts/status-stores.contract.md) (`P8-22`) · [`accounting-handover`](../docs/contracts/accounting-handover.contract.md) (`P8-23`…`P8-25`).
 
 ## Traps this phase must not walk into
 

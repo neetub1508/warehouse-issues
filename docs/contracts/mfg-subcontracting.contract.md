@@ -211,6 +211,7 @@
 | 2026-10-22 | T4, §9 | Consistency pass: MD-20, MD-21, MD-25, MD-26, MD-28; generic-path RGP sourced on the dispatch (MD-29) | FRD-MFG §9 |
 | 2026-10-23 | `SUB-T1-00`, `-03`, `-07`, `SUB-GRD-01`…`-04`, `-14`, `-15`, `-18`, `SUB-T4-01`, `-07`, §5.2, §6, Source column, `SUB-OPEN-06`…`-09` | R31: holds closed explicitly, remainder re-created (F-MF-002); dispatch freezes the bonded regime (F-MF-004); trade subcontract PO carries the charge (F-MF-005, D-18 item 3); CST owns the close guard (F-MF-006); pending write-off not subtracted twice (F-MF-013); Source FR on every rule row (F-MF-018); one code per predicate (F-MF-019); DECIDE rows applied | `R31-functional-review-mfg.md`, `R31-decisions.md`, D-18 |
 | 2026-10-23 | §0, `SUB-GRD-17`, `SUB-T4-11` | Bonded / MOOWR job work allowed under the bond rules (permission reference, return date, register, loss); rules in `mfg-bonded-issue` | R30 `CP-GB-001`, `CP-GA-007`; `D-17` item 3 |
+| 2026-10-25 | R32 (`D-20`; MRB C8): §12 — a job-work stage inside an in-house order runs as a child subcontract order of its job card (FR-807) |
 
 ## 8. Invariants and scenarios this workflow must not break
 
@@ -235,3 +236,13 @@
 | SUB-OPEN-07 *(resolved — R31-decisions DECIDE: default stands, v1 scope)* | Research §11: direct-from-vendor dispatch, rejection at the job worker, receipt without challan | v1: rejection at the job worker = recall into `REJECTED`; receipt without a dispatch refused by `SUB-GRD-10`; direct-from-vendor not built | research §7, §11 | resolved |
 | SUB-OPEN-08 *(resolved — R31-decisions DECIDE: default stands)* | WS-330 has a Reconciliation tab (FRD §7) but only one grid id / filter scope is listed | ship `whm_subcontract_reconciliations` grid + `WAREHOUSE_MFG_SUBCONTRACT_RECONCILIATION` scope in `V560080` (§5.2, FRD §7, `p10-10`) | FR-669 | resolved |
 | SUB-OPEN-09 | FR-659 "outside India or for an intra-GSTIN movement" uses the generic path — the predicate for "intra-GSTIN" is not defined | the india bean decides (`isJobWork(dispatch)`); MFG never inspects GSTINs | FR-659, MD-13 | resolved (R31-decisions DECIDE: default stands) |
+
+## 12. R32 rules (PRD 2026-10-24, `D-20`)
+
+Owning tasks: `issues/p10-20.md` (FR-807, the job-work stage) with the subcontract machinery of `issues/p10-10.md` (`## R32 additions (PRD 2026-10-24)`).
+
+| ID | Rule | Refusal / effect | Source |
+|---|---|---|---|
+| SUB-T1-20 | Starting a job-work job card creates a child `SUBCONTRACT` order: `parent_order_id`, `parent_job_card_id`, item = the operation's `job_work_output_item_id`, one component = `job_work_input_item_id` × the batch quantity sourced from the parent's issued / staged pool, job worker = the operation's default (editable before dispatch); released at once | the child follows `SUB-T1-*` (dispatch, challan, receipt, reconciliation) | FR-807 |
+| SUB-T4-20 | The child's subcontract receipt books the parent job card good = processed quantity received; child `COMPLETED` completes the job card; the processed item is received to the parent's line-side / issue pool for the next stage's BOM line | parent WIP by stage moves | FR-807 |
+| SUB-GRD-20 | A child order of a job card cannot be cancelled while the job card is `STARTED` with a dispatch posted | `409 JOB_CARD_CHILD_ORDER_ACTIVE` | FR-807 |

@@ -2,7 +2,7 @@ TITLE: [Warehouse] EPIC: P10 — Manufacturing (warehouse-manufacturing)
 LABELS: epic,warehouse,phase-p10
 issue: 548
 ---
-Part of __MASTER__ · Module `warehouse-manufacturing` (`ai.warehousemanufacturing`, band **V560000–V569999**, prefix **`whm_`**) · Migrations — **25 blocks in band + six `warehouse-india` blocks (`V540190`…`V540193`, `V541160`, `V541161`), enumerated below** · Depends on **`P7`** (removal first) and **`P8`** (`p8-01`, `p8-02`, `p8-03`, `p8-06`, `p8-09`, `p8-10`, `p8-11` hard; `p8-16` for SEAM-M3) and **`P9`** (`p9-04`, `p9-07`, optional at runtime) · Ships in **v1.1** with the P8 seams it consumes (MD-38, R29 F24) · Runs in parallel with **`P9`** until p10-12 — the module **may ship before trade**: with trade off, MRP BUY output becomes a draft core PO (`OD-41` fallback)
+Part of __MASTER__ · Module `warehouse-manufacturing` (`ai.warehousemanufacturing`, band **V560000–V569999**, prefix **`whm_`**) · Migrations — **61 blocks in band (25 + 36 added by R32) + six `warehouse-india` blocks (`V540190`…`V540193`, `V541160`, `V541161`), enumerated below** · Depends on **`P7`** (removal first) and **`P8`** (`p8-01`, `p8-02`, `p8-03`, `p8-06`, `p8-09`, `p8-10`, `p8-11` hard; `p8-16` for SEAM-M3) and **`P9`** (`p9-04`, `p9-07`, optional at runtime) · Ships in **v1.1** with the P8 seams it consumes (MD-38, R29 F24) · Runs in parallel with **`P9`** until p10-12 — the module **may ship before trade**: with trade off, MRP BUY output becomes a draft core PO (`OD-41` fallback)
 
 ## Overview
 
@@ -103,6 +103,27 @@ That command is the authority; re-run it after any header change.
 | `V561110` | report grids (capacity load, registers) — no table · permissions, leaves | p10-13 |
 | `V560120` | `whm_production_orders.bonded_duty_status`, `whm_subcontract_dispatches.bond_permission_ref` | p10-14 |
 | **`V540191`** · **`V540192`** · **`V541160`** (`warehouse-india`) | bond rules registry + bond register of operations + grid · MOOWR returns + lines, SEZ movements · permissions, leaves, compliance rule (`D-17` item 3) | p10-14 |
+| `V562001` | R32 registries (FR-835) | p10-02 |
+| `V563000` | R32 L2 sections *Engineering*, *Shop Floor*, *Quality & Units*; R32 settings; personas (FR-834) | p10-01 |
+| `V562005` · `V563005` | machines + work-centre rate columns · permissions | p10-04 |
+| `V562010` · `V563010` | operations, routings, routing operations + grids · permissions, leaves | p10-16 |
+| `V562020` · `V563020` | shifts, operators, authorisations, work-centre shifts + grids · permissions, leaves | p10-15 |
+| `V562030` · `V563030` | ECNs + lines + dispositions · permissions, leaf | p10-17 |
+| `V562040` · `V563040` | drawings, revisions, issue log · permissions, leaf | p10-18 |
+| `V562050` · `V563050` | sample requests, iterations · permissions, leaf | p10-19 |
+| `V562060` · `V563060` | production batches, job cards, events, confirmation operators + confirmation columns · permissions, leaves | p10-20 |
+| `V562070` · `V563070` | unit serial series, unit serials, part bindings · permissions, leaf | p10-21 |
+| `V562080` · `V563080` | PDI order points, records, certificates · permissions, leaf, print template | p10-22 |
+| `V562090` · `V563090` | unit registry, part replacements, type approvals · permissions, leaves, `FORM_22` | p10-23 |
+| `V562100` · `V563100` | daily plans + lines · board grid, permissions, leaves | p10-24 |
+| `V562110` · `V563110` | cost estimates · permissions, leaf | p10-25 |
+| `V562120` · `V563120` | tools, routing-operation tools, tool life, maintenance plans + orders, `whm_operation_confirmations.tool_id` · permissions, leaves | p10-26 |
+| `V562200` · `V563200` | product variants, variant applicability + BOM columns · import / compare permissions | p10-03 |
+| `V562220` · `V563220` | production-order demands + order / operation columns · approve permissions | p10-05 |
+| `V562240` | receipt batch / unit-serial columns — no table | p10-07 |
+| `V562260` | order conversion costs | p10-09 |
+| `V562280` | production-parameter columns — no table | p10-11 |
+| `V563290` | R32 register report grids — no table | p10-13 |
 
 **Collision check (2026-10-22):** no `V56xxxx` file exists in `classic/warehouse*/backend` and no other
 `issues/*.md` claims a version in `V560000–V569999`. The india seam is **`V540190`** (free in code and in
@@ -130,10 +151,24 @@ __TASKS__
 | [`p10-12`](p10-12.md) | MRP — run, netting, lot sizing, proposals, pegging, conversion, exceptions | p10-05, p10-11, `p8-01`, `p8-02`, `p8-16`, `p9-04` (runtime) |
 | [`p10-13`](p10-13.md) | Capacity load and manufacturing registers | p10-04, p10-09, p10-12 |
 | [`p10-14`](p10-14.md) | Bonded / MOOWR stock to production and to a job worker — bond rules, bond register, output in bond, MOOWR return, SEZ lines (`D-17` item 3) | p10-06, p10-07, p10-10, india `p4-07` |
+| [`p10-15`](p10-15.md) | Operators, skills and shifts (R32) | p10-04, p10-16 |
+| [`p10-16`](p10-16.md) | Operation master and routing master (R32, `D-20` item 17) | p10-03, p10-04, `p8-30` |
+| [`p10-17`](p10-17.md) | Engineering change notice (R32, `D-20` item 1) | p10-16, p10-05, `p8-30` |
+| [`p10-18`](p10-18.md) | Drawings — revisions, port, controlled copies, issue log (R32) | p10-02, `p8-30` |
+| [`p10-19`](p10-19.md) | Samples — requests, SAMPLE orders, iterations, approval (R32) | p10-05, p10-18, `p8-22` |
+| [`p10-20`](p10-20.md) | Production batches and job cards (R32) | p10-06, p10-10, p10-15, p10-16 |
+| [`p10-21`](p10-21.md) | Unit serials and as-built binding (R32) | p10-11, p10-20 |
+| [`p10-22`](p10-22.md) | PDI gate per vehicle (R32) | p10-07, p10-08, p10-21, `p8-06`, `p8-19` |
+| [`p10-23`](p10-23.md) | Manufacturer unit registry, traceability, Form 22 / VAHAN (R32, `D-20` item 4) | p10-22 |
+| [`p10-24`](p10-24.md) | Production board and daily plans (R32) | p10-20 |
+| [`p10-25`](p10-25.md) | Pre-sale cost estimate service (R32) | p10-09, p10-16 |
+| [`p10-26`](p10-26.md) | Tooling / die master and preventive maintenance (R32) | p10-20 |
 
 Parallel lanes after p10-04: {p10-05 → p10-06 → p10-07 → {p10-08 → p10-09 → p10-10}}, {p10-11}; p10-12
 joins after p10-05 and p10-11; p10-13 last; p10-14 after p10-10 (parallel with p10-11…p10-13). Shared-registry edits (`filterUtils.ts`,
 `CacheConfiguration.java`, `WarehouseManufacturingSafeTranslation.tsx`, i18n) serialize at the barrier.
+
+**R32 build order (`D-20`):** p10-04 (`V562005`) → p10-16 (`V562010`) → p10-15 (`V562020`) → {p10-17, p10-18 → p10-19}; p10-20 after p10-15 / p10-16 / p10-06 / p10-10 → p10-21 → p10-22 → p10-23; p10-24, p10-26 after p10-20; p10-25 after p10-09 and p10-16. The R32 amendment sections of p10-01…p10-13 ride with their task (or, when that task is closed, its own follow-up).
 
 ## Dependencies outside the phase
 
@@ -164,12 +199,14 @@ joins after p10-05 and p10-11; p10-13 last; p10-14 after p10-10 (parallel with p
 
 ## Admin settings seeded by P10 (all in `V561000`, FRD-MFG §8)
 
-`release_requires_approval` (false) · `release_with_shortage` (WARN) · `component_reservation` (HARD) ·
+`release_requires_approval` (false) · `release_with_shortage` (~~WARN~~ **APPROVE**, R32) · `component_reservation` (HARD) ·
 `consumption_policy_default` (WARN) · `consumption_tolerance_percent` (0) · `over_receipt_percent` (0) ·
 `under_receipt_percent` (0) · `scrap_value_approval_threshold` (null) · `close_variance_approval_percent`
 (5) · `rework_keeps_lot` (true) · `block_receipt_on_open_inprocess_qc` (false) · `staging_stale_days` (7) ·
 `mrp.horizon_days` (90) · `mrp.suggestion_cover_days` (30) — all prefixed `warehouse.manufacturing.`;
 `admin_settings.description` ≤ 255 characters.
+
+**R32 settings (in `V563000`, FRD-MFG §8 rows marked *R32*):** `bom.approval_levels` (2) · `bom.single_released_alternative` (false) · `ecn_required_for_released_change` (true) · `ecn.approval_levels` (2) · `drawing.revision_scheme` (ALPHA) · `drawing.uncontrolled_watermark_text` · `sample.dispatch_approval_required` (true) · `order_approval_mode` (MTS_ONLY) · `create_order_from_demand_line` (false) · `pqc_blocks_next_stage_default` (true) · `patrol_interval_units` (10) · `max_rework_cycles` (3) · `unit_serial.assign_at` (FIRST_STAGE) · `pdi_revalidate_days` (30) · `warranty_starts_at` (SALE) · `vahan_export_layout` · `costing.absorb_conversion` (true) · `costing.overhead_basis` (PER_HOUR) · `costing.overhead_percent` (0) · `adhoc_substitution_requires_deviation` (true) · `maintenance.overdue_mode` (WARN). **`release_with_shortage` default changes WARN → APPROVE** (`ALLOW` read as `WARN`, `D-20` item 12; the row is updated in `V563000`); `release_requires_approval` is superseded by `order_approval_mode`.
 
 ## Open decisions this phase carries
 

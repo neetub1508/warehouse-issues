@@ -94,6 +94,7 @@
 | MRA-T2-06 | Cancel | `:cancel` | `DRAFT` | reason | — |
 | MRA-T2-07 | Print MRN | `wh_print_jobs:create` | `SUBMITTED` (watermark *NOT AUTHORISED*) and `AUTHORISED` | `SYS-MRN`; reprint marked duplicate | FR-538, FR-518 |
 | MRA-T2-08 | Print GRN | `wh_print_jobs:create` | GRN `DRAFT` (*provisional*) / `POSTED` / `REVERSED` (*reversed*) | `SYS-GRN` with the bill block | FR-538 |
+| MRA-T2-09 | Print lot / item labels after authorisation with the MRN number (and *Under deviation DEV-n*) | `wh_print_jobs:create` | `AUTHORISED` | label data contract gains `mrnNumber`, `mrnAuthorisedAt`, `deviationNumber`, `statusStoreLabel` (R32, `P8-12`) | FR-717 |
 
 ## 3. T3 — Time-driven rules
 
@@ -137,6 +138,7 @@ MRN for non-purchase receipts; value-based authorisation limits (`OD-29`-style m
 | 2026-10-22 | R29 dispositions: scope pair; MRN keyed on pending stock (setting change never strands it); MRN scope = every GRN; self-approval code on authorise and reject; `MRA-GRD-08` single exit; recall quarantine path stated |
 | 2026-10-23 | R31: QC lineage names `QCINSP` and the inspection-line → GRN-line join (`MRA-GRD-05`, F-SR-005); `OD-26` keyed to `PRODUCTION_STORE` (`MRA-OPEN-01`, F-SR-016); `MRA-OPEN-01`…`-03` resolved (`R31-decisions`) |
 | 2026-10-24 | P8 decision record `EV-1` (DECISIONS `D-19`): every outbox event code renamed to the dotted `whb_event_types` vocabulary of registry R.4 (PC-42) — e.g. `purchase_order.amended`, `demand_order.shipped`, `rma.matched`, `supplier_return.dispatched`; no behaviour change |
+| 2026-10-25 | **R32 (PRD 2026-10-24 §6).** `MRA-T2-09`: labels and the MRN print carry the MRN number and the deviation number (`P8-12`, `6.5-03`). The `material_receipt_note.authorised` handover is now consumed: the `MRN_AUTHORISED` envelope of `P8-23` (#174) carries per-line billed / received / accepted / rejected quantity for bill booking against the MRN (`AHO-T1-12`). Contract stays v0 |
 
 ## 8. Invariants and scenarios
 

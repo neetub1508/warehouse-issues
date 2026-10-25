@@ -227,7 +227,7 @@ Codes not named in the FRD (`BOM_EFFECTIVITY_OVERLAP`, `BOM_DEFAULT_ALTERNATIVE_
 
 ## 8. Out of scope
 
-Engineering change orders / change-number master (`R-08`); configurable / variant BOMs (`R-09`); recipes with potency, catch weight (`R-10`); unbuild (`R-07`); routing alternatives and finite capacity (`R-01`); labour/overhead absorption from work-centre rates (`OD-43`); editing kits; mobile (`R-13`).
+~~Engineering change orders / change-number master (`R-08`)~~ *(superseded by `D-20` item 1 — `mfg-engineering-change`)*; configurable / variant BOMs (`R-09`) *(base BOM with variant applicability built — §12, `D-20` item 2)*; recipes with potency, catch weight (`R-10`); unbuild (`R-07`); routing alternatives and finite capacity (`R-01`); ~~labour/overhead absorption from work-centre rates (`OD-43`)~~ *(superseded by `D-20` item 20 — `mfg-costing-close` §12)*; editing kits; mobile (`R-13`).
 
 ## 9. Amendments
 
@@ -238,6 +238,7 @@ Engineering change orders / change-number master (`R-08`); configurable / varian
 | 2026-10-22 | Edge-case ids renamed `BOM-E-nn` → `BOM-EC-nn` (the design-set checker reads `E-nn` as a review finding) |
 | 2026-10-23 | R31: phantom outputs refused, `BOM-GRD-19` (`BOM-OPEN-02` DECIDE); `BOM-OPEN-01`, `-03`, `-04` ratified; `BOM-T1-13` cross-reference `MRP-T1-13` (F-MF-023); `BOM_NOT_EFFECTIVE` marked proposed (F-MF-019); Source FR on every rule row (F-MF-018) |
 | 2026-10-22 | R29: `BOM-T1-07` and `BOM-EC-06` cite `PRO-GRD-07` (the release BOM-effective guard), not `PRO-GRD-03` (F31); explosion applies `process_loss_percent` (F29) |
+| 2026-10-25 | R32 (`D-20`): §12 — drawing link, base BOM with variant applicability, multi-level approval through `p8-30`, import / compare / mass replace, single-alternative option, work-centre shifts and rates, machines (FR-780…FR-786); out of scope narrowed: ECN (now `mfg-engineering-change`) and variant BOMs (base BOM built) |
 
 ## 10. Invariants and scenarios
 
@@ -251,3 +252,22 @@ Engineering change orders / change-number master (`R-08`); configurable / varian
 | BOM-OPEN-02 *(resolved — R31-decisions DECIDE: default stands; `BOM-GRD-19`)* | May a `PHANTOM` BOM carry co-/by-product outputs or operations? (they would be lost on explosion) | refuse outputs on a phantom (`422 BOM_OUTPUT_IS_COMPONENT` family → new `422 PHANTOM_OUTPUTS_NOT_ALLOWED`); operations allowed and appended to the parent's list at explosion, keeping their links — **adopted** |
 | BOM-OPEN-03 *(resolved — MD-27)* | uk `(item_id, bom_usage, alternative_no, version_no, warehouse_id)` with a nullable `warehouse_id` treats NULLs as distinct (PostgreSQL), so two all-sites v1 rows are allowed | **adopted:** unique index on `(item_id, bom_usage, alternative_no, version_no, COALESCE(warehouse_id, '00000000-0000-0000-0000-000000000000'::uuid))`; the default-alternative partial index uses the same expression |
 | BOM-OPEN-04 *(resolved — R31-decisions DECIDE: default stands)* | Should an `APPROVED` version whose `effective_to` has passed be auto-`OBSOLETE`? | no (`BOM-T3-02`); `OBSOLETE` only by `BOM-T1-07`/`-09` |
+
+## 12. R32 rules (PRD 2026-10-24, `D-20`)
+
+Owning tasks: `issues/p10-03.md` (FR-780…FR-784) and `issues/p10-04.md` (FR-785, FR-786), each under its `## R32 additions (PRD 2026-10-24)`.
+
+| ID | Rule | Refusal / effect | Source |
+|---|---|---|---|
+| BOM-GRD-30 | A BOM's `drawing_revision_id`, when set, is `RELEASED_FOR_PRODUCTION` — or, on a trial BOM used by a `SAMPLE` order, `RELEASED_FOR_SAMPLE` / `CUSTOMER_APPROVED`; approval freezes `drawing_number` + `drawing_revision_code` | `422 BOM_DRAWING_NOT_RELEASED` · `drawingRevisionId` | FR-780 |
+| BOM-T5-10 | WS-320 lines show the component's material class (item type) and serial-control flag read-only; header shows the drawing and its **current** released revision, flagging a superseded frozen one | display only | FR-780 |
+| BOM-GRD-31 | `BASE` BOM: header item is a model with ≥ 1 variant; applicability rows name variants of that model; a `BASE` BOM is never selected for the model item | `422 BOM_VARIANT_NOT_OF_MODEL` · `lines[i].variants[j]`; `422 BASE_BOM_NOT_ORDERABLE` | FR-781 |
+| BOM-T1-20 | Selection for a variant item: own effective approved `STANDARD` BOM, else the model's effective approved `BASE` BOM filtered to applicable lines (no row = all); explosion / where-used take an optional variant | `base_bom_id` returned to the order snapshot | FR-781 |
+| BOM-T1-21 | Submit opens an approval request (`p8-30`, `WHM_BOM`, `bom.approval_levels` levels); approve = the last level; return from any level → `DRAFT` with note; one user never acts on two levels or on their own submission | `403 BOM_SELF_APPROVAL`; append-only steps | FR-782 |
+| BOM-T1-22 | **Import** (`whb_import_batches`, type `WHM_BOM`): validate every row, then create `DRAFT` versions in one transaction; any invalid row creates nothing | per-row errors; `409 BOM_DRAFT_EXISTS` for a parent with a live draft / submitted version | FR-783 |
+| BOM-T1-23 | **Compare** two versions (or a variant's view vs its `BASE`): added / removed / changed lines by component, backend diff, exportable | read only | FR-783 |
+| BOM-T1-24 | **Mass replace** from where-used: component A → B × factor in the selected `APPROVED` BOMs creates one `DRAFT` ECN with a new `DRAFT` version per BOM (`ECH-T4-03`) | never an in-place edit | FR-783 |
+| BOM-GRD-32 | With `bom.single_released_alternative` = `true`, a second alternative of `(item, usage, site)` overlapping an approved one is refused at approval | `409 BOM_ALTERNATIVE_NOT_ALLOWED` | FR-784 |
+| BOM-GRD-33 | Work-centre shifts: each shift of the work centre's site, active; available minutes ≤ the shift's length less breaks; labour / machine / overhead rates ≥ 0 | `422 WORK_CENTRE_SHIFT_INVALID` | FR-785 |
+| BOM-GRD-34 | Machine: code unique per site; belongs to one work centre; status changes only by maintenance orders (`SFL-T1-43`, `-44`) or deactivate | `422 MACHINE_INVALID`; `409 MACHINE_STATUS_OWNED_BY_MAINTENANCE` | FR-786 |
+| BOM-T5-11 | WS-322 gains *Machines* and *Shifts* tabs; `parallel_units` shows the count of active machines when machines exist | display | FR-785, FR-786 |

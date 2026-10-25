@@ -102,6 +102,8 @@ counterparty; the evaluation stores `excluded_metrics`. A counterparty with no m
 | TCE-GRD-06 | Customer item ref `APPROVED` only with the customer's approval document attached; the status records the customer's decision, so no internal approval request (FR-545, §5 M2) | `422` on `document` | FR-545 |
 | TCE-GRD-07 | A trade extensible value (reason, terms, AVL status-as-code, MSME category, charge type, enquiry source) is an active `whb_code_lists` value whose list has `owning_module = 'warehouse-trade'`, seeded under the owning-module guard; an install may add values | `422` field-named | FR-546 |
 | TCE-GRD-08 | **Concurrency**: every edit, submit, transition and approval of a `wht_` document checks its optimistic `version`; a stale write changes nothing | `409 CONCURRENT_MODIFICATION` stale write (`TPR-OPEN-03`) | FR-618 |
+| TCE-GRD-R32A-01 | A trade contact has an e-mail or a phone; e-mail / E.164 formats valid; one active primary per company × counterparty (R32, PRD §4 vendor contacts) | field `422` / `409 TRADE_CONTACT_PRIMARY_EXISTS` | FR-733 |
+| TCE-GRD-R32A-02 | AVL required by `warehouse.trade.avl.required_scope` (default `TYPE_AND_QC`: item type `avl_required_default` or item `qc_required`) — an approved row for supplier × item at the document date; when approved rows name makes, the line's make is one of them (`D-20` item 2-14) | `422 TRADE_SUPPLIER_NOT_ON_AVL` · `itemId` / `422 TRADE_AVL_MAKE_NOT_APPROVED` · `makeName` | FR-734 |
 
 ### 1.4 Unreachable
 
@@ -208,6 +210,7 @@ actions View · Edit · New version · Versions.
 | 2026-10-22 | §0, metric catalogue, `TCE-T1-02`…`-05`, `TCE-GRD-06`, T2, T3, §5 | R29 TP-F10, F11, F26, F27, F28, TS-F29, MA-12: AVL through the engine with reject, profile `:approve`, part-approval refusal recorded, OTIF over FIXED and released lines, sales firm zone named, notifications, every screen specified | R29 |
 | 2026-10-23 | every T1, guard, unreachable, T3 and T4 row | `Source` column added, filled from FRD-TRADE §4, so every rule traces to the FR it proves | R30 `CP-FR-008` |
 | 2026-10-23 | `TCE-T4-08`, `-GRD-08`, `TCE-OPEN-01`, `-02`, every T2 row | R31 decisions: task-type seed settled; T&C version copied at create, refreshed in `DRAFT` only by an audited act, frozen at submit / issue; stale-write code (`TPR-OPEN-03`); T2 Source FRs (F-TR-019) | R31 |
+| 2026-10-25 | `TCE-GRD-R32A-01`, `-02`, §5 WS-280 / WS-281 Contacts tab, WS-282 make columns | R32: trade counterparty contacts (`FR-119` keeps them off the base counterparty), AVL required scope by item type / QC-required, approved make per supplier × item | R32 (`D-20` items 2-7, 2-14) |
 
 ## 8. Invariants and scenarios
 

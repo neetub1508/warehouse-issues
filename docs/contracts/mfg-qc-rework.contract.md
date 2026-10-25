@@ -219,6 +219,7 @@ rework order number as a GridLink.
 | 2026-10-22 | `QRW-T4-07`, `-08`, `QRW-OPEN-01`, `-02`, `-03`, `-08` | R29: rework component unreserved (F2, MD-30); same-item extras via settlement (F7, MD-33); MTO reservation at release (F15); one in-process gate (F27); confirmation never sets `IN_PROGRESS` (F28); P8 seed renumbered (`V501231`) | `R29-functional-review-mfg.md` |
 | 2026-10-23 | `QRW-T1-02`, `QRW-GRD-15`, Source column, `QRW-OPEN-04`…`-06`, `-09` | R31: cancel reason context (`QRW-OPEN-04` DECIDE); Source FR on every rule row (F-MF-018); DECIDE rows applied | `R31-functional-review-mfg.md`, `R31-decisions.md` |
 | 2026-10-22 | §9 | Consistency pass: no `SCRAP` stock status (MD-25), `supply_stock_status_code` and `is_rework_alternative` (MD-26) | FRD-MFG §9 |
+| 2026-10-25 | R32 (`D-20` item 11): §12 — PQC per routing stage with first-piece / patrol / full sampling, next-stage hold by default, pass under deviation, in-order rework loop with a cycle limit, producer segregation and NCR feed through the core fold (FR-808…FR-810) |
 
 ## 8. Invariants and scenarios this workflow must not break
 
@@ -244,3 +245,18 @@ rework order number as a GridLink.
 | QRW-OPEN-07 *(resolved — MD-26: `is_rework_alternative BOOLEAN NOT NULL DEFAULT false`)* | FR-653 "rework BOM (`usage = PRODUCTION`, alternative flagged rework)" — `whm_boms` has no rework flag column | add `is_rework_alternative BOOLEAN` to `whm_boms`, or a `WHM_BOM_USAGE` value `REWORK` | FRD §4 | resolved |
 | QRW-OPEN-08 *(resolved — R29 F15)* | FR-637 reserves MTO output at each good receipt, but FR-644 receives into `QC_HOLD` when final inspection is required — QC-held stock is not allocatable (`L-6`) | reserve at release (`QRW-T4-10`); receipts into an allocatable status reserve at receipt (`PRC-T4-08`, FR-637 amended) | FR-637, FR-644, `L-6` | resolved |
 | QRW-OPEN-09 *(resolved — R31-decisions DECIDE: default stands)* | Does a final-QC reject/rework free over-receipt tolerance (FR-647)? Not stated | no — tolerance counts receipt good quantity; replacement is the rework order or a new order (`QRW-T4-11`) | FR-647 | resolved |
+
+## 12. R32 rules (PRD 2026-10-24, `D-20`)
+
+Owning task: `issues/p10-08.md` `## R32 additions (PRD 2026-10-24)` (FR-808…FR-810). Job cards are `mfg-shop-floor`; PDI is `mfg-pdi-unit-registry`.
+
+| ID | Rule | Refusal / effect | Source |
+|---|---|---|---|
+| QRW-T1-20 | A booking on a checkpoint operation with `pqc_blocks_next_stage` = `true` (default) opens an `IN_PROCESS` inspection on the booking and sets the job card `HELD_QC`; its output does not transfer until the inspection completes | job card `HELD_QC` | FR-809 |
+| QRW-T1-21 | Inspection completes: `ACCEPT` → transfer; `REJECT` → booked rejected (reason), no transfer; `ACCEPT_UNDER_DEVIATION` → transfer only with a deviation consumed through `WhQualityDeviationPort` (`p8-18`, usage `PRODUCTION_CONSUMPTION`); with `false` the inspection is record-only (FR-652) | `409 DEVIATION_REQUIRED` | FR-809 |
+| QRW-T1-22 | `REWORK` (PQC or PDI) on job-card units creates a rework job card on the same batch at the originating (or a named earlier) operation, `rework_cycle` + 1; its good output re-enters PQC / PDI at that stage | rework counts per batch and unit serial | FR-810 |
+| QRW-GRD-20 | A unit / batch at `max_rework_cycles` takes no further rework | `409 REWORK_LIMIT_REACHED` | FR-810 |
+| QRW-GRD-21 | PQC plan precedence: routing operation plan → operation master plan → item plan; sampling `FIRST_PIECE` (first unit of each batch before the rest transfer), `PATROL` (every `patrol_interval_units`), `FULL` (per-unit result rows by unit serial) | `422 PQC_PLAN_MISSING` when a checkpoint has none | FR-808 |
+| QRW-GRD-22 | The `IN_PROCESS` resolver's `producedByUserIds` returns the booking's crew and poster; core refuses an inspector among them unless `inspector_may_be_producer` (`p8-19`); result approval follows `p8-19`'s mode | `403 INSPECTOR_IS_PRODUCER` (core) | FR-808 |
+| QRW-T4-20 | A PQC reject attributed to a purchased component (reason flagged supplier-caused) raises a core NCR (`p8-17`) naming the component item, lot and supplier, so line rejections feed vendor rejection ppm (`p8-21`) | NCR id recorded on the inspection | FR-808 |
+| QRW-UNR-20 | Final-QC `REWORK` of **received** stock creating a rework job card | it still creates a rework order (FR-653, `D-20` item 11) | FR-810 |

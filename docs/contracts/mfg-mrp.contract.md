@@ -231,6 +231,7 @@ nothing rescheduled.
 | 2026-10-23 | §0, `MRP-T1-07`, `MRP-GRD-02`, `-11`, `-12`, `-14`, `-16`, `MRP-N-02`, `-04`, `-11`, `-12`, `-14`, `MRP-X-08`, `MRP-T3-01`, `-04`, `-05`, `MRP-T4-03`, Source column, `MRP-OPEN-03`…`-08`, `-10` | R31: subcontract open quantity netted (F-MF-003); subcontracted items planned, MAKE converts to `SUBCONTRACT` (F-MF-014); live children across runs (F-MF-015); scheduled run as MFG's service principal with site scope (F-MF-016, F-SR-004); Source FR on every rule row (F-MF-018); lot cap meets max and multiple (F-MF-020); FR-258 restored (D-18 item 6); DECIDE rows applied | `R31-functional-review-mfg.md`, `R31-decisions.md` |
 | 2026-10-22 | T3, §9 | Consistency pass: suggestion publish/cover/withdraw (MD-24), `PRODUCTION_ORDER` MRQs excluded (MD-16), `current_due_date` (MD-27), SEAM-M3 = `p8-16` (MD-28) | FRD-MFG §9 |
 | 2026-10-22 | `MRP-GRD-09`, `-T2-05`, `-N-03`, `-N-04`, `-N-08`, `-T1-14`, `-T3-04`, `-T2-02`, §5.1, `MRP-OPEN-09` | R29: firmed proposals actionable across runs (F1); safety stock counted once (F9); live FIRMED MAKE proposals exploded (F10); withdraw-then-replan with per-proposal outcomes and `conversionLive` (F13); one capacity-load rule (F25, MD-39); `ACTIVE` lines editable (F26, MD-40); process loss in explosion (F29); port calls per the FRD-STORES registry | `R29-functional-review-mfg.md` |
+| 2026-10-25 | R32 (`D-20`): §12 — production parameters per item × site and batch-size rounding of MAKE proposals (FR-830) |
 
 ## 8. Invariants and scenarios this workflow must not break
 
@@ -258,3 +259,12 @@ nothing rescheduled.
 | MRP-OPEN-10 *(resolved — R31-decisions DECIDE: default stands; the core half is `p8-16`'s)* | Core replenishment (`V510070`) plans by reorder point regardless of MFG's `planning_method`; an `MRP` item with core reorder settings is proposed twice | core replenishment skips items whose MFG params say `MRP` (SEAM-M3 read); with MFG absent core settings rule (FRD §3.2 SEAM-M3, FR-662); core rule `replenishment` `RPN-GRD-11` through the `ExternalPlanningOwner` SPI (FRD-STORES R.3), core in `p8-16`, MFG bean in `p10-11` | FR-662, SEAM-M3 | resolved |
 | MRP-OPEN-11 *(resolved — MD-27)* | `whm_mrp_exceptions.current_date` is a PostgreSQL **reserved word** | rename to `current_due_date` (and `suggested_date` → `suggested_due_date` for symmetry) | FRD §4, PostgreSQL | resolved |
 | MRP-OPEN-12 *(resolved — SEAM-M3 is `p8-16`, MD-28)* | FRD SEAM-M3 says "new `p8-15`, or folded into `p8-14`"; `issues/p8-15.md` already exists as the RMA-creation port | fold SEAM-M3 into `p8-14` or take the next free STORES id | FRD §3.2 | resolved |
+
+## 12. R32 rules (PRD 2026-10-24, `D-20`)
+
+Owning task: `issues/p10-11.md` `## R32 additions (PRD 2026-10-24)` (FR-830); the MRP rounding is carried by `issues/p10-12.md`.
+
+| ID | Rule | Refusal / effect | Source |
+|---|---|---|---|
+| MRP-GRD-20 | Production parameters: `standard_batch_size > 0` when `is_batch_produced`; `uses_job_cards` forced `true` when batch-produced; `unit_serial_series_id` of the same item × site; `pdi_required` only for a serial-controlled item | `422 PRODUCTION_PARAMETERS_INVALID` · field | FR-830 |
+| MRP-N-20 | A `MAKE` proposal of a batch-produced item is rounded up to a multiple of `standard_batch_size` after the lot-sizing rule | proposal quantity | FR-830 |

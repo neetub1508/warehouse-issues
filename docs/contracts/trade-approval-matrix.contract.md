@@ -9,6 +9,17 @@
 >
 > **Status.** Derived 2026-10-22 (v0) from `docs/frd/FRD-TRADE.md`; not yet run through the
 > `functional-reviewer`. **No code exists yet.**
+>
+> **R32 (2026-10-25, `D-20` item 18).** The engine itself — tables, `ApprovalService`, WS-284 / WS-285, the
+> alert job and the notification category — is **re-homed to core** as
+> [`document-approval.contract.md`](document-approval.contract.md) (`DAP-*`, `issues/p8-30.md`, `wh_approval_*`),
+> so one engine approves every core, trade and manufacturing document. The `TAM-*` rows below stay the
+> **trade consumer's** truth: the trade document types and approve verbs (§0.1), trade's `REFUSE` default
+> (`TAM-GRD-02`), trade conditions, and the trade callbacks. Where a `TAM` row names a `wht_approval_*` table,
+> read the `wh_approval_*` table of the same role; `TRADE_APPROVAL_*` refusal codes are `APPROVAL_*`;
+> `TradeApprovalAlertJob` is `WhApprovalAlertJob`; the in-app-only rule of `TAM-T3-01` is superseded by
+> `DAP-T4-04` (e-mail / WhatsApp per `warehouse.approval.channels`) and same-level re-alerting is joined by
+> upward escalation (`DAP-T3-02`).
 
 ---
 
@@ -38,6 +49,8 @@
 | `PO_AMENDMENT` | `wht_po_amendments:approve` | `SO_AMENDMENT` | `wht_so_amendments:approve` |
 | `AVL` | `wht_approved_vendor_items:approve` | `SRA` | `wht_sales_return_authorisations:approve` |
 | `PROFILE_BLOCK` (supplier) | `wht_supplier_profiles:approve` | `PROFILE_BLOCK` (customer) | `wht_customer_profiles:approve` |
+| — | — | `SO_CREDIT_OVERRIDE` *(R32)* | `wht_sales_orders:approve_credit_override` |
+| — | — | `FEASIBILITY` *(R32)* | `wht_feasibility_reviews:approve` |
 
 Each `:approve` depends on the resource's `:view` (`permission_dependencies`, seeded by the task owning the resource).
 
@@ -157,12 +170,24 @@ within the chosen currency), `overdueOnly`, `asDelegateOnly`. Tiles: my pending,
 decided by me today, returned by me (period) — counts, never summed values. Row actions: View (read-only
 document preview) · Approve · Reject · Return. Toolbar: Delegate. No export.
 
+## R32 additions (PRD 2026-10-24, `D-20`)
+
+Rows added by the R32 fold (FRD-TRADE §4.15). Numbers continue each kind's sequence; where a number exists on one side of the purchase / sales mirror only, the asymmetry is stated in FRD-TRADE §5 rows M35…M40.
+
+| ID | Kind | Rule | Refusal / effect | Source |
+|---|---|---|---|---|
+| TAM-GRD-11 | guard | PR HOD level = core resolver `DEPARTMENT_HEAD` (core `FR-722`); trade supplies the PR's `department_id` in `snapshot()`; nothing trade-local resolves approvers | core's resolver refusal | FR-740 |
+| TAM-GRD-12 | guard | Trade registers `WhApprovable` for `SO_CREDIT_OVERRIDE` (`REFUSE`, no seed) and `FEASIBILITY` (`REFUSE` + seeded one-level `ROLE` rule `trade_design_head`) | `422 APPROVAL_NO_RULE` | FR-740, FR-766, FR-771 |
+| TAM-T1-12 | transition | PR derived status `HOD_APPROVED` while a `DEPARTMENT_HEAD` level is approved and a later level pending (read from core steps, not stored); MR-origin PRs carry `from_approved_mr` | — | FR-743 |
+| TAM-GRD-13 | guard | Band value = net of tax unless `warehouse.trade.approval.value_basis` = `GROSS` (default `NET`, client Q-P3); the basis is frozen on the request | — | FR-762 |
+| TAM-GRD-14 | guard | New condition codes from trade's `WhApprovalConditionProvider` (exact match, `TRD-14`): `exceeds_pr`, `direct_po`, `sample_from_unlisted_vendor`, `price_differs_from_quotation`, `below_target_margin`, `affects_production`, `from_approved_mr` — none is matched by a zero-level rule | — | FR-745, FR-746, FR-747, FR-752, FR-757, FR-772 |
+
 ## 6. Out of scope
 
 | Item | Decision | Reason |
 |---|---|---|
 | Bulk approve | not built | each approval is a deliberate act on a previewed document |
-| Approval by e-mail link | not built | needs signed tokens; re-entry with a notification module |
+| Approval by e-mail link | not built | needs signed tokens; re-entry with a notification module. *(R32: e-mail / WhatsApp **notification** is now built by `DAP-T4-04`; approving by link stays out)* |
 | FX conversion of bands | not built | `OD-34` |
 
 ## 7. Amendments
@@ -173,6 +198,8 @@ document preview) · Approve · Reject · Return. Toolbar: Delegate. No export.
 | 2026-10-22 | §0.1, `TAM-T1-03`, `-04`, `-08a`, `-10`, `-11`, `TAM-GRD-01`, `-03`, `-05`, `-07`…`-09`, T2-06, T3, T4-03, §5 | R29 TP-F8, F9, F12, F26, F28, TS-F8, F9, F12 and contract quality: exact condition match, both-party maker check, intersecting-scope ambiguity, delegation confirmation, approve-verb map, inbox filters and tiles, notifications | R29 |
 | 2026-10-23 | every T1, guard, unreachable, T3 and T4 row | `Source` column added, filled from FRD-TRADE §4, so every rule traces to the FR it proves | R30 `CP-FR-008` |
 | 2026-10-23 | `TAM-GRD-01`, `-GRD-10`, every T2 row | R31: `AVL` / `PROFILE_BLOCK` match with value 0 in the company currency (F-TR-013); stale-write code (`TPR-OPEN-03`); T2 Source FRs (F-TR-019) | R31 |
+| 2026-10-25 | header, §0, `TAM-T3-01`, `TAM-T4-03`, §6 e-mail row | R32: engine re-homed to core `document-approval` (`DAP-*`); this contract becomes the trade consumer; e-mail / WhatsApp and upward escalation added by `DAP-T3-02` / `DAP-T4-04` (supersedes the in-app-only rule) | R32 (`D-20` items 2-18, 2-19) |
+| 2026-10-25 | `TAM-GRD-11`, `TAM-GRD-12`, `TAM-T1-12`, `TAM-GRD-13`, `TAM-GRD-14` (new, *R32 additions*) | R32 fold of the client PRD (`D-20`): trade consumer of core `document-approval`: HOD level via core `DEPARTMENT_HEAD`, `SO_CREDIT_OVERRIDE` / `FEASIBILITY` types, value basis, new condition codes | R32 / `D-20` |
 
 ## 8. Invariants and scenarios
 

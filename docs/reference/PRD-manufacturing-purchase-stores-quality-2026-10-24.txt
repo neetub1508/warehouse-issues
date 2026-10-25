@@ -1,0 +1,750 @@
+PRD — Manufacturing, Purchase, Stores & Quality Module
+Oct 24, 2026 · @Samir kumar
+1. Overview
+This module adds purchase, stores, quality and production to Voyager CRM, so one system carries a vehicle from material requirement to the sales invoice. Every document moves only when an approved user acts on it.
+Problem. Today sales (leads, quotations), service (warranty, Tally import) and the item master live in the CRM, but buying, receiving, inspecting, issuing and building happen on paper, in Excel or in Tally. Nobody can answer "which battery serial went into chassis X, who inspected it, and which PO bought it" without hunting.
+Goals
+	•	One traceable chain: PR → PO → Gate Entry → IQC → MRN → Store → Material Requisition → Issue → Production → Process QC → PDI → Invoice → Payment.
+	•	Production driven by the Sales Order, built against an approved BOM and routing, batch-wise and stage-wise.
+	•	No stock movement without a document, and no document without an approved user.
+	•	Samples and drawings handled against the SO, with drawing approval before any sample is built.
+	•	Serial and batch traceability that feeds the existing Warranty & Service registry.
+Out of scope (v1): direct filing on government portals in v1 (the system prepares the return data and upload files; §12A is the complete accounts module), payroll, MRP auto-planning across many SOs, and vendor portal logins.
+Users
+Role
+Main work
+Purchase Executive / Manager
+PR review, RFQ, PO, vendor follow-up
+Security / Gate
+Gate entry in and out
+Store Keeper / Store Manager
+Stock inward, MRN, issue, returns, store inward
+QC Inspector / QC Manager
+IQC, process QC, PDI, rejection notes
+Production Planner / Supervisor
+Production order, job cards, stage booking
+Design / R&D Engineer
+BOM, routing, drawings, samples
+Plant Head
+Approvals above limits, BOM and drawing release
+Sales / Dispatch / Billing
+SO, sample request, dispatch, sales invoice
+Management Viewer
+Reports only
+Fit with the existing CRM. Reuses the item master (categories, units, GST), company profile, multi-tenant RLS, roles and data scope, audit_log, the approval pattern quotations use, PDF printing, and the service product registry for serials. New tables carry org_id like every tenant table.
+2. End-to-end flow
+
+end-to-end flow · enquiry to payment, 20 documents
+The approved Sales Order is the trigger: it raises the Production Order, whose BOM drives the material requisition. Free stock goes straight to issue; a shortage runs through purchase and inward (right to left) until an MRN puts accepted stock in the Main store. IQC rejects go back to the vendor (§6), PQC and PDI failures go to rework (§9–10), and every box is a document only an approved user can approve.
+3. Approved users and approvals (applies to every module)
+A document can be created, approved, or acted on only by a user who holds the permission for that action, and no user approves their own document. This is the rule behind requirement 11: sample production, drawings and every stock movement work only on approved users.
+Rules
+	•	Permission per action, not per screen: pr:create, pr:approve, po:approve, iqc:inspect, mrn:approve, issue:post, bom:release, drawing:approve, prodorder:release, pdi:approve, and so on. Roles bundle them; Admin → Roles edits them.
+	•	Maker ≠ checker. The creator of a document can never approve it. Enforced in the service, not hidden in the UI.
+	•	Value limits. Each approver has a limit per document type (e.g. PO up to ₹1,00,000). Above it, the document routes to the next level (Purchase Manager → Plant Head → MD). Limit used is recorded on the approval.
+	•	Multi-level approval matrix, configurable per document type, per value band, per item category, per plant/store.
+	•	Approved status locks the document. Change after approval = an amendment (new revision, re-approval), never an edit in place. Revision history is kept.
+	•	Reason mandatory on reject, cancel, short-close, amendment, deviation and override.
+	•	Approved vendor list, approved BOM, approved drawing. A PO can only go to an approved vendor for that item; production can only run on a released BOM + routing; a sample can only be built from an approved drawing revision.
+	•	Authorised operators per stage. Each routing stage lists who may book output on it (skill/operator master). QC stages list authorised inspectors.
+	•	Audit. Every create, approve, reject, post, amend and print writes audit_log with before/after, user and time. Approvals are append-only.
+	•	Notifications. In-app (and email where configured) to the next approver; overdue approvals escalate after a configurable number of hours.
+Approval statuses (common to all documents): Draft → Submitted → Approved (L1…Ln) → Released/Posted → Closed; or Rejected (back to Draft for revision) / Cancelled (with reason).
+Document
+Created by
+Approved by (default)
+Value-based?
+Purchase Requisition
+Any department user
+HOD, then Purchase
+Optional
+Purchase Order
+Purchase Executive
+Purchase Manager → Plant Head → MD
+Yes
+IQC result / deviation
+QC Inspector
+QC Manager (deviation: Plant Head)
+No
+MRN
+Store Keeper
+Store Manager
+No
+Material Requisition
+Production / department
+HOD / Production Manager
+No
+Material Return
+Production
+Production Manager + Store Manager
+No
+BOM / Routing release
+Design Engineer
+Design Head + Plant Head
+No
+Drawing release
+Design Engineer
+Design Head (customer approval for SO samples)
+No
+Production Order
+Production Planner
+Production Manager
+No
+PDI clearance
+QC Inspector
+QC Manager
+No
+Sample dispatch
+Sales / R&D
+Sales Manager
+No
+4. Masters
+All transactions read from these masters; masters are retired, never deleted, and changes are audited.
+Master
+Key fields
+Notes
+Item (extends existing)
+Code, name, category, item type (RM / Bought-out / Sub-assembly / FG / Consumable / Sample), UoM + purchase UoM + conversion, HSN, GST, make/buy, batch-tracked, serial-tracked, shelf life, QC required (Y/N), reorder level, min/max, lead time, default store
+Item type drives which flows apply
+Vendor
+Code, name, GSTIN, PAN, address, contacts, payment terms, approved items + approved make, rating
+Only approved vendor-item pairs can be ordered
+Plant / Store / Bin
+Plant, store (Main, Quarantine/QC Hold, Rejected, WIP, FG, Scrap, Sample), bin/rack
+Quarantine and Rejected are separate, non-issuable stores
+Work centre / Machine
+Code, name, capacity per shift, cost per hour
+Used by routing
+Operation / Stage
+Code, name (e.g. Chassis welding, Painting, Wiring, Assembly, Testing), QC checkpoint Y/N
+
+Operator / Skill
+User, stages authorised, shift
+Only authorised operators book a stage
+QC parameter / Checklist
+Parameter, method, instrument, spec (min/max/target or pass-fail), sampling plan (AQL)
+Linked per item (IQC), per stage (PQC), per FG model (PDI)
+Reason codes
+Rejection, return, deviation, scrap, cancellation, short-close
+
+Approval matrix
+Document type, value band, category, levels, approver roles
+See §3
+Number series
+Per document type, per plant, per financial year (e.g. PO/26-27/00001)
+Assigned on approval/posting, never on draft
+Drawing
+Drawing no., revision, item, file, status, customer approval
+See §11
+4A. CRM before the Sales Order
+No Sales Order exists without a CRM trail behind it: a lead or customer, an enquiry, an approved quotation, and the customer's PO or confirmation. The existing CRM already covers leads, calls, follow-ups, dealers and approved quotations; this section adds what is missing between an approved quotation and a manufacturing SO.
+	•	Lead / Customer (existing). Lead from Meta, manual or dealer; customer master with GSTIN, billing and shipping addresses, credit limit, payment terms. A lead converts to a customer account when the first SO is booked.
+	•	Enquiry / Opportunity (new). Against the lead or customer: product/model, variant, colour, qty, required delivery date, special requirements, customer drawing or spec (attachments), standard or custom product, sample needed (Y/N).
+	•	Technical feasibility (new, only for custom/non-standard). Design/R&D confirms feasibility, BOM availability, new drawing needed, tooling, estimated lead time. Approved by Design Head before costing.
+	•	Costing / price approval (new, custom items). Material cost from BOM × last purchase rate, labour/routing cost, overhead, margin; below-floor price needs approval from Sales Manager / MD.
+	•	Quotation (existing). Draft → Pending approval → Approved → Sent; revision kept; watermark and PDF as today. Gains a validity date, delivery period, payment terms and a link to the enquiry.
+	•	Sample request (if needed) — goes to §11 before the order is confirmed.
+	•	Customer PO / Order confirmation (new). Customer PO no., date, copy upload, advance received (amount, UTR). Order acceptance checks: price = approved quotation, credit limit, overdue outstanding (from Tally), stock/production availability.
+	•	Sales Order (new). Created from the approved quotation (lines copied, not retyped). Fields: SO no., customer, billing/shipping address, PO ref., lines (item/model, variant, colour, qty, rate, GST, delivery schedule per line), dispatch mode, freight terms, special instructions, drawing revision for custom items.
+	•	Approval: Sales Manager; credit-limit or price exception → Accounts / MD.
+	•	On approval: stock check per line → reserve FG stock if available; for the balance, a Production Order is suggested (§9) and BOM shortages raise PRs (§5).
+	•	Status: Draft → Approved → In production → Partly dispatched → Fully dispatched → Invoiced → Closed; Cancel / short-close with reason.
+	•	Amendment: qty, date or spec change after approval = new revision, re-approval, and impact shown on linked production orders.
+CRM screens to add: Enquiry list, Feasibility queue, Order book (SO-wise pending qty vs. produced vs. dispatched), Customer 360 (leads, quotations, SOs, samples, invoices, service claims).
+5. Purchase — with or without Purchase Requisition
+A PO can be raised against one or more approved PRs, or directly without a PR when the user holds po:create_without_pr; both paths go through the same PO approval.
+5.1 Purchase Requisition (PR)
+	•	Sources: manual (any department), auto from shortage (BOM requirement for a production order vs. free stock), auto from reorder level, from a Material Requisition that the store cannot fulfil.
+	•	Fields: PR no., date, department, requested by, required-by date, purpose (Production order / SO / Maintenance / Sample / Stock), reference (Prod. order no., SO no.), lines: item, qty, UoM, required date, suggested vendor, last purchase rate, current stock, remarks.
+	•	Flow: Draft → Submitted → HOD approved → Purchase approved → Open → Partly ordered → Fully ordered / Short-closed (reason).
+	•	A PR line can be split across several POs; PR balance = approved qty − ordered qty.
+5.2 RFQ and comparison (optional)
+	•	RFQ to 1–n approved vendors from PR lines; enter quotes; comparison sheet (rate, GST, freight, delivery days, payment terms, last price); select vendor with reason if not L1.
+5.3 Purchase Order (PO)
+	•	With PR: pull approved PR lines (one or many PRs, same or different departments); qty cannot exceed PR balance unless the user holds po:exceed_pr (tolerance % configurable).
+	•	Without PR: allowed only for permitted users and optionally only for listed categories (e.g. consumables, urgent spares); reason mandatory; flagged "Direct PO" in reports.
+	•	Fields: vendor (approved for each item), PO type (Standard, Job-work, Service, Sample, Rate contract/Open), delivery schedule per line (multiple dates), rate, discount, GST (CGST/SGST or IGST by place of supply), freight, P&F, terms, payment terms, delivery address, attachments (drawing, spec).
+	•	Approval: value-based matrix (§3); PO number assigned on approval; PO PDF on company letterhead; email/WhatsApp share to vendor.
+	•	Amendment: revision no. increments; re-approval; old revision kept; cannot reduce qty below received qty.
+	•	Status: Draft → Pending approval → Approved → Partly received → Fully received → Closed / Short-closed.
+	•	Tolerance: over-receipt allowed up to configurable % per item/category.
+	•	Rate contract: price fixed for a period; release orders against it.
+	•	Job-work PO: material sent out on a returnable challan, received back as processed goods; tracks material lying with vendor.
+5.4 Vendor follow-up
+	•	Pending PO list by due date; overdue highlighted; vendor-wise pending; expected arrivals for the week.
+6. Inward: Gate Entry → Stock Inward → IQC → MRN → Store Inward
+Material enters usable stock only after it passes IQC and an approved MRN posts it to a store; until then it sits in Quarantine and cannot be issued.
+	•	Gate Entry (Security). Vehicle no., driver, transporter, LR no., vendor, vendor invoice/challan no. + date, PO no. (one or more), no. of packages, gross weight, in-time, photo of invoice and vehicle. Inward types: Against PO, Job-work return, Customer return, Returnable (our material back), Non-PO (samples, free-of-cost). Gate entry without PO only for non-PO types. Gate pass number generated; out-time recorded when the vehicle leaves.
+	•	Stock Inward / GRN (Store). Against the gate entry: pick PO lines, enter invoice qty, received qty (counted), short/excess, damaged qty, batch/lot no., mfg/expiry date, serial nos. (scan or import for serial-tracked items such as battery, motor, controller, charger). Received qty goes to Quarantine (QC Hold) store. Items with QC required = No go straight to MRN.
+	•	IQC (Quality). Auto-raised for every GRN line needing QC. Inspector records sample size (AQL plan), each parameter's reading vs. spec, pass/fail, photos, test certificate (COA) from vendor. Result per line: Accepted qty, Rejected qty, Accepted under deviation (needs QC Manager / Plant Head approval with reason). Serial-tracked items can be inspected per serial.
+	•	MRN — Material Receipt Note. Created from IQC result (or GRN for non-QC items). Shows PO rate, accepted qty, value. Store Manager approves; on approval accepted qty moves from Quarantine to the Main store and becomes free stock. MRN is the document Purchase/Accounts use for bill booking (export to Tally).
+	•	Store Inward / Put-away. Store keeper assigns bin/rack; labels printed with item, batch, serial, MRN no., QR/barcode. Stock ledger updated.
+Rejections. Rejected qty moves to the Rejected store; a Rejection Note / Debit Note request is generated against the vendor; material goes back on a Returnable/Non-returnable gate pass (Purchase Return). Replacement received later comes in as a new gate entry against the same PO.
+Controls
+	•	Cannot receive more than PO balance + tolerance; cannot receive against an unapproved or closed PO.
+	•	Duplicate vendor invoice no. for the same vendor is blocked.
+	•	IQC cannot be done by the person who made the GRN.
+	•	Every movement writes the stock ledger with document no., batch, serial, store, user, time.
+7. Material Requisition, Issue and Return
+Store issues material only against an approved Material Requisition (MR), and any material coming back to store needs an approved Material Return before it is taken into stock.
+7.1 Material Requisition (MR)
+	•	Types: Against Production Order (from BOM, §8.4), Against SO sample, Maintenance/General, Consumables, Replacement (extra issue for rejection/scrap at a stage).
+	•	Fields: MR no., date, department, requested by, production order / SO / job card ref., stage, required date, lines: item, required qty, UoM, batch preference, remarks.
+	•	Flow: Draft → Submitted → Approved (HOD/Production Manager) → Partly issued → Fully issued / Short-closed.
+	•	Extra issue beyond BOM requirement needs a reason code and a higher approval.
+	•	If free stock is short, the store can raise a PR from the MR in one click (§5.1).
+7.2 Material Issue
+	•	Store picks approved MR lines; system suggests batches by FIFO/FEFO and shows bin location.
+	•	Issued qty ≤ approved balance and ≤ free stock; serial-tracked items need each serial scanned.
+	•	Stock moves Main store → WIP (against the production order) or to the consuming department.
+	•	Issue slip printed; receiver acknowledges (name/sign or OTP on app).
+	•	Issue against MR only — no direct issue without MR, except emergency issue by a permitted user, which auto-creates the MR for post-approval.
+7.3 Material Return (with approval)
+	•	Reasons: Excess / unused, Wrong issue, Defective found in process (line rejection), Scrap, Production order closed with balance.
+	•	Fields: return no., production order / MR / issue ref., item, batch, serial, qty, reason, condition (Good / Defective / Scrap), photos.
+	•	Flow: Raised by production → Approved by Production Manager → Store verifies physical qty → Store Manager approves → Material inward in store.
+	•	Where it lands: Good → Main store (free stock); Defective → Quarantine for QC decision (use / return to vendor / scrap); Scrap → Scrap store.
+	•	Defective bought-out parts can raise a vendor rejection (links back to the original MRN and PO for vendor rating).
+	•	Production order consumption is reduced by the returned qty, so actual-vs-BOM variance stays correct.
+8. BOM — Component BOM, Routing BOM, MR against BOM
+Every producible item has one released component BOM (what goes in) and one released routing (how and where it is made); production uses only released revisions.
+8.1 Component BOM
+	•	Header: BOM no., parent item (FG or sub-assembly), revision, base qty (e.g. 1 vehicle), effective from/to, drawing no. + revision, status (Draft → Under review → Released → Obsolete).
+	•	Lines: component item, qty per base, UoM, scrap/wastage %, item type (RM / bought-out / sub-assembly), issue stage (which routing stage consumes it), alternate items (with priority), serial-tracked flag (battery, motor, controller, charger, chassis).
+	•	Multi-level: a line can be a sub-assembly with its own BOM (e.g. Vehicle → Chassis assembly → Welded frame → MS tubes). Exploded and indented views.
+	•	Variants: one base BOM + variant overrides (colour, battery type, MS/SS frame, with/without charger) so 31 configurations do not need 31 full BOMs.
+	•	Change control (ECN): any change to a released BOM = Engineering Change Note with reason, impact (open production orders, stock of old part), approval by Design Head + Plant Head → new revision.
+	•	Where-used report for any component.
+8.2 Routing BOM
+	•	Ordered list of stages for the parent item: stage no., operation (e.g. 10 Frame welding, 20 Painting, 30 Wiring harness, 40 Final assembly, 50 Testing, 60 PDI), work centre, standard time (setup + run per unit), operators required, authorised operator skill, QC checkpoint (Y/N + checklist), in-house or job-work (vendor).
+	•	Materials from the component BOM are tagged to the stage that consumes them, so issue can be stage-wise.
+	•	Released and revised the same way as the component BOM; a routing revision is tied to a BOM revision.
+8.3 Batch-wise production setup
+	•	An item is marked batch-produced with a standard batch size (e.g. 10 vehicles). A production order is split into batches; each batch gets a batch no. that follows through MR, issue, stages, QC, PDI and the FG label.
+8.4 Material Requisition against BOM
+	•	From a released production order: requirement = BOM qty × order (or batch) qty × (1 + scrap %), exploded to the level the store issues at.
+	•	Shown per line: required, already issued, returned, balance, free stock, shortage.
+	•	MR can be raised for the whole order, per batch, or per stage (only the stage's materials).
+	•	Shortage lines → one-click PR (§5.1). Alternate item can be issued only if listed on the BOM or approved by a deviation.
+	•	Variance: actual issue − returns vs. BOM standard, per order and per batch.
+9. Production — Production Order against SO, stage-wise and batch-wise
+A Production Order (PO-P) is raised from an approved SO line (or for stock / sample), released only on a released BOM + routing, and progresses stage by stage, batch by batch, until finished goods pass PDI.
+9.1 Production Order
+	•	Sources: SO line (default), multiple SO lines of the same item consolidated, Make-to-stock (planner, with approval), Sample (§11), Rework.
+	•	Fields: order no., item/variant, qty, SO ref(s) + customer, BOM revision, routing revision, planned start/end, priority, batch size → no. of batches, plant/line.
+	•	Checks before release: BOM and routing released; material availability shown (available / shortage / on order with ETA); capacity per work centre shown. Release with shortage allowed only with Production Manager approval.
+	•	Flow: Draft → Approved → Released → In progress → Completed → Closed (after FG receipt and variance review) / Short-closed (reason).
+	•	On release: batches and job cards are generated; MR against BOM can be raised (§8.4).
+9.2 Job cards and stage-wise booking
+	•	One job card per batch per routing stage, in routing sequence. A stage can start only when the previous stage has output (or partial output, if allowed).
+	•	Start / pause / complete with time stamps; operator(s) (only authorised for that stage), machine, shift.
+	•	Output per stage: good qty, rework qty, rejected qty (reason), scrap; good qty moves to the next stage.
+	•	Material consumption recorded at the stage that consumes it; serial-tracked parts scanned and bound to the unit (chassis no. ↔ motor, controller, battery, charger serials).
+	•	Unit serial / chassis no. assigned at the first stage (or from a pre-printed series) and carried through.
+	•	Job-work stage: stage sent to a vendor on a job-work challan (§5.3), received back, then continues.
+	•	Process QC hold: if the stage has a QC checkpoint, output waits for PQC result before the next stage (§10.2).
+	•	Rework loop: rejected units go to a rework job card and come back to the same stage; repeat counts tracked.
+9.3 Completion and FG receipt
+	•	Last stage output → PDI (§10.3) → PDI-passed units are received into the FG store against the order and reserved for the SO.
+	•	Order closure shows: planned vs. actual qty, material variance (BOM vs. issued − returned), time variance (standard vs. actual hours), rejection %, cost per unit.
+9.4 Shop-floor screens
+	•	Production board: orders by status, batch progress across stages (Kanban), WIP by stage, today's plan vs. actual, delayed orders.
+	•	Mobile/tablet: operator scans job card QR → start/complete → enter qty → scan serials.
+10. Quality — IQC, Process QC, PDI
+Three inspection gates share one engine (checklists, parameters, sampling, results, approvals), so each stage stops material or units that fail and records why.
+
+IQC (Incoming)
+Process QC (In-process)
+PDI (Pre-Delivery)
+Triggered by
+GRN line for an item with QC = Yes
+Completion of a routing stage marked QC checkpoint
+Last production stage complete; also before dispatch of FG from stock
+Checklist from
+Item / item category
+Routing stage
+FG model / variant (+ customer-specific points from SO)
+Sampling
+AQL plan or 100 %; per serial for serial items
+Per batch first-piece + patrol, or 100 %
+100 % — every vehicle
+Typical checks
+Dimensions, visual, COA, battery voltage/AH, motor rating, controller spec
+Weld quality, paint DFT, torque, harness continuity
+Road test, braking, lights, horn, battery charge, range, serials match, accessories, documents, finish
+Outcomes
+Accept / Reject / Accept under deviation
+Pass / Rework / Reject / Pass under deviation
+Pass / Rework (back to stage) / Hold
+Moves stock
+Quarantine → Main (via MRN) or Rejected
+Next stage, rework job card, or scrap
+FG store (reserved to SO) or rework
+Approver
+QC Manager; deviation Plant Head
+QC Manager; deviation Plant Head
+QC Manager signs PDI certificate
+Common requirements
+	•	Readings entered against spec; out-of-spec auto-fails the parameter; photos and files per parameter.
+	•	Inspector cannot inspect their own production or their own GRN.
+	•	NCR (Non-Conformance Report) for every reject: defect, root cause, corrective/preventive action (CAPA), owner, due date, closure.
+	•	Deviation is time- or qty-bound and expires.
+	•	PDI certificate PDF per vehicle (chassis no., all part serials, checklist result, inspector, date) — printed for dispatch and stored for warranty.
+	•	QC dashboards: vendor-wise rejection %, stage-wise first-pass yield, top defects (Pareto), open NCRs.
+11. Sample handling against the SO, with drawing approval
+A sample is built only from an approved drawing revision, by authorised users, on a Sample Production Order linked to the enquiry or SO; the customer's approval of the sample is what lets the bulk SO go to production.
+Flow
+	•	Sample request from the enquiry or SO (Sales): item/spec, qty, required date, customer drawing/spec upload, chargeable or free.
+	•	Drawing (Design/R&D): drawing no., revision (A, B, C…), file (PDF/DWG/image), linked item and BOM. Status: Draft → Internal review → Released for sample → Customer approved → Released for production / Superseded.
+	•	Only drawing:create users upload; only drawing:approve users release (never the uploader).
+	•	Every revision kept; production and purchase screens always show the current released revision, and a PO for a drawing-based part carries the drawing no. + revision.
+	•	Watermark "UNCONTROLLED COPY" on prints of non-released revisions.
+	•	Sample BOM / routing: may be a draft (trial) BOM, flagged "Sample"; allowed only on a Sample Production Order.
+	•	Sample Production Order (§9, type Sample): MR → issue → stages → QC exactly as normal; costs captured separately.
+	•	Sample QC / internal approval: QC + Design check the sample against the drawing; report attached.
+	•	Sample dispatch: delivery challan (returnable or non-returnable), courier/AWB, date; approved by Sales Manager.
+	•	Customer feedback: Approved / Approved with changes / Rejected, with remarks and files. Changes → new drawing revision → new sample cycle (sample iteration no. tracked).
+	•	On approval: drawing and BOM are released for production (ECN if a released version existed); the SO lines referencing this sample become eligible for Production Orders.
+Controls: SO lines marked "sample approval required" cannot raise a Production Order until the sample is customer-approved; sample stock sits in a separate Sample store; samples returned by the customer come back via gate entry (Returnable).
+12. Dispatch and Sales Invoice
+Only PDI-passed FG units reserved to an approved SO can be dispatched and invoiced, and each invoice line carries the unit's chassis and part serials into the warranty registry.
+	•	Dispatch plan: SO lines ready (PDI passed, in FG store), customer, transporter, vehicle, planned date; approved by Dispatch In-charge.
+	•	Packing / loading list: units picked by chassis no. scan; accessories, tool kit, manuals, PDI certificate, warranty card checked off.
+	•	Credit and payment check: dispatch blocked if customer is over credit limit or advance terms are unpaid, unless Accounts/MD overrides with reason.
+	•	Sales Invoice: created from the dispatch, never typed fresh: SO rate, GST (by place of supply), HSN, chassis/motor/controller/battery/charger serials per line, e-way bill no., e-invoice IRN/QR (via GSP integration or Tally). Number series per FY.
+	•	Tally: invoice exported to Tally (XML/Excel) or Tally invoice imported back — to be decided (Questionnaire Q-INV). Today the CRM already imports Tally's Item Wise Sales Report into the service registry.
+	•	Gate out: gate pass against invoice; vehicle out-time.
+	•	Warranty registry: on invoice, each vehicle is registered in Service with its sale date and part serials (same snapshot rules as the existing Tally import), so service claims trace back to PO, MRN, IQC, production batch and PDI.
+	•	SO closure: SO line closes when invoiced qty = ordered qty; order book updates.
+Returns: customer returns come in via gate entry (Customer return) → IQC → credit note → stock to Rework / FG / Scrap.
+12A. Accounting — complete accounts module and statutory compliance
+Accounts is a complete double-entry module: every voucher — sales, purchase, payment, receipt, journal, expense, income, debit note and credit note — posts to the ledger, operational vouchers are built from the document before them, and statutory returns are prepared from the same books. Every voucher follows maker ≠ checker and value-based approval (§3).
+12A.1 Sales Invoice (receivable)
+	•	Created only from an approved dispatch (§12); lines, rate and GST copied from the SO; serials per line.
+	•	Types: Tax invoice, Export/SEZ, Stock transfer (branch), Proforma (advance, no stock effect), Debit note, Credit note (against invoice: return, rate difference, discount — with approval).
+	•	GST: CGST+SGST or IGST by place of supply, HSN summary, TCS where applicable, round-off; e-invoice IRN/QR and e-way bill.
+	•	Status: Draft → Approved (Billing/Accounts) → Posted → Partly paid → Paid / Cancelled (with reason, before IRN cancel window closes).
+	•	Customer ledger: invoice-wise outstanding, due date from payment terms, ageing (0–30, 31–60, 61–90, 90+), credit limit used.
+12A.2 Purchase Invoice (payable)
+	•	Booked against one or more approved MRNs (§6) — never against a PO alone — so only accepted qty is paid for.
+	•	Three-way match: PO rate × MRN accepted qty vs. vendor invoice. Differences above a tolerance (₹ or %) hold the invoice for Purchase Manager approval with reason.
+	•	Fields: vendor invoice no. + date (duplicate blocked per vendor), GSTIN, GST input (CGST/SGST/IGST, ITC eligible Y/N), TDS section and rate, freight/other charges, due date.
+	•	Debit note auto-proposed for rejected qty (IQC) and short receipt.
+	•	Also for expenses/services without MRN (service PO or direct expense) — with HOD approval.
+	•	Status: Draft → Verified (Accounts) → Approved → Posted → Partly paid → Paid.
+	•	Vendor ledger: invoice-wise payable, due date, ageing, advances paid.
+12A.3 Payment and Receipt
+	•	Payment to vendor: against one or more purchase invoices (or as an advance against a PO); mode (NEFT/RTGS/cheque/UPI/cash), bank account, UTR/cheque no., TDS deducted; maker–checker approval with value limits (§3); payment advice emailed to the vendor.
+	•	Receipt from customer: against invoices (bill-wise allocation) or as an advance against an SO; mode, UTR, bank; unallocated amount kept as on-account; TDS by customer recorded.
+	•	Bank reconciliation: upload bank statement (Excel/CSV), auto-match by UTR/amount/date, manual match for the rest.
+	•	Due lists: vendor payments due this week; customer collections due/overdue — linked to the CRM so the sales owner sees their customer's overdue before a new SO.
+	•	Cash payments above a limit blocked (Income Tax s.40A(3) / 269ST checks).
+12A.4 Journal Voucher
+	•	For entries with no other voucher: provisions, accruals, depreciation, adjustments, rectifications, inter-ledger transfers, opening balances.
+	•	Multi-line debit/credit; must balance; cost centre per line; narration mandatory; attachments.
+	•	Recurring journals (monthly rent accrual, depreciation) with a schedule; reversing journals (auto-reverse on the 1st of next month).
+	•	Contra voucher for cash ↔ bank and bank ↔ bank transfers.
+	•	Approval: Accounts Manager; above limit, Finance Head / MD.
+12A.5 Expense — direct and indirect
+	•	Direct expenses (go to cost of production / trading): freight inward, job-work charges, power and fuel for the plant, factory wages, carriage, packing material, consumables. Can be linked to a Production Order or batch so it lands in product cost.
+	•	Indirect expenses (go to P&L): rent, salaries (office), travel, telephone, advertising, professional fees, repairs, bank charges, office expenses, depreciation.
+	•	Expense booking: vendor/party (or employee for reimbursement), expense ledger, cost centre / department, GST input (eligible or blocked under s.17(5)), TDS section, RCM flag, bill upload.
+	•	Employee expense claims and petty cash: claim → HOD approval → Accounts → payment; petty cash imprest with daily cash book.
+	•	Budget per expense head and cost centre; warning or block when exceeded.
+12A.6 Income — direct and indirect
+	•	Direct income: sales of vehicles, spares and services, job-work income, scrap sales (from Scrap store, with GST/TCS).
+	•	Indirect income: interest received, discount received, rent received, commission, insurance claims, foreign exchange gain, misc. income.
+	•	Booked through a sales invoice (if GST-able) or an income voucher; TDS deducted by the payer recorded for Form 26AS/AIS matching.
+12A.7 Debit Note
+	•	Against purchase (to a vendor): item-wise (rejection, short supply — links to IQC/GRN, reduces stock via purchase return) or amount-only (rate difference, late-delivery penalty, quality claim) — with GST reversal where applicable.
+	•	Against sales (to a customer): amount-only for a price increase, freight or interest recovery, short-billing — a supplementary invoice with GST.
+	•	Others: against a party with no invoice (penalties, recoveries), via journal-style lines.
+	•	Must reference the original invoice no. + date for GST; approval mandatory; reason code mandatory.
+12A.8 Credit Note
+	•	Against sales (to a customer): item-wise (sales return — goods back via gate entry and IQC, stock to Rework/FG/Scrap) or amount-only (discount, rate difference, warranty/claim settlement, scheme) — with GST reversal, e-invoice IRN for B2B credit notes.
+	•	Against purchase (from a vendor): record the vendor's credit note — item-wise or amount-only — reducing payable.
+	•	Others: against a party with no invoice.
+	•	Original invoice reference, reason code, approval; GST time limit check (by 30 November after the FY end).
+12A.9 Accounting masters, books and statements
+	•	Chart of accounts: groups (Indian Schedule III layout: assets, liabilities, income, expense), sub-groups, ledgers; party ledgers auto-created for customers and vendors; bank and cash ledgers; GST, TDS, TCS duty ledgers.
+	•	Cost centres / profit centres: plant, department, product line, branch; every voucher line can carry one.
+	•	Financial years and periods: period lock after closing (only Finance Head may unlock, with reason, audited); opening balances import.
+	•	Fixed assets: asset register, capitalisation from purchase invoice, depreciation per Companies Act (WDV/SLM) and Income Tax block rates.
+	•	Inventory valuation: weighted average or FIFO; stock value in the balance sheet from the stock ledger; WIP and FG valued at standard or actual cost.
+	•	Books and reports: day book, cash book, bank book, ledger, sub-ledger, trial balance, profit and loss, balance sheet (Schedule III), cash flow, receivables/payables ageing, bill-wise outstanding, cost-centre P&L, budget vs actual, interest calculation on overdue.
+	•	Multi-currency for imports/exports with exchange-rate gain/loss.
+12A.10 Statutory compliance
+Area
+What the system does
+GST
+Place-of-supply tax split, HSN/SAC, RCM, ITC eligibility and blocked credits, ITC reversal (Rule 42/43), GSTR-1 data and JSON, GSTR-3B summary, GSTR-2B import and reconciliation with purchase register, mismatch report, annual return (GSTR-9) data
+E-invoice
+IRN and QR generation for B2B invoices and credit/debit notes via GSP/IRP; cancellation within 24 hours
+E-way bill
+Generation from invoice/challan (value > ₹50,000), Part-B vehicle update, cancellation, extension
+TDS
+Section-wise deduction on purchase/expense/payment (194C, 194J, 194H, 194I, 194Q, others), threshold tracking per party, challan (ITNS 281) entry, quarterly return data (24Q/26Q), Form 16A
+TCS
+206C(1H) and other applicable sections on sales, challan, 27EQ data
+MSME
+Vendor MSME registration flag; 45-day payment rule tracking (s.43B(h)) and MSME-1 half-yearly report data
+Income Tax
+Cash payment limits (s.40A(3), s.269ST), 26AS/AIS reconciliation of TDS deducted by customers
+Companies Act
+Schedule III balance sheet and P&L, depreciation schedule, audit trail (edit log) that cannot be disabled (Rule 3(1), Companies (Accounts) Rules)
+Payroll statutory (if payroll added later)
+PF, ESI, Professional Tax, Labour Welfare Fund — out of scope v1
+Calendar
+Due-date reminders: GSTR-1 (11th), GSTR-3B (20th), TDS deposit (7th), TDS returns (quarterly), advance tax, MSME-1 — with owner and status
+	•	Audit trail: every voucher create/edit/delete keeps the before/after with user and time, append-only, as Companies Act requires; edits after period lock blocked.
+	•	Documents: invoice, credit/debit note, payment advice and voucher prints carry GSTIN, CIN, PAN and the statutory declarations.
+12A.11 Tally (transition period) and registers
+	•	Every posted sales invoice, purchase invoice, debit/credit note, payment and receipt exports to Tally as a voucher (XML or Tally API), with the CRM document no. as reference; posting status and errors shown per voucher.
+	•	Masters (ledgers, customers, vendors, items, GST rates) mapped once.
+	•	Reports: sales register, purchase register, GSTR-1 and GSTR-3B summary data, TDS payable, receivables and payables ageing, cash/bank book.
+13. Reports, data, non-functional, phasing
+13.1 Reports
+Area
+Reports
+Purchase
+PR pending, PR-to-PO ageing, PO pending/overdue by vendor, direct POs (without PR), price history, vendor rating (delivery, rejection %)
+Stores
+Stock ledger, stock by store/bin/batch, ageing, quarantine stock, reorder alerts, MR pending, issue vs. BOM, returns
+Quality
+IQC rejection by vendor/item, PQC first-pass yield by stage, PDI pass %, defect Pareto, open NCR/CAPA, deviations
+Production
+Order status, batch progress by stage, WIP, plan vs. actual, operator output, material and time variance, cost per unit
+Sales / CRM
+Order book, SO pending to produce/dispatch, sample status, enquiry-to-SO conversion
+Traceability
+Chassis no. → every part serial → batch → MRN → PO → vendor, and back
+All reports filter by date, plant, item, vendor/customer and export to Excel; exports are audited.
+13.2 Data model (new tables, all with org_id + RLS)
+vendors, vendor_items, stores, bins, purchase_requisitions(+_lines), rfqs, purchase_orders(+_lines, +_schedules, +_revisions), gate_entries, grns(+_lines), qc_checklists, qc_parameters, qc_inspections(+_results), ncrs, deviations, mrns(+_lines), stock_ledger (append-only), stock_balances, stock_serials, material_requisitions(+_lines), material_issues(+_lines), material_returns(+_lines), boms(+_lines, +_variants), routings(+_stages), ecns, drawings(+_revisions), enquiries, feasibility_reviews, sales_orders(+_lines, +_revisions), production_orders, production_batches, job_cards, stage_bookings, unit_serial_bindings, samples(+_iterations), dispatches, sales_invoices(+_lines), approvals (append-only), document_number_series; accounts: account_groups, ledgers, cost_centres, financial_periods, vouchers (+_lines; types sales, purchase, payment, receipt, journal, contra, expense, income, debit_note, credit_note), bill_allocations, bank_statements, tds_entries, tcs_entries, gst_entries, statutory_challans, fixed_assets, depreciation_runs, budgets, compliance_calendar.
+13.3 Non-functional
+	•	Multi-tenant, multi-plant; every document number per plant per FY.
+	•	Stock ledger and approvals are append-only at DB level; stock never negative (DB check).
+	•	Mobile app (Android) for gate entry, GRN scan, IQC, issue scan, shop-floor booking, PDI.
+	•	Barcode/QR labels for items, batches, serials, job cards.
+	•	Response under 2 s for lists of 1,000 rows; IST time zone; INR.
+	•	Tally integration for masters (items, vendors, customers) and vouchers (purchase, sales, credit/debit notes).
+13.4 Phasing
+	•	Phase 1: Masters, CRM → SO, PR/PO, Gate entry, GRN, IQC, MRN, stock ledger.
+	•	Phase 2: BOM, routing, Production Order, MR against BOM, issue, return, job cards, PQC.
+	•	Phase 3: PDI, dispatch, sales invoice, purchase invoice, payments and receipts, warranty link, traceability.
+	•	Phase 4: Samples + drawings, ECN, costing, dashboards, and the complete accounts module — journal, direct/indirect expense and income, debit/credit notes, books, financial statements — with statutory compliance (GST returns and 2B reconciliation, e-invoice, e-way bill, TDS/TCS, MSME); Tally sync for the transition period.
+13.5 Open questions
+See the Customer Questionnaire below; every unanswered question there is open.
+14. Customer requirement questionnaire
+Please answer every question in the Answer column (type directly in the cell, or comment); the requirement is frozen only when all are answered and signed off. Attach sample formats (current Excel sheets, printed forms) where asked.
+General and organisation
+ID
+Question
+Answer
+Q-G1
+How many plants / factories, and how many stores (main, WIP, FG, scrap, sample) in each?
+
+Q-G2
+Who are the users per department, and how many of each (purchase, store, QC, production, design, sales, dispatch, accounts)?
+
+Q-G3
+Financial year and document numbering format you use today (e.g. PO/26-27/0001)? Separate series per plant?
+
+Q-G4
+Which of these must work on mobile: gate entry, GRN, IQC, issue, shop-floor booking, PDI?
+
+Q-G5
+Do you use barcode/QR labels today? Printer make and label size?
+
+Q-G6
+Go-live target date and which phase is most urgent?
+
+CRM before the Sales Order
+ID
+Question
+Answer
+Q-C1
+Which products are standard (catalogue) and which are made to customer specification?
+
+Q-C2
+Do custom orders need technical feasibility and costing approval? Who approves?
+
+Q-C3
+Is a customer PO mandatory before an SO? Is advance payment mandatory, and how much?
+
+Q-C4
+Should SO approval check credit limit and overdue outstanding? Where does outstanding come from (Tally)?
+
+Q-C5
+Who approves an SO, and who approves a price below the approved quotation?
+
+Q-C6
+Can one SO have several delivery dates per line? Can an SO be amended after approval, and by whom?
+
+Purchase
+ID
+Question
+Answer
+Q-P1
+Which departments raise PRs? Who approves them (HOD, Purchase, Plant Head)?
+
+Q-P2
+When is a PO without PR allowed, for which items/categories, and by which users?
+
+Q-P3
+PO approval levels and value limits per level (₹)?
+
+Q-P4
+Do you use RFQ / quotation comparison? Minimum number of vendor quotes?
+
+Q-P5
+Over-receipt tolerance % allowed against PO? Per item or one rule?
+
+Q-P6
+Do you have rate contracts / open POs, job-work POs, or service POs?
+
+Q-P7
+Do you maintain an approved vendor list per item and an approved make?
+
+Q-P8
+Should PO be emailed/WhatsApped to the vendor from the system? Your PO print format?
+
+Gate, inward, IQC, MRN
+ID
+Question
+Answer
+Q-I1
+What does security record at the gate today? Photos needed (invoice, vehicle)?
+
+Q-I2
+Which items need IQC, and which go straight to store?
+
+Q-I3
+Do you have IQC checklists and sampling plans (AQL) per item? Please share them.
+
+Q-I4
+Who can approve "accept under deviation"?
+
+Q-I5
+Which items are batch-tracked, which serial-tracked (battery, motor, controller, charger, others)? Do vendors supply serial lists in Excel?
+
+Q-I6
+Is MRN the document Accounts use for booking the purchase bill? Should MRN go to Tally automatically?
+
+Q-I7
+How are rejections returned to vendors today (debit note, returnable gate pass)?
+
+Q-I8
+Bin/rack-wise location needed, or store-level is enough?
+
+Material requisition, issue, return
+ID
+Question
+Answer
+Q-M1
+Who raises material requisitions and who approves them?
+
+Q-M2
+Is issue allowed without a requisition in an emergency? Who may do it?
+
+Q-M3
+Issue method: FIFO, FEFO (expiry), or the store chooses the batch?
+
+Q-M4
+Is material issued for the whole production order, per batch, or per stage?
+
+Q-M5
+Who approves a material return, and where does defective returned material go?
+
+Q-M6
+Is excess issue over BOM allowed? With what approval?
+
+BOM and routing
+ID
+Question
+Answer
+Q-B1
+How many finished models/variants? Please share one complete BOM (all levels) as an example.
+
+Q-B2
+How many BOM levels (vehicle → sub-assembly → part)? Which sub-assemblies are made in-house?
+
+Q-B3
+List of production stages in order, with work centres and standard time per stage.
+
+Q-B4
+Which stages are done by job-work vendors (e.g. painting, powder coating)?
+
+Q-B5
+Scrap/wastage % per component — known or to be captured?
+
+Q-B6
+Who creates and who releases a BOM? Is an Engineering Change Note process needed?
+
+Production
+ID
+Question
+Answer
+Q-PR1
+Is every production order against an SO, or do you also make to stock?
+
+Q-PR2
+Standard batch size per model? Is a batch number printed on the vehicle/label?
+
+Q-PR3
+When is the chassis number assigned, and which part serials must be bound to it?
+
+Q-PR4
+Do operators book their own output (tablet/mobile) or does a supervisor enter it?
+
+Q-PR5
+Is release with material shortage allowed? Who approves?
+
+Q-PR6
+How is rework handled today, and should rework count be tracked per unit?
+
+Q-PR7
+Do you need production costing (material + labour + overhead) per order?
+
+Quality: Process QC and PDI
+ID
+Question
+Answer
+Q-Q1
+Which stages have an in-process QC checkpoint? Please share the checklists.
+
+Q-Q2
+Please share the current PDI checklist and PDI certificate format.
+
+Q-Q3
+Should a failed PQC block the next stage, or only flag it?
+
+Q-Q4
+Do you need NCR and CAPA tracking? Who closes them?
+
+Samples and drawings
+ID
+Question
+Answer
+Q-S1
+How often are samples made, and for whom (customers, dealers, government tenders)?
+
+Q-S2
+Drawing file types (PDF, DWG, image) and numbering/revision scheme?
+
+Q-S3
+Who may create drawings, who approves them, and is customer approval of the drawing needed before the sample?
+
+Q-S4
+Are samples chargeable? Are they returned by the customer?
+
+Q-S5
+Must bulk production wait for customer sample approval in every case?
+
+Dispatch, invoice and integration
+ID
+Question
+Answer
+Q-INV
+Should sales invoices be made in this system and pushed to Tally, or stay in Tally and be imported?
+
+Q-D1
+Do you need e-invoice (IRN) and e-way bill from this system? Which GSP, if any?
+
+Q-D2
+Dispatch documents needed: delivery challan, packing list, PDI certificate, warranty card, gate pass?
+
+Q-D3
+Should dispatch be blocked for credit limit / unpaid advance? Who can override?
+
+Q-D4
+Which Tally version, and which masters/vouchers must sync (items, vendors, customers, purchase, sales, notes)?
+
+Accounting: sales invoice, purchase invoice, payment
+ID
+Question
+Answer
+Q-AC1
+Should this system be the place invoices and payments are entered, with Tally only receiving vouchers — or should Tally remain the entry point?
+
+Q-AC2
+Invoice types needed: tax, export/SEZ, stock transfer, proforma, debit note, credit note?
+
+Q-AC3
+Is a purchase invoice always booked against MRN (three-way match)? Allowed rate/qty difference tolerance?
+
+Q-AC4
+Which TDS/TCS sections apply to you (194C, 194Q, 206C(1H), others)?
+
+Q-AC5
+Payment approval levels and value limits; who is maker and who is checker?
+
+Q-AC6
+Bank accounts used, and can you share bank statement format (Excel/CSV) for reconciliation?
+
+Q-AC7
+Should overdue receivables block a new SO or dispatch for that customer?
+
+Q-AC8
+Which accounting reports are needed (sales/purchase register, GSTR-1/3B data, ageing, cash/bank book)?
+
+
+ID
+Question (accounts module and compliance)
+Answer
+Q-AC9
+Will this system replace Tally as the books of account? From which date, and how are opening balances to be migrated?
+
+Q-AC10
+Please share your current chart of accounts (groups and ledgers) and cost centres.
+
+Q-AC11
+List direct and indirect expense heads used today; which direct expenses should be charged to production cost?
+
+Q-AC12
+List direct and indirect income heads (scrap sale, job-work income, interest, others).
+
+Q-AC13
+Debit/credit notes: which reasons occur (rejection, rate difference, discount, penalty, warranty)? Item-wise or amount-only? Who approves?
+
+Q-AC14
+Inventory valuation method (weighted average / FIFO / standard cost)?
+
+Q-AC15
+Do you need fixed asset register and depreciation (Companies Act and Income Tax)?
+
+Q-AC16
+GST registrations (how many GSTINs/states)? E-invoice applicable? Which GSP do you use, if any?
+
+Q-AC17
+Do you need GSTR-2B reconciliation and GSTR-1/3B files from the system?
+
+Q-AC18
+TDS/TCS: do you file returns yourselves or through a CA? Need 24Q/26Q/27EQ data export?
+
+Q-AC19
+How many MSME vendors? Should MSME 45-day payment alerts be enforced?
+
+Q-AC20
+Period-lock policy: who may close and reopen a month? Are budgets per expense head needed?
+
+Q-AC21
+Imports or exports in foreign currency?
+
+Approvals and access
+ID
+Question
+Answer
+Q-A1
+Please fill the approval matrix: for each document, who approves at each level and up to what value.
+
+Q-A2
+Should approvers be notified by email, WhatsApp link, in-app, or all? Escalation after how many hours?
+
+Q-A3
+Should any role be allowed to approve its own document in exceptional cases? (Recommended: no.)
+
+Q-A4
+Which reports does management need daily, and in what format?
+
+Sign-off: Customer name / designation / date — ____________________
