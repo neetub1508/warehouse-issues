@@ -104,7 +104,7 @@
 | RSA-T4-01 | A reservation is created by allocation | the row records `allocation_strategy_id` and `allocation_rule_id`; the reservation detail shows the rule and strategy that chose the stock | `WhbAllocationService` | `FR-173` |
 | RSA-T4-02 | A demand order or line is cancelled | de-allocation is deterministic and reason-coded: every `OPEN` row of the holder released, un-started tasks cancelled; allocate ten, cancel, and availability returns exactly to its pre-allocation value | `WhbAllocationService.deallocate` | `FR-171` |
 | RSA-T4-03 | Expiry, release or consume | available = on-hand − open reservations recomputes from rows only | availability API | `FR-166`, `FR-170` |
-| RSA-T4-04 | A superseding item is allocated | reporting distinguishes *stock of A* from *stock of A including superseded equivalents* | — (§9 `RSA-DIV-02`) | `FR-176` |
+| RSA-T4-04 | A superseding item is allocated | reporting distinguishes *stock of A* from *stock of A including superseded equivalents*. **Chain**: forward successors only (the allocator's: `REPLACES`/`PARTIAL` steps from `WhbSupersessionChainResolver.resolveAll`, never `INTERCHANGE` alternates, no `stock_treatment` filter); a step with no successor, no cumulative ratio, or a successor already on the chain is skipped; a cycle or truncation keeps the steps before the break and is flagged `equivalentsIncomplete`. **Date basis**: availability — the `asOf` instant's UTC date (the allocator's); WS-208 — today. **Unit and rounding**: an equivalent contributes its own available (and on hand) ÷ cumulative ratio, scale 4, `RoundingMode.DOWN`, in A's base unit. **Surface**: availability `includeEquivalents` (opt-in, default answer unchanged) and WS-208 `includeSupersededEquivalents` (`RSA-T5-03`); rows are never summed across A and B | `WhbAvailabilityService` (`P2-07` #53 G1a), `WhStockOnHandQueryService` (G1b); §8 `RSA-DIV-02` closes at S5 | `FR-176` |
 
 ## 5. T5 — Screen contract (web only, `D-17` item 2)
 
@@ -112,12 +112,14 @@
 |---|---|---|---|
 | RSA-T5-01 | WS-047 Reservations | grid of rows with holder quad, type, expiry, status; the view shows the strategy and rule that chose the stock and the requested item when substituted; Release and Extend (soft only) actions | `FR-167`, `FR-173`, `FR-176` |
 | RSA-T5-02 | WS-048 Allocation Strategies | rows and their ordered keys; Edit creates a new version; v1 seeds `FIFO_BY_RECEIPT` and `FIXED_LOCATION_FIRST` | `FR-172`, `FR-173` |
+| RSA-T5-03 | WS-208 Stock on Hand (both tabs) | boolean filter `includeSupersededEquivalents` (default off) acts only with Item set: rows of A's forward successors are added, physical (own code, quantities, unit), under the same owner/site scope and sandbox exclusion; hidden unsortable columns `equivalentOfItemCode` (A's code on B rows) and `availableAsRequested` (available ÷ cumulative ratio, scale 4, DOWN); export = grid; the statistics strip stays on A alone | `FR-176`, `FR-400` |
 
 ## 6. Amendments
 
 | Date | Change |
 |---|---|
 | 2026-10-23 | v0 derived for `D-17` item 1 (R30 `CP-FR-007` row 9) |
+| 2026-10-26 | `P2-07` #53 S2: `RSA-T4-04` made checkable (chain direction, date basis, unit, rounding, surface); `RSA-T5-03` added for WS-208's inclusive view |
 | 2026-10-23 | R31 `F-CA-018`: §1.1 — `RSA-T1-04` (soft → hard, still `OPEN`) removed from `RELEASED`'s inbound list; the status is derived from `released_at` / `consumed_by_movement_line_id`, not stored |
 
 ## 7. Invariants and scenarios
