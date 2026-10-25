@@ -51,7 +51,7 @@
 | ID | From | Event / action | To | Guard | Actor (permission) | Side effects | Source |
 |---|---|---|---|---|---|---|---|
 | TEP-T1-01 | — | A receipt line or a pick line is created / released | `CREATED` | `TEP-GRD-01` | system (the document's service) | one task per line, `source_document_type` / `_id` | `FR-212` |
-| TEP-T1-02 | `CREATED` · `EXCEPTION` | **Push** — a supervisor assigns a queue (`POST /push`), or assigns one task (`PATCH /{id}/assign`) / reassigns it | `ASSIGNED` | `TEP-GRD-02` | queue push `whb_tasks:assign` (`WhbTaskController.java:262-263`); single-task assign `whb_tasks:edit` (`:204-205`, weaker — `TEP-DIV-03`); reassign `whb_tasks:reassign` (`:215-216`) | `assigned_to`, `assigned_at` | `FR-214`, `FR-215` |
+| TEP-T1-02 | `CREATED` · `EXCEPTION` | **Push** — a supervisor assigns a queue (`POST /push`), or assigns one task (`PATCH /{id}/assign`) / reassigns it | `ASSIGNED` | `TEP-GRD-02` | queue push `whb_tasks:assign` (`WhbTaskController.java:262-263`); single-task assign `whb_tasks:assign` (`:205-206`, seeded in base by `V501237`; was `:edit` — `TEP-DIV-03` FIXED); reassign `whb_tasks:reassign` (`:215-216`) | `assigned_to`, `assigned_at` | `FR-214`, `FR-215` |
 | TEP-T1-03 | `CREATED` | **Pull** — an operator asks for the next task | `ASSIGNED` | `TEP-GRD-02`, `-03` | `whb_tasks:claim` | the claimed task, `assigned_at` | `FR-214` |
 | TEP-T1-04 | `CREATED` · `ASSIGNED` · `EXCEPTION` | Complete (in the same web request; v1 has no RF gun) | `COMPLETED` | the document's completion guards | the document's `:complete` | `TEP-T4-01` | `FR-212`, `FR-213` |
 | TEP-T1-05 | `CREATED` · `ASSIGNED` · `EXCEPTION` | Complete with exception | `COMPLETED` | `TEP-GRD-04` | `whb_tasks:edit` | exception code kept | `FR-216` |
@@ -98,7 +98,7 @@
 
 | ID | Action | Permission | Allowed from | Extra | Source |
 |---|---|---|---|---|---|
-| TEP-T2-01 | Assign / reassign / claim / cancel / complete with exception | `whb_tasks:{assign,reassign,claim,edit}` — push `:assign`, single-task assign / cancel / complete with exception `:edit`, reassign `:reassign`, pull `:claim` | as §1.2 | assignee qualified | `FR-214`, `FR-215` |
+| TEP-T2-01 | Assign / reassign / claim / cancel / complete with exception | `whb_tasks:{assign,reassign,claim,edit}` — push and single-task assign `:assign` (base-seeded, `V501237`), cancel / complete with exception `:edit`, reassign `:reassign`, pull `:claim` | as §1.2 | assignee qualified | `FR-214`, `FR-215` |
 | TEP-T2-02 | Exception console | no permission of its own — the union of its sources' view permissions | — | — | `FR-216` |
 | TEP-T2-03 | Templates / jobs / printers / routing | `wh_print_templates:{create,edit,publish}` · `wh_print_jobs:{create,void}` · `wh_printers:{create,edit,delete,test_print}` · `wh_print_routing_rules:{create,edit,delete,test_routing}` | — | — | `FR-224` |
 | TEP-T2-04 | Labour; weighing instruments | `wh_labour_tasks:record` · `wh_weighing_instruments:{create,edit}` · `wh_weighing_records:{create,acknowledge}` | — | — | `FR-223`, `FR-227` |
@@ -139,6 +139,7 @@
 |---|---|
 | 2026-10-23 | v0 derived for `D-17` item 1 (R30 `CP-FR-007` row 11); mobile FRs deferred by `D-17` item 2 |
 | 2026-10-23 | R31 `F-CA-005`: `TEP-T1-02` actor corrected to the built permissions, `TEP-DIV-03` added; `TEP-OPEN-01` decided |
+| 2026-10-25 | R31 `F-CA-005` built (P0-10 #83, `classic` `1f2a7dc082`): `TEP-T1-02` / `TEP-T2-01` single-task assign actor → `whb_tasks:assign` (base-seeded, `V501237`); `TEP-DIV-03` FIXED |
 | 2026-10-25 | R32: `TEP-GRD-R32A-01` — lot and serial labels (`p8-12` R32, `FR-739`) |
 
 ## 7. Invariants and scenarios
@@ -151,7 +152,7 @@
 |---|---|---|---|
 | TEP-DIV-01 | `warehouse-base/…/entity/WhbTaskType.java:79`; `V500010__Create_whb_code_lists_task_types_dispositions_attribute_keys.sql:250` | `FR-228` | a `labour_standard_minutes` column is stored per task type; the FRD forbids claiming an engineered standard before a year of actual data — the column must stay a manually entered reference that nothing computes or pays from — **Triage 2026-10-23: CARRIED** — `P6-03` #103 (`FR-228`: the column stays a manual reference until measured labour exists) |
 | TEP-DIV-02 | `warehouse-base/…/service/whbtask/WhbTaskCompletedEvents.java` (`EVENT_TASK_COMPLETED`, `ACTOR_TYPE_USER`) | `FR-229` | the only task event emitted is `task.completed` with a `USER` actor; the published task-event contract an automation vendor integrates against does not exist yet (v3, `P6-04`) — **Triage 2026-10-23: CARRIED** — `P6-04` #109 (v3 task-event contract, R31 `TEP-OPEN-01`) |
-| TEP-DIV-03 | `warehouse-base/…/controller/WhbTaskController.java:204-205` | `FR-214`, `FR-215` | single-task Assign needs only `whb_tasks:edit`, weaker than the queue push's `whb_tasks:assign` (`:262-263`), so an editor without `:assign` can assign. The permission decision is `P0-10`'s (acceptance item added) — **Triage 2026-10-23: FIX-CODE** — owner `P0-10` #83, reopened |
+| TEP-DIV-03 | `warehouse-base/…/controller/WhbTaskController.java:204-205` | `FR-214`, `FR-215` | single-task Assign needs only `whb_tasks:edit`, weaker than the queue push's `whb_tasks:assign` (`:262-263`), so an editor without `:assign` can assign. The permission decision is `P0-10`'s (acceptance item added) — **Triage 2026-10-23: FIX-CODE** — owner `P0-10` #83, reopened — **FIXED 2026-10-25** (`classic` `1f2a7dc082`): single Assign is `hasAuthority('whb_tasks:assign')`, the verb seeded in base by `V501237`; guarded by `WhbTaskAssignAuthorityTest` |
 
 ## 9. Open rows
 
