@@ -1,11 +1,13 @@
 # Open work index — every open warehouse issue, once
-<!-- check-design-set: issue-citations file #323 #324 #386 #397 #519 #520 #539 #543 #610 #611 #613 #608 #609 #612 #614 #615 #616 #617 #618 #619 #620 #621 #622 #623 #624 #625 #626 #627 #628 #629 #630 #631 #632 #633 #634 — real issues in this repository filed as follow-ups outside create-issues.sh, so they have no task file and no CREATED.md row; listed here so every open issue appears once -->
+<!-- check-design-set: issue-citations file #323 #324 #386 #397 #519 #520 #539 #543 #610 #611 #613 #608 #609 #612 #614 #615 #616 #617 #618 #619 #620 #621 #622 #623 #624 #625 #626 #627 #628 #629 #630 #631 #632 #633 #634 #635 #663 — real issues in this repository filed as follow-ups outside create-issues.sh, so they have no task file and no CREATED.md row; listed here so every open issue appears once -->
 
-**Updated 2026-10-24 (#566, #113, #123, #562, #577, #93, #567, #563, #564, #570, #54, #89, #13 closed; #608, #609, #610–#634 filed).** One row per open issue in `neetub1508/warehouse-issues`. Every piece of warehouse work sits in exactly one open issue; this file says which. Rebuild it whenever an issue opens or closes, and re-run the reconcile in §11.
+**Updated 2026-10-25 (R32 — client PRD fold, `D-20` / `D-21`):** #636–#662 filed (27 tasks); #104 #84 #113 #120 #126 #564 #567 #570 reopened (`reopened-r32`); #173 #174 #175 became `P8-25` / `P8-23` / `P8-24`; #663 (client decisions) added as tracking-only; #635 listed. Batch placement re-reconciled in §11.
+
+**Previously updated 2026-10-24 (#566, #113, #123, #562, #577, #93, #567, #563, #564, #570, #54, #89, #13 closed; #608, #609, #610–#634 filed).** One row per open issue in `neetub1508/warehouse-issues`. Every piece of warehouse work sits in exactly one open issue; this file says which. Rebuild it whenever an issue opens or closes, and re-run the reconcile in §11.
 
 **Order (user, 2026-10-23): `P7` first, then the rest.** *Must run after P7* is **true** where a `P7` task edits a file, class, table or permission the item touches, or the item adds a migration or schema change (`P7` rewrites the migration set in place once, `D-16` item 4, and `P7-13` rebuilds on it); all of `P8`–`P10` are true by `P7-13`'s rule. *Scope* says whether the whole task is to build or only its *Reopened scope* items.
 
-**Totals: 130 open issues** — P7 1 · P8 10 · P9 15 · P10 15 · P5/P6 survivors 11 · reopened 35 · new findings 2 · old open findings 4 · other 37 (#539 #543 closed as carried by `P10-14` #605, 2026-10-23).
+**Totals: 167 open issues** (2026-10-25) — P7 1 · P8 29 · P9 22 · P10 27 · P5/P6 survivors 11 · reopened R30/R31 35 · new findings 2 · old open findings 4 · other 36 (incl. tracking-only #1 and #663). Was 130 on 2026-10-24.
 
 ## 1. P7 — removal and the clean rebuild (run first) — 1 open
 
@@ -13,60 +15,95 @@
 |---|---|---|---|---|---|
 | #545 | `issues/09-EPIC-p7.md` | EPIC: P7 — Remove dealer and retail code, rename the dual-use items, rebuild on a clean… | epic (checklist of its tasks) | false | is P7 |
 
-## 2. P8 — stores in core — 10 open
+## 2. P8 — stores in core — 29 open (R32: +8 reopened `reopened-r32`, +11 tasks incl. #173 #174 #175)
 
 | Issue | Task file | Title | Scope | Must run after P7 | Why |
 |---|---|---|---|---|---|
 | #546 | `issues/10-EPIC-p8.md` | EPIC: P8 — Manufacturing stores in core (gate, bill-matched GRN, sampling QC, MRN, requ… | epic (checklist of its tasks) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
 | #565 | `issues/p8-04.md` | P8-04 · GRN bill number / date / billed quantity, the duplicate-bill guard, short recei… | whole task | **true** | `P7-13`: P8–P10 start only after P7 is merged |
-| #568 | `issues/p8-07.md` | P8-07 · QC reject → an explicit, manual "Raise supplier return" action (FR-139 amended … | whole task | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #568 | `issues/p8-07.md` | P8-07 · QC reject → an explicit, manual "Raise supplier return" action (FR-139 amended … | whole task + § R32 additions (`prd-r32`) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
 | #569 | `issues/p8-08.md` | P8-08 · MRN — material receipt note authorised by a second person, MRN_PENDING as the s… | whole task | **true** | `P7-13`: P8–P10 start only after P7 is merged |
-| #571 | `issues/p8-10.md` | P8-10 · Store issue to VIRT-CONSUMED with a cost object (department / cost centre / pro… | whole task | **true** | `P7-13`: P8–P10 start only after P7 is merged |
-| #572 | `issues/p8-11.md` | P8-11 · Store return — linked to the issue line, partial, valued at the issue cost, con… | whole task | **true** | `P7-13`: P8–P10 start only after P7 is merged |
-| #573 | `issues/p8-12.md` | P8-12 · Stores print documents — gate entry slip, RGP/NRGP gate pass, GRN with the bill… | whole task | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #571 | `issues/p8-10.md` | P8-10 · Store issue to VIRT-CONSUMED with a cost object (department / cost centre / pro… | whole task + § R32 additions (`prd-r32`) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #572 | `issues/p8-11.md` | P8-11 · Store return — linked to the issue line, partial, valued at the issue cost, con… | whole task + § R32 additions (`prd-r32`) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #573 | `issues/p8-12.md` | P8-12 · Stores print documents — gate entry slip, RGP/NRGP gate pass, GRN with the bill… | whole task + § R32 additions (`prd-r32`) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
 | #574 | `issues/p8-13.md` | P8-13 · Stores registers and performance — RGP pending / overdue, requisitions pending … | whole task | **true** | `P7-13`: P8–P10 start only after P7 is merged |
-| #575 | `issues/p8-14.md` | P8-14 · Stores menus, settings registry, i18n and filter-scope wave for P8 — within the… | whole task | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #575 | `issues/p8-14.md` | P8-14 · Stores menus, settings registry, i18n and filter-scope wave for P8 — within the… | whole task + § R32 additions (`prd-r32`) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
 | #576 | `issues/p8-15.md` | P8-15 · The RMA-creation port for sales-return authorisation, and the supplier-return i… | whole task | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #564 | `issues/p8-03.md` | P8-03 · Gate entry register (inward / outward) with PO, bill and weighment on arrival, … | reopened items only (R32) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #567 | `issues/p8-06.md` | P8-06 · QC with a polymorphic source — goods receipt, store return, production receipt,… | reopened items only (R32) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #570 | `issues/p8-09.md` | P8-09 · Material requisition (indent) for a department, cost centre or production order… | reopened items only (R32) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #104 | `issues/p0-13.md` | P0-13 · The ledger is the audit trail — hash-chained events, job runs, and the dated-ob… | reopened items only (R32) — scheduled in the P8 batch | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #84 | `issues/p1-09.md` | P1-09 · Gapless document numbering from a locked counter row | reopened items only (R32) — scheduled in the P8 batch | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #113 | `issues/p1-13.md` | P1-13 · Receiving — sessions, GRNs, blind receipt, and receiving behaviour as configura… | reopened items only (R32) — scheduled in the P8 batch | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #120 | `issues/p1-14.md` | P1-14 · Quality inspection as a header over lines, with the rollup stated to the value | reopened items only (R32) — scheduled in the P8 batch | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #126 | `issues/p1-15.md` | P1-15 · Putaway rules as data, with the override reason captured | reopened items only (R32) — scheduled in the P8 batch | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #636 | `issues/p8-17.md` | P8-17 · Non-conformance report (NCR) for every reject, with containment, root cause, CA… | whole task (R32) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #637 | `issues/p8-18.md` | P8-18 · Quality deviation (concession) — bound by quantity and / or time, expiring, app… | whole task (R32) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #638 | `issues/p8-19.md` | P8-19 · Inspector authorisation by site × stage × item category, segregation of duties … | whole task (R32) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #639 | `issues/p8-20.md` | P8-20 · QC measuring-instrument master and calibration register — due dates, certificat… | whole task (R32) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #640 | `issues/p8-21.md` | P8-21 · Quality registers — vendor-wise rejection % and line-rejection ppm, defect Pare… | whole task (R32) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #641 | `issues/p8-22.md` | P8-22 · Status stores — quarantine, rejected, scrap and sample stay stock statuses (D-2… | whole task (R32) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #642 | `issues/p8-26.md` | P8-26 · Core SPIs and port changes owed to trade and manufacturing — import receipt val… | whole task (R32) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #643 | `issues/p8-30.md` | P8-30 · One document-approval engine for every document type — rules by document type ×… | whole task (R32) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
 
-## 3. P9 — `warehouse-trade` — 15 open
+## 3. P9 — `warehouse-trade` — 22 open (R32: +7 tasks)
 
 | Issue | Task file | Title | Scope | Must run after P7 | Why |
 |---|---|---|---|---|---|
 | #547 | `issues/11-EPIC-p9.md` | EPIC: P9 — `warehouse-trade`: manufacturing purchase and sales, mirrored | epic (checklist of its tasks) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
 | #578 | `issues/p9-01.md` | P9-01 · The trade module — `warehouse-trade` scaffold, enable flag, menu tree and the p… | whole task | **true** | `P7-13`: P8–P10 start only after P7 is merged |
-| #579 | `issues/p9-02.md` | P9-02 · Trade masters — supplier and customer trade profiles, approved vendor list, cus… | whole task | **true** | `P7-13`: P8–P10 start only after P7 is merged |
-| #580 | `issues/p9-03.md` | P9-03 · The trade approval matrix — rules, levels, maker ≠ checker, delegation, escalat… | whole task | **true** | `P7-13`: P8–P10 start only after P7 is merged |
-| #581 | `issues/p9-04.md` | P9-04 · Purchase requisition — manual, from stores shortage, from replenishment / MRP; … | whole task | **true** | `P7-13`: P8–P10 start only after P7 is merged |
-| #582 | `issues/p9-05.md` | P9-05 · Sourcing — RFQ to many suppliers, vendor quotations with versions, comparative … | whole task | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #579 | `issues/p9-02.md` | P9-02 · Trade masters — supplier and customer trade profiles, approved vendor list, cus… | whole task + § R32 additions (`prd-r32`) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #580 | `issues/p9-03.md` | P9-03 · The trade approval matrix — rules, levels, maker ≠ checker, delegation, escalat… | whole task + § R32 additions (`prd-r32`) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #581 | `issues/p9-04.md` | P9-04 · Purchase requisition — manual, from stores shortage, from replenishment / MRP; … | whole task + § R32 additions (`prd-r32`) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #582 | `issues/p9-05.md` | P9-05 · Sourcing — RFQ to many suppliers, vendor quotations with versions, comparative … | whole task + § R32 additions (`prd-r32`) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
 | #583 | `issues/p9-06.md` | P9-06 · Agreed prices, both sides — purchase rate contracts, sales rate contracts, pric… | whole task | **true** | `P7-13`: P8–P10 start only after P7 is merged |
-| #584 | `issues/p9-07.md` | P9-07 · Purchase orders — FIXED, OPEN and BLANKET with delivery schedules, releases, an… | whole task | **true** | `P7-13`: P8–P10 start only after P7 is merged |
-| #585 | `issues/p9-08.md` | P9-08 · Pre-sales — sales enquiry, customer quotation with versions, regret, won / lost… | whole task | **true** | `P7-13`: P8–P10 start only after P7 is merged |
-| #586 | `issues/p9-09.md` | P9-09 · Sales orders — FIXED, OPEN and BLANKET with the customer delivery schedule, dis… | whole task | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #584 | `issues/p9-07.md` | P9-07 · Purchase orders — FIXED, OPEN and BLANKET with delivery schedules, releases, an… | whole task + § R32 additions (`prd-r32`) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #585 | `issues/p9-08.md` | P9-08 · Pre-sales — sales enquiry, customer quotation with versions, regret, won / lost… | whole task + § R32 additions (`prd-r32`) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #586 | `issues/p9-09.md` | P9-09 · Sales orders — FIXED, OPEN and BLANKET with the customer delivery schedule, dis… | whole task + § R32 additions (`prd-r32`) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
 | #587 | `issues/p9-10.md` | P9-10 · Acknowledgement, expediting / commitment tracking, short-close and auto-close —… | whole task | **true** | `P7-13`: P8–P10 start only after P7 is merged |
-| #588 | `issues/p9-11.md` | P9-11 · Order amendments and versions — one engine, PO and SO, with snapshots, port pus… | whole task | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #588 | `issues/p9-11.md` | P9-11 · Order amendments and versions — one engine, PO and SO, with snapshots, port pus… | whole task + § R32 additions (`prd-r32`) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
 | #589 | `issues/p9-12.md` | P9-12 · Counterparty evaluation — vendor rating and customer rating / OTIF on one weigh… | whole task | **true** | `P7-13`: P8–P10 start only after P7 is merged |
-| #590 | `issues/p9-13.md` | P9-13 · Sales return authorisation → core RMA, and the purchase-side replacement reinst… | whole task | **true** | `P7-13`: P8–P10 start only after P7 is merged |
-| #591 | `issues/p9-14.md` | P9-14 · Trade print documents and the trade reports pack | whole task | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #590 | `issues/p9-13.md` | P9-13 · Sales return authorisation → core RMA, and the purchase-side replacement reinst… | whole task + § R32 additions (`prd-r32`) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #591 | `issues/p9-14.md` | P9-14 · Trade print documents and the trade reports pack | whole task + § R32 additions (`prd-r32`) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #644 | `issues/p9-15.md` | P9-15 · GST on purchase and sales documents — CGST / SGST / UTGST / IGST previewed by a… | whole task (R32) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #645 | `issues/p9-16.md` | P9-16 · Send trade documents to the counterparty by e-mail and WhatsApp — PO, schedule … | whole task (R32) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #646 | `issues/p9-17.md` | P9-17 · Credit, overdue and advance checks at SO approval and dispatch through the acco… | whole task (R32) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #647 | `issues/p9-18.md` | P9-18 · Import purchase — import PO, bill of entry with customs duties, and BoE landed … | whole task (R32) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #648 | `issues/p9-19.md` | P9-19 · Enquiry feasibility review and queue, pre-sale costing from manufacturing with … | whole task (R32) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #649 | `issues/p9-20.md` | P9-20 · Hand-off to accounting — trade enrichment of core's shipment invoice request an… | whole task (R32) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #650 | `issues/p9-21.md` | P9-21 · Order book with produced vs dispatched vs invoiced, SO progress status, SO pend… | whole task (R32) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
 
-## 4. P10 — `warehouse-manufacturing` — 15 open
+## 4. P10 — `warehouse-manufacturing` — 27 open (R32: +12 tasks)
 
 | Issue | Task file | Title | Scope | Must run after P7 | Why |
 |---|---|---|---|---|---|
 | #548 | `issues/12-EPIC-p10.md` | EPIC: P10 — Manufacturing (warehouse-manufacturing) | epic (checklist of its tasks) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
-| #592 | `issues/p10-01.md` | P10-01 · The manufacturing module — `warehouse-manufacturing` scaffold, enable flag, me… | whole task | **true** | `P7-13`: P8–P10 start only after P7 is merged |
-| #593 | `issues/p10-02.md` | P10-02 · Manufacturing registries — movement, document and location types, code lists, … | whole task | **true** | `P7-13`: P8–P10 start only after P7 is merged |
-| #594 | `issues/p10-03.md` | P10-03 · Bill of materials — multi-level, versioned, maker–checker BOMs with alternates… | whole task | **true** | `P7-13`: P8–P10 start only after P7 is merged |
-| #595 | `issues/p10-04.md` | P10-04 · Work centres and the optional BOM operation list — a lightweight routing that … | whole task | **true** | `P7-13`: P8–P10 start only after P7 is merged |
-| #596 | `issues/p10-05.md` | P10-05 · Production orders — BOM snapshot, release with availability check and componen… | whole task | **true** | `P7-13`: P8–P10 start only after P7 is merged |
-| #597 | `issues/p10-06.md` | P10-06 · Material to the order — staging to line-side, manual issue and return through … | whole task | **true** | `P7-13`: P8–P10 start only after P7 is merged |
-| #598 | `issues/p10-07.md` | P10-07 · Production receipt — FG, co- and by-products in one movement with backflush an… | whole task | **true** | `P7-13`: P8–P10 start only after P7 is merged |
-| #599 | `issues/p10-08.md` | P10-08 · Operation confirmations, in-process and final QC through the core polymorphic … | whole task | **true** | `P7-13`: P8–P10 start only after P7 is merged |
-| #600 | `issues/p10-09.md` | P10-09 · Actual costing of output, exact co-product split, close by settlement, and the… | whole task | **true** | `P7-13`: P8–P10 start only after P7 is merged |
-| #601 | `issues/p10-10.md` | P10-10 · Subcontracting and job work — subcontract orders, dispatch to the job worker, … | whole task | **true** | `P7-13`: P8–P10 start only after P7 is merged |
-| #602 | `issues/p10-11.md` | P10-11 · Planning masters — item planning parameters per item × site and demand plans (… | whole task | **true** | `P7-13`: P8–P10 start only after P7 is merged |
-| #603 | `issues/p10-12.md` | P10-12 · MRP — regenerative per-site run, netting with low-level codes, lot sizing and … | whole task | **true** | `P7-13`: P8–P10 start only after P7 is merged |
-| #604 | `issues/p10-13.md` | P10-13 · Capacity load (infinite, visible) and the manufacturing registers — production… | whole task | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #592 | `issues/p10-01.md` | P10-01 · The manufacturing module — `warehouse-manufacturing` scaffold, enable flag, me… | whole task + § R32 additions (`prd-r32`) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #593 | `issues/p10-02.md` | P10-02 · Manufacturing registries — movement, document and location types, code lists, … | whole task + § R32 additions (`prd-r32`) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #594 | `issues/p10-03.md` | P10-03 · Bill of materials — multi-level, versioned, maker–checker BOMs with alternates… | whole task + § R32 additions (`prd-r32`) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #595 | `issues/p10-04.md` | P10-04 · Work centres and the optional BOM operation list — a lightweight routing that … | whole task + § R32 additions (`prd-r32`) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #596 | `issues/p10-05.md` | P10-05 · Production orders — BOM snapshot, release with availability check and componen… | whole task + § R32 additions (`prd-r32`) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #597 | `issues/p10-06.md` | P10-06 · Material to the order — staging to line-side, manual issue and return through … | whole task + § R32 additions (`prd-r32`) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #598 | `issues/p10-07.md` | P10-07 · Production receipt — FG, co- and by-products in one movement with backflush an… | whole task + § R32 additions (`prd-r32`) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #599 | `issues/p10-08.md` | P10-08 · Operation confirmations, in-process and final QC through the core polymorphic … | whole task + § R32 additions (`prd-r32`) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #600 | `issues/p10-09.md` | P10-09 · Actual costing of output, exact co-product split, close by settlement, and the… | whole task + § R32 additions (`prd-r32`) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #601 | `issues/p10-10.md` | P10-10 · Subcontracting and job work — subcontract orders, dispatch to the job worker, … | whole task + § R32 additions (`prd-r32`) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #602 | `issues/p10-11.md` | P10-11 · Planning masters — item planning parameters per item × site and demand plans (… | whole task + § R32 additions (`prd-r32`) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #603 | `issues/p10-12.md` | P10-12 · MRP — regenerative per-site run, netting with low-level codes, lot sizing and … | whole task + § R32 additions (`prd-r32`) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #604 | `issues/p10-13.md` | P10-13 · Capacity load (infinite, visible) and the manufacturing registers — production… | whole task + § R32 additions (`prd-r32`) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
 | #605 | `issues/p10-14.md` | P10-14 · Bonded / MOOWR stock to production and to a job worker — bond rules read by th… | whole task | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #651 | `issues/p10-15.md` | P10-15 · Operators, skills and shifts — shift master per site, operator master over pla… | whole task (R32) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #652 | `issues/p10-16.md` | P10-16 · Operation master and the routing master — a separate, versioned, released rout… | whole task (R32) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #653 | `issues/p10-17.md` | P10-17 · Engineering change notice — ECN with impact analysis on open orders, purchase … | whole task (R32) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #654 | `issues/p10-18.md` | P10-18 · Drawings — drawing master with controlled revisions and files, maker–checker r… | whole task (R32) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #655 | `issues/p10-19.md` | P10-19 · Samples — sample request from enquiry / SO, SAMPLE production order on a trial… | whole task (R32) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #656 | `issues/p10-20.md` | P10-20 · Production batches and job cards per batch per stage — sequencing and transfer… | whole task (R32) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #657 | `issues/p10-21.md` | P10-21 · Unit serials and as-built binding — chassis / VIN series with check digit and … | whole task (R32) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #658 | `issues/p10-22.md` | P10-22 · PDI gate per vehicle — per-model checklist plus SO-specific points, 100 % with… | whole task (R32) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #659 | `issues/p10-23.md` | P10-23 · Manufacturer unit registry for warranty — unit lifecycle from build to sale wi… | whole task (R32) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #660 | `issues/p10-24.md` | P10-24 · Production board and daily plans — orders by status, batch Kanban across stage… | whole task (R32) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #661 | `issues/p10-25.md` | P10-25 · Pre-sale cost estimate service — CostEstimatePort for warehouse-trade quotatio… | whole task (R32) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
+| #662 | `issues/p10-26.md` | P10-26 · Tooling / die master and preventive maintenance — tool life by shots / units /… | whole task (R32) | **true** | `P7-13`: P8–P10 start only after P7 is merged |
 
 ## 5. P5/P6 survivors (P5 has none open; P6 v3 tasks that survive `D-16`/`D-17`/`D-18`, plus the open P4 task and epics) — 11 open
 
@@ -94,7 +131,7 @@
 | #28 | `issues/p3-05.md` | P3-05 · The ASN as a document, live dock appointments, and seals captured at load and a… | reopened items only (1) | false | no P7 file in scope |
 | #29 | `issues/p2-03.md` | P2-03 · Holds as records with a release audit, not a status column | reopened items only (1) | false | no P7 file in scope |
 | #30 | `issues/p5-04.md` | P5-04 · Storage billing in four methods, and the minimum monthly charge as a metered tr… | reopened items only (1) | **true** | adds a migration / schema change — P7 rewrites the migration set (`D-16` item 4) |
-| #33 | `issues/p1-03.md` | P1-03 · The item's commercial and compliance block, and every statutory date as a DATE | reopened items only (5) | **true** | P7 also edits: `WhbItemSupersessionService`, `whb_warehouses` |
+| #33 | `issues/p1-03.md` | P1-03 · The item's commercial and compliance block, and every statutory date as a DATE | reopened items only (5) + § R32 additions (`prd-r32`) | **true** | P7 also edits: `WhbItemSupersessionService`, `whb_warehouses` |
 | #35 | `issues/p5-05.md` | P5-05 · The billing run with a frozen approved state, accessorials, disputes, and the A… | reopened items only (2) | **true** | adds a migration / schema change — P7 rewrites the migration set (`D-16` item 4) |
 | #36 | `issues/p3-07.md` | P3-07 · The pack session as an operator flow, and scan verification as configuration pe… | reopened items only (1) | false | no P7 file in scope |
 | #37 | `issues/p2-04.md` | P2-04 · Counting — a document that proposes an adjustment and never writes on-hand | reopened items only (1) | false | no P7 file in scope |
@@ -140,9 +177,9 @@
 | #240 | `issues/finding-w46.md` | [Finding] W46 · Optional tax-basis valuation remains deferred | whole task | false | no P7 file in scope |
 | #241 | `issues/finding-w47.md` | [Finding] W47 · Provider-backed operational features require actual connector evidence | whole task | false | no P7 file in scope |
 
-## 9. Other open issues (master epic and follow-ups without a task file) — 37 open
+## 9. Other open issues (master epic, follow-ups without a task file, tracking) — 36 open
 
-Dispositions 2026-10-23: none is unbatched. #1 counts via `CLOSE-1` of each batch; #173 #174 #175 are `[!] DEFERRED` (accounting) and #185 #323 #324 #386 #519 #520 `[!] BLOCKED`, all listed in `BATCH-WAREHOUSE-REOPENED-R31.md` § Deferred / blocked. #539 and #543 were **closed (duplicate) as CARRIED** by `P10-14` #605 (`issues/p10-14.md:164` — #539 items 1–2 added as an acceptance item — and `:168`; item 3 and #543 decided by `D-18` item 1). #397 was already closed.
+Dispositions 2026-10-25 (R32): #173 #174 #175 moved to §2 as `P8-25` / `P8-23` / `P8-24`; #608–#635 are now batched (§11); #663 is tracking-only. Dispositions 2026-10-23: none is unbatched. #1 counts via `CLOSE-1` of each batch; #173 #174 #175 are `[!] DEFERRED` (accounting) and #185 #323 #324 #386 #519 #520 `[!] BLOCKED`, all listed in `BATCH-WAREHOUSE-REOPENED-R31.md` § Deferred / blocked. #539 and #543 were **closed (duplicate) as CARRIED** by `P10-14` #605 (`issues/p10-14.md:164` — #539 items 1–2 added as an acceptance item — and `:168`; item 3 and #543 decided by `D-18` item 1). #397 was already closed.
 
 | Issue | Task file | Title | Scope | Must run after P7 | Why |
 |---|---|---|---|---|---|
@@ -174,6 +211,8 @@ Dispositions 2026-10-23: none is unbatched. #1 counts via `CLOSE-1` of each batc
 | #632 | — (no task file; process) | Process: rebase.autoStash is on in both repos, contradicting the batch never-stash rule | whole issue | false | repo config; no code |
 | #633 | — (no task file; QA fixtures) | QA fixture residue needing manual cleanup after P8/R31 S5 runs | whole issue | false | local dev stack data only; no code |
 | #634 | — (follow-up of `issues/p8-09.md`) | Requisitions: first approver can still reject at the final-approval step (contract decision) | whole issue | false | P8-09 S5; contract decision owed |
+| #635 | — (follow-up of `issues/p1-05.md`) | Locations: 'allows mixed owner' flag is stored but never enforced (R31 #54 follow-up) | whole issue | false | R31 #54 follow-up; enforcement on built posting paths |
+| #663 | — (tracking; no task file) | R32 · Client decisions owed — PRD questionnaire, mobile (Q-G4) and behaviour changes to confirm | **tracking only** | — | label `needs-client-decision`; `D-20` item 5; never closed from a batch task — a task touching a §3 item stops at S1 for that item only (standing rule in the P8 / P9 / P10 batches) |
 | #173 | — (no task file) | Follow-up · Accounting envelope v2 — duty status, lot, serial and exchange rate per line | whole issue | — | **DEFERRED-ACCOUNTING** — label `deferred-accounting`; `[!] DEFERRED` in `BATCH-WAREHOUSE-REOPENED-R31.md` § Deferred / blocked (receivers accounting #36/#37, adapter P4-01) |
 | #174 | — (no task file) | Follow-up · The accounting-facing adapter has no home — no module owns WhbAccountingHan… | whole issue | — | **DEFERRED-ACCOUNTING** — label `deferred-accounting`; `[!] DEFERRED` in `BATCH-WAREHOUSE-REOPENED-R31.md` § Deferred / blocked (adapter home accounting P4-01) |
 | #175 | — (no task file) | Follow-up · Prove INTEGRATED mode end to end — WH-SC-156, WH-SC-157, CONFIG-CASE-07/10 | whole issue | — | **DEFERRED-ACCOUNTING** — label `deferred-accounting`; `[!] DEFERRED` in `BATCH-WAREHOUSE-REOPENED-R31.md` § Deferred / blocked (needs receiver + #174 adapter) |
@@ -307,9 +346,26 @@ comm -3 <(gh issue list --repo neetub1508/warehouse-issues --state open --limit 
         <(grep -oE '^\| #[0-9]+ \|' docs/reviews/OPEN-WORK-INDEX.md | tr -dc '0-9\n' | sort -n)
 ```
 
-Result: **empty** — every open issue appears exactly once, nothing is missing (130 open issues on GitHub, 130 distinct rows here, 2026-10-24, after #567 #563 #564 #570 #54 #89 #13 closed and #608–#634 listed; was 129/129 on 2026-10-23).
+Result 2026-10-25: **empty** — 167 open issues on GitHub, 167 distinct rows here (was 130/130 on 2026-10-24).
 
-**Batch reconcile (2026-10-23).** Every open issue has exactly one open batch line (`- [ ]` or `- [!]`) across `BATCH-WAREHOUSE-P4/P6/P7/P8/P9/P10/REOPENED-R31.md` in classic; the §9 follow-ups are the `[!] DEFERRED`/`[!] BLOCKED` lines in `REOPENED-R31.md` § Deferred / blocked, and the epics count via their close-out lines. Issues in no batch: **none**. (#88 also has a ticked `[x]` line in `P4.md`, its pre-reopen close; its one open line is in `REOPENED-R31.md`.)
+**Batch reconcile (2026-10-25, R32).** Every open issue has **exactly one** open batch line (`- [ ]` or `- [!]`, issue
+number in the line's id) across `BATCH-WAREHOUSE-P4/P6/P7/P8/P9/P10/REOPENED-R31.md` in classic, except the two
+tracking-only issues. Issues in no batch: **none**.
+
+| Batch file (classic `.claude/tasks/`) | Open issues placed |
+|---|---|
+| `BATCH-WAREHOUSE-P7.md` | #545 (epic close-out) |
+| `BATCH-WAREHOUSE-REOPENED-R31.md` | §6 (35) · findings #606 #607 #227 #232 #240 #241 · R31 follow-ups #612 #614 #615 #629 #630 #635 (WAVE 6F) · `[!] BLOCKED` #185 #323 #324 #386 #519 #520 |
+| `BATCH-WAREHOUSE-P6.md` / `-P4.md` | §5 (11: #8 #11 #75 #94 #103 #109 #112 #118 #122 #131 #138) |
+| `BATCH-WAREHOUSE-P8.md` | §2 (29: #546 epic, #565 #568 #569 #571–#576, R32-reopened #564 #567 #570 #104 #84 #113 #120 #126 in WAVE 2 / 2R, R32 tasks #636–#643 #173 #174 #175) · P8 follow-ups #608–#611 #613 #616–#624 #626–#628 #631–#634 (WAVE 5F / 6; #610 `[!]` licensed table) |
+| `BATCH-WAREHOUSE-P9.md` | §3 (22: #547, #578–#591, #644–#650) |
+| `BATCH-WAREHOUSE-P10.md` | §4 (27: #548, #592–#605, #651–#662) · #625 (close-out wave, needs MFG / trade at runtime) |
+| **Tracking only** | #1 (master epic — counted via each batch's close-out reconcile, never closed) · #663 (client decisions — standing S1-stop rule in P8 / P9 / P10) |
+
+Old records kept ticked (not open lines): `BATCH-WAREHOUSE-P1.md` (#84) and `-P01-CONTINUE.md` (#104 #113 #120 #126)
+carry a *reopened R32* pointer note; `-REOPENED-R31.md` keeps #113's R31 box ticked with the same pointer; its #173–#175
+lines are now *moved R32* pointers. Superseded files outside the reconcile set (`P0.md`, `P1.md`, `FINDINGS.md`) were not
+re-scoped.
 
 ## 12. Sweep and batch notes
 

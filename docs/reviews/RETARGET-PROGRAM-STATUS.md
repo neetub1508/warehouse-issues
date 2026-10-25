@@ -1,6 +1,6 @@
 # Re-target program (D-16) — status and remaining steps
 
-**Read this first when resuming.** Updated 2026-10-23 (R31 fix wave and tracking fix done). All work happens on `main` only (user rule).
+**Read this first when resuming.** Updated 2026-10-25 (R32 PRD fold, review fixes, issues and batches — § R32 below); previously 2026-10-23 (R31 fix wave and tracking fix done). All work happens on `main` only (user rule).
 
 ## Done
 
@@ -121,6 +121,19 @@ Reference: `docs/reviews/BATCH-PATTERN-REFERENCE.md`, which summarises `classic/
   3. **Stop for the user's go.**
 
 - Outside the program (platform): `CP-GB-010` (`ObjectStorageService.java:932` fallback list lacks `.csv`), `CP-GB-011` (server refusal text and platform toasts English in fr/hi).
+
+## R32 (2026-10-25) — client PRD fold
+<!-- check-design-set: issue-citations file #663 — the R32 client-decisions tracking issue, filed outside create-issues.sh with no task file; listed in OPEN-WORK-INDEX §9 -->
+- **Done.**
+  - **PRD fold** — client PRD (Manufacturing, Purchase, Stores & Quality, 2026-10-24) folded: `docs/reviews/R32-prd-gap-analysis.md` (799 atomic requirements, 629 in warehouse scope); FRDs, contracts, DATA-MODEL and task files amended (`a244ff6`).
+  - **Dual-engine functional review** (Claude + GPT) of the fold — **174 findings, all fixed** (`docs/reviews/R32-functional-review-*.md`, `9d91a9b`); checker at baseline.
+  - **Decisions** — `DECISIONS.md` **`D-20`** (industry standard settles every PRD conflict; the 21-conflict ruling; new areas with owners; dealer fence; mobile stays out; tracking rule) and **`D-21`** (cross-area settlements: tax via accounting, one producer per accounting event, invoice acknowledgement, credit seam, `P8-26` SPI carrier, one complete approval engine `P8-30`, upgrade-safe QC defaults).
+  - **27 new issues #636–#662** — P8 `P8-17`…`P8-22`, `P8-26`, `P8-30` (#636–#643) · P9 `P9-15`…`P9-21` (#644–#650) · P10 `P10-15`…`P10-26` (#651–#662); plus task files for the existing #173 / #174 / #175 as `P8-25` / `P8-23` / `P8-24`.
+  - **8 reopened** (label `reopened-r32`, `## Reopened scope (R32)`): `P0-13` #104, `P1-09` #84, `P1-13` #113, `P1-14` #120, `P1-15` #126, `P8-03` #564, `P8-06` #567, `P8-09` #570. Open tasks that gained scope carry label `prd-r32` and a § *R32 additions*.
+  - **#663** — client decisions owed (PRD questionnaire, mobile Q-G4, behaviour changes to built screens); tracking only, label `needs-client-decision`.
+  - **Accounting** (`neetub1508/accounting`, label `prd-r32`): 9 new issues (186–194), 13 existing issues commented, 2 reopened.
+  - **Batches updated** in classic: `BATCH-WAREHOUSE-P8.md` (WAVE 2R prerequisites incl. the five reopened P0/P1 scopes and `P8-30`; 4R / 5R; follow-ups 5F), `-P9.md` (waves 7–9b), `-P10.md` (4R, 11R-1…3), `-REOPENED-R31.md` (#33 R32 note, #173–#175 moved, follow-ups 6F). [`OPEN-WORK-INDEX.md`](OPEN-WORK-INDEX.md): **167 open**, every one in exactly one batch line or tracking-only (#1, #663).
+- **Next.** The **owner's go for `/run-batch` on `BATCH-WAREHOUSE-P7.md`** (chain `P7` → `REOPENED-R31` → `P6` → `P8` → {`P9` ∥ `P10`}); client answers on #663 are collected in parallel and only stop the task that touches a §3 item.
 
 ## Pending user items (do not act without approval)
 - `classic/CLAUDE.md`:
