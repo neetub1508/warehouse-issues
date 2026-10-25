@@ -32,7 +32,7 @@
 
 | # | Expects | Delivered by |
 |---|---|---|
-| A1 | Reorder parameters live on item × site and item × location (`WH-SC-280`) | `RPN-GRD-01`, `RPN-T5-01` |
+| A1 | Reorder parameters live on item × site; pick-face min / max / trigger on item × location (`WH-SC-280`, `FR-252` as amended 2026-10-26) | `RPN-GRD-01`, `RPN-T5-01` |
 | A2 | The run writes a document the buyer converts; no PO is raised automatically (`WH-SC-281`) | `RPN-T1-01`…`-06`, `RPN-UNR-01` |
 | A3 | A sister site is proposed before a supplier (`WH-SC-353`) | `RPN-T4-02`, `RPN-GRD-05` |
 | A4 | Pick-face, emergency, top-off and break-case tasks (`WH-SC-354`) | `RPN-T3-02`, `RPN-T4-04` |
@@ -72,7 +72,7 @@
 
 | ID | Predicate | Refusal | Backstop | Source |
 |---|---|---|---|---|
-| RPN-GRD-01 | Min, max, reorder point, reorder quantity, safety stock and lead time are held per **item × site** (`whb_item_site_settings`); pick-face min / max / trigger per **item × location** (`whb_item_location_settings`, dated `effective_from`/`_to`) | field-level `422` on the master | uk per grain | FR-252 — **see §10 row 1** |
+| RPN-GRD-01 | Min, max, reorder point, reorder quantity, safety stock and lead time are held per **item × site** (`whb_item_site_settings`); pick-face min / max / trigger per **item × location** (`whb_item_location_settings`, dated `effective_from`/`_to`) | field-level `422` on the master | uk per grain | FR-252 (amended 2026-10-26, #33 S-16 / G4: two grains, no v1.1 location-level reorder point) |
 | RPN-GRD-02 | One running run per site | `409 REPLENISHMENT_RUN_ALREADY_RUNNING` | one-running-run index `V510070:147` | FR-253 |
 | RPN-GRD-03 | The run needs a house owner at the site | `REPLENISHMENT_NO_HOUSE_OWNER` | — | FR-253 |
 | RPN-GRD-04 | Only a `PROPOSED` suggestion is accepted (and so converted); `ACCEPTED` is never a committed starting state | `409 REPLENISHMENT_SUGGESTION_NOT_PROPOSED` | — | FR-253 |
@@ -83,6 +83,7 @@
 | RPN-GRD-09 | A replenishment task's target is a valid pick-face location at the site and the source still holds the stock | `422 REPLENISHMENT_LOCATION_INVALID` / `REPLENISHMENT_SOURCE_EMPTY` | ledger guards | FR-255 |
 | RPN-GRD-10 | A lost-sale capture (through the core API, from the guard or from `warehouse-trade`): item required, quantity > 0, not in the future, reason valid (note when required) | `422 LOST_SALE_ITEM_REQUIRED` / `LOST_SALE_QUANTITY_INVALID` / `LOST_SALE_OCCURRED_IN_FUTURE` / `LOST_SALE_REASON_INVALID` / `LOST_SALE_REASON_NOTE_REQUIRED` | — | FR-257 |
 | RPN-GRD-11 | **An item planned elsewhere is not reorder-planned** (R31 `MRP-OPEN-10`, `mfg-mrp`): the reorder-point run skips an item × site for which the registered `ExternalPlanningOwner` (FRD-STORES registry R.3) answers `plansItem = true` — MFG's `planning_method = MRP` (FR-662) — so an `MRP` item with core reorder settings is not proposed twice; its supply arrives as `origin = MRP` suggestions (`p8-16`). With no bean registered (MFG absent) core's settings rule every item | — (skipped; no suggestion row) | one batch `plansItem` read per run before proposing; core reads no `whm_` | FR-253 |
+| RPN-GRD-12 | **A make item or a non-purchasable item gets no purchase proposal** (#33 G8, `FR-731`): after the supersession terminal substitution, the run proposes no `PURCHASE` line for an item whose `make_or_buy` is `MAKE` or whose type is not `is_purchasable`. The count it leaves out is **logged only** (ratified 2026-10-26, #33 S3 F5): `wh_replenishment_runs.parameters_text` holds the run's inputs, not its outcome, and no outcome-note column is added | — (left out of the proposal) | `WhReplenishmentEngine` | FR-731 |
 
 ### 1.4 Unreachable
 
@@ -147,6 +148,7 @@ fill-rate reports (`reports-kpis`); producing lost sales from trade enquiries an
 |---|---|
 | 2026-10-23 | v0 derived (R30 `CP-FR-007` row 13) |
 | 2026-10-23 | R31: `F-CB-002` (`ACCEPTED` momentary, `RPN-T1-06` folded into `-05`); `RPN-OPEN-01` decided (manual capture removed); `FR-258` restored by `D-18` item 6 (`RPN-T3-03`, `RPN-OPEN-02`, §10 row 4); `RPN-GRD-11` — the reorder run skips items an `ExternalPlanningOwner` plans (`mfg-mrp` `MRP-OPEN-10`, `p8-16`) |
+| 2026-10-26 | R31 `P1-03` #33 S4 (S3 F5, F8 / G4): `FR-252` amended to two grains — §10 row 1 struck, `A1` and `RPN-GRD-01` pointers dropped; `RPN-GRD-12` added (MAKE / non-purchasable items get no purchase proposal; the excluded count is logged only) |
 
 ## 8. Invariants and scenarios
 
@@ -165,7 +167,7 @@ The FRD rule is kept; the code is what differs.
 
 | # | File:line | FR | Difference |
 |---|---|---|---|
-| 1 | `warehouse-base/…/entity/WhbItemLocationSetting.java` (columns `min_quantity`, `max_quantity`, `replen_trigger_quantity`) | FR-252 | item × location carries min / max / trigger only; no reorder point, reorder quantity, safety stock or lead time at that grain — **Triage 2026-10-23: FIX-CODE** — owner `P1-03` #33 (v1.1 part of `FR-252`), reopened. reviewer-confirm |
+| 1 | ~~`warehouse-base/…/entity/WhbItemLocationSetting.java` (columns `min_quantity`, `max_quantity`, `replen_trigger_quantity`)~~ | FR-252 | **STRUCK 2026-10-26 (#33 S-16 / G4, S3 F8):** `FR-252` is amended to the two grains the code holds — reorder point, reorder quantity, safety stock and lead time per item × site; min / max / trigger per item × location for internal moves. A location-level reorder point would have no consumer. No code is owed |
 | 2 | `warehouse/backend/src/main/resources/db/migration/V510011__Create_wh_purchase_orders_and_lines.sql:95` | FR-260 | `order_source` exists; the customer-waiting flag, linked job reference and promised date are absent from `wh_purchase_orders` — **Triage 2026-10-23: FIX-CODE** — owner `P2-15` #106 (`FR-260`), reopened. reviewer-confirm |
 | 3 | `warehouse/backend/src/main/java/ai/warehouse/controller/WhInsufficientStockLogController.java:175-183` (`POST`, `captureLostSale`) | FR-257 | manual capture is served; R31 `RPN-OPEN-01` removes it (`D-17` item 4); `P2-15` owns the removal (acceptance item added) — **Triage 2026-10-23: FIX-CODE** — owner `P2-15` #106, reopened |
 | 4 | — (no reorder-point proposal anywhere in `warehouse-base` / `warehouse` / `warehouse-manufacturing`) | FR-258 | not built (v3); carrier `P10-11` (`D-18` item 6) — **Triage 2026-10-23: CARRIED** — `P10-11` #602 |
