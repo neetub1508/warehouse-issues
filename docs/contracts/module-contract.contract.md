@@ -11,7 +11,7 @@
 >
 > **Status.** Derived 2026-10-23 (v0) from `WAREHOUSE-FUNCTIONAL-REQUIREMENTS.md` §6.20 (`FR-349`…`FR-374`,
 > withdrawn rows skipped) for R30 `CP-FR-007` row 19 under `D-17` item a. Verified against
-> `classic/warehouse-adapter-example`, `warehouse-base` and `platform` by grep. Not ratified. There is no state
+> `classic/warehouse-adapter-example`, `warehouse-base` and `platform` by grep. v1 2026-10-26: R32 overlay conformance-reviewed on P0-14 #110 S3/S4. There is no state
 > machine: every row is a structural invariant; T1 is the fixture's one document.
 
 ---
@@ -24,9 +24,9 @@
 | **Modules** | fixture `warehouse-adapter-example` (`ai.warehouseadapterexample`, band `V525000`–`V525999`, prefix `whae_`, flag `enable.warehouse.adapter.example`, CI-only: `warehouse-ratchets` job, not in `ModuleImportSelector`, Dockerfile or compose) · base `warehouse-base` |
 | **Domain baseline** | `FR-349`…`FR-357`, `FR-363`, `FR-364`, `FR-366`, `FR-367`, `FR-371`…`FR-374` · `D-1` (amended), `D-2`, `D-7`, `D-9`, `D-10`, `D-11`, `D-16` items 4–5 · `L-3` |
 | **Owning tasks** (R30 §4) | `issues/p0-14.md` (`FR-349`…`351`, `353`…`356`) · `p0-04` (`357`, `367`) · `p0-01` (`371`…`374`) · `p3-20` (`363`) · `p3-21` (`364`) · `p6-08` (`366`) |
-| **Primary artefacts** | `V525000` (registers `ADAPTER_EXAMPLE`, `EXAMPLE_DOCUMENT`, `EXAMPLE_RECEIPT`), `V525010` (`whae_example_documents`, item cross-reference `EXAMPLE-ITEM-0001`) · `WarehouseAdapterExampleModuleConfig`, `WhaeExampleDocumentPostingService`, `WhaeExampleDocumentRepository` · tests `ArchitectureInvariantsTest` (example), `WhaeExampleDocumentPostingIntegrationTest`, `WarehouseBaseCouplingTest` · `platform/.../ModuleImportSelector.java` |
+| **Primary artefacts** | `V525000` (registers `ADAPTER_EXAMPLE`, `EXAMPLE_DOCUMENT`, `EXAMPLE_RECEIPT`), `V525010` (`whae_example_documents`, item cross-reference `EXAMPLE-ITEM-0001`), `V525020` (`whae_example_received_events`, `ADAPTER_EXAMPLE` outbox subscription, hold release reason) · `WarehouseAdapterExampleModuleConfig`, `WhaeExampleDocumentPostingService`, `WhaeExampleDocumentRepository` · tests `ArchitectureInvariantsTest` (example), `WhaeExampleDocumentPostingIntegrationTest`, `WarehouseBaseCouplingTest` · `platform/.../ModuleImportSelector.java` |
 | **Withdrawn, not covered** | `FR-352`, `FR-358`…`FR-362`, `FR-365`, `FR-368`…`FR-370` (`D-16` / `D-17` item 5) |
-| **Contract version** | `v0 — 2026-10-23` |
+| **Contract version** | `v1 — 2026-10-26` |
 
 ### Acceptance checks
 
@@ -45,7 +45,7 @@
 | ID | From | Event | To | Guard | Actor / class | Side effects | Source |
 |---|---|---|---|---|---|---|---|
 | MOD-T1-01 | `DRAFT` | Post an example document | posted (movement id recorded) | **DRAFT only** — any other status → `EXAMPLE_DOCUMENT_NOT_DRAFT` 409, no port call (R32 F6); then the port's own guards; item named by `(source_module ADAPTER_EXAMPLE, external_id)` and resolved by the port through `whb_item_external_refs` — unmapped → the port's `UNKNOWN_ITEM` refusal | `WhaeExampleDocumentPostingService.post` → `WhbMovementPortService` | one `EXAMPLE_RECEIPT` movement; only `whae_example_documents` is saved by the adapter | FR-349, FR-353 |
-| MOD-T1-02 | posted | Reverse with a reason | reversed | **POSTED only** — any other status → `EXAMPLE_DOCUMENT_NOT_POSTED` 409, no port call (R32 F6); reason code required by the port. **Amended R32 D2:** reverse AFTER release (`MOD-T1-04`) — with the document's own hold open the reversal is an outbound beyond free stock, refused `INSUFFICIENT_STOCK`, nothing changes (`WhbStockPositionWriter`). Once the P0-08 follow-up lands (`MOD-DIV-04`), the reversal names the hold and consumes it in the same transaction | `WhaeExampleDocumentPostingService.reverse` | `RECEIPT_REVERSAL` (a true reversal type, `L-3`, asserted in `V525000`) | FR-349, FR-353 |
+| MOD-T1-02 | posted | Reverse with a reason | reversed | **POSTED only** — any other status → `EXAMPLE_DOCUMENT_NOT_POSTED` 409, no port call (R32 F6); reason code required by the port. **Amended R32 D2:** reverse AFTER release (`MOD-T1-04`) — with the document's own hold open, the reversal is refused `INSUFFICIENT_STOCK` when the position's free stock is below the reversal quantity, and nothing changes (`WhbStockPositionWriter`). Once the P0-08 follow-up lands (`MOD-DIV-04`), the reversal names the hold and consumes it in the same transaction | `WhaeExampleDocumentPostingService.reverse` | `RECEIPT_REVERSAL` (a true reversal type, `L-3`, asserted in `V525000`) | FR-349, FR-353 |
 | MOD-T1-03 | posted | Hold the received stock | posted, hold OPEN | **POSTED only** → `EXAMPLE_DOCUMENT_NOT_POSTED` 409; base's reservation guards (holder system / document type ACTIVE, free stock — shortage → `INSUFFICIENT_STOCK`) | `WhaeExampleReservationService.reserve` → `WhbReservationService.create` (`POST /warehouse/ledger/reservations`) | one HARD reservation, holder quad `ADAPTER_EXAMPLE / EXAMPLE_DOCUMENT / <document id> / 1`, the destination line's item (read back through `WhbStockMovementQueryService.getById`); on-hand unchanged | FR-353, R32 D1 |
 | MOD-T1-04 | posted, hold OPEN | Release the hold | posted, hold **RELEASED** | base's release guards (owner + site scope, release guard); reason `RESERVATION_RELEASE/EXAMPLE_DOCUMENT_CANCELLED` (adapter-owned, V525020 — `requireReleaseReason` accepts any ACTIVE `RESERVATION_RELEASE` reason outside `SYSTEM_ONLY_REASONS`) | `WhaeExampleReservationService.release` → `WhbReservationService.releaseByHolder` (`DELETE /warehouse/ledger/reservations`) | `stock.reservation.released` on the outbox; the hold reads RELEASED, never CONSUMED (`WhaeExampleDocumentPostingIntegrationTest.anAdapterReleasesItsHoldThenReversesAndItsSubscriberReceivesTheFacts`) | FR-353, R32 D1 |
 
@@ -116,6 +116,7 @@ Withdrawn dealer / services / accessories adapter rows (see §0); the logistics 
 | 2026-10-23 | v0 derived for R30 `CP-FR-007` row 19 (`D-17` item a) |
 | 2026-10-23 | R31: `MOD-OPEN-01` (withdraw; `MOD-T4-03`, `-04`, `MOD-DIV-02`), `MOD-OPEN-02` (extend the fixture) decided |
 | 2026-10-25 | R32 D1–D3 (P0-14 #110 S2): `MOD-DIV-01` split — reserve + subscribe closed, consume → new `MOD-DIV-04` (P0-08 follow-up); `MOD-T1-01`/`-02` state the DRAFT / POSTED guards (F6) and `-02` reverses after release; `MOD-T1-03`/`-04` (reserve, release), `MOD-T4-05` (subscriber delivery + dedup, §8.2 A10 in-process row) added; `MOD-GRD-06` allowlists `whb_outbox_subscriptions` INSERT; `MOD-UNR-02` states what consume means through the port |
+| 2026-10-26 | v1 (P0-14 #110 S4, S3 functional F3): `MOD-T1-02` refusal restated — an open hold refuses the reversal only when the position's free stock is below the reversal quantity; `V525020` added to the primary artefacts |
 
 ## 9. Invariants and scenarios
 
