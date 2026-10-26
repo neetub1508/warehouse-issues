@@ -123,6 +123,7 @@
 | 2026-10-26 | `P2-07` #53 S2: `RSA-T4-04` made checkable (chain direction, date basis, unit, rounding, surface); `RSA-T5-03` added for WS-208's inclusive view |
 | 2026-10-23 | R31 `F-CA-018`: §1.1 — `RSA-T1-04` (soft → hard, still `OPEN`) removed from `RELEASED`'s inbound list; the status is derived from `released_at` / `consumed_by_movement_line_id`, not stored |
 | 2026-10-26 | `P3-11` #57 G2: `RSA-T4-05` added — phantom-kit component reservations, their explosion stamp (V501243) and the per-component duplicate guard |
+| 2026-10-26 | `P3-11` #57 S4e F4 (classic 0b21f1a642) — overlay on **`RSA-GRD-07`** / **`RSA-T4-05`**: a substitute's reservation also records the cumulative ratio it was taken at (`substitution_ratio`, V501247, carried to the staged hold); every reader that counts a hold for the requested item (Release's held-by-line and held-by-component, a kit pick, the trim, the per-component withdraw and amendment release, the despatch kit check) counts `base_quantity / ratio`, DOWN at scale 4; a pre-V501247 substitution counts at 1. |
 
 ## 7. Invariants and scenarios
 
