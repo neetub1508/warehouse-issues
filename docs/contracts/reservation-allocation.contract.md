@@ -124,6 +124,7 @@
 | 2026-10-23 | R31 `F-CA-018`: §1.1 — `RSA-T1-04` (soft → hard, still `OPEN`) removed from `RELEASED`'s inbound list; the status is derived from `released_at` / `consumed_by_movement_line_id`, not stored |
 | 2026-10-26 | `P3-11` #57 G2: `RSA-T4-05` added — phantom-kit component reservations, their explosion stamp (V501243) and the per-component duplicate guard |
 | 2026-10-26 | `P3-11` #57 S4e F4 (classic 0b21f1a642) — overlay on **`RSA-GRD-07`** / **`RSA-T4-05`**: a substitute's reservation also records the cumulative ratio it was taken at (`substitution_ratio`, V501247, carried to the staged hold); every reader that counts a hold for the requested item (Release's held-by-line and held-by-component, a kit pick, the trim, the per-component withdraw and amendment release, the despatch kit check) counts `base_quantity / ratio`, DOWN at scale 4; a pre-V501247 substitution counts at 1. |
+| 2026-10-26 | `P3-11` #57 S4f F1/F4 (classic 980df07025) — overlay on **`RSA-GRD-07`**: every line-quantity reader counts a substitute in the requested item's units - plain lines too (Release's held-by-line, pick, task short pick, line withdraw, amendment release, despatch); the ledger keeps moving the substitute's physical quantity; a comparison in requested units allows the take's UP and the conversion's DOWN rounding per hold (`conversionAllowance`). Successor-grain soft-yield sizing is follow-up #683. |
 
 ## 7. Invariants and scenarios
 
