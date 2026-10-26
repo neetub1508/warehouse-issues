@@ -715,6 +715,10 @@ Marked as **additions**, each with the clause that makes it necessary. They are 
 | `VALUATION_METHOD_NOT_SUPPORTED` | 422 | conditionally | `FR-235` — the resolved valuation policy names a method other than AVCO or FIFO; LIFO and STANDARD are refused (line) *(amended — ratified 2026-10-14 (#203))* |
 | `BASE_CURRENCY_REQUIRED` | 422 | conditionally | `OD-16` — the company has no base currency and the platform no default, so the valuation would be in no currency (header) *(amended — ratified 2026-10-14 (#203))* |
 | `MOVEMENT_TYPE_NOT_PORT_POSTABLE` | 403 | no | `#285` (2026-10-14, build `V501210`) — over HTTP (`POST /movements`, `/batch`, `/ratio-pack`, Simulate, the reprocess of an HTTP-recorded row) the movement type's `port_post_permission` is NULL or not held by the caller. Seeded: `BIN_MOVE` → `warehouse:movements:post`; `RECEIPT`, `ISSUE`, `RECEIPT_REVERSAL`, `ISSUE_REVERSAL` (the four `/ratio-pack` admits) → `warehouse:movements:post_external` (ADMIN only, granted per install); every other type NULL. An in-process adapter posting through `WhbMovementPortService.post` (§8.2) is not checked |
+| `STANDARD_COST_REQUIRED` | 422 | conditionally | `#115` G2 (2026-10-26) — a STANDARD-valued item moved with no active standard cost for its grain (line); referenced from `WhbCostingEngine` |
+| `STANDARD_COST_ALIGNMENT_PENDING` | 409 | conditionally | `#115` G2 (2026-10-26) — the item's standard-cost alignment has not yet restated its layers (line); referenced from `WhbCostingEngine` |
+| `PUTAWAY_DG_LOCATION_NOT_APPROVED` | 422 | no | `#126` G2 (2026-10-26) — a dangerous-goods item placed into a location no DG store approves for its class (line) |
+| `MOVEMENT_COMPENSATED` | 409 | no | `#57` S4h (2026-10-26, R33 decision, build `V501248`) — reversing a movement a live movement compensates (a PICK a DESTAGE moved on), `MPR-GRD-64` (header) |
 
 **Total: 31 ratified + 32 additions (30 contract additions + the two built precedents) = 63** — the set `FR-039`
 names, folded by `RD-008` (2026-09-16), and the set `WhbLedgerErrorCodes.VOCABULARY` publishes;
@@ -729,6 +733,8 @@ names, folded by `RD-008` (2026-09-16), and the set `WhbLedgerErrorCodes.VOCABUL
 > `BIN_MOVE_SHAPE_INVALID` (422) are folded in *(amended — ratified 2026-10-14 (#203))*.
 
 > **Amended — #285 (2026-10-14, build `V501210`).** `MOVEMENT_TYPE_NOT_PORT_POSTABLE` (403) is added above, so `WhbLedgerErrorCodes.VOCABULARY` publishes **64** (`WhbLedgerErrorCodesTest`): the 63 counted above plus this one.
+
+> **Amended — #115 G2, #126 G2, #57 S4h (2026-10-26).** `STANDARD_COST_REQUIRED`, `STANDARD_COST_ALIGNMENT_PENDING`, `PUTAWAY_DG_LOCATION_NOT_APPROVED` and `MOVEMENT_COMPENSATED` are added above, so `WhbLedgerErrorCodes.VOCABULARY` publishes **68** - 31 ratified + 37 additions (35 contract additions + the two built precedents) - and `WhbLedgerErrorCodesTest` asserts the 68 (classic `32783f68fe`).
 
 ## 3.10 Authentication, authorisation and the permission a caller needs
 
