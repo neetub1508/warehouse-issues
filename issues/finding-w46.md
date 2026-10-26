@@ -77,6 +77,13 @@ Scope prerequisite: explicit customer requirement for tax-basis inventory valuat
 - Do not interpret a missing runtime test as proof that the feature is missing. Verify before replacing working code.
 - This includes a scope or documentation decision. Closure can be a verified correction or supported-boundary decision; it must not silently expand the product.
 
+## Open questions (R32)
+
+Answer each on this issue (comment `Q-xx: <answer>`), then tick it and update the setting / scope here. The index of all open questions is #663.
+
+- [x] **Owner** — Should the warehouse carry a second, tax-basis inventory value alongside the book value (`FR-250`)?
+  - **R33 decision (DECISION RULE, user 2026-10-25; R32 decision recorded 2026-10-26):** no — single answer, **no setting**. The warehouse keeps one book value (AVCO, FIFO or STANDARD; LIFO never). India's s.145A / ICDS II adjustment is a **year-end Form 3CD cl.14(b) statement owned by accounting-india** over the warehouse's period-end book valuation (`WhValuationController`), filed as **#677** (`D-21` item 1, `OD-9`). A `BOOK_ONLY | BOOK_AND_TAX` setting was rejected: the warehouse holds none of the tax facts (one cost per layer, `V500030`; PO `tax_amount` header-only), so it would be dead configuration. `CVL-GRD-16` / `CVL-OPEN-02` / costing-valuation §10 row 4 / `FR-250` re-homed; W46 #240 and P4-11 #75 close on it. Record: #240 comment, `docs/reviews/R33-run-decisions.md`; classic `3f6a04dd2e` (G1: INSTALL §15, `WhbTaxBasisValuationBoundaryContractTest` Javadoc, costing contract C-05 - three methods, LIFO never).
+
 ## Acceptance
 
 - [ ] Dependency review completed: all applicable prerequisites above have linked evidence or explicit scope disposition; newly discovered blockers are recorded in this task and the batch index.

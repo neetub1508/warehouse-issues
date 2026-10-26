@@ -418,3 +418,5 @@ These existing GitHub reports have no source task file in this batch; listed for
 | #661 | `issues/p10-25.md` | P10-25 · Pre-sale cost estimate service — CostEstimatePort for warehouse-trade quotations: BOM roll-up + routing conversion + overhead per unit, domestic value addition %, and a frozen estimate record |
 | #662 | `issues/p10-26.md` | P10-26 · Tooling / die master and preventive maintenance — tool life by shots / units / hours consumed at booking, tools per routing operation, PM plans and maintenance orders for machines and tools, breakdown and downtime capture |
 | #663 | `tracking-only (no task file)` | R32 · Client decisions owed — PRD questionnaire, mobile (Q-G4) and behaviour changes to confirm |
+| #665 | `tracking-only (no task file)` | Finding · Base in-process reservation calls skip the reservation permissions (#110 F2) |
+| #677 | `tracking-only (no task file)` | [Follow-up] accounting-india: year-end s.145A / Form 3CD cl.14(b) statement over warehouse book valuation (W46 #240) |
