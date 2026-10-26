@@ -105,6 +105,7 @@
 | RSA-T4-02 | A demand order or line is cancelled | de-allocation is deterministic and reason-coded: every `OPEN` row of the holder released, un-started tasks cancelled; allocate ten, cancel, and availability returns exactly to its pre-allocation value | `WhbAllocationService.deallocate` | `FR-171` |
 | RSA-T4-03 | Expiry, release or consume | available = on-hand − open reservations recomputes from rows only | availability API | `FR-166`, `FR-170` |
 | RSA-T4-04 | A superseding item is allocated | reporting distinguishes *stock of A* from *stock of A including superseded equivalents*. **Chain**: forward successors only (the allocator's: `REPLACES`/`PARTIAL` steps from `WhbSupersessionChainResolver.resolveAll`, never `INTERCHANGE` alternates, no `stock_treatment` filter); a step with no successor, no cumulative ratio, or a successor already on the chain is skipped; a cycle or truncation keeps the steps before the break and is flagged `equivalentsIncomplete`. **Date basis**: availability — the `asOf` instant's UTC date (the allocator's); WS-208 — today. **Unit and rounding**: an equivalent contributes its own available (and on hand) ÷ cumulative ratio, scale 4, `RoundingMode.DOWN`, in A's base unit. **Surface**: availability `includeEquivalents` (opt-in, default answer unchanged) and WS-208 `includeSupersededEquivalents` (`RSA-T5-03`); rows are never summed across A and B | `WhbAvailabilityService` (`P2-07` #53 G1a), `WhStockOnHandQueryService` (G1b); §8 `RSA-DIV-02` closes at S5 | `FR-176` |
+| RSA-T4-05 | A demand line for a PHANTOM kit is allocated (P3-11 #57 G2, `VWO-T4-06`) | one allocation PER COMPONENT under the line's holder quad, each reservation stamped with `explosion_parent_item_id`, `explosion_parent_line_id`, `explosion_source`, `explosion_definition_id`, `explosion_version_no`, `explosion_quantity_per` (all or none, `chk_whb_reservations_explosion_attribution`, V501243); the duplicate-allocation guard (`RSV-P207-T1-01`) refuses a component only for that component's own open holds on the line; the stamp is set in-process only (never from POST /allocate JSON) and carried to the staged hold at pick; `requested_item_id` keeps meaning substitution only | `WhbAllocationService`, `WhbPickReservationService.reattach` | `FR-261` |
 
 ## 5. T5 — Screen contract (web only, `D-17` item 2)
 
@@ -121,6 +122,7 @@
 | 2026-10-23 | v0 derived for `D-17` item 1 (R30 `CP-FR-007` row 9) |
 | 2026-10-26 | `P2-07` #53 S2: `RSA-T4-04` made checkable (chain direction, date basis, unit, rounding, surface); `RSA-T5-03` added for WS-208's inclusive view |
 | 2026-10-23 | R31 `F-CA-018`: §1.1 — `RSA-T1-04` (soft → hard, still `OPEN`) removed from `RELEASED`'s inbound list; the status is derived from `released_at` / `consumed_by_movement_line_id`, not stored |
+| 2026-10-26 | `P3-11` #57 G2: `RSA-T4-05` added — phantom-kit component reservations, their explosion stamp (V501243) and the per-component duplicate guard |
 
 ## 7. Invariants and scenarios
 
