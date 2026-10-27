@@ -176,6 +176,7 @@ Every approving document type in `warehouse`, `warehouse-trade` and `warehouse-m
 | DAP-T2-03 | Approve / reject / return | the step's `required_authority` (`DAP-GRD-14`) + `DAP-GRD-04`; approve also `DAP-GRD-15` | step `PENDING` | FR-722 |
 | DAP-T2-04 | Register / SoD report / export | `wh_approval_requests:view:all` / `:view:branch` / `:export` | — | FR-729 |
 | DAP-T2-05 | Export rules | `wh_approval_rules:export` | — | FR-721 |
+| DAP-T2-06 | Read a type's Return / Reject reason codes from a document screen (`GET /approvals/document-types/{type}/reason-codes`) | `wh_approval_requests:view` OR that type's `approveVerb()` (`WhApprovalRegistry.isApproverOf`; `#636` S4c) | — | FR-722 |
 
 ## 3. T3 — Time-driven rules
 
