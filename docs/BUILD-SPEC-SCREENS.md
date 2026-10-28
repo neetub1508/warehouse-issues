@@ -211,7 +211,7 @@ directory silently produce one page. The allocation below is exclusive and is no
 | `warehouse-adapter-field-service` | `/warehouse/field-service/*` |
 | `warehouse-adapter-assets` | `/warehouse/assets/*` |
 
-*R30 `CP-SC-007`, `CP-SC-008` (2026-10-23): the P8–P10 roots and the as-built `/warehouse/vas/*` are registered; the two removed adapters' roots are struck. `WS-256` (Bonded Losses) and `WS-257` (Fulfilment Policies) register two pages that were built without an id; their §9.6 grid blocks are owed by the next task that touches them, so their `G` column reads `N` until then.*
+*R30 `CP-SC-007`, `CP-SC-008` (2026-10-23): the P8–P10 roots and the as-built `/warehouse/vas/*` are registered; the two removed adapters' roots are struck. `WS-256` (Bonded Losses) and `WS-257` (Fulfilment Policies) register two pages that were built without an id; their §9.6 grid blocks are owed by the next task that touches them, so their `G` column reads `N` until then. P8 exemptions (F575, 2026-10-28): four P8 pages sit under existing `warehouse` roots instead of the P8 roots, as built in classic `V511413` - WS-264 Sampling Schemes `/warehouse/inbound/sampling-schemes`, WS-265 Inspection Plan Assignments `/warehouse/inbound/plan-assignments`, WS-275 PO Delivery Schedule `/warehouse/inbound/purchase-order-schedules`, WS-276 Customer Delivery Schedule `/warehouse/outbound/demand-order-schedules`. All are `warehouse`-owned, so no route crosses a module.*
 
 Components, API services, types and constants are prefixed per `MODULE-INTEGRATION.md` §6.2:
 `components/whbItem/WhbItemManagementTable.tsx`, `services/api/whbItemApi.ts`, `types/whbItem.ts`,

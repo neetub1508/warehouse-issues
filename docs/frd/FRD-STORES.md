@@ -235,8 +235,8 @@ rebuild, `RN-052`); `P9` and `P10` depend on `P8-01`, `P8-02`, `P8-06`, `P8-09`,
 | WS-261 | Gate Entry detail | app | `/warehouse/gate/entries/[id]` | SV | N | v1.1 · P8 |
 | WS-262 | Gate Passes | app | `/warehouse/gate/passes` | SV | Y | v1.1 · P8 |
 | WS-263 | Gate Pass detail (lines, returns) | app | `/warehouse/gate/passes/[id]` | SV | N | v1.1 · P8 |
-| WS-264 | Sampling Schemes | app | `/warehouse/quality/sampling-schemes` | D | Y | v1.1 · P8 |
-| WS-265 | Inspection Plan Assignments | app | `/warehouse/quality/plan-assignments` | C | Y | v1.1 · P8 |
+| WS-264 | Sampling Schemes | app | `/warehouse/inbound/sampling-schemes` | D | Y | v1.1 · P8 |
+| WS-265 | Inspection Plan Assignments | app | `/warehouse/inbound/plan-assignments` | C | Y | v1.1 · P8 |
 | WS-266 | Material Receipt Notes | app | `/warehouse/stores/mrns` | SV | Y | v1.1 · P8 |
 | WS-267 | MRN detail (+ print) | app | `/warehouse/stores/mrns/[id]` | SV | N | v1.1 · P8 |
 | WS-268 | Material Requisitions | app | `/warehouse/stores/requisitions` | SV | Y | v1.1 · P8 |
@@ -245,9 +245,9 @@ rebuild, `RN-052`); `P9` and `P10` depend on `P8-01`, `P8-02`, `P8-06`, `P8-09`,
 | WS-271 | Store Issue detail | app | `/warehouse/stores/issues/[id]` | SV | N | v1.1 · P8 |
 | WS-272 | Store Returns | app | `/warehouse/stores/returns` | SV | Y | v1.1 · P8 |
 | WS-273 | Cost Centres | app | `/warehouse/stores/cost-centres` | D | Y | v1.1 · P8 |
-| WS-274 | Issue queue (approved requisitions awaiting issue) | app | `/warehouse/stores/issue-queue` | C | Y | v1.1 · P8 |
-| WS-275 | PO Delivery Schedule | app | `/warehouse/inbound/purchase-orders/schedule` | C | Y | v1.1 · P8 |
-| WS-276 | Customer Delivery Schedule | app | `/warehouse/outbound/demand-schedule` | C | Y | v1.1 · P8 |
+| WS-274 | Issue queue (approved requisitions awaiting issue) | app | `/warehouse/stores/requisition-issue-queue` | C | Y | v1.1 · P8 |
+| WS-275 | PO Delivery Schedule | app | `/warehouse/inbound/purchase-order-schedules` | C | Y | v1.1 · P8 |
+| WS-276 | Customer Delivery Schedule | app | `/warehouse/outbound/demand-order-schedules` | C | Y | v1.1 · P8 |
 | WS-277 | Stores Registers (RGP pending, requisitions pending, issue register by cost object, consumption by department, stores performance) | app | `/warehouse/stores/registers` | C | Y | v1.1 · P8 |
 
 Ref: `D` = Department, `C` = Customer, `SV` = Service Vehicle (CLAUDE.md canonical references). **Changed existing screens:** WS-072/073 (PO type, schedule tab, port-owned banner), WS-075 (create
@@ -586,7 +586,7 @@ R30 completeness audit (2026-10-23; decisions `DECISIONS.md` `D-17`). Items whos
 | `CP-SC-001` | own L1 `warehouse_stores`, four L2 within the caps | `STO-D21`; `P8-14` |
 | `CP-SC-003` | module-wide grid-configuration rule | `STO-D22`; every P8 screen task |
 | `CP-SC-006` | WS-276 grid id, scope, filters, export and actions; WS-273/274/264 completed | `po-schedule-port.contract.md` §5.3, `store-issue-return` / `material-requisition` / `receipt-qc-putaway` §5; `P8-02` |
-| `CP-SC-008` (P8 part) | `/warehouse/gate/*`, `/warehouse/stores/*`, `/warehouse/quality/*` registered | `BUILD-SPEC-SCREENS.md` §0.8; `P8-14` |
+| `CP-SC-008` (P8 part) | `/warehouse/gate/*`, `/warehouse/stores/*`, `/warehouse/quality/*` registered; exempt as built: WS-264 / WS-265 (`/warehouse/inbound/*`), WS-275 (`/warehouse/inbound/*`), WS-276 (`/warehouse/outbound/*`) - all `warehouse` roots (classic `V511413`) | `BUILD-SPEC-SCREENS.md` §0.8; `P8-14` |
 | `CP-GA-004` | master-merge open-document providers | `STO-D23`; `P8-01`…`P8-11`, `P8-14` |
 | `CP-GA-005` (P8 part) | Rule 56 classification of store reasons | `STO-D24`; `P8-10`, `P8-11` |
 | `CP-GA-006` | Legal Metrology declaration block on the FG / packed-goods label | `P8-12` |
