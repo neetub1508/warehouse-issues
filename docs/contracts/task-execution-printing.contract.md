@@ -91,7 +91,7 @@
 | TEP-UNR-02 | A task duration backfilled after the fact | the timing columns exist from v1 and are stamped by the completing request | `FR-213` |
 | TEP-UNR-03 | Two assignment lifecycles (one for pull, one for push) | one `whb_tasks` ladder for both | `FR-214` |
 | TEP-UNR-04 | A reprint not flagged, or a print job deleted | the service sets `is_reprint`; void keeps the row | `FR-224` |
-| TEP-UNR-05 | An engineered labour standard computed, or incentive pay computed from a warehouse metric | measured durations are reported only | `FR-228` |
+| TEP-UNR-05 | An engineered labour standard computed, or incentive pay computed from a warehouse metric | measured durations are reported only. **Asserted** (P6-03 D11): `V510301` §3 RAISEs on any target / standard / incentive / piece-rate / bonus / wage / payroll column on a `wh_` / `whb_` / `wh3pl_` table other than the two `TEP-DIV-01` planning columns, and `WhLabourStandardRefusalContractTest` fails on such an identifier in source or on a planning column read outside its own CRUD (`WH-SC-812`) | `FR-228` |
 | TEP-UNR-06 | Protocol-level control of conveyors, sorters, AS/RS or robots in this codebase | automation integrates through the task-event contract and the movement port only | `FR-229` |
 
 ## 2. T2 — Action × role × state
@@ -110,6 +110,8 @@
 | TEP-T3-01 | An `ASSIGNED` task older than its type's stale threshold moves to `EXCEPTION` | `assigned_at` + threshold (`warehouse.tasks.ageing.cron`) | `EXCEPTION`, `WAREHOUSE_TASK_STALE` | supervisor | `WhbTaskAgeingJob` | `FR-216`, `FR-165` |
 | TEP-T3-02 | A task blocked longer than `warehouse.tasks.blocked_alert_minutes` alerts | the same clock | nothing | supervisor | `WhbTaskBlockedAlertService` | `FR-216` |
 | TEP-T3-03 | A verification certificate nearing or past its end is flagged | the certificate's validity end | `EXPIRING` / `EXPIRED`; `WAREHOUSE_WEIGHING_CERTIFICATE_EXPIRY` | instrument owner | `WhbWeighingCertificateExpiryJob` | `FR-223`, `FR-165` |
+| TEP-T3-04 | The measured-labour rollup is rebuilt per site (P6-03, D8) | every 15 min (`warehouse.labour.rollup.cron`, `0 5/15 * * * *`; base declares no hourly cadence) | `wh_labour_rollups` for the site's current and previous month and every month out of step, DELETE + INSERT per site month | nobody; one `whb_job_runs` row per site and run | `WhLabourRollupJob` (`WH_LABOUR_ROLLUP`) | `FR-228`, `FR-165` |
+| TEP-T3-05 | The rollup is proved rebuildable (`L-4`) | daily (`warehouse.labour.rollup-verify.cron`, `0 45 3 * * *`) | nothing; every closed site month recomputed from `wh_labour_tasks` and compared on every key and measure — drift is a FAILED run naming the keys, never corrected | Job Runs (WS-064) | `WhLabourRollupVerifyJob` (`WH_LABOUR_ROLLUP_VERIFY`) | `FR-228`, `FR-165` |
 
 ## 4. T4 — Cross-entity effects
 
@@ -119,6 +121,7 @@
 | TEP-T4-02 | A print job is created | one job-log row: template and version, kind, subject, copies, printer, DPI, format; `is_reprint` / `reprint_of_job_id` set when the subject and kind were printed before | print-job service | `FR-224` |
 | TEP-T4-03 | Rendering | the body renders to the template's format and is stored as a platform document (`rendered_document_id`); routed to the printer or downloaded | renderer | `FR-224` |
 | TEP-T4-04 | A labour timer ends | who, from–to, paused seconds, units processed, reference and device recorded — the input to VAS-by-the-minute billing and cost-to-serve | `WhLabourTaskService` | `FR-227` |
+| TEP-T4-07 | A labour timer has ENDED and the rollup runs | it counts once in `wh_labour_rollups` (V510301) at owner × site × zone × task type × site month (`ended_at` in `whb_warehouses.timezone`): type = the base task's `task_type_code`, else the timer's `reference_type` (`dimension_source`); zone = the base task's zone, else none; worked seconds `FLOOR(ended − started) − paused_seconds`; p50 / p90 nearest-rank; paused seconds and open timers excluded and nothing else. A CACHE read by `P6-07` (cost-to-serve, attributed by `owner_id`) and `P6-10` | `WhLabourRollupRepositoryCustomImpl` | `FR-228` |
 | TEP-T4-05 | An automation device acts | it posts through the movement port with `actor_type = DEVICE` and reads the published task events | port + outbox | `FR-229` |
 | TEP-T4-06 | A task, reconciliation exception, failed inbound message or blocked movement is raised | it appears as one row in the supervisor console with its source's actions | `WhExceptionConsoleService` | `FR-216` |
 
@@ -130,7 +133,7 @@
 | TEP-T5-02 | WS-154 Task Assignment Board | push assignment of a queue; pull shows the next fitting task | `FR-214` |
 | TEP-T5-03 | WS-153 Supervisor Exception Console | one grid over exception-coded tasks, reconciliation exceptions, failed inbound messages and blocked movements, each with its actions | `FR-216` |
 | TEP-T5-04 | WS-131 / WS-132 / WS-133 / WS-134 | templates per kind, format and owner; the job log with a reprint marker and Void; printers with zone / dock, DPI, label size, media and Test print; routing rules with Test routing | `FR-224`, `FR-225`, `FR-226` |
-| TEP-T5-05 | WS-146 Labour Tasks | timers listed with durations; no standard or incentive column | `FR-227`, `FR-228` |
+| TEP-T5-05 | WS-146 Labour Tasks | timers listed with durations; no standard or incentive column. **Measurement tab** (P6-03; Timers stays the default): the rollup grid (`wh_labour_rollups`) with count, total / mean / p50 / p90 worked seconds, units, units-per-hour and timers without units; a filter-aware five-tile strip with no cache name; an export equal to the grid's columns; a coverage notice "Based on N months of measured data (since …)", a no-standard banner below twelve months, "No measured labour yet" with no data — never annualised | `FR-227`, `FR-228` |
 | TEP-T5-06 | WS-129 / WS-130 Weighing | instruments with certificate and validity state; records flag out-of-verification weighings | `FR-223` |
 
 ## 6. Amendments
@@ -141,10 +144,11 @@
 | 2026-10-23 | R31 `F-CA-005`: `TEP-T1-02` actor corrected to the built permissions, `TEP-DIV-03` added; `TEP-OPEN-01` decided |
 | 2026-10-25 | R31 `F-CA-005` built (P0-10 #83, `classic` `1f2a7dc082`): `TEP-T1-02` / `TEP-T2-01` single-task assign actor → `whb_tasks:assign` (base-seeded, `V501237`); `TEP-DIV-03` FIXED |
 | 2026-10-25 | R32: `TEP-GRD-R32A-01` — lot and serial labels (`p8-12` R32, `FR-739`) |
+| 2026-11-01 | P6-03 #103 S2: `TEP-T3-04`, `TEP-T3-05` (rollup + verify jobs), `TEP-T4-07` (the rollup), `TEP-T5-05` Measurement tab, `TEP-UNR-05` asserted; scenarios `WH-SC-804`…`WH-SC-813`. Ratification by `/functional-contract` pending |
 
 ## 7. Invariants and scenarios
 
-`FR-436`; scenarios `WH-SC-052`, `WH-SC-055`, `WH-SC-228`, `WH-SC-230`, `WH-SC-249`, `WH-SC-349`, `WH-SC-352`, `WH-SC-361`.
+`FR-436`; scenarios `WH-SC-052`, `WH-SC-055`, `WH-SC-228`, `WH-SC-230`, `WH-SC-249`, `WH-SC-349`, `WH-SC-352`, `WH-SC-361`, `WH-SC-804`…`WH-SC-813` (P6-03).
 
 ## 8. Code divergences (FRD rule kept)
 

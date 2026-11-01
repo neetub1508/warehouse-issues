@@ -4200,7 +4200,10 @@ named in that migration's row.
 | `P2-01` | `V510224` | Seed rows, no DDL: the `ADJUST_UP_AUTO` / `ADJUST_DOWN_AUTO` movement types and `warehouse.adjustment.auto_post_below_thresholds` (decision 2026-09-18) — carved from the correction reserve | v1 |
 | `P5-09` | `V510225` | Seed rows, no DDL: `filter_definitions` `ackStatus` + `belowFloor` for `wh_channel_publish_logs`, `isActive` retired from the log grid (W3 gate F8) — carved from the correction reserve | v2 |
 | `P5-09` | `V510226` | Seed row, no DDL: the `CHANNEL_PUBLISH_RUN` document type in `whb_document_types` (W3 second fix round, ci-gate) — carved from the correction reserve | v2 |
-| — | `V510227`–`V510999` | **Reserved: 773 numbers** for DDL corrections during the app build | — |
+| — | `V510227`–`V510299` | **Reserved: 73 numbers** for DDL corrections during the app build | — |
+| — | `V510300`, `V510302` | Carved from the correction reserve by `IMPLEMENTATION-PLAN.md` §2.9 divergence 4 for the v3 app tables; each owning task adds its row | v3 |
+| `P6-03` | `V510301` | `wh_labour_rollups` — measured labour per `owner_id` × `warehouse_id` × `zone_location_id` (nullable, "No zone") × `task_type_code` + `dimension_source` (`TASK_TYPE`/`REFERENCE`) × `period_month` (site time zone): `timer_count`, `total_worked_seconds` / `p50_worked_seconds` / `p90_worked_seconds` (BIGINT), `units_total` `DECIMAL(18,4)`, `units_timer_count`, `units_worked_seconds`, `first_ended_at`, `last_ended_at`, `computed_at`; uk on the grain `NULLS NOT DISTINCT`. A **cache** (`L-4`) of `wh_labour_tasks`, written only by `WH_LABOUR_ROLLUP` and proved by `WH_LABOUR_ROLLUP_VERIFY`; no standard, target, rate, cost or pay column (`FR-228`) — carved from the correction reserve (§2.9 divergence 4) | v3 |
+| — | `V510303`–`V510999` | **Reserved: 697 numbers** for DDL corrections during the app build | — |
 | WH-200 | `V511000` | `permissions` + verb permissions for the app resources; ADMIN and AUDITOR grants | v1 |
 | WH-201 | `V511001` | `permission_dependencies` — `INSERT` only | v1 |
 | WH-202 | `V511010` | Menu tree, `menu_translations` en/fr/hi, `menu_permissions`, `WHERE NOT EXISTS`-guarded | v1 |
