@@ -26,7 +26,8 @@
 # Usage:
 #   ./create-issues.sh [--dry-run]            file the whole backlog (first run only)
 #   ./create-issues.sh --sync    [--dry-run]  push every .md carrying an `issue: NN` line to its issue
-#   ./create-issues.sh --check                diff each filed body against its .md; non-zero on drift
+#                                             (title and body; --dry-run lists the title diffs)
+#   ./create-issues.sh --check                diff each filed title and body against its .md; non-zero on drift
 #   ./create-issues.sh --file-tbd [--dry-run] file ONLY the .md files whose front matter says
 #                                             `issue: TBD` (master, epics, then tasks, in phase order),
 #                                             write each new number back over the TBD, re-patch the
@@ -48,7 +49,7 @@ for arg in "$@"; do
     --sync)    MODE=sync ;;
     --check)   MODE=check ;;
     --file-tbd) MODE=file_tbd ;;
-    -h|--help) sed -n '2,30p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,31p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *)         echo "unknown argument: $arg" >&2; exit 2 ;;
   esac
 done
@@ -249,6 +250,24 @@ build_tasklist() { # build_tasklist <phase-index> -> TASKS_BLOCK
 
 filed_body() { gh issue view "$1" --repo "$REPO" --json body --jq '.body' | tr -d '\r'; }
 
+# Titles drift too. One `gh issue list` per run (number<TAB>title, open and closed) instead of one
+# call per file. A failed fetch stops the run: it must never read as "no drift".
+FILED_TITLES=""
+load_filed_titles() {
+  FILED_TITLES="$(gh issue list --repo "$REPO" --state all --limit 2000 --json number,title \
+    --jq '.[] | "\(.number)\t\(.title)"')" \
+    || { echo "gh issue list failed — cannot compare titles" >&2; exit 1; }
+}
+filed_title() { awk -F'\t' -v n="$1" '$1 == n { sub(/^[^\t]*\t/, ""); print; exit }' <<<"$FILED_TITLES"; }
+title_drift() { # title_drift <file> <number> — prints the TITLE line and returns 0 when the titles differ
+  local want have
+  want="$(title_of "$1")"; have="$(filed_title "$2")"
+  [[ "$want" == "$have" ]] && return 1
+  echo "TITLE  $(basename "$1")  ->  #$2"
+  echo "         .md:    $want"
+  echo "         GitHub: $have"
+}
+
 # Trailing blank lines are not content on either side; normalise both before diffing.
 trim_tail() { awk '{ buf[NR] = $0 } END { last = NR; while (last > 0 && buf[last] ~ /^[[:space:]]*$/) last--; for (i = 1; i <= last; i++) print buf[i] }'; }
 
@@ -274,10 +293,11 @@ sync_all() {
     [[ -z "$num" ]] && continue
     n=$((n + 1))
     if [[ $DRY_RUN -eq 1 ]]; then
+      title_drift "$f" "$num" || true
       echo "DRY: would sync $(basename "$f") -> #$num"
       continue
     fi
-    render_for_sync "$f" | gh issue edit "$num" --repo "$REPO" --body-file - >/dev/null
+    render_for_sync "$f" | gh issue edit "$num" --repo "$REPO" --title "$(title_of "$f")" --body-file - >/dev/null
     echo "synced $(basename "$f") -> #$num"
   done
   echo "==> $n file(s) processed"
@@ -287,17 +307,27 @@ sync_all() {
 }
 
 check_all() {
-  local f num n=0 drift=0
+  local f num body n=0 drift=0 failed=0 off
   for f in "$DIR"/*.md; do
     is_issue_file "$f" || continue
     num="$(issue_of "$f")"
     [[ -z "$num" ]] && continue
     n=$((n + 1))
-    if diff -q <(render_for_sync "$f" | trim_tail) <(filed_body "$num" | trim_tail) >/dev/null 2>&1
-    then continue; fi
-    drift=$((drift + 1))
-    echo "DRIFT  $(basename "$f")  ->  #$num"
+    off=0
+    title_drift "$f" "$num" && off=1
+    # A failed fetch is a failure, never "no drift".
+    if ! body="$(filed_body "$num")"; then
+      echo "ERROR  $(basename "$f")  ->  #$num  (could not fetch the filed body)" >&2
+      failed=$((failed + 1)); continue
+    fi
+    if ! diff -q <(render_for_sync "$f" | trim_tail) <(printf '%s\n' "$body" | trim_tail) >/dev/null 2>&1
+    then echo "DRIFT  $(basename "$f")  ->  #$num"; off=1; fi
+    drift=$((drift + off))
   done
+  if [[ $failed -gt 0 ]]; then
+    echo "==> $failed issue(s) could not be fetched — drift unknown" >&2
+    return 1
+  fi
   if [[ $n -eq 0 ]]; then
     echo "==> no file carries an \`issue: NN\` line — nothing filed, nothing to check"
     return 0
@@ -376,8 +406,8 @@ assert_placeholder_lines
 
 case "$MODE" in
   file_tbd) file_tbd; exit 0 ;;
-  sync)  load_refs; sync_all; exit 0 ;;
-  check) load_refs; if check_all; then exit 0; else exit 1; fi ;;
+  sync)  load_refs; [[ $DRY_RUN -eq 1 ]] && load_filed_titles; sync_all; exit 0 ;;
+  check) load_refs; load_filed_titles; if check_all; then exit 0; else exit 1; fi ;;
 esac
 
 # ---- refuse to double-file -------------------------------------------------
