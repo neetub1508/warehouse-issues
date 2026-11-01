@@ -71,7 +71,7 @@ Core RMA status → SRA (`POS-T1-22`; core statuses are exactly `OPEN`, `APPROVE
 | TSR-T1-02a | `SUBMITTED` | Withdraw (`TAM-T1-09`) | `DRAFT` | no step acted | maker | — | no | *Withdraw* | FR-551 |
 | TSR-T1-03 | `SUBMITTED` | Approved | `APPROVED` | `TSR-GRD-04` | approver (holds `warehouse:orders:port`) | **`WhRmaPort.createRma`** (`TSR-T4-03`) in the same transaction; print `SALES_RETURN_AUTHORISATION` | — | WS-285 | FR-612 |
 | TSR-T1-03a | `SUBMITTED` | Rejected / returned | `REJECTED` / `DRAFT` | `TAM` | approver | maker notified | **yes** | WS-285 | FR-551 |
-| TSR-T1-04 | `APPROVED` | Cancel (customer withdrew) | `CANCELLED` | core RMA not `MATCHED` (`getRmaPosition`) | `:cancel` | **`WhRmaPort.cancelRma(CancelRmaCommand{ rmaId, reasonCodeId (a `TRADE_ORDER_CLOSE`-context `whb_reason_codes` id, FR-546), note })`**, key `WHT_SRA:<id>:RMA_CANCEL:1` | **yes** | row action | FR-612 |
+| TSR-T1-04 | `APPROVED` | Cancel (customer withdrew) | `CANCELLED` | core RMA not `MATCHED` (`getRmaPosition`) | `:cancel` | **`WhRmaPort.cancelRma(CancelRmaCommand{ rmaId, reasonCodeId (a `DOCUMENT_CANCEL`-context `whb_reason_codes` id — core owns the RMA cancel reason, `POS-T1-21`; R33 #576 S1 G3), note })`**, key `WHT_SRA:<id>:RMA_CANCEL:1` | **yes** | row action | FR-612 |
 | TSR-T1-05 | `RECEIVED`, `PARTIALLY_RECEIVED` | Close | `CLOSED` | `REPLACE`: the replacement release is `RELEASED`/`CLOSED`, or declined with a reason (also when the SO is `SHORT_CLOSED` / `CANCELLED`, `TSO-T4-07`); `CREDIT`: `accounting_handover_marked_at` stamped; `REWORK`: none | system (after the replacement release is released or declined), or `:edit` for *Decline replacement* | — | reason on decline | *Decline replacement* | FR-612 |
 | TSR-T1-06 | `DRAFT`, `REJECTED` | Cancel | `CANCELLED` | — | maker | — | no | row action | FR-612 |
 | TSR-T1-07 | `APPROVED` | Core RMA expired (`rma.expired`) | `CLOSED`, outcome *expired*, received 0 | — | system | none sent to core; the customer may raise a new SRA | — | — | FR-612 |
@@ -162,6 +162,7 @@ Rows added by the R32 fold (FRD-TRADE §4.15). Numbers continue each kind's sequ
 | 2026-10-24 | every row citing a core event | P8 decision record `EV-1` (DECISIONS `D-19`): every outbox event code renamed to the dotted `whb_event_types` vocabulary of registry R.4 (PC-42) — e.g. `purchase_order.amended`, `demand_order.shipped`, `rma.matched`, `supplier_return.dispatched`; no behaviour change | decision record P8 wave 1/2 |
 | 2026-10-25 | `TSR-GRD-07`, `TSR-T4-06`, §6 | R32-fix: credit note from core's `CREDIT_NOTE_PROPOSAL` (per receipt + disposition) enriched by trade, no wait on an RMA `RECEIVED` status core lacks; warranty validity from core serial warranty fields (MFG registry); replacement excluded from invoicing / closure / credit checks | R32 review F-R32TR-002, -003, -011, -030 |
 | 2026-10-25 | `TSR-GRD-07`, `TSR-T4-06` (new, *R32 additions*) | R32 fold of the client PRD (`D-20`): warranty-replacement intent, credit-note proposal | R32 / `D-20` |
+| 2026-11-01 | `TSR-T1-04` | Port `cancelRma` reason is a `DOCUMENT_CANCEL`-context reason, not `TRADE_ORDER_CLOSE` — core accepts only `DOCUMENT_CANCEL` for an RMA cancel (`WhRmaService.java:72`) | R33 #576 S1 G3 |
 
 ## 8. Invariants and scenarios
 
