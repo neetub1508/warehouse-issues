@@ -20,9 +20,9 @@
 | **Module** | `warehouse`; status seed in `warehouse-base` (`V501232`) |
 | **Domain baseline** | `FR-127`, `FR-129` (allocatable flag), `FR-174` (availability), `FR-408`, `FR-527`, `STO-D8` · `RQP-T1-20`, `RQP-T1-24`, `RQP-T4-05` · `P2-14` printing (`wh_print_templates`, `WarehousePrintDataProvider`) |
 | **Owning task** | `issues/p8-08.md`; depends on `p8-04` (billed qty for the MRN), `p8-06`, `p2-14` |
-| **Primary tables** | new `wh_material_receipt_notes`, `wh_material_receipt_note_lines` (`V511317`); `whb_stock_statuses` row `MRN_PENDING` (`is_on_hand = true`, `is_available_to_promise = false`, `is_allocatable = false`, `is_pickable = false`, `is_shippable = false`, `is_countable = true`, `requires_reason_to_enter = false`, `requires_reason_to_leave = false`; `V500005` columns) (`V501232`); `whb_document_types` row `MATERIAL_RECEIPT_NOTE`; settings `warehouse.stores.mrn_required` (per site), `warehouse.stores.mrn_authoriser_may_be_inspector` |
+| **Primary tables** | new `wh_material_receipt_notes`, `wh_material_receipt_note_lines` (`V511665`); `whb_stock_statuses` row `MRN_PENDING` (`is_on_hand = true`, `is_available_to_promise = false`, `is_allocatable = false`, `is_pickable = false`, `is_shippable = false`, `is_countable = true`, `requires_reason_to_enter = false`, `requires_reason_to_leave = false`; `V500005` columns) (`V501232`); `whb_document_types` row `MATERIAL_RECEIPT_NOTE`; settings `warehouse.stores.mrn_required` (per site), `warehouse.stores.mrn_authoriser_may_be_inspector` |
 | **Status column** | `wh_material_receipt_notes.status` — no CHECK (`D-10`) |
-| **Permission resources** | `wh_material_receipt_notes:{view,view:all,view:branch,create,edit,submit,authorise,cancel,export}` (`V511407`; the scope pair per `V511000:60-71`, R29 F1) |
+| **Permission resources** | `wh_material_receipt_notes:{view,view:all,view:branch,create,edit,submit,authorise,cancel,export}` (`V511666`; the scope pair per `V511000:60-71`, R29 F1) |
 | **Routes** | WS-266 `/warehouse/stores/mrns`, WS-267 `/[id]`; WS-077 gains **Prepare MRN** and **Print** |
 | **Contract version** | `v0 — 2026-10-22` |
 
@@ -101,7 +101,7 @@
 | ID | Rule | Trigger | Changes | Notified | Job | Once? |
 |---|---|---|---|---|---|---|
 | MRA-T3-01 | Pending authorisation | `SUBMITTED` > `warehouse.approval.pending_alert_hours` | nothing; never auto-authorises | holders of `:authorise` at the site | engine `WhApprovalAlertJob` (DAP-T3-01) — no `alert_raised_at` on the MRN, no `WhbPendingApprovalSource` (R33 D3, 2026-11-01) | one per episode |
-| MRA-T3-02 | Stock waiting for an MRN | `MRN_PENDING` on-hand with no live MRN > `warehouse.stores.mrn_pending_alert_hours` (default 24) | nothing — tile | stores in-charge | daily | once per GRN |
+| MRA-T3-02 | Stock waiting for an MRN | `MRN_PENDING` on-hand with no live MRN > `warehouse.stores.mrn_pending_alert_hours` (default 24) | alert `MRN_PENDING_AGEING` by `WhMrnPendingAgeingJob` (latch `wh_goods_receipts.mrn_pending_alerted_at`), plus the tile | stores in-charge | daily | once per GRN |
 
 ## 4. T4 — Cross-entity effects
 
