@@ -14,7 +14,8 @@
 > classic `warehouse-base/docs/contracts/task.contract.md` (`TSK-*`).
 >
 > **Status.** Derived 2026-10-23 (v0) from `WAREHOUSE-FUNCTIONAL-REQUIREMENTS.md` §6.12 (`FR-212`…`FR-216`,
-> `FR-223`…`FR-229`), checked against the built code in `classic` by name. Not ratified.
+> `FR-223`…`FR-229`), checked against the built code in `classic` by name. **Ratified 2026-11-01 (v1)** on the R33 S3 functional gates
+> for P6-03 #103 (G1–G10, with the S4 / S4b fixes) — see §6.
 
 ---
 
@@ -145,6 +146,7 @@
 | 2026-10-25 | R31 `F-CA-005` built (P0-10 #83, `classic` `1f2a7dc082`): `TEP-T1-02` / `TEP-T2-01` single-task assign actor → `whb_tasks:assign` (base-seeded, `V501237`); `TEP-DIV-03` FIXED |
 | 2026-10-25 | R32: `TEP-GRD-R32A-01` — lot and serial labels (`p8-12` R32, `FR-739`) |
 | 2026-11-01 | P6-03 #103 S2: `TEP-T3-04`, `TEP-T3-05` (rollup + verify jobs), `TEP-T4-07` (the rollup), `TEP-T5-05` Measurement tab, `TEP-UNR-05` asserted; scenarios `WH-SC-804`…`WH-SC-813`. Ratification by `/functional-contract` pending |
+| 2026-11-01 | **Ratified (v1).** §0, `TEP-T3-04`, `TEP-T3-05`, `TEP-T4-07`, `TEP-T5-05`, `TEP-UNR-05`, `TEP-DIV-01`: R33 S3 functional gates for P6-03 #103 (`functional-reviewer`, G1–G10) passed with the S4 / S4b fixes: the D11 refusal covers every `target_*` time and duration form in `classic` `WhLabourStandardRefusalContractTest` (now a `ScannerIntegrity`-backed `ASSERT_SPECS` ratchet) and in `V510301` section 3; `labour_standard_minutes` is described as a planning reference the measured labour rollup never reads |
 
 ## 7. Invariants and scenarios
 
@@ -164,4 +166,4 @@
 |---|---|---|---|---|
 | TEP-OPEN-01 | The published task-event contract: which events (created, assigned, started, completed, exception), their payload and version | **DECIDED R31 (2026-10-23):** v1 publishes `task.completed`; the `FR-229` v3 contract (owner `P6-04`) adds versioned created, assigned, started and exception events carrying the `DEVICE` actor | `task.completed` only | `FR-229` |
 
-<!-- v0 2026-10-23. Amend with /functional-contract: every change references a row id and adds a §7 row. -->
+<!-- Ratified 2026-11-01. Amend with /functional-contract: every change references a row id and adds a §7 row. -->
