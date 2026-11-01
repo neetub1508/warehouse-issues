@@ -45,7 +45,7 @@
 | `warehouse-india` | `ai.warehouseindia` | platform + base + `warehouse` | **V540000–V549999** | `whin_` | `ENABLE_WAREHOUSE_INDIA` | `enable.warehouse.india` | **yes** (v2, e-way bill / challan screens) |
 | `warehouse-trade` *(D-16)* | `ai.warehousetrade` | platform + base + `warehouse` | **V550000–V559999** | `wht_` | `ENABLE_WAREHOUSE_TRADE` | `enable.warehouse.trade` | `with-warehouse-trade` | **yes** (P9 — PR, RFQ, quotation, rate contract, order agreement screens) |
 | `warehouse-manufacturing` *(D-16)* | `ai.warehousemanufacturing` | platform + base + `warehouse` (+ `warehouse-india` seams) | **V560000–V569999** | `whm_` | `ENABLE_WAREHOUSE_MANUFACTURING` | `enable.warehouse.manufacturing` | `with-warehouse-manufacturing` | **yes** (P10 — BOM, production order, MRP screens) |
-| `accounting-adapter-warehouse` *(R32, `P8-23` #174 — reserved, design set only)* | `ai.accountingadapterwarehouse` | platform + `warehouse-base` + `accounting-base` (the **only** module importing both, `AHO-GRD-14`) | **V621000–V621999** (adapter DDL, if any; next to `accounting-adapter-dealer` V620000–V620999; free per R1 §3.1 `V621000–V699999`) | `aaw_` (only if it ever owns a table) | `ENABLE_ACCOUNTING_ADAPTER_WAREHOUSE` | `enable.accounting.adapter.warehouse` (+ declares `enable.warehouse.accounting_sink=true`) | `with-accounting-adapter-warehouse` | **no** (backend-only, as `accounting-adapter-dealer`) |
+| `accounting-adapter-warehouse` *(R32, `P8-23` #174 — reserved, design set only)* | `ai.accountingadapterwarehouse` | platform + `warehouse-base` + `accounting-base` (the **only** module importing both, `AHO-GRD-14`) | **V620500–V620599** (adapter DDL, if any; a sub-band of the accounting adapter range V620000–V620999 per accounting `DATA-MODEL.md`:3560, 4468 — R33 #174 S1 D1, replacing the earlier V621000–V621999) | `aaw_` (only if it ever owns a table) | `ENABLE_ACCOUNTING_ADAPTER_WAREHOUSE` | `enable.accounting.adapter.warehouse` (+ declares `enable.warehouse.accounting_sink=true`) | `with-accounting-adapter-warehouse` | **no** (backend-only, as `accounting-adapter-dealer`) |
 
 **Since `D-16`:** the landing is base, app, `warehouse-adapter-example` (CI only), `warehouse-3pl`,
 `warehouse-india`, `warehouse-trade` and `warehouse-manufacturing`. The env-flag and property names for
@@ -71,8 +71,8 @@ a base grid, which is the usual reason it does not need one.
 
 ### `accounting-adapter-warehouse` — integration points (R32-fix `F-R32CA-031`; reserved, not yet scaffolded)
 
-`P8-23` (#174) names the module; until this section it had no band and no registration. Band **V621000–V621999**,
-re-verify with the free-band command below (bounded to `621000..621999`) before the first migration. Backend-only, so
+`P8-23` (#174) names the module; until this section it had no band and no registration. Band **V620500–V620599** (R33 #174 S1 D1; accounting `DATA-MODEL.md`:3560, 4468),
+re-verify with the free-band command below (bounded to `620500..620599`) before the first migration. Backend-only, so
 the frontend points (§6, §7, §11, §12.1) do not apply. The points it does need, each copied from
 `accounting-adapter-dealer` (the precedent) and the §2 matrix:
 
