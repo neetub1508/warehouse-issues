@@ -116,7 +116,7 @@
 | RMR-UNR-02 | A refund screen, a refund amount or a payment path in any warehouse module | `wh_return_receipts` / `wh_rmas` carry no amount or payment column (`V510050` header); warehouse emits the disposition only | FR-274 |
 | RMR-UNR-03 | A disposition that silently discards stock | scrap and donate post an explicit value-destroying movement with a reason and an approver (`RMR-T1-08`) | FR-273 |
 | RMR-UNR-04 | Return to vendor as a special ledger case | it is a `VENDOR_RETURN` demand order through the ordinary outbound (`RMR-T4-03`) | FR-275 |
-| RMR-UNR-05 | Warehouse generating a debit note or credit note for a return to vendor or a claim | `D-16` item 6; `wh_supplier_returns.debit_note_ref` is a reference typed in, never a generated document | FR-275 |
+| RMR-UNR-05 | Warehouse generating a debit note or credit note for a return to vendor or a claim | `D-16` item 6; `wh_supplier_returns.debit_note_ref` is a reference, never a generated document — typed in under `STANDALONE`, server-locked under `INTEGRATED` (filled only from the accounting acknowledgement). Under `INTEGRATED` **`P8-23` alone** writes `debit_note_proposal_status = PROPOSED` with its `DEBIT_NOTE_PROPOSAL` envelope, then `ACCEPTED`/`REJECTED` + `debit_note_ref` from the acknowledgement (`D-20` #6; R33 #568 G6) | FR-275 |
 | RMR-UNR-06 | A recall that half-applies (some positions quarantined, reservations kept) | Initiate is one transaction; any refusal rolls all of it back | FR-280 |
 
 ## 2. T2 — Action × role × state
@@ -172,6 +172,7 @@ marketplace claims and obsolescence returns (removed, `D-16`); per-client inspec
 |---|---|
 | 2026-10-23 | v0 derived (R30 `CP-FR-007` row 15) |
 | 2026-10-23 | R31: `F-CB-008` (supplier-return `RMR-T1-23`…`-27`, `RMR-GRD-12`, `-13`, `RMR-T2-06`, `RMR-T4-06`); `F-CB-022` (§10 row 1, WS-135); `RMR-OPEN-01`, `-02` decided |
+| 2026-11-01 | R33 #568 S1 G6: `RMR-UNR-05` amended (debit-note proposal single writer `P8-23`; `debit_note_ref` server-locked in `INTEGRATED`); `RMR-OPEN-01` superseded |
 
 ## 8. Invariants and scenarios
 
@@ -181,7 +182,7 @@ marketplace claims and obsolescence returns (removed, `D-16`); per-client inspec
 
 | ID | Question | Default |
 |---|---|---|
-| RMR-OPEN-01 | `FR-275` says the emitted debit-note proposal is v2; `D-16` item 6 says warehouse never generates a debit or credit note. Is the v2 proposal withdrawn? | **DECIDED R31 (2026-10-23): default stands** — withdrawn (`D-16` item 6, `RMR-UNR-05`) |
+| RMR-OPEN-01 | `FR-275` says the emitted debit-note proposal is v2; `D-16` item 6 says warehouse never generates a debit or credit note. Is the v2 proposal withdrawn? | ~~DECIDED R31 (2026-10-23): withdrawn~~ **SUPERSEDED R33 (2026-11-01, #568 G6):** `D-20` #6 restores the proposal — `P8-07` adds `debit_note_proposal_status` (default `NOT_APPLICABLE`) and the reason-arm predicate, `P8-15` the `CREDIT` arm, `P8-23` alone emits it; the warehouse still never generates the note (`RMR-UNR-05`) |
 | RMR-OPEN-02 | `FR-272` per-client inspection checklists (v2) — no live task owns them | **DECIDED R31 (2026-10-23): not withdrawn** — the checklist half stays v2, deferred against PARTIALLY VOID `P5-13`; a new task is needed when it is scheduled |
 
 ## 10. Code divergences
