@@ -48,7 +48,7 @@ counterparty, `score`, `grade_code`, `sample_size`; score: metric, `raw_value`, 
 
 | Side | Metric | Formula (period, per counterparty) | Source |
 |---|---|---|---|
-| P | `DELIVERY_OTIF` | committed schedule lines — FIXED schedule lines and released OPEN / BLANKET quantities — received **on or before** `delivery_date` (site tz) **and** ≥ qty × (1 − under tolerance) ÷ committed schedule lines due in period × 100; a BLANKET line left unreleased past its date (`TPO-T3-06`) is our fault and is excluded | trade schedule + core GRN `occurred_at`, qty (`p6-05` facts) |
+| P | `DELIVERY_OTIF` | committed schedule lines — FIXED schedule lines and released OPEN / BLANKET quantities — received **on or before** the **working-calendar due date** (the `delivery_date`, moved forward to the next open day when it falls on a closed day of the calendar resolved for the site and owner, `p6-05` D4; site tz) **and** kept ≥ qty × (1 − under tolerance) ÷ committed schedule lines due in period × 100; a BLANKET line left unreleased past its date (`TPO-T3-06`) is our fault and is excluded; a reversed receipt is excluded (`p6-05` D9). The plain calendar-day difference is emitted beside it and is not this metric's rule | trade schedule + the `p6-05` receipt-evidence projection (`WhReceiptEvidencePort`, keyed by `receipt.line.confirmed` `source_document_id` + `source_line_ref`): receipt time `COALESCE(received_at, occurred_at)`, working due date, kept quantity, short counted once per (GRN, PO line) |
 | P | `QUALITY_ACCEPTANCE` | accepted ÷ inspected qty × 100 (lines without inspection count as accepted only when the item's inspection policy is *none*) | core QC (`p8-06`) |
 | P | `PRICE_VARIANCE` | 100 − clamp(|PO net price − contract price| ÷ contract price × 100, 0, 100), quantity-weighted; lines without a contract excluded | trade |
 | P | `RFQ_RESPONSE` | invitations `RESPONDED` ÷ invitations closed × 100 | trade |
@@ -142,7 +142,7 @@ counterparty; the evaluation stores `excluded_metrics`. A counterparty with no m
 |---|---|---|---|
 | TCE-T4-01 | PO submit for a MICRO/SMALL supplier with terms > 45 days | `TPO-GRD-01` requires `msme_acknowledged` | FR-542 |
 | TCE-T4-02 | RFQ invite / award / PO / release / rate contract line | AVL check per FR-544 (`TRA-GRD-02`, `TPO-GRD-01`, `TRC-GRD-04`) | FR-544 |
-| TCE-T4-03 | Run computed | metrics per catalogue from core facts (read-only, FK down) and trade documents; stored numerator / denominator so every score is reproducible | FR-595, FR-614, FR-142 |
+| TCE-T4-03 | Run computed | metrics per catalogue from core facts (read-only, FK down) and trade documents; the receipt-side inputs (`DELIVERY_OTIF` P, receipt short / damage / ASN accuracy / labelling) are read from the `p6-05` receipt-evidence projection (`WhReceiptEvidencePort`, dimension set v1) and never re-derived from core tables; reversed receipts are excluded; labelling `NOT_CAPTURED` is in neither numerator nor denominator (never a pass or 0); stored numerator / denominator so every score is reproducible. Until `warehouse-trade` exists the consumer is a fixture in core tests | FR-595, FR-614, FR-142 |
 | TCE-T4-04 | Quotation / SO line | part approval per FR-545 (`TSQ-GRD-02`, `TSO-GRD-18`) | FR-545 |
 | TCE-T4-05 | Publish with grade ≤ `warehouse.trade.evaluation.review_grade` | a `whb_tasks` row of task type `TRADE_AVL_REVIEW` (seeded by trade) for the trade administrator, linked to the supplier / customer | FR-596 |
 | TCE-T4-06 | Published grade | shown on CS (`TRA-T4-01`), PO header, AVL, customer profile, SO header | FR-597 |
@@ -212,10 +212,11 @@ actions View · Edit · New version · Versions.
 | 2026-10-23 | `TCE-T4-08`, `-GRD-08`, `TCE-OPEN-01`, `-02`, every T2 row | R31 decisions: task-type seed settled; T&C version copied at create, refreshed in `DRAFT` only by an audited act, frozen at submit / issue; stale-write code (`TPR-OPEN-03`); T2 Source FRs (F-TR-019) | R31 |
 | 2026-10-25 | `TCE-GRD-R32A-01`, `-02`, §5 WS-280 / WS-281 Contacts tab, WS-282 make columns | R32: trade counterparty contacts (`FR-119` keeps them off the base counterparty), AVL required scope by item type / QC-required, approved make per supplier × item | R32 (`D-20` items 2-7, 2-14) |
 | 2026-10-25 | `TCE-OPEN-03` (new) | **R32-fix (`F-R32CA-027`).** The PPAP-before-AVL ledger row's NO-CHANGE did not hold (no quality slice owns it); recorded as a deferred open row with its owner and the reason | R32 review |
+| 2026-11-01 | `TCE-T4-03`, metric catalogue P `DELIVERY_OTIF` | **P6-05 #112 G11.** The consumer is `p9-12` (`wht_evaluation_*`); the receipt side reads the `p6-05` receipt-evidence projection, and on-time is measured against the working-calendar due date (D4: a closed due day moves forward to the next open day; the plain calendar difference is emitted too). Reversed receipts excluded; labelling `NOT_CAPTURED` never counted. Fixture consumer in core tests until trade exists | P6-05 S1 functional review |
 
 ## 8. Invariants and scenarios
 
-`WH-SC-482`…`WH-SC-487`, `WH-SC-547`…`WH-SC-549`, `WH-SC-570`, `WH-SC-592`, `WH-SC-595`.
+`WH-SC-482`…`WH-SC-487`, `WH-SC-547`…`WH-SC-549`, `WH-SC-570`, `WH-SC-592`, `WH-SC-595`; the receipt-side inputs: `WH-SC-332` (`p6-05`).
 
 ## 9. Open rows
 
