@@ -257,6 +257,10 @@ load_filed_titles() {
   FILED_TITLES="$(gh issue list --repo "$REPO" --state all --limit 2000 --json number,title \
     --jq '.[] | "\(.number)\t\(.title)"')" \
     || { echo "gh issue list failed — cannot compare titles" >&2; exit 1; }
+  # A full page means the list may be cut short: issues past the limit would read as "no title".
+  if [[ $(grep -c . <<<"$FILED_TITLES") -ge 2000 ]]; then
+    echo "title list truncated at 2000 issues — raise the limit in load_filed_titles" >&2; exit 1
+  fi
 }
 filed_title() { awk -F'\t' -v n="$1" '$1 == n { sub(/^[^\t]*\t/, ""); print; exit }' <<<"$FILED_TITLES"; }
 title_drift() { # title_drift <file> <number> — prints the TITLE line and returns 0 when the titles differ
