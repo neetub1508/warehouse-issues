@@ -971,6 +971,18 @@ period lock that closes ahead of accounting's (`FR-251`).
 | **WH-SC-418** | WH-SC-417's archive has run; `GET /stock/as-at` was captured before it for 2026-03-15, 2026-04-01 and today | The same three reads are repeated, then a second archive to 2026-07-01 runs and they are repeated again | Each answer equals its pre-archive answer, position for position, both times - an instant before the first cut-off sums the archived originals, an instant between the cut-offs reads the first run's checkpoint plus the originals after it, and no checkpoint is counted twice; movement grids, registers, the as-at valuation and lot traceability still list the archived movements and never list a checkpoint | `FR-023` `FR-013` | `L-4` | base·app | v3·P6 | happy |
 | **WH-SC-419** | An install with no `whb_retention_policies` row; a second whose clocks still run for 2026-03; a third with a PENDING movement in 2026-02, a subscriber behind an event of 2026-02 or a SOFT_CLOSED 2026-03 | `admin1` asks each to archive before 2026-04-01; a SQL session runs `DELETE FROM whb_stock_movements` and `DELETE FROM whb_stock_movements_archive`; a producer posts a movement dated 2026-03-20 after the first archive | The first is refused `NO_RETENTION_POLICY`, the second `RETENTION_NOT_EXPIRED` naming the binding clock, each on `cutOffAt`; the third `ARCHIVE_OPEN_WORK`, `ARCHIVE_OUTBOX_LAG` or `ARCHIVE_PERIOD_NOT_CLOSED`; with the setting `DISABLED` (the default) it is `ARCHIVE_DISABLED`; nothing is written by any refusal. Both DELETEs are refused (`I-2`); no trigger is ever disabled. The backdated post is `422 OCCURRED_AT_BEFORE_RETENTION`, and reversing an archived movement is `409 MOVEMENT_ARCHIVED` | `FR-023` `FR-329` | `L-2` | base | v3·P6 | error |
 
+### 3.47 Receipt facts emitted as evidence
+
+> Authored by `P6-05` (id 332, the next free unreserved id; 420 onward stay the re-target's). The five receipt facts are
+> a read-only projection keyed by `receipt.line.confirmed`'s `source_document_id` + `source_line_ref`, dimension set
+> version 1 (`PC-38`); each fact names the columns it came from. A due date on a closed day of the working calendar
+> resolved for the site and owner moves forward to the next open day, and the plain calendar-day difference is emitted
+> beside it (`D4`). Nothing is stored: no score table, entity, route or menu, and no foreign key out of core.
+
+| # | Given | When | Then | FR | L | Mod | V·Ph | Type |
+|---|---|---|---|---|---|---|---|---|
+| **WH-SC-332** | Site `MUM` (Asia/Kolkata) on calendar `IN-STD`, Diwali Thu 2026-11-05 closed; PO-1 line 1 for 500 EA scheduled 2026-11-05; line 2 has nothing paid outstanding, header due 2026-11-10; no ASN. GRN-A (received Mon 2026-11-09) carries line 1 as 484 + 20 free `AVAILABLE` and 4 `DAMAGED`, and line 2 as 10 free only. GRN-B (no `received_at`; movement `occurred_at` 2026-11-02) received 50 of 50 due 2026-11-03 and was then reversed | A consumer reads the projection for every line of both receipts, then reads it again | On-time: due moves to Fri 11-06, **LATE by 3** working-due days, calendar difference 4. Short: **12** = 500 − (484 + 4), net of the 20 free, counted once for (GRN-A, line 1). Damaged: the split line, 4, by `received_status_code`. Labelling **NOT_CAPTURED** - never a pass or 0. ASN **NOT_APPLICABLE**. The free-only line is NOT_SHORT and ON_TIME. GRN-B is marked reversed (reversal id, 50) and its receipt time names `occurred_at`. The replay answers the same facts. The fixture consumer computes `DELIVERY_OTIF` 50.00 (one of two commitments; the reversed receipt excluded), short 2.40% and no labelling rate; no score row exists anywhere | `FR-142` `FR-141` `FR-181` | — | app | v3·P6 | happy |
+
 ---
 
 ## 4 · Coverage
@@ -1057,17 +1069,17 @@ seven v1 tasks whose own acceptance was 100% happy.
 ### 4.2 Requirement coverage, and the requirements no scenario proves
 
 ```bash
-awk -F'|' '/^\| \*\*WH-SC-/ {print $6}' SCENARIO-CATALOGUE.md | grep -oE 'FR-[0-9]{3}' | sort -u   # -> 423
+awk -F'|' '/^\| \*\*WH-SC-/ {print $6}' SCENARIO-CATALOGUE.md | grep -oE 'FR-[0-9]{3}' | sort -u   # -> 424
 grep -oE '^\| \*\*FR-[0-9]{3}\*\*' WAREHOUSE-FUNCTIONAL-REQUIREMENTS.md | grep -oE 'FR-[0-9]{3}' | sort -u  # -> 471
 ```
 
-**423 of 471 requirements (89.8%) are proved by at least one scenario. 48 are not**, and the list
+**424 of 471 requirements (90.0%) are proved by at least one scenario. 47 are not**, and the list
 below is complete rather than convenient. `DECISIONS.md` §7 rule 3 exists because the accounting
 set's first two rounds carried 25 dangling `FR` citations of which 19 resolved to a *different* real
 requirement, so live gaps read as closed. **The honest list is the deliverable here**; padding it
 with scenarios nobody could run would be the same failure in a new costume.
 
-By version, the 48 break down as **6 v1 · 17 v1.1 · 15 v2 · 13 v3** (a row spanning two versions is
+By version, the 47 break down as **6 v1 · 17 v1.1 · 15 v2 · 12 v3** (a row spanning two versions is
 counted in each). **The count moved 71 → 84 in review round 2**, which added `FR-447`–`FR-459` and no
 scenarios: every one of the thirteen is unproven on the day it was written, and §6.27 below says so
 rather than leaving the total to drift. **It moved 84 → 85 in review round 4.** The ten §6.28
@@ -1078,7 +1090,7 @@ un-proved `FR-266`, because the kit half of that trace needs v1.1 work orders. *
 | Area | Unproven `FR` | Why |
 |---|---|---|
 | 6.7 Counterparties | `FR-121`(v3) | The trigger for extracting a shared `party-base` is *recorded* rather than built. There is no v1 behaviour to walk — the requirement is a stated deadline, and its scenario is *"the third module needing an authoritative GSTIN has appeared"* |
-| 6.8 Inbound | `FR-136`(v1.1) `FR-142`(v3) | ASN as a document and supplier-scorecard evidence emission. Both are later-phase and neither is exercised by a v1 flow. The three-way match allocation junction (`FR-140`) is proved by `P5-10`'s §3.40 |
+| 6.8 Inbound | `FR-136`(v1.1) | ASN as a document. Later-phase and not exercised by a v1 flow; supplier-scorecard evidence emission (`FR-142`) is proved by `P6-05`'s §3.47. The three-way match allocation junction (`FR-140`) is proved by `P5-10`'s §3.40 |
 | 6.11 Outbound | `FR-192` `FR-194` `FR-197` `FR-207` `FR-211` (5) | The carrier, channel and parcel surface. **`FR-207` is the one genuinely v1 gap in this list** — the channel master's v1 half is a base table the ledger's source lineage and the item alias both reference, and no scenario asserts it exists in a v1 install. **This is a finding: it needs a scenario before `P1` closes.** The other four are v1.1/v2 pick scan verification, manifests, labels and seals. Channel import, publish and tracking links (`FR-208` `FR-209` `FR-210`) are proved by `P5-09`'s §3.36, and tracking-event normalisation, rate shopping, serviceability and AWB pools (`FR-198` `FR-200` `FR-201` `FR-202`) by `P5-11`'s §3.41, and the NDR response clock and COD remittance reconciliation (`FR-203` `FR-204`) by `P5-12`'s §3.42 |
 | 6.12 Execution and printing | `FR-229`(v3) | Automation interfaces. Per-owner print templates (`FR-226`) are proved by `P5-21`'s §3.32; instrument verification, labour timing and the no-engineered-standards rule (`FR-223` `FR-227` `FR-228`) are proved by `P5-17`'s §3.28, the measured-labour rollup and the refusal assertion by `P6-03`'s §3.45 |
 | 6.13 Valuation | `FR-250`(v2) | The second tax-basis value, which depends on accounting-side decisions. The NRV register and the COGS recognition point (`FR-241` `FR-243`) are proved by `P5-16`'s §3.27 |
@@ -1106,7 +1118,7 @@ v1 scope, not holes in its stated exit.
 
 ## 5 · How these are used
 
-<!-- check-design-set: scenario-citations begin WH-SC-332 — the SCENARIO-CATALOGUE.md §5 rule 3 allocation marker — the next free scenario id, which by definition has no row yet. Named here so a parallel task does not silently take it twice; it is never a citation of a scenario that exists -->
+<!-- check-design-set: scenario-citations begin WH-SC-814 — the SCENARIO-CATALOGUE.md §5 rule 3 allocation marker — the next free scenario id, which by definition has no row yet. Named here so a parallel task does not silently take it twice; it is never a citation of a scenario that exists -->
 
 1. **A task issue names its scenarios.** `issues/pN-nn.md` carries a *Scenarios closed* list of
    `WH-SC-nnn` ids. A task with no scenarios is either infrastructure with an architecture test
@@ -1114,8 +1126,8 @@ v1 scope, not holes in its stated exit.
 2. **"Done" means walked, not compiled.** `FR-435`'s seven-layer definition of done and
    `WH-SC-248` govern the tick. A backend that exists with no reachable UI has closed no scenario.
 3. **A defect found in the field becomes a scenario before it becomes a fix.** New ids continue
-   from **`WH-SC-332`**; ids are never reused and never renumbered. `WH-SC-301`–`WH-SC-305` were
-   taken by review round 2 (§3.21), `WH-SC-306`–`WH-SC-327` by review round 4 (§3.22) `WH-SC-328`–`WH-SC-330` by `P1-21` (§3.23) and `WH-SC-331` by `P2-25` (§3.24), and `WH-SC-333`–`WH-SC-340` by `P5-07` / `P5-22` (§3.25, §3.26) and `WH-SC-345`–`WH-SC-352` by `P5-16` / `P5-17` (§3.27, §3.28), `WH-SC-341`–`WH-SC-344` by `P5-13` (§3.29) and `WH-SC-353`–`WH-SC-368` by `P5-18` / `P5-19` / `P5-21` / `P5-23` (§3.30–§3.33) and `WH-SC-373`–`WH-SC-392` by `P5-03` / `P5-06` / `P5-09` / `P5-20` / `P4-13` (§3.34–§3.38) and `WH-SC-393`–`WH-SC-404` by `P5-04` / `P5-10` / `P5-11` (§3.39–§3.41) and `WH-SC-405`–`WH-SC-408` by `P5-12` (§3.42) and `WH-SC-409`–`WH-SC-412` by `P5-05` (§3.43) and `WH-SC-413`–`WH-SC-416` by `P5-08` (§3.44) and `WH-SC-804`–`WH-SC-813` by `P6-03` (§3.45) and `WH-SC-417`–`WH-SC-419` by `P6-01` (§3.46) out of the driver's reserved blocks (below — 332 is still the next free unreserved id, so defined ids now skip it); the marker moves with every allocation and is the only place to
+   from **`WH-SC-814`**; ids are never reused and never renumbered. `WH-SC-301`–`WH-SC-305` were
+   taken by review round 2 (§3.21), `WH-SC-306`–`WH-SC-327` by review round 4 (§3.22) `WH-SC-328`–`WH-SC-330` by `P1-21` (§3.23) and `WH-SC-331` by `P2-25` (§3.24), and `WH-SC-333`–`WH-SC-340` by `P5-07` / `P5-22` (§3.25, §3.26) and `WH-SC-345`–`WH-SC-352` by `P5-16` / `P5-17` (§3.27, §3.28), `WH-SC-341`–`WH-SC-344` by `P5-13` (§3.29) and `WH-SC-353`–`WH-SC-368` by `P5-18` / `P5-19` / `P5-21` / `P5-23` (§3.30–§3.33) and `WH-SC-373`–`WH-SC-392` by `P5-03` / `P5-06` / `P5-09` / `P5-20` / `P4-13` (§3.34–§3.38) and `WH-SC-393`–`WH-SC-404` by `P5-04` / `P5-10` / `P5-11` (§3.39–§3.41) and `WH-SC-405`–`WH-SC-408` by `P5-12` (§3.42) and `WH-SC-409`–`WH-SC-412` by `P5-05` (§3.43) and `WH-SC-413`–`WH-SC-416` by `P5-08` (§3.44) and `WH-SC-804`–`WH-SC-813` by `P6-03` (§3.45) and `WH-SC-417`–`WH-SC-419` by `P6-01` (§3.46) out of the driver's reserved blocks (below), and `WH-SC-332` by `P6-05` (§3.47) - the last free unreserved id below the re-target's 420–679, so the next free is 814, after `P6-03`'s block; the marker moves with every allocation and is the only place to
    read the next free id.
 4. **`tools/check-design-set.py` enforces §1.2.** Contiguity, zero dangling `FR` citations, and the
    §4.2 unproven list matching what the commands actually produce. A coverage table that has drifted
