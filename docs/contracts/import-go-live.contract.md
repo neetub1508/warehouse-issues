@@ -97,7 +97,7 @@
 
 | ID | Action | Permission | Allowed from | Source |
 |---|---|---|---|---|
-| IGL-T2-01 | Import create / apply / reverse / discard | `whb_import_batches:create` / `:apply` / `:reverse` / `:apply` | see §1.2 | FR-416 |
+| IGL-T2-01 | Import create / apply / reverse / discard | `whb_import_batches:create` / `:apply` / `:reverse` / `:apply`; create (validate, dry run), apply and reverse also need the import kind's target permission (`WhbImportHandler.getRequiredPermission()`, D1) — reverse deletes what the import wrote, so it is checked as apply is, before anything is written (#664) | see §1.2 | FR-416 |
 | IGL-T2-02 | Opening stock create / edit / post / reverse / delete | `wh_opening_stock_batches:*` | `DRAFT` (edit, delete), `VALIDATED` (post), `POSTED` (reverse) | FR-411 |
 | IGL-T2-03 | Checklist create / complete items / certify / reopen | `wh_cutover_checklists:create` / `:edit` / `:certify` / `:certify` | `OPEN` / `OPEN` / `OPEN` / `CERTIFIED` | FR-412, FR-413 |
 | IGL-T2-04 | Export / import a mapping profile | `wh_migration_mappings:export_profile` / `whb_import_batches:create` (kind `MIGRATION_MAPPING`) | — | FR-414 |
