@@ -20,7 +20,7 @@ Effective policy resolution uses the existing most-specific policy rules and rej
 |---|---|---|---|---|
 | warehouse.negative_stock.default_mode | BLOCK | BLOCK / WARN / ALLOW | Base / P0-15; policy P1-03 | WARN requires explicit acknowledgement and override permission; ALLOW still requires an explicit matching policy and audit. Never auto-reserve shortage. |
 | warehouse.reservation.default_ttl_minutes | 30 | integer 1–10080 | Base / P0-15; P0-09 | Only new reservations inherit it; extensions are explicit, authorized and retain history. |
-| warehouse.outbox.max_attempts | 10 | integer 1–100 | Base / P0-15; P0-11 | Subscription-specific value wins. Exhausted work enters retained failed queue; retry keeps original event key. |
+| warehouse.outbox.max_attempts | 10 | integer 1–100 | Base / P0-15; P0-11; #620 | Subscription-specific value wins. Exhausted work enters retained failed queue; retry keeps original event key. Also governs alert deliveries (`whb_alert_deliveries`, #620 V501300): the same attempt limit and outbox backoff per recipient; the last attempt goes DEAD and is replayed from the Alert Deliveries screen. |
 | warehouse.port.rejected_queue_threshold | 10 | integer 1–10000 | Base / P0-15; P0-14 | Alert at count >= threshold; alert once per breach episode, resolve below threshold; no automatic discard. |
 | warehouse.position.max_contention_retries | 3 | integer 0–10 | Base / P0-15; P0-03 | Bounded transaction retries only; exhaustion returns retryable conflict with the same idempotency key. |
 | warehouse.outbox.max_cursor_lag | 1000 | integer 1–1000000 events | Base / P0-15; P0-11 | Measures pending event sequence distance; alert on breach, recovery below threshold. Never advance a cursor to silence an alert. |
