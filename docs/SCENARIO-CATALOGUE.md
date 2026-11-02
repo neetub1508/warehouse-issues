@@ -983,6 +983,18 @@ period lock that closes ahead of accounting's (`FR-251`).
 |---|---|---|---|---|---|---|---|---|
 | **WH-SC-332** | Site `MUM` (Asia/Kolkata) on calendar `IN-STD`, Diwali Thu 2026-11-05 closed; PO-1 line 1 for 500 EA scheduled 2026-11-05; line 2 has nothing paid outstanding, header due 2026-11-10; no ASN. GRN-A (received Mon 2026-11-09) carries line 1 as 484 + 20 free `AVAILABLE` and 4 `DAMAGED`, and line 2 as 10 free only. GRN-B (no `received_at`; movement `occurred_at` 2026-11-02) received 50 of 50 due 2026-11-03 and was then reversed | A consumer reads the projection for every line of both receipts, then reads it again | On-time: due moves to Fri 11-06, **LATE by 3** working-due days, calendar difference 4. Short: **12** = 500 − (484 + 4), net of the 20 free, counted once for (GRN-A, line 1). Damaged: the split line, 4, by `received_status_code`. Labelling **NOT_CAPTURED** - never a pass or 0. ASN **NOT_APPLICABLE**. The free-only line is NOT_SHORT and ON_TIME. GRN-B is marked reversed (reversal id, 50) and its receipt time names `occurred_at`. Each GRN line emits every schedule allocation (schedule line id, scheduled date, working due date, allocated quantity and unit, signed working and calendar days late). On an unchanged calendar the replay answers the same facts; `workingDueDate`, `daysLate` and `status` follow the live calendar (P5-10 F2, RH-011), `dueDate` and `calendarDaysLate` are fixed, and the consumer persists what it scored on (`TCE-T4-03`). The fixture consumer computes `DELIVERY_OTIF` per committed schedule line: **0.00** (one commitment, schedule line 1 - late and short; the free-only line 2 expects nothing paid and is not a commitment; the reversed receipt excluded), short 2.40% and no labelling rate. Had the calendar been unreadable, on-time would be `UNKNOWN` (`WORKING_CALENDAR_UNAVAILABLE`) with `dueDate` and `calendarDaysLate` still emitted, and that commitment would be in neither the OTIF numerator nor its denominator - never scored on the plain calendar difference - with the excluded count recorded by the run; no score row exists anywhere | `FR-142` `FR-141` `FR-181` | — | app | v3·P6 | happy |
 
+
+### 3.48 Label-scan outcome per receipt line
+
+> Authored by `F695` (id 814, the allocation marker's next free id). The GRN Add/Edit modal is the web receiving
+> path (no warehouse mobile, `FR-218`). The line's outcome is derived on the server, never taken from the client, and
+> latched once `PASSED` or `FAILED`; a line from before the change stays unmeasured (NULL) unless a label is scanned on
+> it. Dimension set v2 of the receipt evidence reads the outcome; v1 stays `NOT_CAPTURED`.
+
+| # | Given | When | Then | FR | L | Mod | V·Ph | Type |
+|---|---|---|---|---|---|---|---|---|
+| **WH-SC-814** | A DRAFT GRN at `SITE-A` from `SUP-X`: line 1 keyed by hand for `BOLT-7`; line 2 added by scanning label `BAD-01`, which no item carries; line 3 keyed before the label-scan change shipped (outcome NULL) | The receiver saves, scans `8901234567890` (a `BOLT-7` identifier) on line 2, replays the save, deletes line 2 and re-keys it for `BOLT-7`, then posts | Line 1 saves `NOT_SCANNED` with count 0 (a count sent with no scanned value does not land); line 2 saves `FAILED`, and the re-scan, the replay and the delete-and-re-key all keep `FAILED`, the first value `BAD-01` and a count that never goes down, with no second resolve; line 3 stays NULL. Save waits while a scan is resolving. After posting, v2 evidence emits `FAILED` / `NOT_SCANNED` with the scan count and `NOT_CAPTURED` for line 3; v1 still emits `NOT_CAPTURED` for every line | `FR-142` | — | app | v3·P6 | edge |
+
 ---
 
 ## 4 · Coverage
@@ -1118,7 +1130,7 @@ v1 scope, not holes in its stated exit.
 
 ## 5 · How these are used
 
-<!-- check-design-set: scenario-citations begin WH-SC-814 — the SCENARIO-CATALOGUE.md §5 rule 3 allocation marker — the next free scenario id, which by definition has no row yet. Named here so a parallel task does not silently take it twice; it is never a citation of a scenario that exists -->
+<!-- check-design-set: scenario-citations begin WH-SC-815 — the SCENARIO-CATALOGUE.md §5 rule 3 allocation marker — the next free scenario id, which by definition has no row yet. Named here so a parallel task does not silently take it twice; it is never a citation of a scenario that exists -->
 
 1. **A task issue names its scenarios.** `issues/pN-nn.md` carries a *Scenarios closed* list of
    `WH-SC-nnn` ids. A task with no scenarios is either infrastructure with an architecture test
@@ -1126,8 +1138,8 @@ v1 scope, not holes in its stated exit.
 2. **"Done" means walked, not compiled.** `FR-435`'s seven-layer definition of done and
    `WH-SC-248` govern the tick. A backend that exists with no reachable UI has closed no scenario.
 3. **A defect found in the field becomes a scenario before it becomes a fix.** New ids continue
-   from **`WH-SC-814`**; ids are never reused and never renumbered. `WH-SC-301`–`WH-SC-305` were
-   taken by review round 2 (§3.21), `WH-SC-306`–`WH-SC-327` by review round 4 (§3.22) `WH-SC-328`–`WH-SC-330` by `P1-21` (§3.23) and `WH-SC-331` by `P2-25` (§3.24), and `WH-SC-333`–`WH-SC-340` by `P5-07` / `P5-22` (§3.25, §3.26) and `WH-SC-345`–`WH-SC-352` by `P5-16` / `P5-17` (§3.27, §3.28), `WH-SC-341`–`WH-SC-344` by `P5-13` (§3.29) and `WH-SC-353`–`WH-SC-368` by `P5-18` / `P5-19` / `P5-21` / `P5-23` (§3.30–§3.33) and `WH-SC-373`–`WH-SC-392` by `P5-03` / `P5-06` / `P5-09` / `P5-20` / `P4-13` (§3.34–§3.38) and `WH-SC-393`–`WH-SC-404` by `P5-04` / `P5-10` / `P5-11` (§3.39–§3.41) and `WH-SC-405`–`WH-SC-408` by `P5-12` (§3.42) and `WH-SC-409`–`WH-SC-412` by `P5-05` (§3.43) and `WH-SC-413`–`WH-SC-416` by `P5-08` (§3.44) and `WH-SC-804`–`WH-SC-813` by `P6-03` (§3.45) and `WH-SC-417`–`WH-SC-419` by `P6-01` (§3.46) out of the driver's reserved blocks (below), and `WH-SC-332` by `P6-05` (§3.47) - the last free unreserved id below the re-target's 420–679, so the next free is 814, after `P6-03`'s block; the marker moves with every allocation and is the only place to
+   from **`WH-SC-815`**; ids are never reused and never renumbered. `WH-SC-301`–`WH-SC-305` were
+   taken by review round 2 (§3.21), `WH-SC-306`–`WH-SC-327` by review round 4 (§3.22) `WH-SC-328`–`WH-SC-330` by `P1-21` (§3.23) and `WH-SC-331` by `P2-25` (§3.24), and `WH-SC-333`–`WH-SC-340` by `P5-07` / `P5-22` (§3.25, §3.26) and `WH-SC-345`–`WH-SC-352` by `P5-16` / `P5-17` (§3.27, §3.28), `WH-SC-341`–`WH-SC-344` by `P5-13` (§3.29) and `WH-SC-353`–`WH-SC-368` by `P5-18` / `P5-19` / `P5-21` / `P5-23` (§3.30–§3.33) and `WH-SC-373`–`WH-SC-392` by `P5-03` / `P5-06` / `P5-09` / `P5-20` / `P4-13` (§3.34–§3.38) and `WH-SC-393`–`WH-SC-404` by `P5-04` / `P5-10` / `P5-11` (§3.39–§3.41) and `WH-SC-405`–`WH-SC-408` by `P5-12` (§3.42) and `WH-SC-409`–`WH-SC-412` by `P5-05` (§3.43) and `WH-SC-413`–`WH-SC-416` by `P5-08` (§3.44) and `WH-SC-804`–`WH-SC-813` by `P6-03` (§3.45) and `WH-SC-417`–`WH-SC-419` by `P6-01` (§3.46) out of the driver's reserved blocks (below), and `WH-SC-332` by `P6-05` (§3.47) - the last free unreserved id below the re-target's 420–679, so the next free was 814, after `P6-03`'s block - and `WH-SC-814` by `F695` (§3.48), so the next free is 815; the marker moves with every allocation and is the only place to
    read the next free id.
 4. **`tools/check-design-set.py` enforces §1.2.** Contiguity, zero dangling `FR` citations, and the
    §4.2 unproven list matching what the commands actually produce. A coverage table that has drifted
