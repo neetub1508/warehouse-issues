@@ -162,7 +162,7 @@
 | **Grid** | `wh_inspection_plan_assignments` · scope `WAREHOUSE_PLAN_ASSIGNMENT` · sort `e.scope_rank ASC, e.effective_from DESC` |
 | **Columns** | `scopeType`, `itemCode`, `itemName`, `categoryName`, `supplierName`, `planCode` (or *No inspection*), `effectiveFrom`, `effectiveTo` (date-only, `formatDateSync`), `isCurrent`, audit |
 | **Filters** | `scopeType`; `categoryId` → `itemId` (cascade); `supplierCounterpartyId`; `planId`; `currentOnly` |
-| **Toolbar** | Add · **Test resolution** (item + supplier + date → winning assignment, writes nothing) · Export |
+| **Toolbar** | Add · **Test resolution** (item + supplier + date → winning assignment, writes nothing; the item→category membership is read at NOW when the date is absent or UTC today, and at that UTC day start otherwise — #631) · Export |
 
 ### 5.3 WS-079 / WS-080 changes
 
@@ -197,6 +197,7 @@ Switching rules, skip-lot dynamics, variables sampling, SPC (FRD §12 row 4); au
 | 2026-11-02 | R33 #568 P8-07 S4c (S4b scoped re-verify): `IIS-GRD-09` unlinked lines allocated once across every inspection on the grain, whatever the read (P1), inspection site = receipt site as a grain key (Minor1), a manual line with no receipt line accepted as outside the guard; `IIS-T3-02` the claim's count taken by the raiser through the notifier (Minor2); `IIS-UNR-01` deviation owned by #704 |
 | 2026-11-02 | R33 #568 P8-07 S4d (S4c scoped re-verify): `IIS-GRD-09` inspection-line owner = receipt owner as a grain key (Minor1) - a sibling inspection line of another owner no longer absorbs an unlinked line |
 | 2026-11-02 | **#573 S4 (P8-12 S3 functional review F7, F11, F13).** `IIS-T2-07`: the permission pair (`wh_quality_inspections:view` + `wh_print_jobs:create`), WS-132 as the v1 entry, printable once completed (before approval), the defect from the line's defect code, the MRN only when one live MRN carries the rejected lines |
+| 2026-11-02 | WS-265 Test resolution, `IIS-T1-05` | **F631 #631 S2**: Test resolution reads the item→category membership at **now** when the date is absent or equals UTC today, and at that UTC day start for any other date - the same instant a GRN start resolves at, so a category move made earlier today is found today (single answer, no setting). The tool stays UTC (WS-265 has no site input). |
 
 ## 8. Invariants and scenarios
 
