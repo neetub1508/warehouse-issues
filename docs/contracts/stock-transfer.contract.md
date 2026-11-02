@@ -50,7 +50,7 @@
 | STR-T1-01 | — | Create at the source | `DRAFT` | `STR-GRD-01`, `-02` | `wh_transfer_orders:create` | number issued; `expected_arrival_date` held | `FR-147` |
 | STR-T1-02 | — | Request at the destination | `REQUESTED` | `STR-GRD-01`, `-02` | `wh_transfer_orders:request` | as `-01` | `FR-147` |
 | STR-T1-03 | `REQUESTED` · `DRAFT` (a `DRAFT` only where `requires_approval` is set — `WhTransferOrderValidationService.java:266-273`) | Approve (line quantities may be cut, never raised) | `APPROVED` → `ALLOCATED` **in the same request** | `STR-GRD-03`, `-04` | `wh_transfer_orders:approve` | approved quantities stored; the approval raises and allocates the **one demand order** for the transfer (`ODS-T4-01`, `WhTransferOrderService` `raiseDemandOrder`) | `FR-147`, `FR-177` |
-| STR-T1-04 | `REQUESTED` | Reject | `REJECTED` | reason | `wh_transfer_orders:reject` | none | `FR-147` |
+| STR-T1-04 | `REQUESTED` | Reject | `REJECTED` | reason; at the source; the rejecter is eligible exactly as for Approve (`DAP-GRD-03`, `DAP-T1-07`; else `403 TRANSFER_SELF_APPROVAL`) and holds the step's approve authority (`DAP-T2-03`) — cover (`DAP-GRD-16`) binds Approve only; a transfer carries no value, so no approver limit applies (R33 #700) | `wh_transfer_orders:reject` | none | `FR-147` |
 | STR-T1-05 | `DRAFT` where `requires_approval` is **false** | Allocate (a draft that needs no approval) | `ALLOCATED` | a `DRAFT` that requires approval is refused (`409 TRANSFER_INVALID_TRANSITION`, *"allocated by its approval"*); a transfer that already has a demand order is refused (`TRANSFER_INVALID_TRANSITION`) — `WhTransferOrderValidationService.java:197-206` | `wh_transfer_orders:allocate` | **one demand order** for the transfer (`ODS-T4-01`) | `FR-147`, `FR-177` |
 | STR-T1-06 | `ALLOCATED` | First despatch of the transfer's demand order | `IN_TRANSIT` | `STR-GRD-05` | system (despatch, `wh_shipments:dispatch`) | `STR-T4-01`, `-02` | `FR-147`, `FR-148`, `FR-189` |
 | STR-T1-07 | `IN_TRANSIT` · `PARTIALLY_RECEIVED` | Receive less than in transit | `PARTIALLY_RECEIVED` | `STR-GRD-06`, `-07` | `wh_transfer_orders:receive` | `STR-T4-03` | `FR-147`, `FR-148` |
@@ -125,6 +125,7 @@
 |---|---|
 | 2026-10-23 | v0 derived for `D-17` item 1 (R30 `CP-FR-007` row 8, the transfer half) |
 | 2026-10-23 | R31 `F-CA-001`: `STR-T1-03`, `-05`, `-09` restated to the built ladder, `STR-T1-09a` added, §8 rows `STR-DIV-01`/`-02` replace "none found"; `F-CA-015`: WS-090 amended. `STR-OPEN-01` decided (R31 decisions) |
+| 2026-11-02 | R33 F700 #700 S2: `STR-T1-04` — Reject's eligible set is Approve's minus the cover check (`DAP-GRD-16`; no limit, a transfer has no value); `canReject` is the engine's page-batched REJECT set (document-approval §7 R33 #700) |
 
 ## 7. Invariants and scenarios
 

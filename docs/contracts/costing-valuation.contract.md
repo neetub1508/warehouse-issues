@@ -73,12 +73,12 @@
 | CVL-T1-04 | `DRAFT` | Cancel | `CANCELLED` | — | `:edit` | nothing posted | **yes** | FR-238 |
 | CVL-T1-05 | — | Create revaluation: site, owner, reason, lines (open cost layer, new unit cost) | `DRAFT` | `CVL-GRD-11` | `wh_revaluations:create` / `:edit` (maker only, `403 REVALUATION_NOT_MAKER`) | — | no | FR-240 |
 | CVL-T1-06 | `DRAFT` | Approve | `APPROVED` | approver ≠ maker (`WhbMakerChecker`), else `403 REVALUATION_SELF_APPROVAL` | `:approve` | — | no | FR-240 — **see §10 row 2** |
-| CVL-T1-07 | `DRAFT` | Reject | `REJECTED` | same | `:approve` | nothing posted | **yes** | FR-240 |
+| CVL-T1-07 | `DRAFT` | Reject | `REJECTED` | same (`DAP-GRD-03`, `DAP-T1-07`); the approver limit and cover (`DAP-GRD-15`, `-16`) bind Approve only, so a member refused Approve by limit or cover is still offered Reject (R33 #700) | `:approve` | nothing posted | **yes** | FR-240 |
 | CVL-T1-08 | `DRAFT` · `APPROVED` | Cancel | `CANCELLED` | — | `:edit` | nothing posted | **yes** | FR-240 |
 | CVL-T1-08a | `APPROVED` | **Post** | `POSTED` | layer unchanged since approval, else `409 REVALUATION_LAYER_CHANGED` | `:edit` | `CVL-T4-08` | no | FR-240 |
 | CVL-T1-09 | — | Create NRV write-down: item or lot, site, owner, assessed NRV, basis, note | `DRAFT` | `CVL-GRD-12`, `-13` | `wh_nrv_assessments:create` | — | no | FR-241 |
 | CVL-T1-10 | `DRAFT` | Approve | `POSTED` | approver ≠ assessor, else `403 NRV_SELF_APPROVAL`; layers unchanged, else `409 NRV_LAYER_CHANGED` | `:approve` | `CVL-T4-09` | no | FR-241 — **see §10 row 3** |
-| CVL-T1-10a | `DRAFT` | Reject | `REJECTED` | same | `:approve` | nothing posted | **yes** | FR-241 |
+| CVL-T1-10a | `DRAFT` | Reject | `REJECTED` | same (`DAP-GRD-03`, `DAP-T1-07`); the approver limit and cover (`DAP-GRD-15`, `-16`) bind Approve only, so a member refused Approve by limit or cover is still offered Reject (R33 #700) | `:approve` | nothing posted | **yes** | FR-241 |
 | CVL-T1-11 | — (original `POSTED`) | **Reverse** a write-down (the cause ceased) | new reversal row `DRAFT`, linked to the original | `CVL-GRD-14` | `:reverse` | approved through `-10`; posts the reversing movement | **yes** | FR-241 |
 | CVL-T1-12 | — | A despatch posts | `RECOGNISED` (point `DISPATCH`) or `IN_TRANSIT` (point `DELIVERY`/`INVOICE`) | — | system (despatch post) | the point in force is **snapshotted** on the row; dispatch stock state `SOLD` / `IN_TRANSIT`, in-transit role `GOODS_IN_TRANSIT` | no | FR-243 |
 | CVL-T1-13 | `IN_TRANSIT` | Delivery confirmed (row snapshotted `DELIVERY`) · invoice event (row snapshotted `INVOICE`, `PATCH /invoiced`) | `RECOGNISED` | invoice date not in the future and not before the dispatch, else `422 COGS_INVOICE_DATE_INVALID`; a `DELIVERY` row is never recognised by an invoice | system / `wh_cogs_recognitions:recognise` | — | no | FR-243 |
@@ -198,6 +198,7 @@ columns and filters as a report (`reports-kpis` §5).
 | 2026-10-26 | `P2-16` #115 S2 `G2`: `STANDARD` built — `CVL-GRD-03`/`-05`, `CVL-T4-04` (standard rung), `CVL-T1-14`…`-17`, `CVL-T4-12`…`-14`, `CVL-T5-07` (`V501242`); §10 row 1 closed |
 | 2026-10-26 | `P2-16` #115 S2 `G1`: `CVL-T5-01` — the `costBasis` filter built (`V501241`, `/cost-basis-options`, `WAREHOUSE_COST_LAYER.enum`); §10 row 8 closed |
 | 2026-10-23 | R31: `F-CB-007` (`CVL-GRD-09a` reverse guard; missing landed-cost codes on `CVL-GRD-08`); `F-CB-018` (§10 row 6 deleted as false, `CVL-GRD-18` corrected); `F-CB-012` (§10 row 8, `P2-16` acceptance item); `CVL-OPEN-01` decided, `-02`, `-03` deferred |
+| 2026-11-02 | R33 F700 #700 S2: `CVL-T1-07`, `CVL-T1-10a` — Reject's eligible set is Approve's minus the limit / cover checks (`DAP-GRD-15`, `-16`); `canReject` is the engine's page-batched REJECT set (document-approval §7 R33 #700) |
 
 ## 8. Invariants and scenarios
 
