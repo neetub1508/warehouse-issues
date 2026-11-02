@@ -94,7 +94,7 @@
 | MRA-T2-06 | Cancel | `:cancel` | `DRAFT` | reason | — |
 | MRA-T2-07 | Print MRN | `wh_print_jobs:create` | `SUBMITTED` (watermark *NOT AUTHORISED*) and `AUTHORISED` | `SYS-MRN`; reprint marked duplicate | FR-538, FR-518 |
 | MRA-T2-08 | Print GRN | `wh_print_jobs:create` | GRN `DRAFT` (*provisional*) / `POSTED` / `REVERSED` (*reversed*) | `SYS-GRN` with the bill block | FR-538 |
-| MRA-T2-09 | Print lot / item labels after authorisation with the MRN number (and *Under deviation DEV-n*) | `wh_print_jobs:create` | `AUTHORISED` | label data contract gains `mrnNumber`, `mrnAuthorisedAt`, `deviationNumber`, `statusStoreLabel` (R32, `P8-12`) | FR-717 |
+| MRA-T2-09 | Print lot / item labels after authorisation with the MRN number (and *Under deviation DEV-n*) | `wh_print_jobs:create` | `AUTHORISED` only - a submitted MRN's number never prints (#573 S4 F4) | label data contract gains `mrnNumber`, `mrnAuthorisedAt` (#573: lot / serial labels, from the print's GRN / MRN context - GRN detail and MRN detail *Print lot / serial labels*; a GRN context with 0 or 2+ authorised MRNs carrying the grain leaves the MRN blank, an MRN context not authorised or not carrying it `422 PRINT_CONTEXT_INVALID`); **deferred:** `deviationNumber` (#573 S2c, after #637), `statusStoreLabel` and item / LPN label context (P8-22 #641) - a context sent for a kind that reads none is `422 PRINT_CONTEXT_INVALID` | FR-717 |
 
 ## 3. T3 — Time-driven rules
 
@@ -140,6 +140,7 @@ MRN for non-purchase receipts; value-based authorisation limits (`OD-29`-style m
 | 2026-10-24 | P8 decision record `EV-1` (DECISIONS `D-19`): every outbox event code renamed to the dotted `whb_event_types` vocabulary of registry R.4 (PC-42) — e.g. `purchase_order.amended`, `demand_order.shipped`, `rma.matched`, `supplier_return.dispatched`; no behaviour change |
 | 2026-10-25 | **R32 (PRD 2026-10-24 §6).** `MRA-T2-09`: labels and the MRN print carry the MRN number and the deviation number (`P8-12`, `6.5-03`). The `material_receipt_note.authorised` handover is now consumed: the `MRN_AUTHORISED` envelope of `P8-23` (#174) carries per-line billed / received / accepted / rejected quantity for bill booking against the MRN (`AHO-T1-12`). Contract stays v0 |
 | 2026-10-25 | **R32-fix** (`R32-functional-review-core-quality.md`, `D-21` item 6). `MRA-T4-02`: under `DEDICATED_LOCATIONS` the release leaves the `MRN_PENDING` status store by its own location leg to receiving staging, then putaway (`SST-T1-05`, F-R32CQ-009); `MRA-T1-03` acts the `MRN` engine request (`P8-08`) |
+| 2026-11-02 | **#573 S4 (P8-12 S3 functional review F2, F4, F10, F13).** `MRA-T2-09`: the label MRN is `AUTHORISED` only; the context comes from the GRN / MRN detail action; `deviationNumber` deferred to #573 S2c, `statusStoreLabel` and item / LPN context to P8-22 #641 |
 
 ## 8. Invariants and scenarios
 

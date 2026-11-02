@@ -118,7 +118,7 @@
 | IIS-T2-04 | Confirm / override verdict | `wh_quality_inspections:edit` | at Complete | override reason |
 | IIS-T2-05 | Disposition | `wh_quality_inspections:disposition` | *completed* | QA role |
 | IIS-T2-06 | Raise supplier return | `:raise_supplier_return` + `wh_supplier_returns:create` | *completed* + rejected qty unreturned | the return's approver must differ (`P2-13`). **R33 #568 S4 Minor3:** a plain WS-084 create naming `originInspectionLineId` also needs `:raise_supplier_return` (`403 SUPPLIER_RETURN_INSPECTION_LINK_FORBIDDEN`); an update keeps only the links the return already had (`422 SUPPLIER_RETURN_ORIGIN_INVALID` for a new one) |
-| IIS-T2-07 | Print rejection note (`SYS-REJECTION-NOTE`) | `wh_quality_inspections:view` (WS-080) / `wh_supplier_returns:view` (WS-084) | *completed* with rejected quantity / a QC-raised return | FR-717 · reprint marked duplicate |
+| IIS-T2-07 | Print rejection note (`SYS-REJECTION-NOTE`) | `wh_quality_inspections:view` **and** `wh_print_jobs:create`; v1 entry is WS-132 (the WS-080 / WS-084 actions are not built) | *completed* with rejected quantity - before result approval too, the note carries the completion state; any other state `409 PRINT_SUBJECT_STATE_INVALID` | FR-717 · reprint marked duplicate · the defect is each rejected line's P8-17 defect code and name (`wh_defect_codes`, the NCR's code), never the disposition reason · the MRN only when exactly one live MRN carries the rejected lines, otherwise blank (#573 S4 F7, F11) |
 
 ## 3. T3 — Time-driven rules
 
@@ -196,6 +196,7 @@ Switching rules, skip-lot dynamics, variables sampling, SPC (FRD §12 row 4); au
 | 2026-11-02 | R33 #568 P8-07 S4b (S4 scoped re-verify): `IIS-GRD-09` grain-count guard over live unlinked lines on create, update and every balance read (LB1, R33 decision) and the strict relink keys (P1); `IIS-T3-02` the claim's own queued people counted, told = an event id (P2), a missing conversion fully consumes on read paths and a failing candidate is skipped (P3); `IIS-UNR-01` allowlist proof + recorded deviation for the DB-backed tests (P4); §5.4 filter vs column drift accepted (Minor1) |
 | 2026-11-02 | R33 #568 P8-07 S4c (S4b scoped re-verify): `IIS-GRD-09` unlinked lines allocated once across every inspection on the grain, whatever the read (P1), inspection site = receipt site as a grain key (Minor1), a manual line with no receipt line accepted as outside the guard; `IIS-T3-02` the claim's count taken by the raiser through the notifier (Minor2); `IIS-UNR-01` deviation owned by #704 |
 | 2026-11-02 | R33 #568 P8-07 S4d (S4c scoped re-verify): `IIS-GRD-09` inspection-line owner = receipt owner as a grain key (Minor1) - a sibling inspection line of another owner no longer absorbs an unlinked line |
+| 2026-11-02 | **#573 S4 (P8-12 S3 functional review F7, F11, F13).** `IIS-T2-07`: the permission pair (`wh_quality_inspections:view` + `wh_print_jobs:create`), WS-132 as the v1 entry, printable once completed (before approval), the defect from the line's defect code, the MRN only when one live MRN carries the rejected lines |
 
 ## 8. Invariants and scenarios
 
