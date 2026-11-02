@@ -746,7 +746,7 @@ Names are FRD-STORES *"Port & seam registry (authoritative)"* (R.2 ports, R.3 SP
 type is the trade document that owns the core one (`WHT_PURCHASE_ORDER`, `WHT_SALES_ORDER`, `WHT_SRA`,
 `WHT_PURCHASE_REQUISITION`, and for a lost sale `WHT_SALES_ENQUIRY` / `WHT_CUSTOMER_QUOTATION`), the operation is the registry's operation key, and the sequence is the trade
 sub-document that caused the call (release, amendment or approval-request number), so a replay returns the
-recorded result and a changed body is refused `409 PORT_IDEMPOTENCY_CONFLICT`. **Principal** (`TRD-13`): the
+recorded result and a changed body is refused `409 PORT_IDEMPOTENCY_CONFLICT`. **Key length** (#702): the complete key, sequence tail included, must fit core's published maximum, `WhPortOperationRecorder.IDEMPOTENCY_KEY_MAX` = **200** (`V511800`; FRD-STORES R.1); the factory references the constant and never shortens a key. Maxima of the formats below: SO lost sale **144** (`WHT_SALES_ORDER:<soId>:LOST_SALE_CAPTURE:<scheduleLineId>-<approvalRequestId>` = 16+36+19+36+1+36), PR convert/release 117, quotation/enquiry lost sale 114/109. **Principal** (`TRD-13`): the
 last approver of the triggering request; for a `SYSTEM`-approved request its submitter (`approvedByUserId`
 null); for a scheduled job trade's **service principal** (FRD-STORES `STO-D20`: the non-interactive user `p9-01`
 `V551000` seeds, never the order's buyer or sales executive; a `403 PORT_AUTHORITY_REQUIRED` is recorded on
