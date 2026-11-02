@@ -757,7 +757,7 @@ Row 5 (issue / return) stays the movement handover. Warehouse still books nothin
 
 | Kind | Name · package | Methods | Who implements / consumes | Contract |
 |---|---|---|---|---|
-| Port | **`WhQualityDeviationPort`** · `ai.warehouse.port.quality` | `List<DeviationRef> applicableDeviations(UUID itemId, UUID supplierId, UUID lotId, LocalDate on)`, `DeviationUsage consume(ConsumeDeviationCommand c)` (`DEVIATION_USE` operation key) | core; consumed by `warehouse-manufacturing` in-process / final dispositions | `DEV-T1-06`, `DEV-GRD-04`, `-05` |
+| Port | **`WhQualityDeviationPort`** · `ai.warehouse.port.quality` | `List<ApplicableDeviation> findApplicable(ApplicableDeviationQuery q)`, `DeviationUsageResult consume(ConsumeDeviationCommand c)`, `DeviationUsageResult reverse(ReverseDeviationUsageCommand c)` (both writes under the `DEVIATION_USE` operation key; R33 #637 G7) | core; consumed by `warehouse-manufacturing` in-process / final dispositions | `DEV-T1-06`, `DEV-GRD-04`, `-05` |
 | SPI | **`ApprovedSupplierPolicy`** · `ai.warehouse.port.purchase` | `AvlVerdict check(UUID supplierId, UUID itemId, LocalDate on)` | optional, one; `warehouse-trade` (`P9-02`) | `RQP-GRD-44` |
 | SPI | **`QualityInspectionSourceResolver.producedByUserIds`** (new default method) | `Set<UUID> producedByUserIds(UUID sourceDocumentId, UUID sourceLineId)` (default empty) | `warehouse-manufacturing` | `QIC-GRD-03` |
 | SPI | **`CostObjectResolver.standardBalanceFor`** (new default method) | `Optional<BigDecimal> standardBalanceFor(UUID costObjectId, UUID itemId)` (default empty → no excess check) | `warehouse-manufacturing` (BOM / order standard) | `MRQ-GRD-23` |

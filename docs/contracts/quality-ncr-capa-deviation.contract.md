@@ -79,7 +79,7 @@
 | DEV-T1-06 | `APPROVED` | **Consume** (IQC `ACCEPT_UNDER_DEVIATION`, or `WhQualityDeviationPort.consume`) | `APPROVED` / `EXHAUSTED` at the limit | `DEV-GRD-04`, `-05` | inspector with `wh_quality_inspections:disposition` / port: `warehouse:orders:port` **and** `wh_quality_deviations:consume` on `actingUserId`, re-checked on a replay (R32-fix F-R32CQ-007) | usage row in base UoM (entered quantity, UoM and factor frozen, `DEV-GRD-04`); `consumed_quantity` += base qty | FR-695 FR-696 |
 | DEV-T1-07 | `APPROVED` / `EXHAUSTED` / `EXPIRED` / `REVOKED` | **Reverse a usage** (disposition reversed; port `reverse`) | `EXHAUSTED` → `APPROVED` while site-local today ≤ `valid_to` (else `EXPIRED`); `APPROVED`, `EXPIRED`, `REVOKED` unchanged (R32-fix F-R32CQ-036) | — | system / port (as `DEV-T1-06`, `:consume`) | `REVERSAL` usage; `consumed_quantity` −= qty | FR-695 |
 | DEV-T1-08 | `APPROVED` | **Revoke** (reason) | `REVOKED` | — | `:revoke` | future consumption refused | FR-695 |
-| DEV-T1-09 | `DRAFT` | **Cancel** | `CANCELLED` | — | maker | — | FR-694 |
+| DEV-T1-09 | `DRAFT` | **Cancel** | `CANCELLED` | — | `wh_quality_deviations:create`, and only the requester or creator (`403 DEVIATION_MAKER_ONLY`; R33 #637 G12) | — | FR-694 |
 
 ### 1.3 Guards
 
@@ -97,9 +97,9 @@
 | NCR-GRD-10 | an owner is an active user holding the verb in the record's site: NCR owner `wh_nonconformances:investigate` in the `wh_nonconformances` site scope, CAPA owner `wh_capa_actions:complete` in the `wh_capa_actions` site scope (D17; scope per resource, S4 F4) | `422 NCR_OWNER_NOT_ELIGIBLE` · `422 CAPA_OWNER_NOT_ELIGIBLE` | — | FR-691 FR-692 |
 | NCR-GRD-11 | a CAPA action has a description, a due date **on or after the site-local today** at create, on an edit that changes it, and at `NOT_EFFECTIVE` (an unchanged past due date is kept on edit; S4 F10), a note on Complete and Cancel, an effectiveness result on Verify, and is moved only from the status its verb names (S2 decision) | `422 CAPA_DESCRIPTION_REQUIRED` · `422 CAPA_DUE_DATE_REQUIRED` · `422 CAPA_NOTE_REQUIRED` · `422 CAPA_EFFECTIVENESS_REQUIRED` · `409 CAPA_STATUS_INVALID` | — | FR-692 |
 | DEV-GRD-01 | bounded: at least one of `quantity_limit`, `valid_to`; `valid_to ≥ valid_from`; validity ≤ `deviation_max_validity_days` | `422 DEVIATION_BOUND_REQUIRED` · `422 DEVIATION_VALIDITY_TOO_LONG` | CHECK `num_nonnulls(quantity_limit, valid_to) >= 1` | FR-694 |
-| DEV-GRD-02 | specification, deviation, reason and risk texts present; item active; after `SUBMITTED` only notes change | `422` field errors · `409 DEVIATION_NOT_EDITABLE` | NOT NULL columns | FR-694 |
+| DEV-GRD-02 | specification, deviation, reason and risk texts present; item active; after `SUBMITTED` only notes (`notes TEXT`, optional; R33 #637 G12) change | `422` field errors · `409 DEVIATION_NOT_EDITABLE` | NOT NULL columns | FR-694 |
 | DEV-GRD-03 | each approver ≠ requester and ≠ the other level's approver | `403 DEVIATION_SELF_APPROVAL` | `DAP-GRD-03` | FR-694 |
-| DEV-GRD-04 | consumption under a row lock: consumed + qty ≤ limit, **both in the item's base UoM** — `quantity_limit`, `consumed_quantity` and every usage are base-UoM; a usage freezes the entered quantity, UoM and `conversion_factor_used` (an IQC quantity in receipt-line units, a port quantity with its `uomCode`), a UoM with no conversion to base is refused (R32-fix F-R32CQ-017) | `409 DEVIATION_QUANTITY_EXCEEDED` naming the remainder · `422 UOM_CONVERSION_MISSING` | CHECK `consumed_quantity <= quantity_limit` | FR-695 |
+| DEV-GRD-04 | consumption under a row lock: consumed + qty ≤ limit, **both in the item's base UoM** — `quantity_limit`, `consumed_quantity` and every usage are base-UoM; a usage freezes the entered quantity, UoM and `conversion_factor_used` (an IQC quantity in receipt-line units, a port quantity with its `uomCode`), a UoM with no conversion to base is refused (R32-fix F-R32CQ-017) | `409 DEVIATION_QUANTITY_EXCEEDED` naming the remainder · `422 UOM_NOT_CONVERTIBLE` (R33 #637 D3) | CHECK `consumed_quantity <= quantity_limit` | FR-695 |
 | DEV-GRD-05 | applicable: `APPROVED`, site-local today in `[valid_from, valid_to]`, **same company as the consuming document and `warehouse_id` null or = the consuming site** (R32-fix F-R32CQ-012), same item, supplier / lot / stage / source document when set — re-checked under the row lock at consume | `409 DEVIATION_NOT_APPLICABLE` naming the failing condition (incl. `SITE`, `COMPANY`) | — | FR-695 FR-696 |
 | DEV-GRD-06 | usages are append-only | — | trigger refuses `UPDATE` / `DELETE` on `wh_quality_deviation_usages` | FR-695 |
 | DEV-GRD-07 | an approval level is acted only while site-local today ≤ `valid_to` (when set) (R32-fix F-R32CQ-036) | `409 DEVIATION_VALIDITY_ENDED` | `DEV-T3-01` expires the pending request | FR-694 FR-695 |
@@ -123,7 +123,7 @@
 | NCR-T2-03 | CAPA complete / verify | `wh_capa_actions:complete` / `:verify` | `IN_PROGRESS` / `COMPLETED` | verifier ≠ completer | FR-692 |
 | NCR-T2-04 | Print NCR | `wh_nonconformances:view` | any but `CANCELLED` | `SYS-NCR`; reprint duplicate | FR-691 |
 | DEV-T2-01 | Request / submit | `wh_quality_deviations:create` / `:submit` | `DRAFT` | QC engineer, production, purchase | FR-694 |
-| DEV-T2-02 | Approve level 1 / final | `:approve` / `:approve_final` | `SUBMITTED` / `LEVEL1_APPROVED` | QC Manager / Plant Head bundles | FR-694 |
+| DEV-T2-02 | Approve level 1 / final (one-level case: `:approve` alone decides; R33 #637 G12) | `:approve` / `:approve_final` | `SUBMITTED` / `LEVEL1_APPROVED` | QC Manager / Plant Head bundles | FR-694 |
 | DEV-T2-03 | Accept under deviation | `wh_quality_inspections:disposition` | inspection *completed* | applicable deviation only | FR-696 |
 
 ## 3. T3 — Time-driven rules
