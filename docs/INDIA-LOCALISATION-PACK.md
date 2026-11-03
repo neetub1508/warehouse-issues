@@ -62,7 +62,7 @@ produced it. All `grep` counts were run on **2026-09-01** against
 | Companies Act books retention | 8 financial years | §5.1, §10 | **RE-VERIFY** |
 | TCS on scrap | 1% | §5.5 | **RE-VERIFY** |
 | Warehousing bond amount | commonly 3× the duty | §7.2 | **RE-VERIFY** |
-| Bonded warehousing period | 1 year general goods, extendable; interest after 90 days for some categories | §7.2 | **RE-VERIFY** |
+| Bonded warehousing period | 1 year general goods, extendable; interest after 90 days on every s.61(1)(c) good from the s.60(1) order (s.61(2)); none on clause (a)/(b) or s.65 goods | §7.2 | **CONFIRMED 2026-11-03** |
 | Warehousing services SAC | `996729`, 18% | §3.5, §9 | **RE-VERIFY — and the place-of-supply rule changed in 2023; do not state it from memory** |
 | Schedule H1 register retention | 3 years | §8.1 | **RE-VERIFY** |
 | Food records retention | 1 year or the shelf life, whichever is longer | §8.2 | **RE-VERIFY** |
@@ -978,7 +978,7 @@ and Handling of Goods) Regulations 2016; MOOWR 2019 under s.65. **Section number
 |---|---|---|
 | **Licence** | public / private / special warehouse licence, with a bond officer | the site is a **licensed object with a validity** — `whin_customs_licences`, and a despatch/receipt guard that reads it |
 | **Warehousing bond** | a bond, commonly for **3× the duty**, executed by the importer (s.59) | `whin_customs_bonds` with a **running utilisation balance** — a bond is consumed and released, not a static number |
-| **Warehousing period** | one year for general goods, extendable; capital goods under MOOWR effectively until clearance; interest accrues after 90 days for some categories | a **dated clock per Bill of Entry**, with interest — `whin_bill_of_entry_references`, and per `FR-165` the ageing job ships with the column |
+| **Warehousing period** | one year for general goods, extendable; capital goods under MOOWR effectively until clearance; interest accrues after 90 days on every s.61(1)(c) good, counted from the s.60(1) order, and on no clause (a)/(b) or s.65 good | a **dated clock per Bill of Entry**, with interest — `whin_bill_of_entry_references`, and per `FR-165` the ageing job ships with the column |
 | **Ex-bond clearance** | ex-bond BoE for home consumption (s.68) or for export (s.69) | `whin_exbond_clearances` — a clearance that **consumes an identified bonded quantity, per BoE**. This is why `duty_status` alone is insufficient and the BoE reference must reach the lot |
 | **Inter-warehouse transfer** | removal from one warehouse to another (s.67), with a re-warehousing certificate | a transfer that **preserves duty status** across the move — which a `duty_status` in the position key gives for free, and which nothing else does |
 | **MOOWR** | manufacture or other operations in a bonded warehouse with duty **deferred**, no interest; digital records in a prescribed form; a monthly return to the bond officer; waste and scrap treated on clearance | input-output tracking (which is `FR-105`'s transformation genealogy, `IRR-54`, v1 because it can only be populated by the act itself) and `whin_moowr_returns` |

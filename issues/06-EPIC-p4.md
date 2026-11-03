@@ -111,7 +111,7 @@ year and at least one row below is probably already stale. Consolidated from
 | Food records retention | 1 year or the shelf life, whichever is longer | `P4-09` |
 | TCS on scrap | 1 % | `P4-04` |
 | Warehousing bond amount | commonly 3× the duty | `P4-07` |
-| Bonded warehousing period | 1 year general goods, extendable; interest after 90 days for some categories | `P4-07` |
+| Bonded warehousing period | 1 year general goods, extendable; interest after 90 days on every s.61(1)(c) good, counted from the s.60(1) order (s.61(2)); none on clause (a)/(b) goods or s.65 (MOOWR) goods | `P4-07` |
 | Warehousing services SAC | `996729`, 18 % — **and the place-of-supply rule changed in 2023; do not state it from memory** | `P4-10` |
 
 **Every one is `RE-VERIFY`.** Every value appears in its migration's header comment with the marker.
