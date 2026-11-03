@@ -723,6 +723,9 @@ Marked as **additions**, each with the clause that makes it necessary. They are 
 | `RESERVATION_NOT_CONSUMED_BY_MOVEMENT` | 422 | no | `MOD-DIV-04` — a named hold is consumed whole or not at all: its grain is not taken off in full by the movement's outbound lines, or the movement goes `PENDING` (approval) and moves no stock yet *(#71 W02-07)* |
 | `RESERVATION_ALREADY_CLOSED` | 409 | no | `MOD-DIV-04` — a named hold is already RELEASED / CONSUMED and no committed movement owns the request's key. A same-key retry whose first request committed is answered with that movement (replay) instead — also when it waited on the hold's grain lock *(#71 W02-07)* |
 | `RESERVATION_DUPLICATE` | 409 | no | `MOD-DIV-04` — a port reversal's restore would open a second OPEN hold for a holder line that already has one at that grain; the whole reversal rolls back, and the holder releases its newer hold and retries *(#71 W02-07)* |
+| `DG_INCOMPATIBLE_CLASS` | 409 | conditionally | `#744` WR5-02 (2026-11-03, build `V501323`, `V501331`) — a dangerous-goods placement breaks the class compatibility matrix against stock in (or arriving with it in) the same location / zone / store; names both classes and the requirement; a pair with no matrix row is "Not rated" and takes `SEPARATE_LOCATION`; a location with no zone or store is treated as sharing it (line) |
+| `DG_QUANTITY_CEILING_EXCEEDED` | 409 | conditionally | `#744` WR5-02 — a placement takes a DG location or zone past its licensed quantity (post-move on-hand, converted to the ceiling's unit), or the quantity cannot be judged for lack of a unit conversion, and `warehouse.dg.quantity_ceiling_action` is `BLOCK`; states the remaining capacity (line) |
+| `DG_SDS_REQUIRED` | 422 | conditionally | `#744` WR5-02 — DG stock arrives (`RECEIPT`, `RETURN_RECEIPT`, `ISSUE_RETURN`, a work-order output) with no current safety data sheet carrying a document, and `warehouse.dg.sds_required_at_receipt` is `BLOCK` (line) |
 
 **Total: 31 ratified + 32 additions (30 contract additions + the two built precedents) = 63** — the set `FR-039`
 names, folded by `RD-008` (2026-09-16), and the set `WhbLedgerErrorCodes.VOCABULARY` publishes;
@@ -739,6 +742,8 @@ names, folded by `RD-008` (2026-09-16), and the set `WhbLedgerErrorCodes.VOCABUL
 > **Amended — #285 (2026-10-14, build `V501210`).** `MOVEMENT_TYPE_NOT_PORT_POSTABLE` (403) is added above, so `WhbLedgerErrorCodes.VOCABULARY` publishes **64** (`WhbLedgerErrorCodesTest`): the 63 counted above plus this one.
 
 > **Amended — #115 G2, #126 G2, #57 S4h (2026-10-26).** `STANDARD_COST_REQUIRED`, `STANDARD_COST_ALIGNMENT_PENDING`, `PUTAWAY_DG_LOCATION_NOT_APPROVED` and `MOVEMENT_COMPENSATED` are added above, so `WhbLedgerErrorCodes.VOCABULARY` publishes **68** - 31 ratified + 37 additions (35 contract additions + the two built precedents) - and `WhbLedgerErrorCodesTest` asserts the 68 (classic `32783f68fe`).
+
+> **Amended — #744 WR5-02 (2026-11-03).** `DG_INCOMPATIBLE_CLASS`, `DG_QUANTITY_CEILING_EXCEEDED` and `DG_SDS_REQUIRED` are added above (classic `WhbLedgerErrorCodes.VOCABULARY`, `WhbLedgerErrorCodesTest`: +3). Mapping of the issue's settings: `WAREHOUSE_DG_COMPATIBILITY_ENFORCED` = `warehouse.dg.compatibility_enforced` (default true); `WAREHOUSE_DG_QUANTITY_CEILING_ACTION` = `warehouse.dg.quantity_ceiling_action` (BLOCK); `WAREHOUSE_DG_SDS_REQUIRED_AT_RECEIPT` = `warehouse.dg.sds_required_at_receipt` (BLOCK). The parent's `FORBIDDEN` = `SEPARATE_STORE`. Matrix seed: 49 CFR 176.83(b), eCFR 2026-10-30.
 
 ## 3.10 Authentication, authorisation and the permission a caller needs
 
