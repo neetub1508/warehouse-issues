@@ -373,3 +373,13 @@ re-scoped.
 - **`BATCH-WAREHOUSE-P5.md`.** Its 20 unticked boxes are the *Definition of done* template (lines 202–236), not tasks; every P5 task box is ticked and every P5 issue was closed. The P5 work missing in code is reopened in §6 (`P5-01`, `P5-04`, `P5-05`, `P5-06`, `P5-07`, `P5-23`).
 - **`BATCH-WAREHOUSE-P6.md`.** Its 32 unstarted lines are 22 *Definition of done* template boxes, 8 tasks and the two wave items `W5-1` / `W5-2`. The 8 tasks (`P6-01`, `-03`, `-04`, `-05`, `-06`, `-07`, `-08`, `-10`) carry no VOID header and no `D-16`/`D-17`/`D-18` item voids them; all 8 are open. `P6-02`, `P6-09`, `P6-11`, `P6-12` are VOID and closed not planned. `W5-1` / `W5-2` belong to the open P6 epic #11. GitHub state matches.
 - **Old findings.** `W33` #227, `W38` #232, `W46` #240 and `W47` #241 stay open: each is `[!] FINAL` in `BATCH-WAREHOUSE-FINDINGS.md` on an **external** owner (deployment admin / customer DR drill; customer site devices; customer tax-basis requirement and adviser sign-off — the code has no `tax_basis`, `costing-valuation` §10 row 4; customer GSP / provider accounts). None can be closed from code evidence.
+
+
+## 13. WH-E2E review and real-world check (2026-11-03)
+
+Driver: classic `.claude/tasks/BATCH-WAREHOUSE-E2E-IN.md` (waves 0–5). Record: `docs/reviews/WH-E2E-GAP-REVIEW.md`; real-world catalogue: `docs/REAL-WORLD-PROCESS-CATALOGUE.md`.
+
+- **54 new finding issues**, #717–#770 (labels `gap-e2e` / `gap-real-world`; task files `issues/e2e-*.md`, `issues/rw-*.md`).
+- **27 closed tasks reopened** (label `reopened-e2e`, section *Reopened scope (WH-E2E review, 2026-11-03)*): #22, #30, #32, #71, #76, #90, #91, #105, #111, #114, #116, #117, #119, #141, #148, #154, #217, #235, #258, #281, #329, #330, #429, #569, #571, #572, #640.
+- **22 open tasks extended** (section *E2E additions (WH-E2E review, 2026-11-03)*): #39, #88, #133, #227, #586, #593, #594, #596, #598, #600, #601, #604, #609, #618, #644, #670, #671, #677, #706, #708, #712, #714; listed per phase in the `WH-E2E ADDITIONS` section of each `BATCH-WAREHOUSE-Pn.md`.
+- Comment-only (already built, close after their gates): W02-11, W03-07, W04-06, W06-03, W11-03, W12-01, W12-02.

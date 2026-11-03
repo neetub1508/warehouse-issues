@@ -420,3 +420,116 @@ These existing GitHub reports have no source task file in this batch; listed for
 | #663 | `tracking-only (no task file)` | R32 · Client decisions owed — PRD questionnaire, mobile (Q-G4) and behaviour changes to confirm |
 | #665 | `tracking-only (no task file)` | Finding · Base in-process reservation calls skip the reservation permissions (#110 F2) |
 | #677 | `tracking-only (no task file)` | [Follow-up] accounting-india: year-end s.145A / Form 3CD cl.14(b) statement over warehouse book valuation (W46 #240) |
+
+
+## WH-E2E and real-world gap review — 2026-11-03
+
+> Code review of all 710 issues against classic HEAD 4843b1648d plus a real-world process check. 54 new findings filed below; 27 closed tasks reopened (label `reopened-e2e`) and 22 open tasks extended with an "E2E additions" section. Review: `docs/reviews/WH-E2E-GAP-REVIEW.md`; catalogue: `docs/REAL-WORLD-PROCESS-CATALOGUE.md`.
+
+| Issue | Task file | Title |
+|---|---|---|
+| #717 | `e2e-w03-02.md` | [Warehouse] [Finding] E2E W03-02 · Enforce the View / Operate / Admin level on warehouse and owner grants |
+| #718 | `e2e-w03-05.md` | [Warehouse] [Finding] E2E W03-05 · Keep landed cost on job-work, production and sample issues out of cost of sales |
+| #719 | `e2e-w07-01.md` | [Warehouse] [Finding] E2E W07-01 · Date stock movements on the site's local day, not the UTC day |
+| #720 | `e2e-w12-06.md` | [Warehouse] [Finding] E2E W12-06 · Date 3PL credits by the site-local day, not the UTC day (billing B-2) |
+| #721 | `e2e-w12-07.md` | [Warehouse] [Finding] E2E W12-07 · Count storage toward the site minimum charge (billing B-3) |
+| #722 | `rw-wr1-01.md` | [Warehouse] [Finding] Real-world WR1-01 · Accept one supplier invoice delivered in lots across gate entries |
+| #723 | `rw-wr1-02.md` | [Warehouse] [Finding] Real-world WR1-02 · Raise the India challan and e-way bill for goods going back to the supplier |
+| #724 | `rw-wr1-04.md` | [Warehouse] [Finding] Real-world WR1-04 · Record the written objection date for MSE suppliers and alert before day 15 |
+| #725 | `rw-wr1-05.md` | [Warehouse] [Finding] Real-world WR1-05 · Check BIS Standard Mark and licence on receipt of QCO-notified items |
+| #726 | `rw-wr1-06.md` | [Warehouse] [Finding] Real-world WR1-06 · Let a transit loss claim name the carrier or insurer, not only the supplier |
+| #727 | `rw-wr1-07.md` | [Warehouse] [Finding] Real-world WR1-07 · Add IS 2500 switching rules and the 2026 skip-lot to AQL sampling |
+| #728 | `rw-wr1-10.md` | [Warehouse] [Finding] Real-world WR1-10 · Let an inward gate entry reference an assets-module PO receipt |
+| #729 | `rw-wr2-01.md` | [Warehouse] [Finding] Real-world WR2-01 · Report physical-verification coverage and CARO class-wise discrepancies |
+| #730 | `rw-wr2-02.md` | [Warehouse] [Finding] Real-world WR2-02 · Keep the location custodian off counting their own bins |
+| #731 | `rw-wr2-03.md` | [Warehouse] [Finding] Real-world WR2-03 · Control count sheets and tags as numbered, reconciled documents |
+| #732 | `rw-wr2-04.md` | [Warehouse] [Finding] Real-world WR2-04 · Confirm and reconcile own stock held by third parties |
+| #733 | `rw-wr2-05.md` | [Warehouse] [Finding] Real-world WR2-05 · Parse all GS1 date and content AIs at scan, mapping 15 to best-before |
+| #734 | `rw-wr2-07.md` | [Warehouse] [Finding] Real-world WR2-07 · Record storage temperature readings and hold stock on excursion |
+| #735 | `rw-wr2-10.md` | [Warehouse] [Finding] Real-world WR2-10 · Report stores SoD conflicts and run periodic access reviews |
+| #736 | `rw-wr3-06.md` | [Warehouse] [Finding] Real-world WR3-06 · Build job work IN: process a customer's material as a job worker |
+| #737 | `rw-wr3-14.md` | [Warehouse] [Finding] Real-world WR3-14 · Track repairable spares by condition through repair |
+| #738 | `rw-wr4-01.md` | [Warehouse] [Finding] Real-world WR4-01 · Generate the e-way bill for invoiced sales, not only for challans |
+| #739 | `rw-wr4-02.md` | [Warehouse] [Finding] Real-world WR4-02 · Support multi-vehicle movement on one e-way bill |
+| #740 | `rw-wr4-03.md` | [Warehouse] [Finding] Real-world WR4-03 · Carry the GTA tax character of freight from transporter to bill |
+| #741 | `rw-wr4-04.md` | [Warehouse] [Finding] Real-world WR4-04 · Record a consignment detained in transit and its release |
+| #742 | `rw-wr4-05.md` | [Warehouse] [Finding] Real-world WR4-05 · Declare each dispatch under the transit-insurance open policy |
+| #743 | `rw-wr4-06.md` | [Warehouse] [Finding] Real-world WR4-06 · Model delivery exceptions: refused, partly accepted, re-attempt |
+| #744 | `rw-wr5-02.md` | [Warehouse] [Finding] Real-world WR5-02 · Enforce DG class segregation, licensed store quantity and SDS on file |
+| #745 | `rw-wr5-04.md` | [Warehouse] [Finding] Real-world WR5-04 · Keep the hazardous-waste store: 90-day clock, Form 3 register, Form 10, Form 4 |
+| #746 | `rw-wr5-05.md` | [Warehouse] [Finding] Real-world WR5-05 · Hold plastic-packaging weight per SKU and EPR registration on labels |
+| #747 | `rw-wr5-06.md` | [Warehouse] [Finding] Real-world WR5-06 · Record expired and rejected food disposal and the FSSAI quarterly data |
+| #748 | `rw-wr5-08.md` | [Warehouse] [Finding] Real-world WR5-08 · Run and record mock recall drills against the trace report |
+| #749 | `rw-wr5-10.md` | [Warehouse] [Finding] Real-world WR5-10 · Correct the bonded interest rule: all clause (c) goods, from the s.60 order |
+| #750 | `rw-wr5-11.md` | [Warehouse] [Finding] Real-world WR5-11 · Produce the monthly stock-insurance declaration per insured location |
+| #751 | `rw-wr6-01.md` | [Warehouse] [Finding] Real-world WR6-01 · Generate challans and e-way bills for client stock under the client's GSTIN |
+| #752 | `rw-wr6-02.md` | [Warehouse] [Finding] Real-world WR6-02 · Refuse receipt of client stock at a premises the client has not registered |
+| #753 | `rw-wr6-03.md` | [Warehouse] [Finding] Real-world WR6-03 · Track client GSTIN status and PPoB/APOB type instead of an expiry date |
+| #754 | `rw-wr6-04.md` | [Warehouse] [Finding] Real-world WR6-04 · Put an overdue client's outward releases on credit hold |
+| #755 | `rw-wr6-05.md` | [Warehouse] [Finding] Real-world WR6-05 · Add a custody claim register for client goods lost or damaged in storage |
+| #756 | `rw-wr6-06.md` | [Warehouse] [Finding] Real-world WR6-06 · Run client exit as a handover: final joint count, stock-out, hold-over, data return |
+| #757 | `rw-wr6-07.md` | [Warehouse] [Finding] Real-world WR6-07 · Produce client-attended count sheets and a year-end stock confirmation |
+| #758 | `rw-wr6-08.md` | [Warehouse] [Finding] Real-world WR6-08 · Add a Rule 58 warehouse register and a GST inspection pack per owner |
+| #759 | `rw-wr6-09.md` | [Warehouse] [Finding] Real-world WR6-09 · Carry a per-client tax treatment so exempt storage is not billed at 18% |
+| #760 | `rw-wr6-10.md` | [Warehouse] [Finding] Real-world WR6-10 · Alert when an approved period is not invoiced within the statutory window |
+| #761 | `rw-wr6-11.md` | [Warehouse] [Finding] Real-world WR6-11 · Add dock-to-stock, inventory accuracy and order accuracy SLA metrics |
+| #762 | `rw-wr7-01.md` | [Warehouse] [Finding] Real-world WR7-01 · Re-seed scrap TCS as s.394(1) at 2% from 1 April 2026 |
+| #763 | `rw-wr7-02.md` | [Warehouse] [Finding] Real-world WR7-02 · Let dispatch proceed without Part B for in-state hauls up to 50 km |
+| #764 | `rw-wr7-03.md` | [Warehouse] [Finding] Real-world WR7-03 · Handle inbound e-way bills: verify at gate, accept/reject, consignee-generated, returns |
+| #765 | `rw-wr7-04.md` | [Warehouse] [Finding] Real-world WR7-04 · Build Rule 55(5) lot-wise despatch for SKD/CKD and part shipments |
+| #766 | `rw-wr7-05.md` | [Warehouse] [Finding] Real-world WR7-05 · Re-base goods on approval on s.31(7) and invoice at six months |
+| #767 | `rw-wr7-06.md` | [Warehouse] [Finding] Real-world WR7-06 · Trace ITC reversal for produced and WIP lots to the inputs consumed |
+| #768 | `rw-wr7-07.md` | [Warehouse] [Finding] Real-world WR7-07 · Correct job-work citations and the stale quarterly ITC-04 wording |
+| #769 | `rw-wr7-08.md` | [Warehouse] [Finding] Real-world WR7-08 · Complete the Rule 28 transfer-valuation bases |
+| #770 | `rw-wr7-09.md` | [Warehouse] [Finding] Real-world WR7-09 · Anchor bonded and MOOWR record retention on the removal date |
+
+### Existing issues cited by the 2026-11-03 review that had no row
+
+| Issue | Task file | Title |
+|---|---|---|
+| #294 | `tracking-only (no task file)` | [Warehouse] Follow-up (W70 R7(3)): short dispatch after an approved-transfer challan — guard or accepted boundary |
+| #297 | `tracking-only (no task file)` | [Follow-up W31] RC-001: lot-expiry job and Expiry Register run on the UTC day while RMA/claim/certificate jobs run on the site day |
+| #303 | `tracking-only (no task file)` | [Warehouse] Follow-up (F281): should Warehouse Finance Controller be able to withdraw (delete) a scheduled GL Posting Rule? (owner: PO) |
+| #307 | `tracking-only (no task file)` | [Warehouse] Follow-up (F301): full-history report reads still unbounded per read — WS-212 inside the heal window, WS-226 item picker and big-site read, sibling reports' movement-only bounds |
+| #366 | `tracking-only (no task file)` | Fields values in Serial Edit window and Creation windows are different |
+| #438 | `tracking-only (no task file)` | [warehouse-india] Audit remaining UTC 'today' date checks outside e-way (challan overdue, licences, bonds, job work, SAC/HSN) - follow-up of #436/#437 |
+| #490 | `tracking-only (no task file)` | [Follow-up W64] Item retire guard counts virtual contra positions (received+shipped item can never be retired) |
+| #497 | `tracking-only (no task file)` | [Follow-up F465] Site timezone is editable after movements; site-day readers (H1 register, ceilings, e-way, periods) shift lines between days/months |
+| #508 | `tracking-only (no task file)` | [Follow-up F493] warehouse-3pl GST registration expiry alert fires for clients whose stock was shipped (contra VIRT-CUSTOMER grain counted) |
+| #684 | `tracking-only (no task file)` | [Warehouse Inventory] EPIC · Godown-only rollout for own stock, customer custody and storage/handling billing |
+| #688 | `tracking-only (no task file)` | [Warehouse Inventory] GDN-04 · Resolve missing storage-snapshot days with auditable recovery and billing settlement |
+| #690 | `tracking-only (no task file)` | [Warehouse Inventory] GDN-06 · Agree customer custody-value basis and support declared insured value without inventory valuation |
+| #692 | `tracking-only (no task file)` | [Warehouse] QC-held ageing alert job (IIS-T3-01) — owner for IIS-OPEN-03 (P8-14 #575 G7 follow-up) |
+| #706 | `tracking-only (no task file)` | MRN canAuthorise/canReject flags ignore owner grants (found in #703 S5) |
+| #712 | `tracking-only (no task file)` | Item GTIN with a bad check digit prints a label that cannot narrow a scan |
+| #269 | `tracking-only (no task file)` | [Warehouse] Follow-up (W15): offer re-allocate of a short-picked backorder after emergency replenishment (FR-185, v1.1) |
+| #281 | `tracking-only (no task file)` | [Warehouse] Follow-up (W06): GL Posting Rules - writes not site-scoped, ended rule re-openable, no withdraw of a scheduled rule, category exact-match undocumented |
+| #312 | `tracking-only (no task file)` | [Follow-up W38] Pack Station scan fields: Enter does not submit, and a refused scan is appended to on re-scan |
+| #315 | `tracking-only (no task file)` | [Follow-up W54] Outbox restore epoch or startup hold so a restored install cannot re-issue a cursor a receiver already acknowledged |
+| #323 | `tracking-only (no task file)` | [Follow-up W69] Part A-only e-way bill never lapses locally - challan held after the cancel window (statutory ruling) |
+| #330 | `tracking-only (no task file)` | [Follow-up W08] Transfer arrival takes the sender's arrival-time cost; freezing depart-time cost needs transit layers (W09 design decision) |
+| #429 | `tracking-only (no task file)` | [warehouse-india] E-way contract: one full citation re-pin after the B1 decision builds land (follow-up of #425 #426) |
+| #609 | `tracking-only (no task file)` | [Grok] GLOBAL-SETTINGS catalogue misses P8–P10 and contract-only setting keys |
+| #610 | `tracking-only (no task file)` | P8-05 follow-up: seed the ISO 2859-1 / Z1.4 AQL sampling table family |
+| #618 | `tracking-only (no task file)` | Audit single-id includeId pickers for scope widening (id = :includeId OR …) across warehouse |
+| #630 | `tracking-only (no task file)` | [Warehouse Inventory] Location dedications: runtime test gaps and same-owner re-add error ordering (R31 #54) |
+| #635 | `tracking-only (no task file)` | [Warehouse Inventory] Mixed-owner enforcement — finish runtime acceptance and evidence (#54 follow-up) |
+| #669 | `tracking-only (no task file)` | [Warehouse Inventory] Finding · allows_mixed_item and allows_mixed_lot location flags are not enforced (#635 G8) |
+| #670 | `tracking-only (no task file)` | [Warehouse Inventory] Finding · REVALUATION can be reversed alone without its layer restatements (#115 F7 sibling) |
+| #671 | `tracking-only (no task file)` | [Warehouse Inventory] Finding · AVCO/FIFO negative-estimate settlement variance is only audit-logged, never posted (RF-002) |
+| #673 | `tracking-only (no task file)` | [Warehouse] Finding · ABC recompute is not STANDARD-aware: use the 3-argument methodCost (#115 F10) |
+| #685 | `tracking-only (no task file)` | [Warehouse Inventory] GDN-01 · Web loose-stock bin moves with owner-safe selection, partial quantities and reversal |
+| #686 | `tracking-only (no task file)` | [Warehouse Inventory] GDN-02 · Enforce agreed bin capacity on every placement path and concurrent arrival |
+| #687 | `tracking-only (no task file)` | [Warehouse Inventory] GDN-03 · Receiving evidence attachments with owner/site access, retention and immutable lineage |
+| #698 | `tracking-only (no task file)` | [Warehouse] Stores - store-returns screen has no menu entry |
+| #708 | `tracking-only (no task file)` | Warehouse-base: serve snapshot-day remedy evidence via an owner-checked subject route and restrict it from /documents (follow-up of #690 F1) |
+| #709 | `tracking-only (no task file)` | Hindi on routed ZPL labels: printer font has no Devanagari (P8-12 #573 ND1 follow-up) |
+| #714 | `tracking-only (no task file)` | Serial item received in a pack unit posts receipt-unit quantity, not base quantity (owner decision) |
+| #425 | `tracking-only (no task file)` | [warehouse-india] Reconcile Extension on a bill parked on an ACCEPTED CANCEL records the cancellation but answers 409 EWAY_BILL_STATE (follow-up of #418) |
+| #426 | `tracking-only (no task file)` | [warehouse-india] E-way: provider REJECT with no error code and dialog lifecycle on a 200-reject / re-login need a product-owner ruling (follow-up of #424) |
+| #436 | `tracking-only (no task file)` | [warehouse-india] WhinEwayBillSourcePickerIntegrationTest fails after IST midnight (clock-boundary flake) |
+| #703 | `tracking-only (no task file)` | [Warehouse] Follow-up (R33 #700 apply-to): MRN canReject/canReturn derived from the APPROVE set |
+| #418 | `tracking-only (no task file)` | [Follow-up F407] Reconcile Extension is hidden on a bill parked on an accepted extension - the documented way out is unreachable |
+| #424 | `tracking-only (no task file)` | [warehouse-india] E-way dialogs: no coverage for a 401 mid-dialog and for how a provider-REJECTED Fill Part B is shown (follow-up of #401) |
+| #700 | `tracking-only (no task file)` | [Warehouse] Approvals - five engine mappers derive canReject from the APPROVE eligibility set |
+| #401 | `tracking-only (no task file)` | [Follow-up F326] Fill Part B, Update vehicle and Extend carry no request key - a sequential double submit files twice |

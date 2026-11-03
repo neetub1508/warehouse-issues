@@ -82,3 +82,30 @@ Architecture prerequisite: explicitly choose supported single-instance deploymen
 - [ ] List remaining conditional dependencies explicitly; do not close an enabled workflow with unverified stock integrity, access control or external-state recovery.
 
 <!-- warehouse-readiness-finding: 2026-10-01/W41 -->
+
+
+## Reopened scope (WH-E2E review, 2026-11-03)
+
+Found by the 2026-11-03 end-to-end review (code at classic HEAD 4843b1648d, plus the real-world check). This issue cannot close until each item below is met.
+
+### W04-01 · Make import validation-report status transitions atomic (minor, CLOSED-INCOMPLETE)
+
+#### Why this matters
+
+A stores clerk validating a large opening-stock or item file can see a finished check flip to "interrupted", or a failed one go back to "validating", because the background worker and the screen's poll overwrite each other. No stock is written by Validate, so the harm is a wrong report status and a needless re-run.
+
+#### Scope
+
+Make each transition a conditional update on the current entry (e.g. Caffeine `asMap().computeIfPresent` / compare-and-replace), keep terminal states sticky, never recreate an evicted token.
+
+#### Acceptance
+
+- Stale poll paused after read, worker completes, poll released: status stays COMPLETED.
+- Progress paused after read, report times out, progress released: status stays FAILED.
+- Token evicted between worker read and write: later reads still 404.
+- Validate still persists no import, target or stock rows.
+
+#### Evidence (classic HEAD 4843b1648d, 2026-11-03)
+
+warehouse-base/docs/contracts/import-batch.contract.md:97 says the first terminal outcome wins. WhbImportValidationStore.java:82-115: progress/complete/fail/stale-timeout each do `find(token)` → status check → `cache().put(...)` with no lock or conditional replace; worker runs async (WhbImportServerPathJob.java:42, WhbImportBatchService.java:330,336). A poll that read RUNNING can put FAILED over a just-stored COMPLETED.
+

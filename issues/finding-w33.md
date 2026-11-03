@@ -82,3 +82,36 @@ External prerequisite: isolated restore target, sanitized representative backup,
 - [ ] List remaining conditional dependencies explicitly; do not close an enabled workflow with unverified stock integrity, access control or external-state recovery.
 
 <!-- warehouse-readiness-finding: 2026-10-01/W33 -->
+
+
+## E2E additions (WH-E2E review, 2026-11-03)
+
+Found by the 2026-11-03 end-to-end review (code at classic HEAD 4843b1648d, plus the real-world check). This issue cannot close until each item below is met.
+
+### W04-03 · Alert and catch up when a scheduled database backup fails (major, OPEN-SCOPE-GAP)
+
+#### Why this matters
+
+A warehouse-only plant (no accounting module) can silently go days without a backup: a failed night or a backend down at the backup hour is not retried and nobody is told. After a crash the stores lose every receipt, issue and despatch since the last good dump, and the stock register cannot be rebuilt.
+
+#### Scope
+
+(1) catch-up: if no COMPLETED backup within the schedule interval + grace, run at the next hourly tick; (2) raise a warehouse/platform alert (e.g. WHB health signal BACKUP_MISSED + notification to admins) on failure or overdue; (3) first-run checklist warns while backups are disabled on a production install.
+
+#### Acceptance
+
+- Backend down at the backup hour: a backup runs within one hour of restart.
+- A forced backup failure raises a visible admin alert within one hour; a later success clears it.
+- WS-223 health page shows backup overdue when last COMPLETED is older than interval + grace.
+- With backup disabled, the admin dashboard/health page shows a persistent warning.
+
+#### Evidence (classic HEAD 4843b1648d, 2026-11-03)
+
+platform/backend/src/main/java/ai/platform/scheduler/DatabaseBackupScheduler.java:77 hourly check; :108-120 daily runs only when `currentHour == configuredHour`, so a missed slot waits until the next day; :188-189 failure is `logger.error` only. LoggingConstants.java:113 BACKUP_FAILED is a log template. INSTALL.md:261 admits "nothing alerts ... One failed night widens it to about 48 h" and seed `backup_enabled=false`. neetub1508/accounting#266 adds a missed-day alert only for India books installs with accounting; #227 scope is a restore demonstration, not detection.
+
+#### Global setting
+
+`WAREHOUSE_BACKUP_OVERDUE_GRACE_HOURS` default=2 alternatives=1..24
+
+The default is the recommendation; the alternatives are selectable per install through the settings page.
+

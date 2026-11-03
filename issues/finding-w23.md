@@ -89,3 +89,29 @@ Current task can close with an explicit supported limit. Actual archiving is con
 - [ ] List remaining conditional dependencies explicitly; do not close an enabled workflow with unverified stock integrity, access control or external-state recovery.
 
 <!-- warehouse-readiness-finding: 2026-10-01/W23 -->
+
+
+## Reopened scope (WH-E2E review, 2026-11-03)
+
+Found by the 2026-11-03 end-to-end review (code at classic HEAD 4843b1648d, plus the real-world check). This issue cannot close until each item below is met.
+
+### W04-02 · Correct INSTALL archiving section to match the shipped archive run (minor, CLOSED-INCOMPLETE)
+
+#### Why this matters
+
+An installer or CA reading the install guide is told nothing can be archived, while the product ships an archive operation that moves ledger history behind an OPENING_BALANCE cut-off. They will either never use it or not know it exists when an auditor asks how old years are retained.
+
+#### Scope
+
+Rewrite the W23 paragraph to describe the archive run as built (who may run it, cut-off rule, what moves, statutory minimums still enforced, how to reconstruct), and drop the "not operational" claim; recheck §15/§16 cross-references.
+
+#### Acceptance
+
+- INSTALL names the archive endpoint/screen, its permission and its refusal when the cut-off is inside a statutory retention window.
+- No sentence in INSTALL says archiving is deferred or not operational.
+- Statutory minimums (CGST s.36/s.44, Rule 56, Companies Act s.128(5)) remain stated and match the seeded retention policies.
+
+#### Evidence (classic HEAD 4843b1648d, 2026-11-03)
+
+warehouse-base/INSTALL.md:1184-1188 "Archiving is not operational ... no job, screen or endpoint archives ... Deferred (v3) to P6-01 #94". Shipped: WhbLedgerArchiveController.java:26, WhbLedgerArchiveService.java:64, WhbLedgerArchiveWriter.java:37, WhbLedgerArchiveRequest/RunResponse DTOs.
+

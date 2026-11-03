@@ -88,3 +88,29 @@ Separate offboarding cutoff, FK ruling, reconciliation display and optional fina
 - [ ] List remaining conditional dependencies explicitly; do not close an enabled workflow with unverified stock integrity, access control or external-state recovery.
 
 <!-- warehouse-readiness-finding: 2026-10-01/W64 -->
+
+
+## Reopened scope (WH-E2E review, 2026-11-03)
+
+Found by the 2026-11-03 end-to-end review (code at classic HEAD 4843b1648d, plus the real-world check). This issue cannot close until each item below is met.
+
+### W05-02 · Word the retired-owner refusal for orders and shipments correctly (minor, CLOSED-INCOMPLETE)
+
+#### Why this matters
+
+A storekeeper raising a sales/demand order or shipment for a retired owner is told the owner "cannot own a new purchase order", which reads as a purchasing error and sends them to the wrong screen. #258 recorded this as LOW remaining work but no follow-up issue was filed.
+
+#### Scope
+
+Make the refusal document-neutral or pass the document noun from the caller (purchase order / demand order / shipment); keep code OWNER_RETIRED and field ownerId.
+
+#### Acceptance
+
+- Demand order create/edit with a retired owner: 422 ownerId OWNER_RETIRED, message names the demand order (or is neutral), not "purchase order".
+- Shipment path with a retired owner: same.
+- Purchase order path message unchanged in meaning.
+
+#### Evidence (classic HEAD 4843b1648d, 2026-11-03)
+
+W/service/whpurchaseorder/WhPurchaseOrderValidationService.java:180-181 message "Owner X is retired and cannot own a new purchase order." (OWNER_RETIRED); reused as siteRules by W/service/whdemandorder/WhDemandOrderValidationService.java:143 and W/service/whshipment/WhShipmentValidationService.java:84; W/service/WhDemandOrderService.java:341,399,446,1251 call validateOwner. No title in issue_titles.txt matches retired-owner wording (only #490 item retire).
+
