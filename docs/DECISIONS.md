@@ -825,7 +825,7 @@ it is not renumbered here, because a finding is a dated record. See [`OPEN-DECIS
 | **OD-1** | **The reciprocal accounting edits.** D-6 requires `accounting` to stand down `acc_stock_balances`, `acc_physical_stock_counts`, `acc_stock_journals`, `acc_cost_layers`' quantity grain and the port's `unit_cost` semantics when warehouse is installed. That is an edit to a *different* repository's design set (`neetub1508/accounting`, phase P3, tasks not yet built) | **Before accounting's `P1-04` ships `V600136`/`V600137`** — the schema lands in accounting's **P1**, not its P3 (`accounting/issues/p1-04.md:5,13,15`; `accounting/docs/DATA-MODEL.md:4291`). *(Corrected 2026-09-03 from "Before accounting's P3", per round 2's `O-001`.)* And before warehouse `P0-02` writes `whb_stock_movements` | **RESOLVED 2026-09-11.** Warehouse owns quantity and cost. Default STANDALONE; INTEGRATED requires an installed, tested accounting adapter that accepts authoritative extended values and stable idempotency keys. Missing capabilities block activation, not standalone stock posting. Reciprocal work in another repository remains an external integration dependency, not an unanswered warehouse decision. [Contract](GLOBAL-SETTINGS-DECISIONS.md). |
 | **OD-9** | **Does `warehouse` carry a tax engine, or never compute tax?** `FR-325` has warehouse carrying one; `FR-294` and R3 `D4` say warehouse never computes tax. This decides whether 6 `whin_` tables exist — the India pack is **50 or 56 tables** depending on the answer | **Before `P2-25`**, not before `P2-IN` — `P2-25` builds the v1 table that implements the rejected option (`U-003`), so the rejected option is being built while the decision is open. *(Corrected 2026-09-03; the FRD §9 row already carried the tighter deadline.)* Gates `P2-IN-01` **and** `P4-01` | **RESOLVED 2026-09-11.** Warehouse does not implement its own tax calculation engine. PROVIDER uses a tested accounting/localisation provider; MANUAL_EVIDENCE records an externally issued document and its totals; NONE permits only operations requiring no tax document. Never silently treat missing tax as zero. Conditional engine schema remains documented as reserved history, with no active build obligation. [Contract](GLOBAL-SETTINGS-DECISIONS.md). |
 | **OD-3** | **One database per customer, or shared multi-tenancy?** `grep -ril "tenant" platform/backend/src/main/java` → **0 files**. Classic is one-DB-per-customer today, which is why a 3PL's clients must be an **owner dimension**, not tenants | Before `warehouse-3pl` P5 starts | **RESOLVED 2026-09-11.** One database per customer installation. A 3PL client is an owner with enforced row scope, never a database tenant. Configuration export/import is supported through the existing task with identifier remapping and no secrets. [Contract](GLOBAL-SETTINGS-DECISIONS.md). |
-| **OD-8** | **How does an out-of-process consumer authenticate to the port?** `PORT-AND-ADAPTER-CONTRACT.md` `PC-33`: a `logistics` module deployed separately has nothing to authenticate with. There is no API-key table in platform (grep → 0); the only API-key path in the repo is per-handler inside the boom-barrier webhook | Before `P0` builds the port, because the auth model shapes the endpoint | **RESOLVED 2026-09-11.** Use existing authenticated users and movement permissions in v1. Separate service consumers remain capability-gated to the v3 identity adapter with revocation, scope and audit tests. No anonymous/API-key shortcut and no warehouse-owned duplicate identity store. [Contract](GLOBAL-SETTINGS-DECISIONS.md). |
+| **OD-8** | **How does an out-of-process consumer authenticate to the port?** `PORT-AND-ADAPTER-CONTRACT.md` `PC-33`: a `logistics` module deployed separately has nothing to authenticate with. There is no API-key table in platform (grep → 0); the only API-key path in the repo is per-handler inside the boom-barrier webhook | Before `P0` builds the port, because the auth model shapes the endpoint | **RESOLVED 2026-09-11.** Use existing authenticated users and movement permissions in v1. Separate service consumers remain capability-gated to the v3 identity adapter with revocation, scope and audit tests. No anonymous/API-key shortcut and no warehouse-owned duplicate identity store. [Contract](GLOBAL-SETTINGS-DECISIONS.md). **AMENDED 2026-11-03 (E2E-IN W02-08, #119):** the v3 deferral is withdrawn; see *Amendment — `OD-8` machine login* below. |
 
 **Build note — `P5-22` / `OD-8` (2026-09-26).** API-client keys travel in `X-Whb-Api-Key` on a request already
 authenticated by the user's JWT. The key only **narrows** the caller (endpoint scope, company scope, per-client rate
@@ -839,6 +839,35 @@ window is owed: the user's JWT and the port's idempotency keys cover replay. The
 **receiver of signed deliveries**, which is `P3-22`'s. Deliveries are **per subscription**, and nothing today links an
 outbox subscription to an API client, so `P3-22` owes that link (or names another source for the tolerance) before
 it can honour "reuses `P5-22`'s `max_clock_skew_seconds`". Recorded in `issues/p3-22.md` § Hand-offs from `P5-22`.
+
+**Amendment — `OD-8` machine login (2026-11-03, E2E-IN W02-08, #119; DECISION RULE `DECISION-RULE-WAREHOUSE.md`).**
+The 2026-09-26 build note above describes what shipped (the key narrows an already-authenticated user) and stays true
+for installs that choose it. The 2026-11-03 review (code at classic HEAD `4843b1648d`) showed that shape cannot serve a
+factory MES, ERP or weighbridge PC: it can post stock only by logging in as a person, so it inherits password expiry,
+lockout and the 30-minute JWT (`application.yml` `jwt` 1800000 / refresh 604800000), stops overnight, and the audit
+trail names a human for a machine posting. Evidence: `WhbApiClientInterceptor` (identity is the authenticated user),
+`WhbApiClientGate` ("It narrows; it never authenticates"); platform has no service-account or client-credentials
+concept. The old "capability-gated to the v3 identity adapter" had no issue behind it.
+- **Decision (industry practice wins over the PRD wording, `BATCH-WAREHOUSE-E2E-IN.md` standing rule 3).** Every WMS and
+  ERP offered for this role (SAP BTP/S4 communication users, Oracle WMS Cloud integration users, Odoo/ERPNext API keys,
+  Manhattan/Blue Yonder service accounts) gives an integration its own non-interactive credential, not a borrowed user.
+  Default: **standalone**.
+- **Where the identity lives.** The principal is a **platform-owned, non-login service principal** (identity belongs to
+  platform, the base of every module); warehouse-base keeps `whb_api_clients` as the scope, company, rate-limit and
+  rotation record and holds one reference to the principal. This keeps `OD-8`'s "no warehouse-owned duplicate identity
+  store": warehouse stores no password and no user row. The platform question the P5-22 header asked (platform registry
+  or warehouse registry) is thereby answered: platform owns *who*, warehouse owns *what it may do*.
+- **How it authenticates.** The client presents its `X-Whb-Api-Key` alone (signed key resolving to the service
+  principal) or exchanges it for a short-lived platform token (client-credentials style); either way no user password
+  exists, and the principal is exempt from password expiry, lockout and MFA. Revocation, expiry, rotation overlap, endpoint
+  scope, company scope and the per-client rate limit are unchanged and still refuse the next call.
+- **Actor.** Movements, outbox rows and audit rows record the API client (`client_code`, principal id) as actor, never a
+  person.
+- **Setting.** `warehouse.integration.api_client_standalone_auth` (issue label `WAREHOUSE_API_CLIENT_STANDALONE_AUTH`),
+  default `true`; `false` keeps the shipped user-session narrowing. Added to `GLOBAL-SETTINGS-DECISIONS.md` catalogue.
+  Switching never rewrites history; a key already issued keeps its mode until reissued.
+- **Still forbidden.** An anonymous path and any key that acts without a registered, revocable, scoped client. The
+  platform security allow-list change stays a shared platform file edit recorded in the PR (`RD-007`).
 
 ### 3.3 Open by schedule — v3, and deliberately not decided in a v1 wave
 

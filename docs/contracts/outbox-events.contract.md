@@ -25,7 +25,7 @@
 | **Owning tasks** (R30 §4) | `issues/p0-11.md` (`FR-330`…`333`, `336`) · `p3-22` (`334`) · `p2-02` (`335`, `342`) · `p1-11` (`337`, `339`, `341`) · `p5-21` (`338`, `340`, `343`) · `p1-17` (`344`) · `p2-28` (`345`) · `p0-15` (`346`) · `p6-08` (`347`, `348`) · `p5-22` (`458`) |
 | **Permission resources** | `whb_outbox:{view,replay,export}`; `logistics:*` reserved, never granted (`V501000`) |
 | **Screens** | WS-056 Outbox Monitor · WS-057 Outbox Subscriptions · WS-058 Outbox Dead-letter · WS-246 API Clients · WS-247 API Client Keys |
-| **Contract version** | `v0 — 2026-10-23` |
+| **Contract version** | `v0.1 — 2026-11-03 (OEV-GRD-05, OEV-DIV-02, OEV-OPEN-01 re-amended, W02-08)` |
 
 ### Acceptance checks
 
@@ -72,7 +72,7 @@
 | OEV-GRD-02 | Every outbox row carries `event_version`, `occurred_at`, `posting_date`, `recorded_at`, `company_id`, `warehouse_id`, `owner_id`, `item_id`, `lot_id`, `serial_id`, `lpn_id`, `location_id`, `stock_status_code`, `quantity`, `uom_code`, movement and source lineage, actor — and **no payload column** | — | `V500040` column set (`PC-36` comment) | FR-331 |
 | OEV-GRD-03 | Delivery is at-least-once; a subscriber dedupes on (subscriber, cursor) | — | per-subscription `last_delivered_cursor` | FR-330, FR-333 |
 | OEV-GRD-04 | A subscription is a row: `subscriber_code`, `transport` `IN_PROCESS` / `HTTP`, `endpoint_url`, `secret_ref`, `event_type_filter`, `owner_filter_id`, `accepted_event_version`, `signing_algorithm`, `delivery_timeout_seconds` | — | `whb_outbox_subscriptions`; HTTP via `WhbOutboxHttpTransport` + `WhbOutboxSignature` (v1.1) | FR-333 |
-| OEV-GRD-05 | An API-client request presents a live key of an active client, for an endpoint in its scope, under its per-client rate limit; it narrows the user's session, never authenticates | `403 API_CLIENT_REFUSED` (one message for unknown / revoked / expired); `403 API_CLIENT_ENDPOINT_NOT_IN_SCOPE`; `429 RETRY_AFTER` | `chk_whb_api_clients_rate_limit` (`rate_limit_per_minute`) | FR-458 |
+| OEV-GRD-05 | An API-client request presents a live key of an active client, for an endpoint in its scope, under its per-client rate limit; by default (`warehouse.integration.api_client_standalone_auth` = `true`) it authenticates as its own non-login service principal and is the actor; with the setting `false` it only narrows the authenticated user's session | `403 API_CLIENT_REFUSED` (one message for unknown / revoked / expired); `403 API_CLIENT_ENDPOINT_NOT_IN_SCOPE`; `429 RETRY_AFTER` | `chk_whb_api_clients_rate_limit` (`rate_limit_per_minute`) | FR-458 |
 | OEV-GRD-06 | A lag-shaped signal sits beside the failure-shaped ones | — | `WhbOutboxLagAlertService` | FR-458 |
 | OEV-GRD-07 | A transit loss is an ordinary reason-coded adjustment against the in-transit location | reason required | in-transit virtual location (`V500013`); `WhbMovementTransitCarveOutRuleTest` | FR-335 |
 | OEV-GRD-08 | A gate ENTRY stamps only a `SCHEDULED` appointment of that vehicle at that site whose start is on the same site day; otherwise the handler answers `IGNORED` | — | `WhDockAppointmentGateHandler` | FR-340 |
@@ -129,7 +129,7 @@
 | ID | FR says | Code has (grep) | Source |
 |---|---|---|---|
 | OEV-DIV-01 | Issue-to-asset and return-from-asset are posted through the port | `V500003` seeds `EQUIPMENT_ISSUE` / `EQUIPMENT_RETURN` only; no `ISSUE_TO_ASSET` / `RETURN_FROM_ASSET` type — **resolved R31**: `FR-338` restated to this pair (`OEV-OPEN-02`) — **Triage 2026-10-23: AMEND-SPEC** — applied R31 (`FR-338` restated); stands as the rule | FR-338 |
-| OEV-DIV-02 | The integration surface is argued as platform work first and built in base only if platform declines | built in base (`V500066`, `WhbApiClientGate`); no recorded platform decline found — **Triage 2026-10-23: AMEND-SPEC** — rule: the platform question was settled by `OD-8` (resolved 2026-09-11, `GLOBAL-SETTINGS-DECISIONS.md`): the port authenticates an ordinary platform user and the API client is a warehouse-base integration surface that narrows it. Evidence: `V500066` header *THE DECISION THIS FILE IMPLEMENTS*. `FR-458` amended | FR-458 |
+| OEV-DIV-02 | The integration surface is argued as platform work first and built in base only if platform declines | built in base (`V500066`, `WhbApiClientGate`); no recorded platform decline found — **Triage 2026-10-23: AMEND-SPEC** — rule: the platform question was settled by `OD-8` (resolved 2026-09-11, `GLOBAL-SETTINGS-DECISIONS.md`): the port authenticates an ordinary platform user and the API client is a warehouse-base integration surface that narrows it. Evidence: `V500066` header *THE DECISION THIS FILE IMPLEMENTS*. `FR-458` amended. **Re-amended 2026-11-03 (E2E-IN W02-08, #119):** `OD-8` now defaults to a platform-owned non-login service principal; warehouse-base keeps the client registry and holds the reference (`DECISIONS.md` § *Amendment — `OD-8` machine login*) | FR-458 |
 | OEV-DIV-03 | Seam acceptance = two deletion tests (delete logistics; delete warehouse) | only the warehouse side is tested (no FK out); no logistics module exists to delete — **Triage 2026-10-23: CARRIED** — `P6-08` #131 (`p6-08.md:120`, `:229` — the two deletion tests) | FR-336 |
 
 ## 7. Out of scope
@@ -151,5 +151,5 @@ The logistics module itself (`p6-08`, v3); trips, ePOD and freight settlement; m
 
 | ID | Question | Default | Source |
 |---|---|---|---|
-| OEV-OPEN-01 | `OD-8`: does platform own API clients (service principals) after all, making `OEV-DIV-02` a migration later | **DECIDED R31 (2026-10-23):** default stands — base keys only narrow an authenticated user (`OD-8` RESOLVED) | FR-458 |
+| OEV-OPEN-01 | `OD-8`: does platform own API clients (service principals) after all, making `OEV-DIV-02` a migration later | **DECIDED R31 (2026-10-23):** default stands — base keys only narrow an authenticated user (`OD-8` RESOLVED) — **SUPERSEDED 2026-11-03 (E2E-IN W02-08, #119):** platform owns the service principal (identity), base owns the client registry; setting `warehouse.integration.api_client_standalone_auth` default `true`, `false` keeps the R31 behaviour | FR-458 |
 | OEV-OPEN-02 | Asset fitment movement types (`OEV-DIV-01`): add `ISSUE_TO_ASSET` / `RETURN_FROM_ASSET` or restate the FR to the equipment pair | **DECIDED R31 (2026-10-23):** default stands — `FR-338` restated to the equipment issue / return pair | FR-338 |

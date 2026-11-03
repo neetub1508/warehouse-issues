@@ -19,6 +19,7 @@ Effective policy resolution uses the existing most-specific policy rules and rej
 | Key | Default | Allowed values / validation | Owner | Effect / fallback |
 |---|---|---|---|---|
 | warehouse.negative_stock.default_mode | BLOCK | BLOCK / WARN / ALLOW | Base / P0-15; policy P1-03 | WARN requires explicit acknowledgement and override permission; ALLOW still requires an explicit matching policy and audit. Never auto-reserve shortage. |
+| warehouse.integration.api_client_standalone_auth | true | true / false | Base / P5-22 #119 (E2E-IN W02-08; issue label `WAREHOUSE_API_CLIENT_STANDALONE_AUTH`) | true: an API client authenticates alone as a non-login platform service principal (no password, exempt from expiry/lockout/MFA, actor = client). false: the key only narrows an authenticated user's session (as shipped). No anonymous path in either mode. |
 | warehouse.reservation.default_ttl_minutes | 30 | integer 1–10080 | Base / P0-15; P0-09 | Only new reservations inherit it; extensions are explicit, authorized and retain history. |
 | warehouse.outbox.max_attempts | 10 | integer 1–100 | Base / P0-15; P0-11; #620 | Subscription-specific value wins. Exhausted work enters retained failed queue; retry keeps original event key. Also governs alert deliveries (`whb_alert_deliveries`, #620 V501300): the same attempt limit and outbox backoff per recipient; the last attempt goes DEAD and is replayed from the Alert Deliveries screen. |
 | warehouse.port.rejected_queue_threshold | 10 | integer 1–10000 | Base / P0-15; P0-14 | Alert at count >= threshold; alert once per breach episode, resolve below threshold; no automatic discard. |
@@ -155,6 +156,8 @@ warehouse-base keeps its counterparty master. Other products join through extern
 ### OD-8 — resolved
 
 Use existing authenticated users and movement permissions in v1. Separate service consumers remain capability-gated to the v3 identity adapter with revocation, scope and audit tests. No anonymous/API-key shortcut and no warehouse-owned duplicate identity store.
+
+**Amended 2026-11-03 (E2E-IN W02-08, #119):** the v3 identity-adapter deferral is withdrawn. With `warehouse.integration.api_client_standalone_auth` = `true` (default) a registered API client authenticates on its own as a platform-owned, non-login service principal tied to `whb_api_clients`, keeping endpoint scope, company scope, per-client rate limit, revoke and rotate; it is exempt from password expiry, lockout and MFA, and postings are audited as the client. `false` keeps the shipped narrowing of an authenticated user's session. Still no anonymous path and no warehouse-owned password or user store. Full text: `DECISIONS.md` § *Amendment — `OD-8` machine login*.
 
 ### OD-9 — resolved
 
