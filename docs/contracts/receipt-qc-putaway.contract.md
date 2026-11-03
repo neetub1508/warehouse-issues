@@ -324,7 +324,7 @@ cache name (`FR-395`); every export is a superset of the grid columns including 
 |---|---|
 | **Type** | list + transition modals (reference: **Service Vehicle**); WS-077 is a route with tabs |
 | **Grid identifier** | `wh_goods_receipts` · filter scope `WAREHOUSE_GOODS_RECEIPT` |
-| **Default sort** | `e.received_at DESC` (index `idx(warehouse_id, received_at DESC)`) |
+| **Default sort** | `e.received_at DESC NULLS LAST, e.grn_number DESC, e.id DESC` (index `idx(warehouse_id, received_at DESC)`); an explicit sort puts blanks last and keeps this order as its tie-break, on grid and export alike (#716) |
 | **Statistics tiles** | `DRAFT` · `POSTED` · `CANCELLED` · `REVERSED` (filter-aware) |
 | **Columns** | `grnNumber`, `sessionNumber`, `poNumber`, `asnNumber`, `supplierName`, `warehouseName`, `ownerName`, `receivedByName`, `receivedAt`, `isBlindReceipt`, `receivingMode`, `grnTiming`, `status`, `matchStatus` (`MATCHED`/`QTY_OVER`/`QTY_UNDER`/`ITEM_MISMATCH`), `lineCount`, `receivedQuantity`, `acceptedQuantity`, `rejectedQuantity`, `freeQuantity`, `invoiceMatched`, audit |
 | **Filters** | `warehouseId` → `supplierCounterpartyId` → `status` (**multiselect**); `matchStatus`; `isBlindReceipt`; `poNumber` (reads through `po_line_id`, `RG-019`); `grnNumber`; `receivedFrom`/`receivedTo` (`date`); `awaitingQc`; `awaitingPutaway` |
