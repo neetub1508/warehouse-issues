@@ -132,7 +132,7 @@
 |---|---|---|---|
 | Return window, inputs | **1 year** from the challan date (s.143(1)(a), r.45); extendable by the Commissioner by 1 year | `warehouse.india.job_work.return_period_years.inputs` = 1 (`V541053:115`) | india |
 | Return window, capital goods | **3 years**; extendable by 2 years | `…capital_goods` = 3 (`V541053:121`) | india |
-| Moulds, dies, jigs, tools | no time limit (s.143(2) proviso) | india | india |
+| Moulds, dies, jigs, tools | no time limit: excluded from the 3-year return/supply window in s.143(1)(a)-(b) and from the deemed supply in s.143(4); s.19(7) for the ITC rule | india | india |
 | Missed window | deemed supply on the **date sent** | `deemed_supply_due_date` (`V540020:241-244`) | india |
 | Direct-from-vendor | clock from receipt at the job worker | — (not supported in v1, `SUB-OPEN-07`) | india |
 | Scrap at job worker | s.143(5): supplied by the job worker if registered, else by the principal | `V540190` scrap columns | india |

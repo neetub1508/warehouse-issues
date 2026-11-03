@@ -73,7 +73,7 @@ metered events, **and** a customer files ITC-04 and the Rule 56 stock account fr
 
 > **`WH-SC-239`** — goods to job worker `JW-0044` under a challan dated 2026-08-12, owner unchanged,
 > expected return 2026-11-10, the clock running **from the challan date**; the ageing job runs on
-> 2026-10-27 and the customer **files ITC-04** for the quarter from warehouse data.
+> 2026-10-27 and the customer **files ITC-04** for the half-year (AATO > ₹5 crore) or the financial year (otherwise) that contains the challan, from warehouse data.
 >
 > **`WH-SC-240`** — a registration's quarter of movements, with reason codes carrying statutory
 > categories, filed as the **Rule 56 statutory stock account** in the mandated categories, reconciling
