@@ -55,7 +55,7 @@ produced it. All `grep` counts were run on **2026-09-01** against
 | E-invoice applicability | aggregate turnover above ₹5 crore, B2B / export / CDN; B2C out | §4.3 | **RE-VERIFY** |
 | E-invoice reporting window | 30 days from document date, above ₹10 crore turnover (from 2025) | §4.3 | **RE-VERIFY** |
 | Job work return window | 1 year for inputs, 3 years for capital goods | §4.4, §5.2 | **RE-VERIFY** |
-| ITC-04 periodicity | turnover-dependent, half-yearly / annually around a ₹5 crore line | §5.2 | **RE-VERIFY** |
+| ITC-04 periodicity | half-yearly when preceding-year AATO > ₹5 crore, otherwise annual; due the 25th of the following month (r.45(3), Notf 35/2021-CT, 1 Oct 2021) | §5.2 | **CONFIRMED 2026-11-03** |
 | HSN reporting digits | 4 / 6 / 8, by turnover | §5.3 | **RE-VERIFY** |
 | Goods sent on approval — deemed supply | 6 months | §4.5 | **RE-VERIFY** |
 | GST records retention | 72 months from the annual-return due date | §5.1, §10 | **RE-VERIFY** |
@@ -659,9 +659,7 @@ e-way bill uses); the IRP round-trip for transfers is **wave 2 / P4** with `FR-3
 **The rule.** Inputs sent to a job worker must be returned, or supplied from the job worker's
 premises, within **one year**; capital goods within **three years**. Failing that, the sending is
 **deemed a supply on the date the goods were sent**, with interest. The movement travels on a
-delivery challan and the quantities out and back are reported in **ITC-04**. *(CGST Act s.143 with
-Rules r.45 and r.55 — **section numbers `UNVERIFIED`**; windows and ITC-04 periodicity
-**`RE-VERIFY`**.)*
+delivery challan and the quantities out and back are reported in **ITC-04**. *(CGST Act s.143(1)(a)-(b) windows, s.143(3) inputs and s.143(4) capital goods deemed supply, s.19(7) moulds/dies/jigs/fixtures/tools; Rules r.45 and r.55; ITC-04 half-yearly or annual under r.45(3) - confirmed 2026-11-03; the 1-year / 3-year windows remain `RE-VERIFY` against the Commissioner's extension power.)*
 
 **Why this matters more in this suite than it looks.** R5 puts it bluntly: *every workshop that sends
 a part out for machining, every dealer that sends a body panel for painting, every accessories
