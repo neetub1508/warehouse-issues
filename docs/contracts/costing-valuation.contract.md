@@ -132,7 +132,7 @@
 | ID | Action | Permission | Allowed from | Source |
 |---|---|---|---|---|
 | CVL-T2-01 | View / export cost layers (read-only; a layer is never edited) | `whb_cost_layers:view` / `:export` | — | FR-234 |
-| CVL-T2-02 | Add / edit / end-date a valuation policy | `whb_valuation_policies:create` / `:edit` | — | FR-235 |
+| CVL-T2-02 | Add / edit / end-date a valuation policy; withdraw (`:delete`, only before the start) | `whb_valuation_policies:create` / `:edit` / `:delete` | — | FR-235 |
 | CVL-T2-03 | Landed cost create / edit / apply / reverse / cancel | `wh_landed_cost_documents:create` / `:edit` / `:apply` / `:apply` / `:edit` | `DRAFT` / `DRAFT` / `DRAFT` / `APPLIED` / `DRAFT` | FR-238 |
 | CVL-T2-04 | Revaluation create / edit / approve / reject / post / cancel | `wh_revaluations:create` / `:edit` / `:approve` / `:approve` / `:edit` / `:edit` | see §1.2 | FR-240 |
 | CVL-T2-05 | NRV create / approve / reject / reverse | `wh_nrv_assessments:create` / `:approve` / `:approve` / `:reverse` | see §1.2 | FR-241 |
@@ -173,7 +173,7 @@
 | ID | Screen · grid · scope | Contract | Source |
 |---|---|---|---|
 | CVL-T5-01 | WS-049 Cost Layers (Customer ref.) · `whb_cost_layers` · `WAREHOUSE_COST_LAYER` | read-only; View drills into the consumptions (`whb_cost_layer_consumptions`) — which layer fed which issue; filter `hasRemaining` default **true**; `costBasis` filter (exact match, `select`, position 8, default visible) offers every basis the engine writes to a layer — `ACTUAL`, `AVERAGE`, `ESTIMATED`, `RETURN_UNMATCHED` (never `ZERO_BAILMENT`, L-14) — then any other stored value, served by `/cost-basis-options` and labelled through `registryLabel`; blank = no restriction, an unknown code matches no row; list, count and export bind the same predicate (`V501241`); `layerDateFrom`/`To` `dateOnly` | FR-234 |
-| CVL-T5-02 | WS-050 Valuation Policies (Department ref.) · `whb_valuation_policies` · `WAREHOUSE_VALUATION_POLICY` | Add / Edit / End-date; method select offers `AVCO`, `FIFO`, `STANDARD` (the backend's `/method-options`) and states why LIFO is absent; footer names the grain | FR-235, FR-236 |
+| CVL-T5-02 | WS-050 Valuation Policies (Department ref.) · `whb_valuation_policies` · `WAREHOUSE_VALUATION_POLICY` | Add / Edit / End-date / Withdraw (before the start only); a stale Edit, End or Withdraw is refused 409 `VALUATION_POLICY_VERSION_CONFLICT` and shown inside its dialog; method select offers `AVCO`, `FIFO`, `STANDARD` (the backend's `/method-options`) and states why LIFO is absent; footer names the grain | FR-235, FR-236 |
 | CVL-T5-03 | WS-147 Landed Cost Documents · `wh_landed_cost_documents` · `WAREHOUSE_LANDED_COST_DOCUMENT` | the basis is chosen on the document from the receipt side; detail shows the stored allocation rows with the layer / COGS split | FR-238, FR-239 |
 | CVL-T5-04 | WS-148 Revaluations · `wh_revaluations` · `WAREHOUSE_REVALUATION` | lines pick an open layer (`/layers`); actions Approve · Reject · Post · Cancel by state | FR-240 |
 | CVL-T5-05 | WS-149 NRV Assessments · `wh_nrv_assessments` · `WAREHOUSE_NRV_ASSESSMENT` | the register shows a write-down and its reversal as two linked rows with assessor and date; **Candidates** tab (`/candidates`) drills to the producing position | FR-241 |
@@ -199,6 +199,7 @@ columns and filters as a report (`reports-kpis` §5).
 | 2026-10-26 | `P2-16` #115 S2 `G1`: `CVL-T5-01` — the `costBasis` filter built (`V501241`, `/cost-basis-options`, `WAREHOUSE_COST_LAYER.enum`); §10 row 8 closed |
 | 2026-10-23 | R31: `F-CB-007` (`CVL-GRD-09a` reverse guard; missing landed-cost codes on `CVL-GRD-08`); `F-CB-018` (§10 row 6 deleted as false, `CVL-GRD-18` corrected); `F-CB-012` (§10 row 8, `P2-16` acceptance item); `CVL-OPEN-01` decided, `-02`, `-03` deferred |
 | 2026-11-02 | R33 F700 #700 S2: `CVL-T1-07`, `CVL-T1-10a` — Reject's eligible set is Approve's minus the limit / cover checks (`DAP-GRD-15`, `-16`); `canReject` is the engine's page-batched REJECT set (document-approval §7 R33 #700) |
+| 2026-11-03 | R34 F771 #771 S2 (W05-01, WS-050): `CVL-T2-02` names Withdraw (`:delete`, only before the start); `CVL-T5-02` — Edit, End and Withdraw lock the policy row and carry the row `version`; a stale write is 409 `VALUATION_POLICY_VERSION_CONFLICT` after the 422 ended / started guards, and a refused Withdraw shows inside its dialog (mirrors the GL posting rule overlay, #281) |
 
 ## 8. Invariants and scenarios
 
