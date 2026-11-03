@@ -1394,6 +1394,32 @@ counts purchase orders only · a reservation cannot be
 released · a survivor serial or identifier collides · the loser holds stock outside the caller's owner or
 site scope (`403`).
 
+**Open documents, the full set (W03-01, `P1-21` #148 S4–S4d).** Every non-terminal item- or counterparty-bearing
+document of `warehouse`, `warehouse-india` and `warehouse-3pl` has a provider; the architecture test
+`WhbMasterMergeOpenDocumentCoverageArchitectureTest` fails on a new one without a provider or a recorded reason.
+The predicates below are the ones settled in review, beyond a document's plain open status set:
+- **Delivery challan (India).** `ISSUED`, `closed_at` empty, and still holding a live e-way bill (the challan
+  Cancel guard's own predicate at the sending site's day: an expired or Part-A-lapsed bill is history), an IRN
+  filing **in flight** (`PENDING` / `SUBMITTED` / `UNKNOWN`), or an open job-work registration or approval
+  dispatch. An `ACCEPTED` IRN or recorded IRN evidence is history, not an open state (it never completes); the
+  challan's own Cancel still refuses on it. An e-way bill is open on the same live predicate.
+- **Replenishment.** `PROPOSED` suggestions of every origin; putaway and replenishment tasks in
+  `WhbTask.OPEN_STATUSES`.
+- **Quality inspection (item).** A line of the item, and: `completed_at` empty (pending, in progress or returned) ·
+  or result approval `PENDING` · or — stock-bearing — a QC-held remainder above zero on **one of the loser's own
+  lines**, by the canonical series-wide `remainingQuantity` (a series a sibling inspection has used up does not
+  refuse; another item's line on the same inspection does not). Each row shows its derived state.
+- **Hold (item).** Unreleased (`released_at` empty) `ITEM` hold on the loser or `LOT` hold on one of its lots; no
+  site, listed on the item's or lot's owner tier.
+- **Reconciliation case.** `OPEN` or `ASSIGNED`, and its source line is on the loser item (ASN: the PO line;
+  supplier return: the return line; invoice: the receipt line) — or its subject document's counterparty is the
+  loser (the supplier of the receipt, order or supplier return, of the receipt a reversal reverses, or a gate
+  entry's party). A header-level case names no item.
+- **Polymorphic subjects** (`subject_type` / `subject_id`) are outside the column scan: each status-bearing one is
+  ruled on by hand — holds and reconciliation cases refuse; compliance tasks, 3PL accessorials and billable events
+  and print jobs cannot strand a merge (`POLYMORPHIC_NOT_A_SUBJECT`).
+Decisions: `docs/reviews/R33-run-decisions.md` (#148 rows).
+
 **In code, not in contract** (carried from the P1-21 build, now contract):
 
 | Rule | Behaviour |
