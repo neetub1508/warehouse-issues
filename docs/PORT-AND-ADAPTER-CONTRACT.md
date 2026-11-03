@@ -719,6 +719,10 @@ Marked as **additions**, each with the clause that makes it necessary. They are 
 | `STANDARD_COST_ALIGNMENT_PENDING` | 409 | conditionally | `#115` G2 (2026-10-26) — the item's standard-cost alignment has not yet restated its layers (line); referenced from `WhbCostingEngine` |
 | `PUTAWAY_DG_LOCATION_NOT_APPROVED` | 422 | no | `#126` G2 (2026-10-26) — a dangerous-goods item placed into a location no DG store approves for its class (line) |
 | `MOVEMENT_COMPENSATED` | 409 | no | `#57` S4h (2026-10-26, R33 decision, build `V501248`) — reversing a movement a live movement compensates (a PICK a DESTAGE moved on), `MPR-GRD-64` (header) |
+| `RESERVATION_NOT_OWN_HOLD` | 422 | no | `MOD-DIV-04` — a post / reverse `consumed_reservation_ids` entry that is not a hold of the envelope's `source_system` in the movement's company, or is no hold at all (one answer for both: existence of another holder's hold is not disclosed) *(#71 W02-07)* |
+| `RESERVATION_NOT_CONSUMED_BY_MOVEMENT` | 422 | no | `MOD-DIV-04` — a named hold is consumed whole or not at all: its grain is not taken off in full by the movement's outbound lines, or the movement goes `PENDING` (approval) and moves no stock yet *(#71 W02-07)* |
+| `RESERVATION_ALREADY_CLOSED` | 409 | no | `MOD-DIV-04` — a named hold is already RELEASED / CONSUMED and no committed movement owns the request's key. A same-key retry whose first request committed is answered with that movement (replay) instead — also when it waited on the hold's grain lock *(#71 W02-07)* |
+| `RESERVATION_DUPLICATE` | 409 | no | `MOD-DIV-04` — a port reversal's restore would open a second OPEN hold for a holder line that already has one at that grain; the whole reversal rolls back, and the holder releases its newer hold and retries *(#71 W02-07)* |
 
 **Total: 31 ratified + 32 additions (30 contract additions + the two built precedents) = 63** — the set `FR-039`
 names, folded by `RD-008` (2026-09-16), and the set `WhbLedgerErrorCodes.VOCABULARY` publishes;
