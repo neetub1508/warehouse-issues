@@ -45,7 +45,7 @@
 | `warehouse-india` | `ai.warehouseindia` | platform + base + `warehouse` | **V540000–V549999** | `whin_` | `ENABLE_WAREHOUSE_INDIA` | `enable.warehouse.india` | **yes** (v2, e-way bill / challan screens) |
 | `warehouse-trade` *(D-16)* | `ai.warehousetrade` | platform + base + `warehouse` | **V550000–V559999** | `wht_` | `ENABLE_WAREHOUSE_TRADE` | `enable.warehouse.trade` | `with-warehouse-trade` | **yes** (P9 — PR, RFQ, quotation, rate contract, order agreement screens) |
 | `warehouse-manufacturing` *(D-16)* | `ai.warehousemanufacturing` | platform + base + `warehouse` (+ `warehouse-india` seams) | **V560000–V569999** | `whm_` | `ENABLE_WAREHOUSE_MANUFACTURING` | `enable.warehouse.manufacturing` | `with-warehouse-manufacturing` | **yes** (P10 — BOM, production order, MRP screens) |
-| `accounting-adapter-warehouse` *(R32, `P8-23` #174 — reserved, design set only)* | `ai.accountingadapterwarehouse` | platform + `warehouse-base` + `accounting-base` (the **only** module importing both, `AHO-GRD-14`) | **V620500–V620599** (adapter DDL, if any; a sub-band of the accounting adapter range V620000–V620999 per accounting `DATA-MODEL.md`:3560, 4468 — R33 #174 S1 D1, replacing the earlier V621000–V621999) | `aaw_` (only if it ever owns a table) | `ENABLE_ACCOUNTING_ADAPTER_WAREHOUSE` | `enable.accounting.adapter.warehouse` (+ declares `enable.warehouse.accounting_sink=true`) | `with-accounting-adapter-warehouse` | **no** (backend-only, as `accounting-adapter-dealer`) |
+| `accounting-adapter-warehouse` *(R32, `P8-23` #174 — reserved, design set only)* | `ai.accountingadapterwarehouse` | platform + `warehouse-base` + `accounting-base` (the **only** module importing both, `AHO-GRD-14`) | **V620600–V620699** (adapter DDL, if any; BATCH-ACCOUNTING-DECISIONS D12a, 2026-11-03 — supersedes ~~V620500–V620599 (R33 #174 S1 D1)~~, which is insurance-360's; the earlier V621000–V621999 was stale) | `aaw_` (only if it ever owns a table) | `ENABLE_ACCOUNTING_ADAPTER_WAREHOUSE` | `enable.accounting.adapter.warehouse` (+ declares `enable.warehouse.accounting_sink=true`) | `with-accounting-adapter-warehouse` | **no** (backend-only, as `accounting-adapter-dealer`) |
 
 **Since `D-16`:** the landing is base, app, `warehouse-adapter-example` (CI only), `warehouse-3pl`,
 `warehouse-india`, `warehouse-trade` and `warehouse-manufacturing`. The env-flag and property names for
@@ -69,16 +69,16 @@ If an adapter ever needs a screen it becomes frontend-bearing and costs, in one 
 per adapter, before it is scaffolded; R7 `B10` says an adapter must not ship a screen that duplicates
 a base grid, which is the usual reason it does not need one.
 
-### `accounting-adapter-warehouse` — integration points (R32-fix `F-R32CA-031`; reserved, not yet scaffolded)
+### `accounting-adapter-warehouse` — integration points (R32-fix `F-R32CA-031`; ~~reserved, not yet scaffolded~~ scaffolded by P8-23 #174 S2, 2026-11-03)
 
-`P8-23` (#174) names the module; until this section it had no band and no registration. Band **V620500–V620599** (R33 #174 S1 D1; accounting `DATA-MODEL.md`:3560, 4468),
-re-verify with the free-band command below (bounded to `620500..620599`) before the first migration. Backend-only, so
-the frontend points (§6, §7, §11, §12.1) do not apply. The points it does need, each copied from
+`P8-23` (#174) names the module; until this section it had no band and no registration. Band **V620600–V620699** (BATCH-ACCOUNTING-DECISIONS D12a, 2026-11-03, superseding ~~V620500–V620599, R33 #174 S1 D1~~ — that band is insurance-360's),
+re-verify with the free-band command below (bounded to `620600..620699`) before the first migration. Backend-only, so
+the frontend points (§6, §7, §11, §12.1) do not apply — except the `ENABLE_ACCOUNTING_ADAPTER_WAREHOUSE` build arg / `NEXT_PUBLIC_*` env in `Dockerfile.frontend` and the compose frontend block, kept for parity with `accounting-adapter-dealer` (S4 P3; it merges accounting-base and warehouse, as the backend auto-enables them). The points it does need, each copied from
 `accounting-adapter-dealer` (the precedent) and the §2 matrix:
 
 | # | Point | What the adapter adds |
 |---|---|---|
-| 1 | `accounting-adapter-warehouse/backend/pom.xml` (§4) | parent + `platform-backend` + `warehouse-base-backend` + `accounting-base-backend`, the full test / compiler / surefire block |
+| 1 | `accounting-adapter-warehouse/backend/pom.xml` (§4) | parent + `platform-backend` + `warehouse-base-backend` + `warehouse-backend` (D8′ / D14: CN-16 / CN-17 implement core ports) + `accounting-base-backend`, the full test / compiler / surefire block |
 | 2 | root `pom.xml` Maven profile (§3) | `with-accounting-adapter-warehouse`, ordered **after** both `with-warehouse-base` and `with-accounting-base` |
 | 3 | `shared/docker/Dockerfile.backend` (§5.1, §5.2) | the seven edits + the assertion that both sides' jars are present |
 | 4 | `ModuleImportSelector.java` + `AccountingAdapterWarehouseModuleConfig` (§8, §8.1) | conditional on `enable.accounting.adapter.warehouse` **and** both siblings enabled |
@@ -87,7 +87,8 @@ the frontend points (§6, §7, §11, §12.1) do not apply. The points it does ne
 | 7 | seam tests (§13.2, §13.3) | `WhbAccountingSeamContractTest` allowlists this module as the one importer of `ai.warehousebase.*` and `ai.accounting*`; its own `ArchitectureInvariantsTest` |
 | 8 | test gate | a `shared/scripts/ci-gate.sh` `.def` entry for the adapter's integration tests (`P8-24`) |
 | 9 | `start.sh --docker` module flag | enable with `warehouse-base` + `accounting-base` |
-| 10 | `classic/CLAUDE.md` MODULES table | a row for the module and band — **pending user approval** (`RETARGET-PROGRAM-STATUS.md` *Pending user items*); this design set does not edit `CLAUDE.md` |
+| 10 | `classic/CLAUDE.md` MODULES table | a row for the module and band — **pending user approval** (`RETARGET-PROGRAM-STATUS.md` *Pending user items*); this design set does not edit `CLAUDE.md`. `classic/.codex/standards.md` carries the row (S4 P2) |
+| 11 | `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports` | the first module to use it: a configuration whose beans are `@ConditionalOnBean` on beans another module defines (here `AawInboundReadAutoConfiguration`, CN-16 / CN-17 over accounting's receivers) must be an auto-configuration listed there, gated on the module condition, and kept out of the module config's component scan by `AutoConfigurationExcludeFilter` — a scanned `@Configuration` evaluates `@ConditionalOnBean` before the other module's beans exist (S4 m2) |
 
 ### Free-band proof (D-2)
 
