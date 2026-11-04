@@ -533,3 +533,21 @@ These existing GitHub reports have no source task file in this batch; listed for
 | #424 | `tracking-only (no task file)` | [warehouse-india] E-way dialogs: no coverage for a 401 mid-dialog and for how a provider-REJECTED Fill Part B is shown (follow-up of #401) |
 | #700 | `tracking-only (no task file)` | [Warehouse] Approvals - five engine mappers derive canReject from the APPROVE eligibility set |
 | #401 | `tracking-only (no task file)` | [Follow-up F326] Fill Part B, Update vehicle and Extend carry no request key - a sequential double submit files twice |
+
+## Terminology review — 2026-11-03
+
+> Item master and warehouse naming checked against ERP products and Indian practice. Verdict: keep Item / Item Type / Item Category; fix drift and add part-number search. Driver: classic `BATCH-WAREHOUSE-E2E-IN.md` § Wave T.
+
+| Issue | Task file | Title |
+|---|---|---|
+| #796 | `term-wt-01.md` | [Warehouse] [Finding] Terminology WT-01 · Fix item-master labels: name, category, item column, type names |
+| #797 | `term-wt-02.md` | [Warehouse] [Finding] Terminology WT-02 · Call the facility "Warehouse" everywhere, not Site or Warehouse |
+| #798 | `term-wt-03.md` | [Warehouse] [Finding] Terminology WT-03 · Disambiguate document names: GRN vs MRN, work order, consignment, lot |
+| #799 | `term-wt-04.md` | [Warehouse] [Finding] Terminology WT-04 · Say "Supplier" consistently and fix counterparty and owner labels |
+| #800 | `term-wt-05.md` | [Warehouse] [Finding] Terminology WT-05 · Correct fr/hi meaning drift and untranslated warehouse strings |
+| #801 | `term-wt-06.md` | [Warehouse] [Finding] Terminology WT-06 · Make part numbers searchable and print them on PO, GRN and dispatch |
+| #802 | `term-wt-07.md` | [Warehouse] [Finding] Terminology WT-07 · Seed missing item types: spare, traded good, loose tool, scrap |
+| #803 | `term-wt-08.md` | [Warehouse] [Finding] Terminology WT-08 · Add a label-only item noun setting: Item, Part or Material |
+| #804 | `term-wt-09.md` | [Warehouse] [Finding] Terminology WT-09 · Make customer item references reuse the base customer part number |
+| #805 | `term-wt-10.md` | [Warehouse] [Finding] Terminology WT-10 · Rename planned screens that collide with built names |
+| #787 | `tracking-only (no task file)` | [Warehouse Base] Regroup base menu: warehouse_ledger and warehouse_item_masters hold 10 screens each (cap 8) — minor |
