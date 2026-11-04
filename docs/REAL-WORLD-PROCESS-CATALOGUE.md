@@ -195,6 +195,7 @@ Each lane listed the real-world steps of its domain, the rule behind each step a
 | 44 | Samples, golden sample, sample cost pool | Sales / QA | Sample order | — | COVERED | #655 P10-19, FR-799 |
 | 45 | Unbuild / disassembly of a manufactured item (customer return, rework by teardown) | Production | Unbuild order | Odoo "Unbuild orders", "Dismantle products" (Odoo index) | COVERED-by-refusal (R-07, with a re-entry path). Not raised: a minor convenience |
 | 46 | Over-production allowance | PPC | — | ERPNext overproduction % (ERPNext settings) | COVERED | #598 FR-647 tolerances |
+| 47 | Issue before the bill: a backflush beyond on-hand is valued at an estimate, and the covering receipt at a different price settles the difference | Stores / accountant | Receipt + cost-variance voucher | SAP posts negative-stock settlement to the price-difference account (PRD); Oracle average costing books an Average Cost Variance; Odoo books a correction layer against the original move's accounts; Ind AS 2 ¶10-11, ¶34 (actual cost, expensed in the period recognised) | COVERED | #671 F671 (`COST_ESTIMATE_SETTLEMENT`, V501346); negative stock stays BACKFLUSH-only (V500601) and no production poster sets BACKFLUSH today |
 
 ---
 

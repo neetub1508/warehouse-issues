@@ -260,7 +260,9 @@ blocking on pending handovers** (`WH-SC-163`) has no warehouse job and no named 
 ### 5.3 `/warehouse/masters/gl-posting-rules` — WS-051 GL Posting Rules — BUILT, read here
 
 The envelope carries the rule's result when one resolves (`postingRuleId`, `debitAccountRef`,
-`creditAccountRef`) beside the classification quad; no rule resolving is not a refusal (`ACC-ENV-05`).
+`creditAccountRef`) beside the classification quad; no rule resolving is not a refusal (`ACC-ENV-05`) — except
+F671 (#671 D5): on an INTEGRATED install a valued `COST_ESTIMATE_SETTLEMENT` / `_REVERSAL` line with no rule refuses
+the post `409 COST_ESTIMATE_SETTLEMENT_RULE_REQUIRED`, with the receipt it belongs to (STANDALONE builds no envelope).
 **This conflicts with `p2-18.md` Traps and `WH-SC-156`**, which say warehouse holds classification only
 and no account codes (`AHO-OPEN-02`). This contract records the built behaviour and does not choose.
 
