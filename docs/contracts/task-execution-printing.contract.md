@@ -101,7 +101,7 @@
 |---|---|---|---|---|---|
 | TEP-T2-01 | Assign / reassign / claim / cancel / complete with exception | `whb_tasks:{assign,reassign,claim,edit}` — push and single-task assign `:assign` (base-seeded, `V501237`), cancel / complete with exception `:edit`, reassign `:reassign`, pull `:claim` | as §1.2 | assignee qualified | `FR-214`, `FR-215` |
 | TEP-T2-02 | Exception console | no permission of its own — the union of its sources' view permissions | — | — | `FR-216` |
-| TEP-T2-03 | Templates / jobs / printers / routing | `wh_print_templates:{create,edit,publish}` · `wh_print_jobs:{create,void}` · `wh_printers:{create,edit,delete,test_print}` · `wh_print_routing_rules:{create,edit,delete,test_routing}` | — | — | `FR-224` |
+| TEP-T2-03 | Templates / jobs / printers / routing | `wh_print_templates:{create,edit,publish}` · `wh_print_jobs:{create,void}` · `wh_printers:{create,edit,delete,test_print}` · `wh_print_routing_rules:{create,edit,reorder,delete,test_routing}` - routing create / edit / reorder / delete need the **ADMIN** grant level at the site, `test_routing` needs **VIEW** (#785) | — | — | `FR-224` |
 | TEP-T2-04 | Labour; weighing instruments | `wh_labour_tasks:record` · `wh_weighing_instruments:{create,edit}` · `wh_weighing_records:{create,acknowledge}` | — | — | `FR-223`, `FR-227` |
 
 ## 3. T3 — Time-driven rules
@@ -157,6 +157,7 @@
 | 2026-11-02 | #573 S2c G5, G6: `TEP-T4-09` rendered-language row - Devanagari shaped per word without `LayoutProcessor`, the selectability limit, `SYS-ITEM-LABEL` v3 declaration. Ratification by /functional-contract pending |
 | 2026-11-02 | #573 S4 (R33 S3 F3, F5): `TEP-T4-09` - the lot / serial PDF label size (6 pt / 7 pt, every language) and a Hindi word wider than its cell scaled down to fit |
 | 2026-11-03 | #573 S5 (R33 functional F1): `TEP-T4-10` - the caption language order, one language per render, the reprint and port language. Ratification by /functional-contract pending |
+| 2026-11-04 | #785 S4b: `TEP-T2-03` routing create / edit / reorder / delete = ADMIN grant level, `test_routing` = VIEW |
 
 ## 7. Invariants and scenarios
 
