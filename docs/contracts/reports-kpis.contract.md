@@ -115,6 +115,23 @@ Permission for each is `<grid id>:view` / `:export`.
 | RKP-T5-15 | Consolidated valuation across both inventories (WS-222) | per FRD: tagged by source system, the differing-method caveat rendered on the report | — | **WS-222 is REMOVED by `D-16` (`RN-051`, `P7-09`)**; `FR-397` is withdrawn in the FRD (`D-17`; `D-18` item 6 keeps it withdrawn) — this row records the removal only (`RKP-OPEN-01`) | FR-397 |
 | RKP-T5-16 | Scheduled copy of WS-215 / WS-212 / WS-224 · Admin → Scheduled Reports (platform screen) · no grid of its own | one PDF section per screen tab with that tab's **export columns, label for label** (WS-215: Low Stock, Insufficient Stock, Suggestions; WS-212 without the six bucket values for a recipient without `warehouse:cost:view`; WS-224 its thirteen columns); the key figures are the screen's strip (WS-212's value figures cost-gated), tabs 2 and 3 of WS-215 state their five in the section | the schedule's branch (narrows only) · frequency / time (the platform config) · `warehouse.reports.scheduled_report_scope_mode` · `warehouse.reports.scheduled_empty_report` | each section in the grid's default order, at most 500 rows, a cut section names the screen for the rest; cells in the recipient's date format, zone and currency | FR-391, FR-450 |
 
+### 5.1 Register item-category filter (#852)
+
+Applies to every register whose filter strip offers `itemCategoryId` — WS-208 Stock on Hand (both tabs), WS-209
+Movement Register, WS-210 Godown Statement, WS-211 Valuation, WS-212 Stock Ageing, WS-215 Low Stock (all three tabs),
+WS-219 Stock-to-GL, WS-221 Expiry, the stores consumption register and the WS-696 quality registers (vendor
+rejection, defect Pareto, pass rate) — including the rows on §6's list, for this rule only.
+
+| ID | Rule | Source |
+|---|---|---|
+| RC-T5-01 | **A category means itself and every category under it.** Picking a parent — STOCKING itself, or any node below it — lists every item assigned to that node, its children and their children, as SAP MB52's material-group selection and Tally's stock-group summary roll up. Grid, count, tiles and export read the one predicate. The scheme stays STOCKING (#846) and each register keeps its own assignment clock: report day (stock on hand, low stock), the line's instant (movement, godown, Stock-to-GL, stores), site day (expiry), as-at (valuation, ageing), current assignment (quality). An item in force on one STOCKING node is counted once; another scheme's category or root matches nothing; an unknown id matches nothing; no category = every row. | #852; `WhbItemCategorySql.ITEM_CATEGORY_SUBTREE` (cycle-safe `UNION` walk, bound parameter) |
+| RC-T5-02 | **A category → item cascade picker offers exactly the items the filtered grid shows**: the WS-212 ageing item picker and the quality-register item picker read the same subtree. The ageing *category* picker is unchanged (categories in the grain only, #852 G5). The inspection-plan assignment item picker is a rule master and stays EXACT (#852 G3). | #852; `WhbItemUomOptionsService.searchItemsInCategorySubtree` |
+| RC-T5-03 | **The WS-219 → WS-209 drill stays exact.** With a period bound (`drillGrain`), the movement register matches the row's EXACT category, as WS-219 groups its row, so the drilled list ties to the row it came from — the site filter's `AHO-RPT-05` precedent. A user who sets a period and a parent by hand gets the exact match too. | #852 G4 |
+
+Out of RC-T5-01 — they match a category exactly: GL posting-rule resolution (`GLR-06`, no parent search), the
+allocation / approval-policy / QC-authorisation rule masters, inspection-plan assignment, stock position and the item
+master filter.
+
 ## 6. Out of scope
 
 WS-219 Stock-to-GL (`accounting-handover`), WS-220 in-transit ageing, WS-221 expiry register,
@@ -128,6 +145,7 @@ reconciliation (removed, `D-16`). WS-223 health is **in** scope through `RKP-T3-
 | 2026-10-23 | v0 derived (R30 `CP-FR-007` row 21) |
 | 2026-10-23 | R31: `F-CB-021` (`RKP-T5-15`; WS-223 out of §6); `FR-471` restored (`D-18` item 6: `RKP-T5-12`, §10 row 4, `RKP-OPEN-01`); `RKP-OPEN-02` decided with §9.1 dispositions |
 | 2026-11-06 | #141 S4: scheduled per-recipient report copies and the LOW_STOCK alert — `RKP-T3-03`, `RKP-T3-04`, `RKP-T4-01`, `RKP-T4-02`, `RKP-T5-16` |
+| 2026-11-06 | #852 S2: §5.1 register item-category filter — `RC-T5-01` (descendants), `RC-T5-02` (cascade pickers), `RC-T5-03` (WS-219 drill stays exact) |
 
 ## 8. Invariants and scenarios
 
