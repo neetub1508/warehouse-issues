@@ -488,3 +488,4 @@ One row per question. Full reasoning and sources are in the issue comment named 
 | 2026-11-06 | #831 S4cv | holdLot deadlock LB-1 | no pre-lock + raise in its own post-commit transaction; catch-up covers a failed raise | recommended default |
 | 2026-11-06 | F784/F789 S3 | 3 behaviour changes | all kept (dry-run/apply symmetry; RA-001; owner axis) | functional reviewer |
 | 2026-11-06 | #330 S3 | F2 landed cost on partly departed layer | IAS 2 10-11 pass-through to transit/receiver layer; F4 -> #839 | industry standard |
+| 2026-11-06 | #329 S2 | W06-01 rate source for a foreign-currency PO receipt | setting warehouse.receiving.foreign_receipt_rate_source default RECEIPT_DATE_RATE (IAS 21.21 / Ind AS 21.21 spot at transaction date); PO_RATE, MANUAL selectable; no rate = EXCHANGE_RATE_REQUIRED | industry standard |
