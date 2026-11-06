@@ -485,3 +485,6 @@ One row per question. Full reasoning and sources are in the issue comment named 
 | R36-25 | F707 S3 F1 | four outbound evidence uploads keep the shared 503 ATTACHMENT_STORAGE_UNAVAILABLE refusal (parity with GRN/session/grading); the cause stays in the app log; RE-T4-01 amended | consistency across evidence surfaces; no extra acceptance |
 | R36-25 | #831 S4bv F1/F2 | catch-up locks AVAILABLE rows only; QC_HOLD target re-checked under the QCSRC source lock (disposition order), never row-locked; IIS-T1-15c states the order | PostgreSQL single global lock order |
 | 2026-11-06 | F776 #776 S3 | functional minors | F1/F2/F4/F6 fixed in S4; F3 (refusal anchor) and F5 (lot-less label match, predates F776, still refused at save) accepted | recommended default |
+| 2026-11-06 | #831 S4cv | holdLot deadlock LB-1 | no pre-lock + raise in its own post-commit transaction; catch-up covers a failed raise | recommended default |
+| 2026-11-06 | F784/F789 S3 | 3 behaviour changes | all kept (dry-run/apply symmetry; RA-001; owner axis) | functional reviewer |
+| 2026-11-06 | #330 S3 | F2 landed cost on partly departed layer | IAS 2 10-11 pass-through to transit/receiver layer; F4 -> #839 | industry standard |
