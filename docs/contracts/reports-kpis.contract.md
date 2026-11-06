@@ -78,10 +78,17 @@ None. A report has no state and no transition. WS-244 rows are effective-dated m
 |---|---|---|---|---|
 | RKP-T3-01 | KPI snapshot written for the metrics that were proved slow | scheduled job (`WhKpiSnapshotRecorder`, audit `WH_KPI_SNAPSHOT_WRITTEN`), grains `DAY` / `MONTH` | `wh_kpi_snapshots` | FR-394 |
 | RKP-T3-02 | **Per-install health signals** (WS-223): movements posted today against a baseline (`warehouse.health.movement_baseline_days`, default 14; no history = a number, never a failure), handovers stuck pending, counts overdue, negative positions, orphaned reservations, unreconciled positions — each `OK` / `WARNING` / `FAILING` against its bound; alerts go in-app, email and push; the SMS channel is never offered while platform's SMS delivery is a stub | each health run (`WhbBaseHealthSignalSource`, `WhHealthSignalSource`) | the signal rows; nothing is scheduled, assigned or resolved (`FR-408`) | FR-398 |
+| RKP-T3-03 | **Scheduled report, one copy per recipient** (#141): WS-215 Low & Insufficient Stock (`WAREHOUSE_LOW_STOCK`, `V511833`), WS-212 Stock Ageing (`WAREHOUSE_STOCK_AGEING`) and WS-224 Stock As-At (`WAREHOUSE_STOCK_AS_AT`, both `V511837`) on the platform engine — no warehouse scheduler. Each resolved user (USER / ROLE / GROUP, once) is admitted or withheld by `WhScheduledReportRecipientScope` (disabled; no `<grid>:view`, ADMIN aside; no readable site; a schedule whose branch sees no site now; under `FIXED_SITE_RECIPIENTS_MUST_MATCH` a scope that does not cover the schedule's sites) and the copy is read **as that recipient** through the report's own export path, so their site tier, warehouse grants and owner scope apply; the schedule's branch only narrows. Cost columns are dropped per recipient (`WhbCostVisibility`, FR-450). Clock: WS-215 tabs 1 and 3 now, tab 2 the schedule's period; WS-212 as at the period's last day (recipient zone); WS-224 as at the close of the period. `warehouse.reports.scheduled_empty_report` SEND / SKIP. At most 500 rows per section | the schedule's own frequency and time (`ReportGenerationService`, one REQUIRES_NEW transaction per copy) | one PDF per recipient under `reports/<type>/<execution>/<user>/`, a REPORT_READY notification to that user only; the execution row keeps no shared file and records `N of M recipients failed` / `N of M recipients withheld` | FR-391, FR-405, FR-450 |
+| RKP-T3-04 | **LOW_STOCK alert**, once per site episode: a COMPLETED replenishment run (manual or scheduled) reads the site with WS-215 tab 1's row set; rows → claim the site's episode (`wh_low_stock_alert_episodes`) and raise through `WhbAlertRaiser.raiseOnce`; no rows → close the episode. Recipients are judged each on their own WS-215 site scope and an owner of the short stock; the message names the site only, with no route path, count or item. Audit `WH_LOW_STOCK_ALERT`, actor the run's user or `SCHEDULED_JOB` | after the run commits (`WhReplenishmentRunExecutor` → `WhLowStockAlertService`); an alert failure never fails the run | `wh_low_stock_alert_episodes`, the alert event and its deliveries | FR-383, FR-391 |
 
 ## 4. T4 — Cross-entity effects
 
-None. Reports read; only WS-244 writes, to its own table.
+Reports read; only WS-244 writes, to its own table. Two time-driven effects reach other entities:
+
+| ID | Effect | Written | Source |
+|---|---|---|---|
+| RKP-T4-01 | A scheduled warehouse report copy (`RKP-T3-03`) writes nothing in the warehouse: the platform's `scheduled_report_executions` row, the stored PDF and the recipient's notification only | platform engine tables and notifications | FR-391 |
+| RKP-T4-02 | A completed replenishment run opens or closes its site's LOW_STOCK episode and raises the alert event (`RKP-T3-04`) | `wh_low_stock_alert_episodes`, `whb_alert_events` and delivery obligations | FR-383 |
 
 ## 5. T5 — Screen contract
 
@@ -106,6 +113,7 @@ Permission for each is `<grid id>:view` / `:export`.
 | RKP-T5-13 | WS-228 Operations Dashboard · `/dashboard` | real-time operations widgets | — | on the platform widget framework, once `widget_definitions.chk_module` admits `warehouse` (BUILD-SPEC §8.1) | FR-399 — **not built, §10 row 5** |
 | RKP-T5-14 | WS-244 Metric Targets · `/metric-targets` · `wh_metric_targets` | `metricCode`, `metricName`, `warehouseName`, `ownerName`, `periodGrain`, `targetValue`, `unit`, `effectiveFrom`, `effectiveTo`, audit names | `metricCode` (from `whb_metric_definitions`) · `warehouseId` · `ownerId` · `periodGrain` | a target per metric × optional warehouse × optional owner × period grain, effective-dated; WS-216's `target` / `variance` read the effective row; no row ⇒ blank variance. `whb_metric_definitions` (code, name, unit, definition text key, owning module, direction) has no `CHECK`, so a module registers a metric by `INSERT` | FR-470 |
 | RKP-T5-15 | Consolidated valuation across both inventories (WS-222) | per FRD: tagged by source system, the differing-method caveat rendered on the report | — | **WS-222 is REMOVED by `D-16` (`RN-051`, `P7-09`)**; `FR-397` is withdrawn in the FRD (`D-17`; `D-18` item 6 keeps it withdrawn) — this row records the removal only (`RKP-OPEN-01`) | FR-397 |
+| RKP-T5-16 | Scheduled copy of WS-215 / WS-212 / WS-224 · Admin → Scheduled Reports (platform screen) · no grid of its own | one PDF section per screen tab with that tab's **export columns, label for label** (WS-215: Low Stock, Insufficient Stock, Suggestions; WS-212 without the six bucket values for a recipient without `warehouse:cost:view`; WS-224 its thirteen columns); the key figures are the screen's strip (WS-212's value figures cost-gated), tabs 2 and 3 of WS-215 state their five in the section | the schedule's branch (narrows only) · frequency / time (the platform config) · `warehouse.reports.scheduled_report_scope_mode` · `warehouse.reports.scheduled_empty_report` | each section in the grid's default order, at most 500 rows, a cut section names the screen for the rest; cells in the recipient's date format, zone and currency | FR-391, FR-450 |
 
 ## 6. Out of scope
 
@@ -119,6 +127,7 @@ reconciliation (removed, `D-16`). WS-223 health is **in** scope through `RKP-T3-
 |---|---|
 | 2026-10-23 | v0 derived (R30 `CP-FR-007` row 21) |
 | 2026-10-23 | R31: `F-CB-021` (`RKP-T5-15`; WS-223 out of §6); `FR-471` restored (`D-18` item 6: `RKP-T5-12`, §10 row 4, `RKP-OPEN-01`); `RKP-OPEN-02` decided with §9.1 dispositions |
+| 2026-11-06 | #141 S4: scheduled per-recipient report copies and the LOW_STOCK alert — `RKP-T3-03`, `RKP-T3-04`, `RKP-T4-01`, `RKP-T4-02`, `RKP-T5-16` |
 
 ## 8. Invariants and scenarios
 
