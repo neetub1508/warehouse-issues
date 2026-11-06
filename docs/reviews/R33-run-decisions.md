@@ -489,3 +489,5 @@ One row per question. Full reasoning and sources are in the issue comment named 
 | 2026-11-06 | F784/F789 S3 | 3 behaviour changes | all kept (dry-run/apply symmetry; RA-001; owner axis) | functional reviewer |
 | 2026-11-06 | #330 S3 | F2 landed cost on partly departed layer | IAS 2 10-11 pass-through to transit/receiver layer; F4 -> #839 | industry standard |
 | 2026-11-06 | #329 S2 | W06-01 rate source for a foreign-currency PO receipt | setting warehouse.receiving.foreign_receipt_rate_source default RECEIPT_DATE_RATE (IAS 21.21 / Ind AS 21.21 spot at transaction date); PO_RATE, MANUAL selectable; no rate = EXCHANGE_RATE_REQUIRED | industry standard |
+
+| #329 S3 | F1 keyed base cost wins on foreign schedule-priced line (reopened scope: keyed cost is the override); default rate source stays RECEIPT_DATE_RATE (DECISION-RULE 2, IAS 21.21); provider filed in accounting; IPV on stock on hand = follow-up (IAS 2) | driver e20cb3d7 2026-11-06 |
