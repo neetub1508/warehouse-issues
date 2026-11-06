@@ -1,4 +1,4 @@
-# Functional Contract — RFQ → vendor quotation → comparative statement → award
+# Functional Contract — RFQ → supplier quotation → comparative statement → award
 
 > **What this is.** The functional truth for sourcing in `warehouse-trade`: issuing an RFQ to several
 > suppliers, capturing their quotations (versioned), preparing the comparative statement with L1 ranking,
@@ -156,7 +156,7 @@ days, bids closed, awarded. Columns: `rfqNumber`, `warehouseName`, `buyerName`, 
 `status`, `buyerId`, `supplierId` (invitee), `itemId`, `dueFrom`/`dueTo`. Row actions: View · Edit · Issue
 · Capture response · Close bids · Prepare CS · Cancel · Print. Modal tabs: Header · Lines · Suppliers.
 
-### 5.2 WS-289 Vendor Quotations
+### 5.2 WS-289 Supplier Quotations
 Grid `wht_vendor_quotations`, scope `WAREHOUSE_TRADE_VENDOR_QUOTATION`, sort `e.quote_date DESC`; latest
 version per number by default (*All versions* toggle). Tiles: submitted (current), expiring ≤ 7 days,
 expired, awarded (period), unsolicited — counts. Columns: `vqNumber`, `versionNo`, `rfqNumber`,

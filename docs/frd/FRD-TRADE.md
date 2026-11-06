@@ -397,15 +397,15 @@ sections ≤ 8 leaves each (`TRD-07`).
 | WS-286 | Purchase Requisitions | `/warehouse/trade/purchase/requisitions` | SV | Purchasing — Sourcing | p9-04 |
 | WS-287 | Requisition Workbench | `/warehouse/trade/purchase/requisition-workbench` | SV | Purchasing — Sourcing | p9-04 |
 | WS-288 | RFQs | `/warehouse/trade/purchase/rfqs` | SV | Purchasing — Sourcing | p9-05 |
-| WS-289 | Vendor Quotations | `/warehouse/trade/purchase/vendor-quotations` | SV | Purchasing — Sourcing | p9-05 |
+| WS-289 | Supplier Quotations | `/warehouse/trade/purchase/vendor-quotations` | SV | Purchasing — Sourcing | p9-05 |
 | WS-290 | Comparative Statements | `/warehouse/trade/purchase/comparative-statements` (+ `/[id]`) | SV | Purchasing — Sourcing | p9-05 |
 | WS-291 | Purchase Rate Contracts | `/warehouse/trade/purchase/rate-contracts` | SV | Purchasing — Orders | p9-06 |
-| WS-292 | Purchase Orders | `/warehouse/trade/purchase/orders` | SV | Purchasing — Orders | p9-07 |
+| WS-292 | Purchase Orders | `/warehouse/trade/purchase/orders` | SV | Purchasing — Orders | p9-07 (core leaf `warehouse_purchase_orders` relabelled "PO Receipt Tracking" when trade is on, WT-10 G1) |
 | WS-293 | Purchase Order Detail | `/warehouse/trade/purchase/orders/[id]` | SV | (detail) | p9-07 |
 | WS-294 | Schedule Releases | `/warehouse/trade/purchase/releases` | SV | Purchasing — Orders | p9-07 |
 | WS-295 | Purchase Expediting | `/warehouse/trade/purchase/expediting` | SV | Purchasing — Orders | p9-10 |
 | WS-296 | PO Amendments | `/warehouse/trade/purchase/amendments` | SV | Purchasing — Orders | p9-11 |
-| WS-297 | Vendor Evaluations | `/warehouse/trade/purchase/vendor-evaluations` | SV | Purchasing — Orders | p9-12 |
+| WS-297 | Supplier Evaluations | `/warehouse/trade/purchase/vendor-evaluations` | SV | Purchasing — Orders | p9-12 |
 | WS-298 | Sales Enquiries | `/warehouse/trade/sales/enquiries` | SV | Sales — Pre-sales | p9-08 |
 | WS-299 | Customer Quotations | `/warehouse/trade/sales/quotations` | SV | Sales — Pre-sales | p9-08 |
 | WS-300 | Quotation Win/Loss | `/warehouse/trade/sales/win-loss` | D | Sales — Pre-sales | p9-08 |

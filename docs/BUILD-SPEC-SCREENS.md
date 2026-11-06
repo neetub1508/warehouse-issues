@@ -644,7 +644,7 @@ awk -F'|' '/^\| WS-[0-9]{3} \|/ && $7 ~ /Y/' $f | wc -l # configured grids → 2
 | WS-069 | Alert Rules | base | `/warehouse/platform/alert-rules` | C | Y | v1.1 · P3 |
 | WS-070 | Alert Events | base | `/warehouse/platform/alert-events` | C | Y | v1.1 · P3 |
 | WS-071 | Scan Enquiry Console | base | `/warehouse/ledger/scan` | — | N | v1 · P1 |
-| WS-072 | Purchase Orders | app | `/warehouse/inbound/purchase-orders` | SV | Y | v1 · P1 |
+| WS-072 | Purchase Orders (menu label "PO Receipt Tracking" when trade is on, WT-10 #805) | app | `/warehouse/inbound/purchase-orders` | SV | Y | v1 · P1 |
 | WS-073 | Purchase Order Detail | app | `/warehouse/inbound/purchase-orders/[id]` | — | N | v1 · P1 |
 | WS-074 | ASNs | app | `/warehouse/inbound/asns` | SV | Y | v1.1 · P3 |
 | WS-075 | Receiving Sessions | app | `/warehouse/inbound/receiving-sessions` | SV | Y | v1 · P1 |
@@ -1914,6 +1914,8 @@ Every statistics strip here is filter-aware and therefore **carries no cache nam
 ### 3.1 Inbound
 
 #### WS-072 · Purchase Orders · WS-073 · Purchase Order Detail
+
+> Menu label note (WT-10 #805 G1): when `warehouse-trade` is on the leaf reads "PO Receipt Tracking" (label only; route, name key and permission prefix unchanged); the page header stays "Purchase Orders".
 
 `/warehouse/inbound/purchase-orders` · **Service Vehicle** · `wh_purchase_orders` ·
 `WAREHOUSE_PURCHASE_ORDER` · `wh_purchase_orders:*` + verbs · v1 · P1 ·

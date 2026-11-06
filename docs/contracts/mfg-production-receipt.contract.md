@@ -205,7 +205,7 @@
 | **Export columns** | grid + outputs sheet + consumptions sheet + `createdByName`, `updatedByName` |
 | **Print** | `FG_RECEIPT_NOTE` (`PRC-T1-14`) |
 
-### 5.2 `/warehouse/manufacturing/receipt-reversals` — WS-327 Receipt Reversals
+### 5.2 `/warehouse/manufacturing/receipt-reversals` — WS-327 Production Receipt Reversals
 
 | | |
 |---|---|

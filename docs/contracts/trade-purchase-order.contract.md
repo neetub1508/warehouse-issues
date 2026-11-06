@@ -232,6 +232,8 @@ we do not sell processing.
 ## 5. T5 — Screen contract
 
 ### 5.1 WS-292 Purchase Orders (reference **Service Vehicle**)
+
+> Menu note (WT-10 #805 G1): the core leaf `warehouse_purchase_orders` (WS-072) is relabelled "PO Receipt Tracking" in en / fr / hi when trade is on, so this screen is the only "Purchase Orders"; trade off keeps the core label.
 Grid `wht_purchase_orders`, scope `WAREHOUSE_TRADE_PURCHASE_ORDER`, sort `e.order_date DESC`. Tiles:
 awaiting approval, approved / not issued, ack pending, overdue schedule lines, open value (company currency,
 plus *+n in other currencies*, FR-616). Columns: `poNumber`, `poType`, `versionNo`, `supplierName`,

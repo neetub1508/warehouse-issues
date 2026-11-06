@@ -183,7 +183,7 @@ current revision; row actions View · Edit · Attach document.
 audit; filters `side`, `isActive`; tiles active purchase, active sales, inactive, last run (purchase), last
 run (sales); modal tabs Criteria · Grade bands.
 
-**WS-297 / WS-309 Vendor Evaluations / Customer Ratings** (mirrored): run grid `wht_evaluation_runs` filtered
+**WS-297 / WS-309 Supplier Evaluations / Customer Ratings** (mirrored): run grid `wht_evaluation_runs` filtered
 by side, scopes `WAREHOUSE_TRADE_VENDOR_EVALUATION` / `WAREHOUSE_TRADE_CUSTOMER_RATING`; columns `schemeName`,
 `periodFrom`, `periodTo`, `status`, `counterpartyCount`, `gradeACount`…`gradeDCount`, `publishedByName`,
 `publishedAt`; filters `periodFrom`/`To`, `status`; tiles draft runs, published (period), superseded,

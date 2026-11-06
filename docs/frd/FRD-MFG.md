@@ -517,7 +517,7 @@ Ledger: `r32-ledger-mfg.tsv` (fold scratch). Every FR here is v1.1 · P10 like t
 | WS-324 | Production Order detail | `production-orders/[id]` | detail page, tabs: Components · Outputs · Operations · Materials (MRQ/issues/returns/staging) · Receipts · Quality · Cost · Genealogy · History | — | p10-05 |
 | WS-325 | Staging Lists | `staging-lists` | **Service Vehicle** | `whm_staging_lists` · `WAREHOUSE_MFG_STAGING_LIST` | p10-06 |
 | WS-326 | Production Receipts | `production-receipts` | **Service Vehicle** | `whm_production_receipts` · `WAREHOUSE_MFG_PRODUCTION_RECEIPT` | p10-07 |
-| WS-327 | Receipt Reversals | `receipt-reversals` | **Service Vehicle** | `whm_production_receipt_reversals` · `WAREHOUSE_MFG_RECEIPT_REVERSAL` | p10-07 |
+| WS-327 | Production Receipt Reversals | `receipt-reversals` | **Service Vehicle** | `whm_production_receipt_reversals` · `WAREHOUSE_MFG_RECEIPT_REVERSAL` | p10-07 |
 | WS-328 | Operation Confirmations | `operation-confirmations` | **Customer** | `whm_operation_confirmations` · `WAREHOUSE_MFG_OPERATION_CONFIRMATION` | p10-08 |
 | WS-329 | Settlements & Close | `settlements` | **Service Vehicle** | `whm_production_settlements` · `WAREHOUSE_MFG_SETTLEMENT` | p10-09 |
 | WS-330 | Subcontracting | `subcontracting` | **Service Vehicle** (dispatches + reconciliation tab) | `whm_subcontract_dispatches` · `WAREHOUSE_MFG_SUBCONTRACT_DISPATCH`; tab grid `whm_subcontract_reconciliations` · `WAREHOUSE_MFG_SUBCONTRACT_RECONCILIATION` (R31 `SUB-OPEN-08`) | p10-10 |
@@ -550,7 +550,7 @@ Ledger: `r32-ledger-mfg.tsv` (fold scratch). Every FR here is v1.1 · P10 like t
 | WS-397 | Maintenance | `maintenance` | **Service Vehicle** (plans tab + orders ladder) | `whm_maintenance_orders` · `WAREHOUSE_MFG_MAINTENANCE_ORDER`; tab grid `whm_maintenance_plans` · `WAREHOUSE_MFG_MAINTENANCE_PLAN` | p10-26 |
 
 **Menus (`V561000`).** L1 **Manufacturing**. L2 **Production**: BOMs, Work Centres, Production Orders,
-Staging Lists, Production Receipts, Receipt Reversals, Operation Confirmations, Subcontracting (8). L2
+Staging Lists, Production Receipts, Production Receipt Reversals, Operation Confirmations, Subcontracting (8). L2
 **Planning**: Planning Parameters, Demand Plans, MRP Runs, MRP Proposals, MRP Exceptions, Capacity Load (6).
 L2 **Costing & Reports**: Settlements & Close, BOM Explorer, Registers (3). Every insert carries the
 `WHERE NOT EXISTS` guard.
