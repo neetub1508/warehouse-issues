@@ -37,7 +37,7 @@
 terms, `quotation_id`, `rate_contract_id`, `price_list_id`, `valid_from`/`valid_to` (OPEN/BLANKET),
 `ceiling_value` (OPEN; null ⇒ `open_unbounded`), `price_basis` (`AGREEMENT`/`AT_RELEASE`),
 `terms_template_version_id`, `status`, `core_demand_order_id` ↓ `wh_demand_orders`, `issued_at`, `ack_status`
-(`PENDING`/`SENT`), `closed_at`, `short_close_reason_code`. Line: `line_no`, item, `customer_part_number`,
+(`PENDING`/`SENT`), `closed_at`, `short_close_reason_code`. Line: `line_no`, item, `customer_part_number` (value copied at save from `WhbCounterpartyPartNumberResolver` (primary active `CUSTOMER_PART_NUMBER`, else most recently updated), read-only on the line),
 `customer_item_ref_id`, `uom_code`, `quantity` (FIXED/BLANKET > 0; OPEN null), `ceiling_quantity` (OPEN),
 `unit_price`, `discount_percent`, `net_price`, `price_source`, `rate_contract_line_id`, `floor_price_at_order`,
 `over_tolerance_pct`, `under_tolerance_pct`, `is_free_of_charge` (FIXED / BLANKET only), `line_status`,

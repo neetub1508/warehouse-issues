@@ -34,7 +34,7 @@ no (FR-545), qty, UoM, required date, `target_price`, spec note, `line_outcome` 
 `quotation_number` (series `SQ`, at submit; shared by all versions), `version_no`, `supersedes_id`,
 `enquiry_id` (nullable), customer, `dispatch_warehouse_id` (NOT NULL; defaulted from the enquiry, else from `wht_customer_profiles.default_dispatch_warehouse_id`, editable while `DRAFT` — R31 F-TR-009; the site `TSQ-T4-05` records a lost sale against and the won SO's dispatch site), `quote_date`, `valid_until`, currency, payment / delivery / freight
 terms, `terms_template_version_id`, `status`, `won_target_type` + `won_target_id`, `loss_reason_code`,
-`competitor_name`, `competitor_price`, `sent_at`. Line: `enquiry_line_id`, item, customer part no, qty,
+`competitor_name`, `competitor_price`, `sent_at`. Line: `enquiry_line_id`, item, customer part no (value copied at save from `WhbCounterpartyPartNumberResolver` (primary active `CUSTOMER_PART_NUMBER`, else most recently updated), read-only on the line), qty,
 UoM, `unit_price`, `discount_percent`, `net_price`, `price_source`, `floor_price_at_quote`,
 `lead_time_days`, `promised_date`, `is_free_of_charge`, `line_outcome` (`WON`/`LOST`, set at the outcome),
 `loss_reason_code`, `competitor_name`, `competitor_price`, `lost_sale_log_id`. Charges (`wht_customer_quotation_charges`, the

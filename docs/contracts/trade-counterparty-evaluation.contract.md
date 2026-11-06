@@ -37,7 +37,7 @@ Customer profile mirrors it without MSME, plus `customer_category_code`, `defaul
 (`PENDING`/`APPROVED`/`REJECTED`), `approval_request_id`, `pending_change` (the requested status / dates of a
 change awaiting approval; the effective values stay until it is approved). Customer item ref: company,
 customer, item, `customer_part_number`, `drawing_number`, `drawing_revision`, `approval_status_code`,
-`valid_from`, `valid_to`, document link (required for `APPROVED`).
+`valid_from`, `valid_to`, document link (required for `APPROVED`). The customer part number lives in `whb_item_identifiers` (`CUSTOMER_PART_NUMBER`, `counterparty_id` = customer) kept in step by `reconcileCounterpartyPartNumbers`; never in `whb_item_external_refs`, and no FK to the identifier row.
 Scheme: company, `side` (`PURCHASE`/`SALES`), `period_type`, `is_active`; criteria: `metric_code` (fixed
 catalogue below), `weight` `DECIMAL(9,6)`; bands: `grade_code`, `min_score`. Run: scheme, `period_from`,
 `period_to`, `status` (`DRAFT`/`PUBLISHED`/`SUPERSEDED`), `supersedes_run_id`; evaluation: run,
@@ -85,7 +85,7 @@ counterparty; the evaluation stores `excluded_metrics`. A counterparty with no m
 | TCE-T1-03 | `BLOCK_PENDING` / `UNBLOCK_PENDING` | Approved / rejected | blocked / unblocked; on reject back to the previous state | `TAM` (`TAM-GRD-03`: the requester cannot approve) | `wht_supplier_profiles:approve` / `wht_customer_profiles:approve` | `blocked_at/by`; audit | yes | WS-285 | FR-542, FR-543 |
 | TCE-T1-04 | — | AVL entry / status or date change (maker) | `approval_state PENDING`; request `AVL` opened | `TCE-GRD-03` | `wht_approved_vendor_items:create`/`edit` | the change is held in `pending_change`; nothing is effective until approval | reason | WS-282 | FR-544 |
 | TCE-T1-04a | `PENDING` | Approved / rejected / returned (`TAM`) | `APPROVED` (change effective, `approved_by/at`) / `REJECTED` (no effect; a new entry needs a new request) / back to editable | `TAM-GRD-03` → `403 TRADE_APPROVAL_SELF` for the maker | `wht_approved_vendor_items:approve` | audit | on reject / return | WS-285 | FR-544 |
-| TCE-T1-05 | — | Customer item ref create / status change | row | uk (company, customer, item, revision); `TCE-GRD-06` | `wht_customer_item_refs:*` | — | no | WS-283 | FR-545 |
+| TCE-T1-05 | — | Customer item ref create / status change | row | uk (company, customer, item, revision); `TCE-GRD-06` | `wht_customer_item_refs:*` | T4: `identifierService.reconcileCounterpartyPartNumbers(item, customer, CUSTOMER_PART_NUMBER, …, "customerPartNumber")` in the same transaction (open / retire / reactivate) | no | WS-283 | FR-545 |
 | TCE-T1-06 | — | Run evaluation for scheme × period | run `DRAFT` | `TCE-GRD-04`, `-05` | `wht_evaluation_runs:create` | scores computed (`TCE-T4-03`) | no | WS-297 / WS-309 *Run* | FR-595 |
 | TCE-T1-07 | `DRAFT` | Publish | `PUBLISHED`; prior published run for the same scheme × period `SUPERSEDED` | — | `:publish` (≠ creator: maker–checker) | `latest_grade_code` on profiles; `TCE-T4-05` | no | *Publish* | FR-595 |
 | TCE-T1-08 | `DRAFT` | Discard | deleted | — | creator | — | no | — | FR-595 |
@@ -102,6 +102,7 @@ counterparty; the evaluation stores `excluded_metrics`. A counterparty with no m
 | TCE-GRD-06 | Customer item ref `APPROVED` only with the customer's approval document attached; the status records the customer's decision, so no internal approval request (FR-545, §5 M2) | `422` on `document` | FR-545 |
 | TCE-GRD-07 | A trade extensible value (reason, terms, AVL status-as-code, MSME category, charge type, enquiry source) is an active `whb_code_lists` value whose list has `owning_module = 'warehouse-trade'`, seeded under the owning-module guard; an install may add values | `422` field-named | FR-546 |
 | TCE-GRD-08 | **Concurrency**: every edit, submit, transition and approval of a `wht_` document checks its optimistic `version`; a stale write changes nothing | `409 CONCURRENT_MODIFICATION` stale write (`TPR-OPEN-03`) | FR-618 |
+| TCE-GRD-09 | A customer part number already held by another item of the same owner + customer is refused (reconcile Q8); the ref is not saved | `409` on `customerPartNumber` | FR-545 |
 | TCE-GRD-R32A-01 | A trade contact has an e-mail or a phone; e-mail / E.164 formats valid; one active primary per company × counterparty (R32, PRD §4 vendor contacts) | field `422` / `409 TRADE_CONTACT_PRIMARY_EXISTS` | FR-733 |
 | TCE-GRD-R32A-02 | AVL required by `warehouse.trade.avl.required_scope` (default `TYPE_AND_QC`: item type `avl_required_default` or item `qc_required`) — an approved row for supplier × item at the document date; when approved rows name makes, the line's make is one of them (`D-20` item 2-14) | `422 TRADE_SUPPLIER_NOT_ON_AVL` · `itemId` / `422 TRADE_AVL_MAKE_NOT_APPROVED` · `makeName` | FR-734 |
 
