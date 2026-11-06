@@ -64,7 +64,7 @@ Statutory content in these findings rests partly on practitioner copies because 
 | W12-02 | minor | OPEN-ALREADY-BUILT | warehouse-base | Close #669 and #673 after their pending gates; code is complete | comment on #669 |
 | W12-03 | major | OPEN-SCOPE-GAP | warehouse-base | Post the negative-estimate settlement variance as a value movement | added to #671 |
 | W12-04 | major | OPEN-SCOPE-GAP | warehouse-base | Make REVALUATION writer-only for reversal, like STANDARD_COST_ALIGNMENT | added to #670 |
-| W12-05 | major | SPEC-CONFLICT | warehouse | Decide #714: one serial per base unit for pack-unit receipts | added to #714 |
+| W12-05 | major | SPEC-CONFLICT | warehouse | Decide #714: one serial per base unit for pack-unit receipts | added to #714 · decided 2026-11-06: one serial per base unit, no setting |
 | W12-06 | major | MISSING-TASK | warehouse-3pl | Date 3PL credits by the site-local day, not the UTC day (billing B-2) | new #720 |
 | W12-07 | major | MISSING-TASK | warehouse-3pl | Count storage toward the site minimum charge (billing B-3) | new #721 |
 | W12-08 | minor | OPEN-SCOPE-GAP | warehouse-base | Refuse an item GTIN whose GS1 check digit is wrong at save | added to #712 |
