@@ -105,6 +105,7 @@
 | IMD-GRD-12 | A movement belongs to the registration of its site's `REGISTERED` link at `occurred_at`; a mid-period re-registration splits the account at the switch with no synthetic line | — | `WhinStockAccountRegistrationSplitIntegrationTest` | FR-314 |
 | IMD-GRD-13 | A reason code carries `statutory_category` and an ITC treatment (dated in `whb_reason_code_tax_treatments`) | ITC reversal refuses `ITC_REVERSAL_TREATMENT_MISSING` | — | FR-315 |
 | IMD-GRD-14 | A scrap sale line names a TCS section in force | `422 TCS_SECTION_NOT_IN_FORCE` · `lines` | scrap stock status seeded (`V540131`) | FR-317 |
+| IMD-GRD-14b | A scrap sale's despatch writes its `SCRAP_SALE_REQUEST` (`AHO-T1-16`) in the dispatch transaction - buyer, HSN, UQC, KG weight and the line's frozen TCS facts, no amount; its lines are left out of the shipment's `INVOICE_REQUEST` (`AHO-T1-15`). STANDALONE and sandbox sites write none | `422 SCRAP_SALE_BUYER_REQUIRED` · `customer_counterparty_id`; `422 SCRAP_SALE_HSN_REQUIRED` · `tax_classification_code`; reversal of a despatch whose request is SENT / POSTED `409 LINKED_DOCUMENT_SENT` | `WhinScrapSaleRequestProducer` (#32) | FR-317 · FR-718 |
 | IMD-GRD-15 | `warehouse.tax.mode` ∈ {`PROVIDER`, `MANUAL_EVIDENCE`, `NONE`}; `NONE` permits only operations that need no tax document; a missing tax is never zero | `IRN_REQUIRED_TAX_MODE_NONE`, `422 EWAY_EVIDENCE_TAX_MODE_NONE` · `ewbNumber` | — | FR-325 |
 | IMD-GRD-16 | `tax_classification_code` is snapshotted on every movement and document line | — | base movement-line column (`p0-02`) | FR-318 |
 | IMD-GRD-17 | The statutory unit code (UQC) is on every india document line (challan, e-way, ITC-04, EPR) | — | `gst_uqc_code` columns `V540020`, `V540030`, `V540120`, `V540160` | FR-319 |
@@ -192,6 +193,7 @@ Tax computation (`OD-9`, `FR-325`); accounting postings (`D-16` item 6); MFG pro
 | 2026-10-26 | R33 S3 #135: `IMD-GRD-06` — bare / wildcard columns on a core-table statement refused, case-insensitive SQL keywords, column-level two-way ratchet (F1, F3); `IMD-DIV-03` marked built (F2) |
 | 2026-10-26 | R33 S3 re-verify #135 (round b): `IMD-GRD-06` / `IMD-DIV-03` — file-level scan of joined literals and text blocks, concatenated one-word literals kept, any-case / quoted / schema-qualified core tables, JPQL non-`Whin*` entity refused, prose fixture |
 | 2026-11-02 | R33 S6 #135 (classic `cdc81627d5`, F1 closed): `IMD-GRD-06` / `IMD-DIV-03` — final scanner wording from the S3 scoped re-verify (fragments, `String`-parameter qualifiers resolved through call sites incl. supertype / scanned subtype, single-binding constants); stale "column kept in a lone one-word variable" residual replaced; residual list restated |
+| 2026-11-07 | #32 S2: `IMD-GRD-14b` - a scrap sale's despatch writes its `SCRAP_SALE_REQUEST` (`AHO-T1-16`); buyer / HSN refusals; reversal of a sent request refused |
 
 ## 9. Invariants and scenarios
 
