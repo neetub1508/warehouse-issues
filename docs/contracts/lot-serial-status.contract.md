@@ -113,6 +113,7 @@
 | LSS-T4-05 | A lot is split or merged | `parent_lot_id` records the parent at the time | lot service | FR-095, FR-105 |
 | LSS-T4-06 | An RFID / EPC read arrives (v2 endpoint; v1.1 columns) | it is an inbound message on the existing port, idempotent by `(epc, read_point, event_at)` through `whb_inbound_messages`' `uk(source_system, idempotency_key)`; a read resolving to no serial or LPN is a **recorded rejection** | port (`MPR-T4-03`) | FR-453 — §10 row 3 |
 | LSS-T4-07 | A GS1 Digital Link URI is scanned (v1.1) | the scan resolver parses the AI path segments out of the URI and resolves exactly as for a GTIN | scan service | FR-454 — §10 row 4 |
+| LSS-T4-08 | A recall is initiated on a lot (WH-SC-137) | one `STATUS_CHANGE` per sellable position of the lot (every site, every split / genealogy lot) into `QUARANTINE`, released from open reservations, posted under the recall's document authority (`MPR-T1-04`, #833) so the quarantine takes effect at once whatever the `STATUS_CHANGE` approval flag; a movement that still comes back `PENDING` refuses the Initiate `409 RECALL_QUARANTINE_NOT_POSTED` and rolls the whole Initiate back, so a lot is never left partly sellable | recall service → writer, one transaction | WH-SC-137, #833 |
 
 ## 5. T5 — Screen contract
 
@@ -138,6 +139,7 @@ the RFID reader endpoint (v2); holds (owned by `cycle-count`).
 | 2026-10-25 | `P2-05` #42 (`LSS-OPEN-01` built): `LSS-GRD-02a` refusal cell filled (`BEST_BEFORE_REASON_REQUIRED` / `BEST_BEFORE_REASON_INVALID` on `bestBeforeReasonCodeId`); reason context `BEST_BEFORE_DESPATCH` with system code `CUSTOMER_ACCEPTED` (`affects_demand_history = true`) seeded by `V511422`; picker endpoint `GET /wh-shipments/reason-codes` under `wh_shipments:dispatch` (no new permission); the reason is written to the affected lot's grain line only; §10 row 5 resolved |
 | 2026-10-26 | W72 #606 (FR-455, classic `8db39bb014`): a serial received on a suspect-source GRN line carries stock status `SUSPECT` (a QC-held, non-allocatable status, `V501239`) until a QA disposition moves it |
 | 2026-10-25 | R32-fix `F-R32MS-020` (`D-21` item 3): `LSS-T4-01` — for unit-serial items the MFG registry writes the warranty fields; core keeps custody and shipment only |
+| 2026-11-07 | #833 S4: new `LSS-T4-08` - a recall's quarantine posts under document authority, backstop `RECALL_QUARANTINE_NOT_POSTED` (the recall workflow has no contract of its own) |
 
 ## 8. Invariants and scenarios
 
