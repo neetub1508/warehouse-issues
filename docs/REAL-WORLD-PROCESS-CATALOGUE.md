@@ -43,7 +43,7 @@ Each lane listed the real-world steps of its domain, the rule behind each step a
 | 33 | Inward of job-work returns, 1 / 3-year clock, ITC-04 | stores | challan, ITC-04 | s.143: inputs 1 yr, capital goods 3 yrs, extendable by Commissioner by 1 / 2 yrs ([knowyourgst](https://www.knowyourgst.com/gstlaw/cgst-act/143-job-work-procedure-143/)); ITC-04 half-yearly > ₹5 cr, annual otherwise (Notfn 35/2021-CT) ([cleartax](https://cleartax.in/s/gst-inputcredit-job)) | COVERED; per-challan extension = **GAP**; EPIC wording = **PLANNED-WRONG** | #22, #601; → **WR1-08**, **WR1-09** |
 | 34 | Free goods / samples received | stores | non-PO GRN | — | COVERED | FR-712, GTE-T4-07 (`FREE_OF_COST_IN` zero cost, `SAMPLE_IN`) |
 | 35 | Capital goods receipt | stores → assets | asset PO receipt | ITC on capital goods; the asset is capitalised in the asset register | COVERED (assets module has PO receipts: `assets/backend/.../AssetPoReceiptResponse.java`); gate inward cannot link to one → **WR1-10** (minor) |
-| 36 | Receipt reversal / correction | stores | reversal | — | GAP (#792) | #129; #792 - under STANDARD costing a receipt with a PPV could not be reversed (linked variance reversal carried no reason); COVERED again when #792 closes |
+| 36 | Receipt reversal / correction | stores | reversal | — | COVERED | #129; #792 - a STANDARD receipt with a PPV reverses with its PPV under the parent's reason, atomically, approval-gated reversal posts the PPV reversal at approval (closed R39, S5 a5wh 2026-11-07) |
 | 37 | QC-held ageing | QC | alert | — | COVERED | #692 |
 
 ### Statutory verification
