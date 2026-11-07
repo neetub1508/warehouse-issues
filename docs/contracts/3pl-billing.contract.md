@@ -216,6 +216,7 @@ Invoice, numbering and tax (accounting, `D-16` item 6 — handover points only);
 | 2026-10-26 | R33 #30 P5-04: `TPB-DIV-01` / `TPB-OPEN-01` closed (codes spelled `SQFT_*`), `TPB-GRD-07` amended, `TPB-GRD-07a` square-feet measurement rules added, `TPB-T5-05` picker; `V531157` |
 | 2026-10-26 | R33 #30 P5-04 S4: `TPB-GRD-07a` amended - `SQFT_ALLOCATED` one tier per (charge, unit) (`RATE_CARD_ALLOCATED_AREA_TIERED`, F1), period-range bound recorded (F3); `TPB-T5-03` card-level export, line fields not exported (F4) |
 | 2026-11-02 | R33 neetub1508/warehouse-issues#689 GDN-05: `TPB-T5-10` documents narrowed to the selected client (`warehouse.3pl.portal.document_scope`, `SELECTED_CLIENT` default, `OWN_OWNER_ONLY` keeps `PORTAL_DOCUMENTS_NOT_NARROWABLE`), empty-site refusal, export sort, view metadata, total-only tabs; `TPB-GRD-10` stamped + live subject owner, voided / off-allowlist refused by id; `V531162` |
+| 2026-11-07 | R39 #30 P5-04 W01-03: `TPB-GRD-07b` added (final tier's own free days / rounding / minimum price the period; non-converging ladder `STORAGE_TIER_NOT_STABLE`); `TPB-T1-14` timing fixed (events are metered at Approve, as built) |
 
 ## 9. Invariants and scenarios
 
@@ -230,4 +231,3 @@ Invoice, numbering and tax (accounting, `D-16` item 6 — handover points only);
 | TPB-OPEN-03 | Freight reconciliation: the FR gives no tolerance or timing for "reconciled when the carrier invoice lands" | **DECIDED R31 (2026-10-23): default stands**, with `D-18` item 4 — the carrier-invoice difference (markup included) is an adjusting billable event in an open run; frozen runs are never edited; no tolerance, no silent write-off (`TPB-T4-06`) | FR-295 |
 | 2026-10-26 | R33 #35 P5-05: `TPB-T2-10` amended (`:reverse`), `TPB-DIV-10` closed; `TPB-T4-03` expanded (producer, timing, owner, grain, pricing, system actor, dedupe, failure policy), `TPB-DIV-09` closed; `V531158` |
 | 2026-10-26 | R33 #35 P5-05 S4 (S3 F1 / F2 / S2-c): `TPB-T4-03` gains **Numbering** (series provisioned at capture by the event's actor — replaces S2-b), **Billability** (the run's date rule on the charge date, not current status) and the per-capture free-quantity meaning; no migration |
-| 2026-11-07 | R39 #30 P5-04 W01-03: `TPB-GRD-07b` added (final tier's own free days / rounding / minimum price the period; non-converging ladder `STORAGE_TIER_NOT_STABLE`); `TPB-T1-14` timing fixed (events are metered at Approve, as built) |
