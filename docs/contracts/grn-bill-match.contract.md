@@ -179,7 +179,7 @@ headroom and `T` tolerance (`GBM-GRD-06`).
 
 ## 6. Out of scope
 
-Debit/credit notes; bill booking; price variance (`P5-10`); landed cost (`P2-17`); mobile.
+Debit/credit notes; bill booking; the three-way match (`P5-10`); landed cost (`P2-17`); mobile. The invoice price variance on a bill line's `unit_price` is IN scope through `costing.contract.md` C-12 (`IPV-T1-01` ... `-07`, `T4-12` ... `T4-16`, `#840`): this contract's bill go-live, supplementary bill and bill reversal fire and refuse it as that contract states.
 
 ## 7. Amendments
 
@@ -198,6 +198,7 @@ Debit/credit notes; bill booking; price variance (`P5-10`); landed cost (`P2-17`
 | 2026-11-07 | #722 S4b (S4v functional review F1-F7, driver rulings): the create path keys a gate lot's challan alone, read from the session's gate bill (`GBM-T1-01`, T5 *Lots*); a second GRN of one gate entry never posts past a live FINAL lot (`GBM-GRD-01`); live claims of the invoice's PO line are netted before the FINAL lot raises a line, and an invoice-lot claim keeps its FINAL source and the invoice ceiling on edit (`GBM-T4-02`); a re-opened FINAL lot's INVOICE cases resolve `RECEIPT_REVERSED` and its claim's withdrawal names the reversal (`GBM-T4-05`); `openLot` excludes a FINAL lot-mate (`GBM-T1-10`); invoice lines on a later lot or naming a carried PO line are refused, never dropped (`GBM-T1-01`, §1.3a). No migration. |
 | 2026-11-07 | #722 S4c (S4v functional review N1-N3, driver rulings): an invoice-lot claim's edit sums its own lines per PO line against the invoice's shortfall (N1) and keeps its lines on the invoice's lots (N2, `SUPPLIER_CLAIM_SOURCE_CHANGED` reused, §1.3a); every invoice-lot shortfall writer takes the bill-number lock before reading the invoice's live claims (N3); the lot claim keeps the PO price on edit (NL1); a manual DRAFT on the live FINAL receipt is the lot claim (`GBM-T4-02`); a later lot's invoice-lines section is read-only (T5 *Lots*, M2). No migration. |
 | 2026-11-07 | #722 S4d (S4v round 2 F1-F2, driver rulings): the lot claim's unit value ≤ the order price on edit, a manual DRAFT on the live FINAL receipt included, and the "person raises or edits" receipt-cost sentence reconciled (F1); a short claim create/edit on a live lot's line is netted against the invoice's shortfall per PO line under the bill-number lock (F2) (`GBM-T4-02`, §1.3a); T5 *Lots*: a bill keyed at create relies on the save refusal. No migration. |
+| 2026-11-08 | #840 S4 (S3 functional F8): §6 no longer lists price variance as out of scope - the bill line's `unit_price` and its invoice price variance are `costing.contract.md` C-12 (`IPV-T1-01` ... `-07`). No migration. |
 
 ## 8. Invariants and scenarios
 
