@@ -169,8 +169,7 @@ columns `itemCode` / `itemCategoryName`, `supplierName`, `avlStatus`, `validFrom
 `isSoleSource`, `approvalState`, `pendingChange`, `supplierGrade`, `approvedByName`, `approvedAt`, audit;
 filters `itemId`, `itemCategoryId`, `supplierId`, `avlStatus`, `approvalState`, `activeOn`, `expiringOnly`;
 tiles approved, provisional, suspended / disqualified, pending approval, expiring ≤ 30 days; row actions View ·
-Add · Change status · Withdraw request. Empty state: *No AVL rows — enforcement applies only to items that
-have one.*
+Add · Change status · Withdraw request. Empty state: *written from the effective `warehouse.trade.avl.required_scope` / `enforcement` settings (R41 F8), e.g. under `TYPE_AND_QC` + `REFUSE`: no AVL rows - purchase-critical items cannot be ordered from any supplier until one is approved.*
 
 **WS-283 Customer Item References**: grid `wht_customer_item_refs`, scope `WAREHOUSE_TRADE_CUSTOMER_ITEM_REF`;
 columns `customerName`, `itemCode`, `customerPartNumber`, `drawingNumber`, `drawingRevision`,
@@ -228,3 +227,4 @@ actions View · Edit · New version · Versions.
 | TCE-OPEN-01 | Does base let a sibling seed a `whb_task_types` row (`TRADE_AVL_REVIEW`)? | **Settled (R31 decisions):** yes — seeded under the owning-module guard like code lists (`whb_task_types.owning_module`, `V500010`), by `p9-12` (`D-16` item 5) |
 | TCE-OPEN-02 | `FR-584` says the T&C version is "frozen on the document" but not at which transition (create, submit or approval), nor whether a `DRAFT` re-reads the current version | **Settled (R31 decisions, default replaced):** copied at create; refreshed while `DRAFT` only by an explicit, audited user action; frozen at submit (RFQ: at issue) — `TCE-T4-08` |
 | TCE-OPEN-03 | PPAP / first-article approval **before** an AVL row is approved (IATF 16949 §8.3.4.4 / AIAG PPAP; R32 ledger `BP-ppap`). Today `TCE-T1-04a` approves an AVL row with no FAI / PPAP prerequisite, and core's first-article inspection (`P8-06`) is recorded at the GRN, after supply has started | **Deferred — recorded, not dropped (R32-fix F-R32CA-027).** The gate needs a core query of passed `FIRST_ARTICLE` inspections per supplier × item that trade may read (a new core port, not in `P8-26`'s set) and a trade setting defaulting off. Until then an install records the PPAP outcome as an AVL attachment and the approver checks it (`TCE-T1-04a` comment). Owner when scheduled: `P9-02` (gate) + a core query task; v1.1 |
+| 2026-11-08 | §0 code lists, `TCE-T1-02`, §5 WS-280 / WS-281 / WS-282 T5 | **R41 S1.** `trade_pr_purpose` is a P9-02 code list (base's seven `REQUISITION_PURPOSE` codes + `SALES_ORDER`, `STOCK`; F5); `sample_approval_required` joins the customer item ref fields (F5); profile block is `SUPPLIER_PROFILE_BLOCK` / `CUSTOMER_PROFILE_BLOCK` (F7); company-level block / AVL approvals wait for core #902 (F6); AVL empty-state copy follows the effective setting (F8). | R41 pre-build functional review (#578-#581) |

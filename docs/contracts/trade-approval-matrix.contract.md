@@ -48,7 +48,7 @@
 | `PO_RELEASE` | `wht_po_releases:approve` | `SO_RELEASE` | `wht_so_dispatch_releases:approve` |
 | `PO_AMENDMENT` | `wht_po_amendments:approve` | `SO_AMENDMENT` | `wht_so_amendments:approve` |
 | `AVL` | `wht_approved_vendor_items:approve` | `SRA` | `wht_sales_return_authorisations:approve` |
-| `PROFILE_BLOCK` (supplier) | `wht_supplier_profiles:approve` | `PROFILE_BLOCK` (customer) | `wht_customer_profiles:approve` |
+| `SUPPLIER_PROFILE_BLOCK` | `wht_supplier_profiles:approve` | `CUSTOMER_PROFILE_BLOCK` | `wht_customer_profiles:approve` |
 | — | — | `SO_CREDIT_OVERRIDE` *(R32)* | `wht_sales_orders:approve_credit_override` |
 | — | — | `FEASIBILITY` *(R32)* | `wht_feasibility_reviews:approve` |
 
@@ -90,7 +90,7 @@ Each `:approve` depends on the resource's `:view` (`permission_dependencies`, se
 | TAM-T1-02 | `ACTIVE` | Deactivate | `INACTIVE` | open requests keep the rule snapshot they started with | `wht_approval_rules:edit` | audit | no | WS-284 row action | FR-548 |
 | TAM-T1-03 | — | Document submit calls `ApprovalService.open(docType, docId, version, value, qty, currency, conditions)` | Request `PENDING`, first step `PENDING`, rest `WAITING` | `TAM-GRD-01`, `-02`, `-08`, `-09` | the document's `:submit` | rule id, level snapshot, value, currency, condition set and maker frozen on the request (maker per FR-549 for system-drafted documents) | no | the document's Submit | FR-548, FR-549 |
 | TAM-T1-04 | — | Matched rule has zero levels | Request `APPROVED` by `SYSTEM` | — | system | callback `onApproved` in the submit transaction; a port call it makes uses the submitter as `actingUserId` (`FRD-TRADE §12a`) | no | — | FR-550 |
-| TAM-T1-04a | — | `open(type, id)` for a company × currency with no system zero-level seed yet for a type whose bean declares `zeroLevelDefaults()` (a company created after `V551030`, or a new company currency) | the seed rows written, then matching proceeds | idempotent: uk(`company_id`, `document_type_code`, `currency_code`, `condition_set`) WHERE `is_system_seed` | system (`WhApprovalDefaultRuleSeeder`, in the opening transaction) | audit `APPROVAL_RULE_SEEDED`; the same rows `V551030` writes for companies existing at migration time | no | — | FR-550 (R32-fix F-R32CA-014) |
+| TAM-T1-04a | — | `open(type, id)` for a company × currency with no system zero-level seed yet for a type whose bean declares `WhApprovable.seedRules()` (a company created after `V551030`, or a new company currency) | the seed rows written, then matching proceeds | idempotent: uk(`company_id`, `document_type_code`, `currency_code`, `condition_set`) WHERE `is_system_seed` | system (`WhApprovalDefaultRuleSeeder`, in the opening transaction) | audit `APPROVAL_RULE_SEEDED`; the same rows `V551030` writes for companies existing at migration time | no | — | FR-550 (R32-fix F-R32CA-014) |
 | TAM-T1-05 | step `PENDING` | Approve | step `APPROVED`; next step `PENDING`, or request `APPROVED` after the last | `TAM-GRD-03`, `-04` | `wht_<doc>:approve` and member of the level | `onApproved` callback when last; audit | optional | WS-285, document Approve | FR-551 |
 | TAM-T1-06 | level `ALL` | Each member approves | level done when all members approved | `TAM-GRD-03` | same | — | optional | same | FR-548 |
 | TAM-T1-07 | step `PENDING` | Reject | request `REJECTED`, remaining steps `SKIPPED` | `TAM-GRD-03` | same | `onRejected` → document `REJECTED` | **yes** | same | FR-551 |
@@ -147,7 +147,7 @@ Each `:approve` depends on the resource's `:view` (`permission_dependencies`, se
 
 | ID | When | Then | Enforced in | Source |
 |---|---|---|---|---|
-| TAM-T4-01 | Request `APPROVED` | document callback `onApproved` runs **in the same transaction** (e.g. PO → `p8-01` port) | `ApprovalService` → `TradeApprovable` bean per doc type | FR-548 |
+| TAM-T4-01 | Request `APPROVED` | document callback `onApproved` runs **in the same transaction** (e.g. PO → `p8-01` port) | `ApprovalService` → `WhApprovable` bean per doc type | FR-548 |
 | TAM-T4-02 | Request `REJECTED` / `RETURNED` | document `REJECTED` / `DRAFT` | same | FR-551 |
 | TAM-T4-03 | Every action | `whb_audit_events` row (actor, on-behalf-of, comment); the maker is notified `TRADE_APPROVAL_DECIDED` on approve / reject / return | same | FR-549, FR-552 |
 
@@ -213,3 +213,4 @@ Rows added by the R32 fold (FRD-TRADE §4.15). Numbers continue each kind's sequ
 | ID | Question | Status |
 |---|---|---|
 | TAM-OPEN-01 | Does a role-level member list resolve at submit (frozen) or at action time? | **Settled (R29): at action time**, so a joiner can act; the frozen part is the rule, levels and maker. `TAM-GRD-03` is evaluated at action time too |
+| 2026-11-08 | §0.1, `TAM-T1-04a`, `TAM-T4-01`, `TAM-GRD-09`, `TAM-GRD-13` | **R41 S1.** `PROFILE_BLOCK` split into `SUPPLIER_PROFILE_BLOCK` / `CUSTOMER_PROFILE_BLOCK` (one approve verb per type, F7); `TradeApprovable` renamed `WhApprovable`, seeds via `seedRules()`, each document task owns its bean, no owning-module guard on `wh_approval_rules` (`is_system_seed` only; F9); value basis NET/GROSS and company-scope seams are core #902 (F6, F10); all trade role bundles are created empty in `V551000` (F4). | R41 pre-build functional review (#578-#581) |
