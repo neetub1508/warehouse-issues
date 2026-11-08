@@ -87,7 +87,7 @@
 | CCT-GRD-04 | The book quantity is the one frozen at `CCT-T1-11` and stored on the line; the variance is `counted − (book + movement at the line's grain after the snapshot and up to counted_at)`, excluding the count's own movements — never live on-hand | — (computed; asserted by test) | — | `FR-153` |
 | CCT-GRD-05 | While blind and not submitted, book, window movement and every variance figure are absent from the API and the export | — (never on the wire) | — | `FR-154` |
 | CCT-GRD-06 | Tolerance gates posting by quantity percentage (`tolerance_pct`) **and** value (`tolerance_value`), defaulted from `warehouse.count.default_tolerance_pct` / `_value` | — (routes to `PENDING_APPROVAL`, `CCT-T1-14`) | — | `FR-155` |
-| CCT-GRD-07 | The approver differs from every maker of the count — every submitter, every `counted_by` (superseded lines included), every zone assignee | `403 COUNT_SELF_APPROVAL` · `approvedBy` — under the engine these makers are the request's frozen `excludedActorIds` (`DAP-GRD-03`, R32-fix) | *"a counter may not approve the count"* | `FR-155` |
+| CCT-GRD-07 | The approver differs from every maker of the count — every submitter, every `counted_by` (superseded lines included), every zone assignee — and (#883) from every custodian of the counted bins: each holder of a line's location at the book instant (superseded lines included), reason `CUSTODIAN`, added after the makers so a custodian who counted stays `COUNTER`; follows `warehouse.count.custodian_rule` (`WARN`/`BLOCK` exclude, `OFF` excludes none); a handover after the book instant changes nothing; open requests keep their frozen set | `403 COUNT_SELF_APPROVAL` · `approvedBy` — under the engine these makers and custodians are the request's frozen `excludedActorIds` (`DAP-GRD-03`, R32-fix) | *"a counter may not approve the count"* | `FR-155` |
 | CCT-GRD-08 | A keyed-back sheet's `countedAt` lies in `[book_snapshot_taken_at, now]` | `422 COUNT_COUNTED_AT_INVALID` · `countedAt` | names the window | `FR-154`, `FR-153` |
 | CCT-GRD-09 | A line's variance reason, when given, is an ACTIVE `COUNT_VARIANCE` reason; none → `COUNT_OVER` / `COUNT_SHORT` by sign | `422 COUNT_REASON_INVALID` · `lines[n].reasonCodeId` | names the reason | `FR-159` |
 | CCT-GRD-10 | A count programme names a type (`ABC` · random · full · zone · item · discrepancy-triggered), a scope, a cadence and the policy fields (blind flag, recount threshold, approval threshold, `freeze_locations`, per-run task cap) | `COUNT_PROGRAM_TYPE_INVALID`, `COUNT_PROGRAM_SCOPE_REQUIRED`, `COUNT_PROGRAM_CADENCE_REQUIRED`, `COUNT_PROGRAM_CRON_INVALID` | names the missing field | `FR-156` |
@@ -112,7 +112,7 @@
 | CCT-UNR-02 | A variance measured against live on-hand, so a movement made during the count is reversed | `CCT-GRD-04` | `FR-153` |
 | CCT-UNR-03 | A hold as a status value (`ON_HOLD`), or one release clearing another hold on the same subject | holds are rows (`wh_holds`); release touches one row | `FR-151` |
 | CCT-UNR-04 | An adjustment, or a count variance line, posting without a reason | `CCT-GRD-01`, `CCT-GRD-09` | `FR-145`, `FR-159` |
-| CCT-UNR-05 | A counter, submitter or zone assignee approving the count | `CCT-GRD-07` | `FR-155` |
+| CCT-UNR-05 | A counter, submitter, zone assignee or custodian of the counted bins (#883) approving the count | `CCT-GRD-07` | `FR-155` |
 | CCT-UNR-06 | An `ABC` programme implying a computed class before the recompute exists | `CCT-GRD-11` | `FR-156`, `FR-463` |
 | CCT-UNR-07 | A threshold or date column merged with no job that reads it | each column in §3 names its job | `FR-165` |
 | CCT-UNR-08 | A scheduled rule reading a bare `now()` | jobs take the injected UTC `Clock` | `FR-165` |
@@ -202,6 +202,7 @@ the code or the as-built count contract; the rest are fixed by their owning task
 | 2026-11-07 | R40 WR2-02 #730 S4e (S4v F1, no migration): `CCT-GRD-21` — the reparent check locks the counts holding the subtree `FOR SHARE`, `GENERATED` included, so a reparent and a Freeze at the same moment run one after the other |
 | 2026-11-07 | R40 WR2-02 #730 S4f (S4v2 F1, no migration): `CCT-GRD-21` — the pick's empty-bin verification locks its bin and the bin's ancestors `FOR SHARE` before it generates and freezes, so a reparent of an ancestor and the pick run one after the other |
 | 2026-11-07 | R40 WR2-02 #730 S4g (S4v3 F1 + F2, no migration): `CCT-GRD-21` — chain before movement: a pick out of a bin that can verify locks the bin's chain top-down before its movement's first location lock; the lock that lost the bin is re-asked until the bin is in the answer (no attempt cap), in step with `count.contract.md` `CNT-T3-03` |
+| 2026-11-08 | `CCT-GRD-07`, `CCT-UNR-05` | **#883.** The custodians of the counted bins at the book instant (every holder, not the first) are excluded from approving the variance, reason `CUSTODIAN`, under the existing `warehouse.count.custodian_rule` (OFF = none). No new setting, no migration, no backfill of open requests | #883 S2 |
 
 ## 8. Invariants and scenarios
 
