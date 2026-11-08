@@ -74,7 +74,7 @@ vendor-quotation shape): `charge_type_code` (code list `trade_charge_type`), `am
 | TSQ-T1-01 | — | Record enquiry | `OPEN` | `TSQ-GRD-01` | `wht_sales_enquiries:create` | number | no | WS-298 Add | FR-598 |
 | TSQ-T1-02 | `OPEN`; `QUOTED` with lines still `OPEN` | Prepare quotation (for the open lines) | quotation v1 `DRAFT` | the lines are `OPEN` (not already on a live quotation) | `wht_customer_quotations:create` | lines copied; prices resolved `TRC-T4-04` | no | *Quote* / *Quote remaining* | FR-599 |
 | TSQ-T1-03 | `OPEN` (whole), or `OPEN` / `QUOTED` (selected open lines) | Regret | enquiry `REGRETTED` (whole) / lines `REGRETTED` | — | `wht_sales_enquiries:edit` | print `REGRET_LETTER` (the lines regretted); `TSQ-T4-01` re-evaluates the header | **yes**, reason code | *Regret* / *Regret lines* | FR-598, FR-615 |
-| TSQ-T1-04 | `DRAFT`, `REJECTED` | Submit | `SUBMITTED`; approved at once by `SYSTEM` only when the seeded zero-level `EXACT` `SQ` rule matches — i.e. the quotation carries **no** condition (`TAM-GRD-01`) | `TSQ-GRD-02`…`-04` | `:submit` | number at first submit; `TAM-T1-03` doc `SQ` with conditions `below_floor_price`, `discount_over_pct`, `manual_rate` | no | Submit | FR-599 |
+| TSQ-T1-04 | `DRAFT`, `REJECTED` | Submit | `SUBMITTED`; approved at once by `SYSTEM` only when the seeded zero-level `EXACT` `SQ` rule matches — i.e. the quotation carries **no** condition (`TAM-GRD-01`) | `TSQ-GRD-02`…`-04` | `:submit` | number at first submit; `TAM-T1-03` doc `SQ` with conditions `below_floor_price`, `discount_over_pct`, `manual_rate`; `discount_over_pct` is active only when setting `warehouse.trade.sales.discount_approval_pct` is non-blank, seeded **blank** (condition off) until client Q-C5 sets it (R41 F8) | no | Submit | FR-599 |
 | TSQ-T1-05 | `SUBMITTED` | Approved / rejected / returned | `APPROVED` / `REJECTED` / `DRAFT` | `TAM` | approver | maker notified | on reject/return | WS-285 | FR-551 |
 | TSQ-T1-05a | `SUBMITTED` | Withdraw (`TAM-T1-09`) | `DRAFT` | no step acted | maker | — | no | *Withdraw* | FR-551 |
 | TSQ-T1-06 | `APPROVED` | Send / print | `SENT` | template exists | `:issue` | print `CUSTOMER_QUOTATION`; `sent_at`; enquiry `QUOTED` | no | Send | FR-600, FR-615 |
@@ -89,7 +89,7 @@ vendor-quotation shape): `charge_type_code` (code list `trade_charge_type`), `am
 
 | ID | Predicate | Refusal | Source |
 |---|---|---|---|
-| TSQ-GRD-01 | Customer profile exists, not sales-blocked; ≥ 1 line | `422 TRADE_CUSTOMER_BLOCKED` | FR-543 |
+| TSQ-GRD-01 | When `customer_id` is set: customer profile exists, not sales-blocked; ≥ 1 line. A prospect enquiry (no `customer_id`) is checked by `TSQ-GRD-09` instead; its profile is created and this guard re-checked at win (`TSQ-T1-13`); a prospect quotation with no profile default needs an explicit `dispatch_warehouse_id` (R41 F7) | `422 TRADE_CUSTOMER_BLOCKED` | FR-543 |
 | TSQ-GRD-02 | `requires_part_approval` ⇒ every line has a current `APPROVED` customer item reference | `422 TRADE_CUSTOMER_PART_NOT_APPROVED` | FR-545 |
 | TSQ-GRD-03 | `valid_until ≥ quote_date` (default + `warehouse.trade.quotation.validity_days`); price ≥ 0 (0 only free-of-charge + reason); discount ∈ [0,100) | field `422` | FR-599 |
 | TSQ-GRD-04 | Every **quotation** line has an `item_id` (a new-item enquiry line must be resolved to an item before it is quoted); regretting a new-item enquiry line (`TSQ-T1-03`) is not guarded by it (R31 F-TR-010) | `422 TRADE_ITEM_REQUIRED` | FR-598 |
@@ -201,6 +201,7 @@ Rows added by the R32 fold (FRD-TRADE §4.15). Numbers continue each kind's sequ
 | 2026-10-23 | §0 fields, `TSQ-GRD-04`, `-GRD-08`, `-T4-05`, every T2 row | R31: quotation `dispatch_warehouse_id` (F-TR-009); a not-catalogued line can be regretted (F-TR-010); lost sale through `WhLostSalePort.captureLostSale` with an envelope (F-TR-011, `CN-11`); stale-write code (`TPR-OPEN-03`); T2 Source FRs (F-TR-019) | R31 |
 | 2026-10-25 | `TSQ-GRD-11`, `TSQ-T4-06`, `TSQ-GRD-13`, `TSQ-T4-07` | R32-fix: feasibility gate needs outcome `FEASIBLE` / `FEASIBLE_WITH_CHANGES` and applies at *Request costing* too; MFG port names `CostEstimatePort` / `SampleRequestPort` (`D-21` item 5); sample status read live, never cached; tax via accounting's tax determination with the prospect state as fallback | R32 review F-R32TR-001, -006, -014, -024, -031, -032 |
 | 2026-10-25 | `TSQ-GRD-09`, `TSQ-T1-13`, `TSQ-GRD-10`, `TSQ-GRD-11`, `TSQ-T1-14`, `TSQ-T4-06`, `TSQ-GRD-12`, `TSQ-GRD-13`, `TSQ-T4-07`, `TSQ-T2-10`, `TSQ-T1-15` (new, *R32 additions*) | R32 fold of the client PRD (`D-20`): lead / prospect enquiry and conversion at win, model / variant / nature / sample flags, feasibility, pre-sale costing, sample gate, GST lines, watermark, share | R32 / `D-20` |
+| 2026-11-08 | `TSQ-GRD-01`, `TSQ-T1-04` | R41 S1 (F7, F8): GRD-01 only when `customer_id` set, prospects via GRD-09, explicit `dispatch_warehouse_id` for a prospect quotation; `warehouse.trade.sales.discount_approval_pct` seeded blank = off (Q-C5) | R41 S1 |
 
 ## 8. Invariants and scenarios
 

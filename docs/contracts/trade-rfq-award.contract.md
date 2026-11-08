@@ -80,7 +80,7 @@ partial uk among statements not `REJECTED`), `status`, `prepared_by`, `is_stale`
 | TRA-T1-01 | — | Create RFQ (manual or from WS-287) | `DRAFT` | — | `wht_rfqs:create` | PR allocations (`TPR-T1-06`) | no | WS-288 Add | FR-559, FR-562 |
 | TRA-T1-02 | `DRAFT` | Add / remove invitee | invitee rows | `TRA-GRD-02` | `:edit` | AVL warning stored if WARN | no | RFQ modal tab *Suppliers* | FR-562 |
 | TRA-T1-03 | `DRAFT` | Issue | `ISSUED` | `TRA-GRD-01`, `-02`, `-03` | `wht_rfqs:issue` | number; one print job per invitee (`RFQ` template, own name only); `sent_at` | no | Issue | FR-562, FR-563 |
-| TRA-T1-04 | `DRAFT`, `ISSUED`, `BIDS_CLOSED`, `EVALUATION` | Cancel | `CANCELLED` | no CS `SUBMITTED` (withdraw it first, `TAM-T1-09`); `DRAFT` statements are cancelled with it | `:cancel` | PR allocations released (`TPR-T1-07`); invitees notified (print *RFQ cancelled*) | **yes**, reason code | row action | FR-562 |
+| TRA-T1-04 | `DRAFT`, `ISSUED`, `BIDS_CLOSED`, `EVALUATION` | Cancel | `CANCELLED` | no CS `SUBMITTED` (withdraw it first, `TAM-T1-09`) and **no CS `APPROVED`** (an approved award, with its POs drafted, is never left under a cancelled RFQ — R41 F1); `DRAFT` statements are cancelled with it | `:cancel` | PR allocations released (`TPR-T1-07`); invitees notified (print *RFQ cancelled*) | **yes**, reason code | row action | FR-562 |
 | TRA-T1-05 | `ISSUED` | Close bids | `BIDS_CLOSED` | — | `:issue` | invitees still `INVITED` → `NO_RESPONSE` | no | row action | FR-563 |
 | TRA-T1-06 | invitee `INVITED` | Record decline | `DECLINED` | — | `:edit` | — | reason code | Suppliers tab | FR-563 |
 | TRA-T1-07 | — | Capture quotation (against RFQ or unsolicited) | VQ `DRAFT` → `SUBMITTED` | `TRA-GRD-04`, `-05` | `wht_vendor_quotations:create` | number; invitee `RESPONDED` | no | WS-289 Add / RFQ *Capture response* | FR-564 |
@@ -123,7 +123,7 @@ partial uk among statements not `REJECTED`), `status`, `prepared_by`, `is_stale`
 |---|---|---|---|---|
 | TRA-T2-01 | Edit RFQ / invitees | `wht_rfqs:edit` | `DRAFT` | FR-562 |
 | TRA-T2-02 | Issue / close bids | `wht_rfqs:issue` | `DRAFT` / `ISSUED` | FR-562, FR-563 |
-| TRA-T2-03 | Cancel | `wht_rfqs:cancel` | `DRAFT`, `ISSUED`, `BIDS_CLOSED`, `EVALUATION` (no CS `SUBMITTED`, as `TRA-T1-04`; R31 F-TR-018) | FR-562 |
+| TRA-T2-03 | Cancel | `wht_rfqs:cancel` | `DRAFT`, `ISSUED`, `BIDS_CLOSED`, `EVALUATION` (no CS `SUBMITTED` and no CS `APPROVED`, as `TRA-T1-04`; R31 F-TR-018, R41 F1) | FR-562 |
 | TRA-T2-04 | Capture / revise / withdraw quotation | `wht_vendor_quotations:create`/`edit` | RFQ `ISSUED`/`BIDS_CLOSED` (revise up to award) | FR-564 |
 | TRA-T2-05 | Prepare / edit / submit CS | `wht_comparative_statements:create`/`edit`/`submit` | per T1 | FR-566 |
 | TRA-T2-06 | Approve award | `wht_comparative_statements:approve` via `TAM` | CS `SUBMITTED` | FR-567 |
@@ -204,6 +204,7 @@ Rows added by the R32 fold (FRD-TRADE §4.15). Numbers continue each kind's sequ
 | 2026-10-23 | §1.1 `BIDS_CLOSED`, `TRA-T3-02`, `-T2-03`, `-GRD-11`, `TRA-OPEN-01`, every T2 row | R31: the due date never closes bids (F-TR-023); cancel states aligned with `TRA-T1-04` (F-TR-018); `TRA-OPEN-01` settled; stale-write code (`TPR-OPEN-03`); T2 Source FRs (F-TR-019) | R31 |
 | 2026-10-25 | `TRA-T4-05`; FR-746 directness | R32-fix: tax provider is accounting's tax determination via `CN-16` (`P8-26`), not a warehouse-india engine; an award of a manual RFQ with no PR behind it makes the drafted PO direct (`TPO-GRD-21`) | R32 review F-R32TR-001, -005 |
 | 2026-10-25 | `TRA-T4-05`, `TRA-T4-06`, `TRA-T1-15` (new, *R32 additions*) | R32 fold of the client PRD (`D-20`): GST on vendor quotations and the CS (rank net of ITC), RFQ share by e-mail / WhatsApp (`TRA-OPEN-01` superseded) | R32 / `D-20` |
+| 2026-11-08 | `TRA-T1-04`, `TRA-T2-03` | R41 S1 (F1): cancel also refused while any CS is `APPROVED` | R41 S1 |
 
 ## 8. Invariants and scenarios
 
