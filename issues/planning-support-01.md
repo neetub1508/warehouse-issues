@@ -1,6 +1,6 @@
 TITLE: [Planning] [Warehouse] Planning support WH-P01 · Expose a scope-safe, versioned planning stock and master-data read port
 LABELS: task,warehouse
-issue: TBD
+issue: 916
 ---
 <!-- planning-review: WH-P01 -->
 Part of [planning product backlog](https://github.com/neetub1508/warehouse-planning-issues/blob/main/issues/00-EPIC-planning.md). **Task ID:** `WH-P01` · **Owner:** Warehouse-owned additive integration support · **Phase:** Foundation · **Priority:** essential.

@@ -1,6 +1,6 @@
 TITLE: [Planning] [Warehouse] Planning support WH-P04 · Arbitrate multiple planning engines and publish versioned stocking policy through one authority
 LABELS: task,warehouse
-issue: TBD
+issue: 919
 ---
 <!-- planning-review: WH-P04 -->
 Part of [planning product backlog](https://github.com/neetub1508/warehouse-planning-issues/blob/main/issues/00-EPIC-planning.md). **Task ID:** `WH-P04` · **Owner:** Warehouse-owned additive integration support · **Phase:** Foundation · **Priority:** essential.

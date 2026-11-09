@@ -1,6 +1,6 @@
 TITLE: [Planning] [Warehouse] Planning support WH-P07 · Preserve source versions and archive-safe planning extraction without promising full ledger time travel
 LABELS: task,warehouse
-issue: TBD
+issue: 922
 ---
 <!-- planning-review: WH-P07 -->
 Part of [planning product backlog](https://github.com/neetub1508/warehouse-planning-issues/blob/main/issues/00-EPIC-planning.md). **Task ID:** `WH-P07` · **Owner:** Warehouse-owned additive integration support · **Phase:** Foundation · **Priority:** essential.

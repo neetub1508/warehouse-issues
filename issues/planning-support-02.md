@@ -1,6 +1,6 @@
 TITLE: [Planning] [Warehouse] Planning support WH-P02 · Capture line-level planning demand facts without changing frozen warehouse KPI history
 LABELS: task,warehouse
-issue: TBD
+issue: 917
 ---
 <!-- planning-review: WH-P02 -->
 Part of [planning product backlog](https://github.com/neetub1508/warehouse-planning-issues/blob/main/issues/00-EPIC-planning.md). **Task ID:** `WH-P02` · **Owner:** Warehouse-owned additive integration support · **Phase:** Foundation · **Priority:** essential.

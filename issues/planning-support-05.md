@@ -1,6 +1,6 @@
 TITLE: [Planning] [Warehouse] Planning support WH-P05 · Extend external recommendations with planning origin and end-to-end conversion lineage
 LABELS: task,warehouse
-issue: TBD
+issue: 920
 ---
 <!-- planning-review: WH-P05 -->
 Part of [planning product backlog](https://github.com/neetub1508/warehouse-planning-issues/blob/main/issues/00-EPIC-planning.md). **Task ID:** `WH-P05` · **Owner:** Warehouse-owned additive integration support · **Phase:** Reviewed execution · **Priority:** essential.

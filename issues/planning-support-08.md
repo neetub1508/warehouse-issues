@@ -1,6 +1,6 @@
 TITLE: [Planning] [Warehouse] Planning support WH-P08 · Expose optional purchase source, price and receipt-performance inputs without duplicating commercial masters
 LABELS: task,warehouse
-issue: TBD
+issue: 923
 ---
 <!-- planning-review: WH-P08 -->
 Part of [planning product backlog](https://github.com/neetub1508/warehouse-planning-issues/blob/main/issues/00-EPIC-planning.md). **Task ID:** `WH-P08` · **Owner:** Warehouse-owned additive integration support · **Phase:** Optional purchase integration · **Priority:** essential.

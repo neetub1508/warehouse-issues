@@ -1,6 +1,6 @@
 TITLE: [Planning] [Warehouse] Planning support WH-P03 · Publish detailed dated supply and supplier-confirmation facts for planning
 LABELS: task,warehouse
-issue: TBD
+issue: 918
 ---
 <!-- planning-review: WH-P03 -->
 Part of [planning product backlog](https://github.com/neetub1508/warehouse-planning-issues/blob/main/issues/00-EPIC-planning.md). **Task ID:** `WH-P03` · **Owner:** Warehouse-owned additive integration support · **Phase:** Foundation · **Priority:** essential.

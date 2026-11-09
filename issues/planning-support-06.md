@@ -1,6 +1,6 @@
 TITLE: [Planning] [Warehouse] Planning support WH-P06 · Extend outbox bootstrap and replay contracts for consistent planning ingestion
 LABELS: task,warehouse
-issue: TBD
+issue: 921
 ---
 <!-- planning-review: WH-P06 -->
 Part of [planning product backlog](https://github.com/neetub1508/warehouse-planning-issues/blob/main/issues/00-EPIC-planning.md). **Task ID:** `WH-P06` · **Owner:** Warehouse-owned additive integration support · **Phase:** Foundation · **Priority:** essential.
