@@ -1,8 +1,11 @@
-TITLE: [Planning] [Warehouse] Planning support WH-P05 · Extend external recommendations with planning origin and end-to-end conversion lineage
-LABELS: task,warehouse
+TITLE: [Planning] EPIC [Warehouse] WH-P05 · Extend external recommendations with planning origin and end-to-end conversion lineage
+LABELS: epic,planning
 issue: 920
 ---
 <!-- planning-review: WH-P05 -->
+
+> **Parent epic — aggregate scope.** Implement the detailed children below as the executable work units. This issue retains the product scope and aggregate acceptance; it is not an additional duplicate implementation task. The source-case mapping below corrects earlier broad AC-range inheritance. All work remains open until implementation evidence exists.
+
 Part of [planning product backlog](https://github.com/neetub1508/warehouse-planning-issues/blob/main/issues/00-EPIC-planning.md). **Task ID:** `WH-P05` · **Owner:** Warehouse-owned additive integration support · **Phase:** Reviewed execution · **Priority:** essential.
 
 **Authoritative source:** [issues/planning-support-05.md](https://github.com/neetub1508/warehouse-issues/blob/main/issues/planning-support-05.md). This is a pre-build requirement, not a claim the capability is implemented or tested.
@@ -57,9 +60,15 @@ Trade cancels a PR line after conversion; recommendation lineage reconciles rath
 - [ ] Negative, concurrency, timeout/retry and scope-isolation cases preserve prior approved state and return actionable errors; no direct cross-module table writes or implicit auto-approval.
 
 ## Requirements closed
-This task contributes implementation coverage for the source requirements below. “Closed” means ownership within this backlog, not that tests have passed. No new warehouse FR or scenario namespace is allocated here.
-- `G22`: Recommendation write-back contract
-- `G23`: Automation release guardrails
+This epic owns the aggregate behavior of its named child increments. Source cases are assigned to actual primary leaves and supporting contracts, not inherited as an entire AC range. “Closed” means specified ownership, never a runtime test pass.
+
+### Primary case integration
+No named global source case has its primary integration owner here; the exact preserved parent clauses are still fully allocated to its children in the detailed ledger.
+
+### Corrected prior range assignments
+These cases remain globally owned by the following leaves; they are not claimed as implementation of this epic:
+- `G22` → [PL-D327](https://github.com/neetub1508/warehouse-planning-issues/blob/main/issues/detail-pl-d327.md)
+- `G23` → [PL-D328](https://github.com/neetub1508/warehouse-planning-issues/blob/main/issues/detail-pl-d328.md)
 
 ## Scenarios closed
 The real-world cases above and assigned source acceptance cases become executable implementation evidence. No research checklist is represented as executed.
@@ -85,3 +94,15 @@ No migration allocated at design stage. Use only the next free additive version 
 - [Warehouse design or issue](https://github.com/neetub1508/warehouse-issues/blob/main/docs/contracts/po-schedule-port.contract.md)
 
 Public competitor documentation establishes reference capabilities; the Scope and Acceptance here are proposed product behavior, not a guarantee of proprietary algorithm parity.
+
+## Detailed implementation children
+
+[Detailed ownership ledger](https://github.com/neetub1508/warehouse-planning-issues/blob/main/docs/DETAILED-COVERAGE.md) · [Created issue registry](https://github.com/neetub1508/warehouse-issues/blob/main/issues/DETAILED-IMPLEMENTATION-CREATED.md). Native GitHub sub-issues provide progress; source links below remain stable before issue-number stamping.
+
+| Child | Implementation increment | Phase |
+|---|---|---|
+| [WH-D13](https://github.com/neetub1508/warehouse-issues/blob/main/issues/planning-detail-wh-d13.md) | Extend existing suggestion port with typed planning origin and lineage. | Reviewed execution |
+| [WH-D14](https://github.com/neetub1508/warehouse-issues/blob/main/issues/planning-detail-wh-d14.md) | Conserve partial concurrent conversions through canonical purchase owner. | Reviewed execution |
+| [WH-D15](https://github.com/neetub1508/warehouse-issues/blob/main/issues/planning-detail-wh-d15.md) | Withdraw only unconverted remainder and reconcile cancellation feedback. | Reviewed execution |
+
+Close this parent only after every in-scope child is complete with evidence and the aggregate acceptance remains satisfied. Explicitly gated advanced increments retain their gate status; they are not silently counted as delivered.

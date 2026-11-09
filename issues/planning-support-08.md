@@ -1,8 +1,11 @@
-TITLE: [Planning] [Warehouse] Planning support WH-P08 · Expose optional purchase source, price and receipt-performance inputs without duplicating commercial masters
-LABELS: task,warehouse
+TITLE: [Planning] EPIC [Warehouse] WH-P08 · Expose optional purchase source, price and receipt-performance inputs without duplicating commercial masters
+LABELS: epic,planning
 issue: 923
 ---
 <!-- planning-review: WH-P08 -->
+
+> **Parent epic — aggregate scope.** Implement the detailed children below as the executable work units. This issue retains the product scope and aggregate acceptance; it is not an additional duplicate implementation task. The source-case mapping below corrects earlier broad AC-range inheritance. All work remains open until implementation evidence exists.
+
 Part of [planning product backlog](https://github.com/neetub1508/warehouse-planning-issues/blob/main/issues/00-EPIC-planning.md). **Task ID:** `WH-P08` · **Owner:** Warehouse-owned additive integration support · **Phase:** Optional purchase integration · **Priority:** essential.
 
 **Authoritative source:** [issues/planning-support-08.md](https://github.com/neetub1508/warehouse-issues/blob/main/issues/planning-support-08.md). This is a pre-build requirement, not a claim the capability is implemented or tested.
@@ -60,9 +63,15 @@ A freight-excluded estimate is used for advisory budget, clearly labeled and not
 - [ ] Negative, concurrency, timeout/retry and scope-isolation cases preserve prior approved state and return actionable errors; no direct cross-module table writes or implicit auto-approval.
 
 ## Requirements closed
-This task contributes implementation coverage for the source requirements below. “Closed” means ownership within this backlog, not that tests have passed. No new warehouse FR or scenario namespace is allocated here.
-- `G08`: Lead-time measurement
-- `G09`: Supplier site preference
+This epic owns the aggregate behavior of its named child increments. Source cases are assigned to actual primary leaves and supporting contracts, not inherited as an entire AC range. “Closed” means specified ownership, never a runtime test pass.
+
+### Primary case integration
+No named global source case has its primary integration owner here; the exact preserved parent clauses are still fully allocated to its children in the detailed ledger.
+
+### Corrected prior range assignments
+These cases remain globally owned by the following leaves; they are not claimed as implementation of this epic:
+- `G08` → [PL-D159](https://github.com/neetub1508/warehouse-planning-issues/blob/main/issues/detail-pl-d159.md)
+- `G09` → [PL-D343](https://github.com/neetub1508/warehouse-planning-issues/blob/main/issues/detail-pl-d343.md)
 
 ## Scenarios closed
 The real-world cases above and assigned source acceptance cases become executable implementation evidence. No research checklist is represented as executed.
@@ -92,3 +101,15 @@ No migration allocated at design stage. Use only the next free additive version 
 - [Warehouse design or issue](https://github.com/neetub1508/warehouse-issues/blob/main/docs/reference/downloads-2026-10-01/Warehouse_Service_Parts_Deep_Audit_2026-09-30/02-Warehouse-Gaps.md)
 
 Public competitor documentation establishes reference capabilities; the Scope and Acceptance here are proposed product behavior, not a guarantee of proprietary algorithm parity.
+
+## Detailed implementation children
+
+[Detailed ownership ledger](https://github.com/neetub1508/warehouse-planning-issues/blob/main/docs/DETAILED-COVERAGE.md) · [Created issue registry](https://github.com/neetub1508/warehouse-issues/blob/main/issues/DETAILED-IMPLEMENTATION-CREATED.md). Native GitHub sub-issues provide progress; source links below remain stable before issue-number stamping.
+
+| Child | Implementation increment | Phase |
+|---|---|---|
+| [WH-D22](https://github.com/neetub1508/warehouse-issues/blob/main/issues/planning-detail-wh-d22.md) | Expose approved site-specific purchasing constraints to planning. | Optional purchase integration |
+| [WH-D23](https://github.com/neetub1508/warehouse-issues/blob/main/issues/planning-detail-wh-d23.md) | Publish dated price, currency and landed-cost provenance safely. | Optional purchase integration |
+| [WH-D24](https://github.com/neetub1508/warehouse-issues/blob/main/issues/planning-detail-wh-d24.md) | Expose receipt-performance evidence without rebuilding trade scorecards. | Optional purchase integration |
+
+Close this parent only after every in-scope child is complete with evidence and the aggregate acceptance remains satisfied. Explicitly gated advanced increments retain their gate status; they are not silently counted as delivered.

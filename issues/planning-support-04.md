@@ -1,8 +1,11 @@
-TITLE: [Planning] [Warehouse] Planning support WH-P04 · Arbitrate multiple planning engines and publish versioned stocking policy through one authority
-LABELS: task,warehouse
+TITLE: [Planning] EPIC [Warehouse] WH-P04 · Arbitrate multiple planning engines and publish versioned stocking policy through one authority
+LABELS: epic,planning
 issue: 919
 ---
 <!-- planning-review: WH-P04 -->
+
+> **Parent epic — aggregate scope.** Implement the detailed children below as the executable work units. This issue retains the product scope and aggregate acceptance; it is not an additional duplicate implementation task. The source-case mapping below corrects earlier broad AC-range inheritance. All work remains open until implementation evidence exists.
+
 Part of [planning product backlog](https://github.com/neetub1508/warehouse-planning-issues/blob/main/issues/00-EPIC-planning.md). **Task ID:** `WH-P04` · **Owner:** Warehouse-owned additive integration support · **Phase:** Foundation · **Priority:** essential.
 
 **Authoritative source:** [issues/planning-support-04.md](https://github.com/neetub1508/warehouse-issues/blob/main/issues/planning-support-04.md). This is a pre-build requirement, not a claim the capability is implemented or tested.
@@ -67,9 +70,14 @@ Future order-planning provider is absent or disabled while inventory planning re
 - [ ] Test revoke/expiry/disable/re-enable plus concurrent/stale worker and next monthly run: one current classification writer, approved handover and retained historical classes. Reuse existing warehouse issue 33 and conditional cost follow-up 673 rather than filing another baseline ABC computation.
 
 ## Requirements closed
-This task contributes implementation coverage for the source requirements below. “Closed” means ownership within this backlog, not that tests have passed. No new warehouse FR or scenario namespace is allocated here.
-- `G04`: Policy history and override authority
-- `G05`: One owner of policy calculation
+This epic owns the aggregate behavior of its named child increments. Source cases are assigned to actual primary leaves and supporting contracts, not inherited as an entire AC range. “Closed” means specified ownership, never a runtime test pass.
+
+### Primary case integration
+- `G05` — One owner of policy calculation Primary: [WH-D10](https://github.com/neetub1508/warehouse-issues/blob/main/issues/planning-detail-wh-d10.md). Supporting: [PL-D314](https://github.com/neetub1508/warehouse-planning-issues/blob/main/issues/detail-pl-d314.md), [PL-D634](https://github.com/neetub1508/warehouse-planning-issues/blob/main/issues/detail-pl-d634.md).
+
+### Corrected prior range assignments
+These cases remain globally owned by the following leaves; they are not claimed as implementation of this epic:
+- `G04` → [PL-D316](https://github.com/neetub1508/warehouse-planning-issues/blob/main/issues/detail-pl-d316.md)
 
 ## Scenarios closed
 The real-world cases above and assigned source acceptance cases become executable implementation evidence. No research checklist is represented as executed.
@@ -102,3 +110,15 @@ Public competitor documentation establishes reference capabilities; the Scope an
 - [Canonical source evidence](https://github.com/neetub1508/warehouse-issues/issues/673)
 
 - [Canonical source evidence](https://github.com/neetub1508/warehouse-issues/blob/main/issues/p1-03.md#L276)
+
+## Detailed implementation children
+
+[Detailed ownership ledger](https://github.com/neetub1508/warehouse-planning-issues/blob/main/docs/DETAILED-COVERAGE.md) · [Created issue registry](https://github.com/neetub1508/warehouse-issues/blob/main/issues/DETAILED-IMPLEMENTATION-CREATED.md). Native GitHub sub-issues provide progress; source links below remain stable before issue-number stamping.
+
+| Child | Implementation increment | Phase |
+|---|---|---|
+| [WH-D10](https://github.com/neetub1508/warehouse-issues/blob/main/issues/planning-detail-wh-d10.md) | Extend existing external planner seam to scoped multiple producers. | Foundation |
+| [WH-D11](https://github.com/neetub1508/warehouse-issues/blob/main/issues/planning-detail-wh-d11.md) | Add reviewed expected-version policy publication service. | Foundation |
+| [WH-D12](https://github.com/neetub1508/warehouse-issues/blob/main/issues/planning-detail-wh-d12.md) | Make classification authority explicit and preserve existing ABC writer. | Foundation |
+
+Close this parent only after every in-scope child is complete with evidence and the aggregate acceptance remains satisfied. Explicitly gated advanced increments retain their gate status; they are not silently counted as delivered.

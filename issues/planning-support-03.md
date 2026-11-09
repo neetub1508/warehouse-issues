@@ -1,8 +1,11 @@
-TITLE: [Planning] [Warehouse] Planning support WH-P03 · Publish detailed dated supply and supplier-confirmation facts for planning
-LABELS: task,warehouse
+TITLE: [Planning] EPIC [Warehouse] WH-P03 · Publish detailed dated supply and supplier-confirmation facts for planning
+LABELS: epic,planning
 issue: 918
 ---
 <!-- planning-review: WH-P03 -->
+
+> **Parent epic — aggregate scope.** Implement the detailed children below as the executable work units. This issue retains the product scope and aggregate acceptance; it is not an additional duplicate implementation task. The source-case mapping below corrects earlier broad AC-range inheritance. All work remains open until implementation evidence exists.
+
 Part of [planning product backlog](https://github.com/neetub1508/warehouse-planning-issues/blob/main/issues/00-EPIC-planning.md). **Task ID:** `WH-P03` · **Owner:** Warehouse-owned additive integration support · **Phase:** Foundation · **Priority:** essential.
 
 **Authoritative source:** [issues/planning-support-03.md](https://github.com/neetub1508/warehouse-issues/blob/main/issues/planning-support-03.md). This is a pre-build requirement, not a claim the capability is implemented or tested.
@@ -57,9 +60,14 @@ Trade off has native core PO; trade on supplies same core references via its por
 - [ ] Negative, concurrency, timeout/retry and scope-isolation cases preserve prior approved state and return actionable errors; no direct cross-module table writes or implicit auto-approval.
 
 ## Requirements closed
-This task contributes implementation coverage for the source requirements below. “Closed” means ownership within this backlog, not that tests have passed. No new warehouse FR or scenario namespace is allocated here.
-- `G06`: Detailed time-phased supply projection
-- `G07`: Unknown supply versus verified zero
+This epic owns the aggregate behavior of its named child increments. Source cases are assigned to actual primary leaves and supporting contracts, not inherited as an entire AC range. “Closed” means specified ownership, never a runtime test pass.
+
+### Primary case integration
+- `G06` — Detailed time-phased supply projection Primary: [WH-D07](https://github.com/neetub1508/warehouse-issues/blob/main/issues/planning-detail-wh-d07.md).
+
+### Corrected prior range assignments
+These cases remain globally owned by the following leaves; they are not claimed as implementation of this epic:
+- `G07` → [PL-D310](https://github.com/neetub1508/warehouse-planning-issues/blob/main/issues/detail-pl-d310.md)
 
 ## Scenarios closed
 The real-world cases above and assigned source acceptance cases become executable implementation evidence. No research checklist is represented as executed.
@@ -86,3 +94,15 @@ No migration allocated at design stage. Use only the next free additive version 
 - [Warehouse design or issue](https://github.com/neetub1508/warehouse-issues/blob/main/docs/reference/downloads-2026-10-01/Warehouse_Service_Parts_Deep_Audit_2026-09-30/02-Warehouse-Gaps.md)
 
 Public competitor documentation establishes reference capabilities; the Scope and Acceptance here are proposed product behavior, not a guarantee of proprietary algorithm parity.
+
+## Detailed implementation children
+
+[Detailed ownership ledger](https://github.com/neetub1508/warehouse-planning-issues/blob/main/docs/DETAILED-COVERAGE.md) · [Created issue registry](https://github.com/neetub1508/warehouse-issues/blob/main/issues/DETAILED-IMPLEMENTATION-CREATED.md). Native GitHub sub-issues provide progress; source links below remain stable before issue-number stamping.
+
+| Child | Implementation increment | Phase |
+|---|---|---|
+| [WH-D07](https://github.com/neetub1508/warehouse-issues/blob/main/issues/planning-detail-wh-d07.md) | Publish dated open supply lines and schedule conservation. | Foundation |
+| [WH-D08](https://github.com/neetub1508/warehouse-issues/blob/main/issues/planning-detail-wh-d08.md) | Capture supplier confirmation revisions and lead-time milestones. | Foundation |
+| [WH-D09](https://github.com/neetub1508/warehouse-issues/blob/main/issues/planning-detail-wh-d09.md) | Compose optional transit, manufacturing and subcontract supply providers. | Foundation |
+
+Close this parent only after every in-scope child is complete with evidence and the aggregate acceptance remains satisfied. Explicitly gated advanced increments retain their gate status; they are not silently counted as delivered.
