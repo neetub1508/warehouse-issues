@@ -1,6 +1,6 @@
 TITLE: [Planning] WH-D10 · Extend existing external planner seam to scoped multiple producers
 LABELS: task,planning
-issue: TBD
+issue: 933
 ---
 <!-- planning-detail: WH-D10 -->
 **Parent epic:** [WH-P04](https://github.com/neetub1508/warehouse-issues/blob/main/issues/planning-support-04.md) · **Leaf ID:** `WH-D10` · **Phase:** Foundation.

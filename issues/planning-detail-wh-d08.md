@@ -1,6 +1,6 @@
 TITLE: [Planning] WH-D08 · Capture supplier confirmation revisions and lead-time milestones
 LABELS: task,planning
-issue: TBD
+issue: 931
 ---
 <!-- planning-detail: WH-D08 -->
 **Parent epic:** [WH-P03](https://github.com/neetub1508/warehouse-issues/blob/main/issues/planning-support-03.md) · **Leaf ID:** `WH-D08` · **Phase:** Foundation.

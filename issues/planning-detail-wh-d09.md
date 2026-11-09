@@ -1,6 +1,6 @@
 TITLE: [Planning] WH-D09 · Compose optional transit, manufacturing and subcontract supply providers
 LABELS: task,planning
-issue: TBD
+issue: 932
 ---
 <!-- planning-detail: WH-D09 -->
 **Parent epic:** [WH-P03](https://github.com/neetub1508/warehouse-issues/blob/main/issues/planning-support-03.md) · **Leaf ID:** `WH-D09` · **Phase:** Foundation.

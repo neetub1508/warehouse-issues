@@ -1,6 +1,6 @@
 TITLE: [Planning] WH-D04 · Capture append-only requested-line demand event facts
 LABELS: task,planning
-issue: TBD
+issue: 927
 ---
 <!-- planning-detail: WH-D04 -->
 **Parent epic:** [WH-P02](https://github.com/neetub1508/warehouse-issues/blob/main/issues/planning-support-02.md) · **Leaf ID:** `WH-D04` · **Phase:** Foundation.

@@ -1,6 +1,6 @@
 TITLE: [Planning] WH-D18 · Fence old cursors on restore and expose scoped replay recovery
 LABELS: task,planning
-issue: TBD
+issue: 941
 ---
 <!-- planning-detail: WH-D18 -->
 **Parent epic:** [WH-P06](https://github.com/neetub1508/warehouse-issues/blob/main/issues/planning-support-06.md) · **Leaf ID:** `WH-D18` · **Phase:** Foundation.

@@ -1,6 +1,6 @@
 TITLE: [Planning] WH-D23 · Publish dated price, currency and landed-cost provenance safely
 LABELS: task,planning
-issue: TBD
+issue: 946
 ---
 <!-- planning-detail: WH-D23 -->
 **Parent epic:** [WH-P08](https://github.com/neetub1508/warehouse-issues/blob/main/issues/planning-support-08.md) · **Leaf ID:** `WH-D23` · **Phase:** Optional purchase integration.

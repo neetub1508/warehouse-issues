@@ -1,6 +1,6 @@
 TITLE: [Planning] WH-D24 · Expose receipt-performance evidence without rebuilding trade scorecards
 LABELS: task,planning
-issue: TBD
+issue: 947
 ---
 <!-- planning-detail: WH-D24 -->
 **Parent epic:** [WH-P08](https://github.com/neetub1508/warehouse-issues/blob/main/issues/planning-support-08.md) · **Leaf ID:** `WH-D24` · **Phase:** Optional purchase integration.

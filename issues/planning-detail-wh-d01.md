@@ -1,6 +1,6 @@
 TITLE: [Planning] WH-D01 · Expose batched full-grain stock and reservation read contract
 LABELS: task,planning
-issue: TBD
+issue: 924
 ---
 <!-- planning-detail: WH-D01 -->
 **Parent epic:** [WH-P01](https://github.com/neetub1508/warehouse-issues/blob/main/issues/planning-support-01.md) · **Leaf ID:** `WH-D01` · **Phase:** Foundation.

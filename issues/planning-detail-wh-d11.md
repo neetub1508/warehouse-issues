@@ -1,6 +1,6 @@
 TITLE: [Planning] WH-D11 · Add reviewed expected-version policy publication service
 LABELS: task,planning
-issue: TBD
+issue: 934
 ---
 <!-- planning-detail: WH-D11 -->
 **Parent epic:** [WH-P04](https://github.com/neetub1508/warehouse-issues/blob/main/issues/planning-support-04.md) · **Leaf ID:** `WH-D11` · **Phase:** Foundation.

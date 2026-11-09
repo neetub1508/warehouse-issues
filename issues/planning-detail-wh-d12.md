@@ -1,6 +1,6 @@
 TITLE: [Planning] WH-D12 · Make classification authority explicit and preserve existing ABC writer
 LABELS: task,planning
-issue: TBD
+issue: 935
 ---
 <!-- planning-detail: WH-D12 -->
 **Parent epic:** [WH-P04](https://github.com/neetub1508/warehouse-issues/blob/main/issues/planning-support-04.md) · **Leaf ID:** `WH-D12` · **Phase:** Foundation.

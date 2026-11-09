@@ -1,6 +1,6 @@
 TITLE: [Planning] WH-D03 · Publish master revisions and stable paged extraction behavior
 LABELS: task,planning
-issue: TBD
+issue: 926
 ---
 <!-- planning-detail: WH-D03 -->
 **Parent epic:** [WH-P01](https://github.com/neetub1508/warehouse-issues/blob/main/issues/planning-support-01.md) · **Leaf ID:** `WH-D03` · **Phase:** Foundation.

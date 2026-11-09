@@ -1,6 +1,6 @@
 TITLE: [Planning] WH-D06 · Make demand imports and live postings overlap-safe
 LABELS: task,planning
-issue: TBD
+issue: 929
 ---
 <!-- planning-detail: WH-D06 -->
 **Parent epic:** [WH-P02](https://github.com/neetub1508/warehouse-issues/blob/main/issues/planning-support-02.md) · **Leaf ID:** `WH-D06` · **Phase:** Foundation.

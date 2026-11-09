@@ -1,6 +1,6 @@
 TITLE: [Planning] WH-D16 · Add missing planning event payloads transactionally to existing outbox
 LABELS: task,planning
-issue: TBD
+issue: 939
 ---
 <!-- planning-detail: WH-D16 -->
 **Parent epic:** [WH-P06](https://github.com/neetub1508/warehouse-issues/blob/main/issues/planning-support-06.md) · **Leaf ID:** `WH-D16` · **Phase:** Foundation.

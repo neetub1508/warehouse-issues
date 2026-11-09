@@ -1,6 +1,6 @@
 TITLE: [Planning] WH-D17 · Define reconciled snapshot/high-water bootstrap boundary
 LABELS: task,planning
-issue: TBD
+issue: 940
 ---
 <!-- planning-detail: WH-D17 -->
 **Parent epic:** [WH-P06](https://github.com/neetub1508/warehouse-issues/blob/main/issues/planning-support-06.md) · **Leaf ID:** `WH-D17` · **Phase:** Foundation.

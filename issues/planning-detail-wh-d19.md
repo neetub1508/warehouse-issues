@@ -1,6 +1,6 @@
 TITLE: [Planning] WH-D19 · Expose only evidenced source/master versions for historical planning
 LABELS: task,planning
-issue: TBD
+issue: 942
 ---
 <!-- planning-detail: WH-D19 -->
 **Parent epic:** [WH-P07](https://github.com/neetub1508/warehouse-issues/blob/main/issues/planning-support-07.md) · **Leaf ID:** `WH-D19` · **Phase:** Foundation.

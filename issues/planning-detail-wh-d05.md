@@ -1,6 +1,6 @@
 TITLE: [Planning] WH-D05 · Publish refusal/lost-sale resolution and correction lineage
 LABELS: task,planning
-issue: TBD
+issue: 928
 ---
 <!-- planning-detail: WH-D05 -->
 **Parent epic:** [WH-P02](https://github.com/neetub1508/warehouse-issues/blob/main/issues/planning-support-02.md) · **Leaf ID:** `WH-D05` · **Phase:** Foundation.

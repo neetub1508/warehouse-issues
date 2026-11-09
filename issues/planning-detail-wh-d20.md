@@ -1,6 +1,6 @@
 TITLE: [Planning] WH-D20 · Make archive/opening-balance integration preserve promised planning provenance
 LABELS: task,planning
-issue: TBD
+issue: 943
 ---
 <!-- planning-detail: WH-D20 -->
 **Parent epic:** [WH-P07](https://github.com/neetub1508/warehouse-issues/blob/main/issues/planning-support-07.md) · **Leaf ID:** `WH-D20` · **Phase:** Foundation.

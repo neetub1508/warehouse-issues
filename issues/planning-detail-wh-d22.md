@@ -1,6 +1,6 @@
 TITLE: [Planning] WH-D22 · Expose approved site-specific purchasing constraints to planning
 LABELS: task,planning
-issue: TBD
+issue: 945
 ---
 <!-- planning-detail: WH-D22 -->
 **Parent epic:** [WH-P08](https://github.com/neetub1508/warehouse-issues/blob/main/issues/planning-support-08.md) · **Leaf ID:** `WH-D22` · **Phase:** Optional purchase integration.

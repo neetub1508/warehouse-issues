@@ -1,6 +1,6 @@
 TITLE: [Planning] WH-D15 · Withdraw only unconverted remainder and reconcile cancellation feedback
 LABELS: task,planning
-issue: TBD
+issue: 938
 ---
 <!-- planning-detail: WH-D15 -->
 **Parent epic:** [WH-P05](https://github.com/neetub1508/warehouse-issues/blob/main/issues/planning-support-05.md) · **Leaf ID:** `WH-D15` · **Phase:** Reviewed execution.

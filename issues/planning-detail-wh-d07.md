@@ -1,6 +1,6 @@
 TITLE: [Planning] WH-D07 · Publish dated open supply lines and schedule conservation
 LABELS: task,planning
-issue: TBD
+issue: 930
 ---
 <!-- planning-detail: WH-D07 -->
 **Parent epic:** [WH-P03](https://github.com/neetub1508/warehouse-issues/blob/main/issues/planning-support-03.md) · **Leaf ID:** `WH-D07` · **Phase:** Foundation.

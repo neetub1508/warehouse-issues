@@ -1,6 +1,6 @@
 TITLE: [Planning] WH-D21 · Provide authorized immutable historical export and purge-compatibility contract
 LABELS: task,planning
-issue: TBD
+issue: 944
 ---
 <!-- planning-detail: WH-D21 -->
 **Parent epic:** [WH-P07](https://github.com/neetub1508/warehouse-issues/blob/main/issues/planning-support-07.md) · **Leaf ID:** `WH-D21` · **Phase:** Foundation.

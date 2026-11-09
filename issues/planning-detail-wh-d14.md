@@ -1,6 +1,6 @@
 TITLE: [Planning] WH-D14 · Conserve partial concurrent conversions through canonical purchase owner
 LABELS: task,planning
-issue: TBD
+issue: 937
 ---
 <!-- planning-detail: WH-D14 -->
 **Parent epic:** [WH-P05](https://github.com/neetub1508/warehouse-issues/blob/main/issues/planning-support-05.md) · **Leaf ID:** `WH-D14` · **Phase:** Reviewed execution.

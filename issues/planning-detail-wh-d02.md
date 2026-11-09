@@ -1,6 +1,6 @@
 TITLE: [Planning] WH-D02 · Expose serviceability and excluded stock reasons without changing allocation
 LABELS: task,planning
-issue: TBD
+issue: 925
 ---
 <!-- planning-detail: WH-D02 -->
 **Parent epic:** [WH-P01](https://github.com/neetub1508/warehouse-issues/blob/main/issues/planning-support-01.md) · **Leaf ID:** `WH-D02` · **Phase:** Foundation.

@@ -1,6 +1,6 @@
 TITLE: [Planning] WH-D13 · Extend existing suggestion port with typed planning origin and lineage
 LABELS: task,planning
-issue: TBD
+issue: 936
 ---
 <!-- planning-detail: WH-D13 -->
 **Parent epic:** [WH-P05](https://github.com/neetub1508/warehouse-issues/blob/main/issues/planning-support-05.md) · **Leaf ID:** `WH-D13` · **Phase:** Reviewed execution.
