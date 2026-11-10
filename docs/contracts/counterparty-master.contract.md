@@ -83,8 +83,9 @@
 | ID | When | Then | Enforced in | Source |
 |---|---|---|---|---|
 | CPM-T4-01 | Another module needs a party | it reads `whb_counterparties` or joins through `whb_counterparty_external_refs`, never by an FK into its own party table | consumers | FR-118 |
-| CPM-T4-02 | A third module needs the same GSTIN authoritative for tax filing | the `party-base` extraction is due; `issues/p6-06.md` records it | — (recorded) | FR-121 |
+| CPM-T4-02 | A third module needs the same GSTIN authoritative for tax filing | the `party-base` extraction is due; recorded in classic `warehouse-base/INSTALL.md` §16.2 (FIRED 2026-11-10, epic #957) | — (recorded) | FR-121 |
 | CPM-T4-03 | A GRN is posted with a line whose item is suspect under `CPM-GRD-05` | the line's `received_status_code = SUSPECT` (its serials too), the stock lands SUSPECT (on hand, not allocatable — no putaway task; the GRN grid flags it awaiting QC), it is QC-held and appears on the WS-080 candidate list, and one `WH_GRN_LINE_SUSPECT_SOURCE` audit entry per line names the GRN, line, item, supplier, source-row id and flag, written after the post commits; rejected units on the line still land REJECTED | `WhGoodsReceiptSourceAuthorisation` + `WhGoodsReceiptPostingService.resolveReceivedStatus` (one batch read per receipt) | FR-455 |
+| CPM-T4-04 | A 3PL client's own-site GST registration (`wh3_client_gst_registrations`) is read as the consignor of an india delivery challan or e-way bill | the registration is a GSTIN authority for tax filing, read through `WhbOwnerConsignorRegistrationPort` into `WhinChallanConsignorResolver`, challan `consignor_gstin` and the e-way bill from-GSTIN (WR6-01 #751, `e3fdd27f36`); it counts toward `CPM-T4-02` | — (recorded) | FR-121 |
 
 ## 5. T5 — Screen contract
 
@@ -107,6 +108,7 @@ Supplier evaluation, AVL and approval (`trade-counterparty-evaluation`); counter
 | 2026-10-26 | W72 #606 S2 (classic `8db39bb014`, `V501239`, `V511424`): `CPM-GRD-05` amended — all items, effective at `receivedAt`, site row first, the unlisted setting, target `SUSPECT`, never refuses, first rung; `CPM-T2-02`, `CPM-T4-03` added; `CPM-T5-02` detailed; §10 row 1 closed. Runbook: an install that narrows `RECEIPT.allowed_to_status_codes` to exclude `SUSPECT` gets `STATUS_TRANSITION_NOT_ALLOWED` on a suspect receipt — the same misconfiguration as excluding `QUARANTINE` today; keep `SUSPECT` allowed. The inspection arm (QC → `SUSPECT`) is **not built**: under `RQP-GRD-29` it would use the line's series cap and leave the stock unreleasable |
 | 2026-10-26 | W72 #606 S4 (classic `956d43c66f`): `CPM-GRD-05` — replenishment proposes authorised sources only (#106 H4); S3 F1 setting label, F2 help rule7, Re-source modal tabbed |
 | 2026-10-26 | W72 #606 S4 round b / S3 F-B1 (classic `b984bd1461`): `CPM-GRD-05` upstream rule — replenishment resolves the **effective row per supplier** (site row first, the same row this guard judges) before dropping unauthorised suppliers, so it never proposes a supplier this guard would land SUSPECT |
+| 2026-11-10 | #118 R42 S4: `CPM-T4-02` FIRED 2026-11-10, epic #957 (3 authorities: warehouse-base, accounting-base, warehouse-3pl); record cell now points to INSTALL.md §16.2; `CPM-T4-04` added (3PL client as consignor) |
 
 ## 8. Invariants and scenarios
 
