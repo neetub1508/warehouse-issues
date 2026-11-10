@@ -569,3 +569,18 @@ One row per question. Full reasoning and sources are in the issue comment named 
 | 2026-11-10 | #899 | Part release mode; enforcement point | Explicit audited release; check inside the despatch commit via a line-carrying port | warehouse.3pl.lien.partial_release_mode=EXPLICIT_APPROVAL (PAYMENT_LINKED_APPROVAL) | #899 R42 S1 |
 
 | 2026-11-10 | #948 | Demand-history import vs native postings | Native wins: imported_* share columns (native = total - imported); re-import/restore replace only the share; reversing a created month keeps native hits (strips share, is_migrated=false); backfill migrated=wholly imported. Cut-over + DEMAND_IMPORT_OVERLAPS_NATIVE left to #929 | none (single answer) | #948 R42 S2 |
+| 2026-11-10 | #741 | Add HELD_IN_TRANSIT to the shipment CHECK? | No; worked out from an open India hold. Delivery refused through a new `WhShipmentDeliveryGuard` hook; a carrier event is recorded but does not deliver | none | #741 R42 S1 |
+| 2026-11-10 | #741 | Compute the s.129 penalty? | No; record the demanded amount and the accounting payment reference | none | #741 R42 S1 |
+| 2026-11-10 | #746 | Do exports count in the EPR total? | Excluded by default; export column always shown | `warehouse.india.epr.exclude_exports`=true (alt false) | #746 R42 S1 |
+| 2026-11-10 | #747 | Food profile switch | New setting, default off; do not reuse `regulated_profile` (pinned to NONE) | `warehouse.india.food_compliance.enabled`=false (alt true) | #747 R42 S1 |
+| 2026-11-10 | #747 | Auction / animal-feed routes | Allowed only with an authorisation reference and attachment; no automatic FoSCoS upload | none | #747 R42 S1 |
+| 2026-11-10 | #758 | Partial-removal matching / default owner | First-in-first-out per owner/item/lot; inspection covers all owners, never defaults to OWN | none | #758 R42 S1 |
+| 2026-11-10 | #762 | TCS look-up date | Despatch/invoice date, not the order date | none | #762 R42 S1 |
+| 2026-11-10 | #762 | Overlap across sections | One row per goods class per day, enforced in the database | none | #762 R42 S1 |
+| 2026-11-10 | #763 | 50 km / 20 km limits | Dated statutory seed rows (RE-VERIFY), 50 inclusive; transporter = TRANSPORTER-role counterparty | none | #763 R42 S1 |
+| 2026-11-10 | #764 | Inbound mismatch policy | WARN default | `warehouse.india.eway_bill.inbound_check`=WARN (alt BLOCK,OFF) | #764 R42 S1 |
+| 2026-11-10 | #764 | Expired-on-arrival policy | WARN default; wins over the mismatch policy | `warehouse.india.eway_bill.inbound_expired_policy`=WARN (alt BLOCK,OFF) | #764 R42 S1 |
+| 2026-11-10 | #764 | Reject deadline | Earlier of availability + 72 h and valid-until; "closing" at 60 h | none | #764 R42 S1 |
+| 2026-11-10 | #765 | Source of invoice quantities / last lot | Entered on the series from the tax invoice; last lot flagged by the user, later lots refused | none | #765 R42 S1 |
+| 2026-11-10 | #770 | Bonded retention anchor | Date the bill-of-entry line's bonded quantity reaches zero; until then keep indefinitely | none | #770 R42 S1 |
+
