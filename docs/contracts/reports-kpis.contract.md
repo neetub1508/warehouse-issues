@@ -52,6 +52,7 @@ None. A report has no state and no transition. WS-244 rows are effective-dated m
 | RKP-GRD-02 | Record scope: rows only for the sites (and owners) the caller is granted; a site the caller names outside scope is refused | `403` naming the report | FR-384, FR-385 |
 | RKP-GRD-03 | Traceability: `direction` is a **required parameter**; at least one of `lotId` / `serialNumber` / `shipmentId`; the query is refused, never silently unbounded | `400` field-level (`WhbReportParameterGuard`) | FR-396 |
 | RKP-GRD-04 | Godown statement: `periodId` **or** a `fromDate`/`toDate` pair; the range is ordered; the period exists | `422 DATE_RANGE_INVALID` · `fromDate` / `PERIOD_NOT_FOUND` · `periodId` | FR-386 |
+| RKP-GRD-04b (GS-T5-03b) | Godown statement: the From-after-To guard also runs against the **derived** To (the latest posting day, when no To is sent); it refuses, and never clamps From | `422 DATE_RANGE_INVALID` · `fromDate`, the message naming the derived day (#904) | FR-386 |
 | RKP-GRD-05 | The report's sort key is on its `SqlSortBuilder` whitelist; export reads the same filter map and sort as the grid | unknown key → default sort | FR-384 |
 | RKP-GRD-06 | A **filter-aware statistics strip carries no cache name**: no `@Cacheable` on any warehouse statistics method, and no `statistics.*` name registered for one | — | FR-395 |
 
