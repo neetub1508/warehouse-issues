@@ -697,3 +697,13 @@ One row per question. Full reasoning and sources are in the issue comment named 
 | 2026-11-11 | #770 S2 D3 | Seed shape | `IN-MOOWR-LEDGER` + `IN-MOOWR-DOCUMENT`, CUSTOMS_BONDED, 60 MONTHS, effective 2019-10-01 (RE-VERIFY); no AUDIT row (CHECK forbids); not a required clock for the daily clock job | none | #770 |
 | 2026-11-11 | #770 S2 D4 | Refusal code for "goods in bond" | Reuse `RETENTION_NOT_EXPIRED`, message names the CUSTOMS_BONDED clock; no new code | none | #770 |
 | 2026-11-11 | #770 S2 D5 | Ledger archiver (range question) | Unchanged in S2: it passes no `recordId`, so the bonded clock does not reach it; follow-up filed | none | #770 |
+| 2026-11-11 | #747 | Food item marker | Seeded BOOLEAN ITEM attribute key `WHIN_FOOD_ITEM` (registry upper-case form of S1's `whin.food_item`) | none | #747 R42 S2 |
+| 2026-11-11 | #747 | Scrap seam | `WhbMovementPostGuard` + `WhbMovementEffectRecorder` (+ `WhbMovementApprovalGuard` per S3 F1); core QC and adjustment requests not widened; recorder refuses a food scrap with no plan | none | #747 R42 S2/S3 |
+| 2026-11-11 | #747 | Disposal match rule | Same site + item + exact lot + exact base quantity (scale 4); one plan covers one scrap per lot; a plan is edited, not split, to fit a weighed quantity | none | #747 R42 S2/S3 |
+| 2026-11-11 | #747 | Routes | DESTROYED, AUCTIONED, ANIMAL_FEED_AUTHORISED, RETURNED_TO_SUPPLIER as code-list rows; no relabel route | none | #747 R42 S2 |
+| 2026-11-11 | #747 | FoSCoS | Export the data and record the submission reference; no automatic upload | none | #747 R42 S2 |
+| 2026-11-11 | #747 | Quarterly report shape | Install-wide, Indian FY quarter, GENERATED → SUBMITTED, snapshot frozen; quarter taken from posting date (S3 F3). Licence grain and calendar UNVERIFIED against the 16-12-2024 advisory | none | #747 R42 S2/S3 |
+| 2026-11-11 | #747 | Menu leaves | Seeded hidden under Regulated Goods (7 of 8); admin shows them; a fence that runs at boot and on setting save is a follow-up | `warehouse.india.food_compliance.enabled` | #747 R42 S2/S3 |
+| 2026-11-11 | #747 | Pending scrap claims | Two pending scraps may not share one plan; re-checked at approval, refused when uncovered | none | #747 R42 S3 |
+| 2026-11-11 | #747 | Adjustment write-offs | ADJUST_DOWN / ADJUST_DOWN_AUTO with a loss reason (DAMAGE, EXPIRED) on a food item needs a plan like SCRAP | none | #747 R42 S3 |
+| 2026-11-11 | #747 | Mobile | No mobile counterpart (no warehouse mobile; V541186 sets is_mobile_enabled=false) | none | #747 R42 S2 |
