@@ -732,3 +732,6 @@ One row per question. Full reasoning and sources are in the issue comment named 
 | 2026-11-11 | #765 | D7 Legacy SKD_CKD challans | Untouched (no series); a lot is refused while a legacy non-lot challan is live on the source | none | #765 R42 S2 |
 | 2026-11-11 | #765 | D8 Grid / export | Unchanged; lot shown on View and print only (grid==export parity kept) | none | #765 R42 S2 |
 | 2026-11-11 | #765 | D9 Invoice quantity vs order quantity | Not capped at the order quantity (accounting reference); lots are capped at the invoice | none | #765 R42 S2 |
+| 2026-11-11 | #741 S4 D12 | Hold with no linked e-way bill while the shipment has ACTIVE bills? | Require a bill on create and edit whenever the shipment has any ACTIVE bill (default the single one); an explicit clear is refused. | no setting - single answer | #741 R42 S4 re-verify N4 |
+| 2026-11-11 | #741 S4 D13 | Voided holds on the e-way bill History tab? | Shown, labelled Voided; history never hides a detention. | no setting - single answer | #741 R42 S4 re-verify N6 |
+| 2026-11-11 | #741 S4 D14 | Who may read India register papers (transit-hold, food-disposal, job-work documents) via platform /documents? | Nobody: one India RestrictedDocumentPolicy restricts them; reads only through the owning record's scoped route. | no setting - ratified scope contract | #741 R42 S4 re-verify N2 |
