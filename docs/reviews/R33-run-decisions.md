@@ -1023,3 +1023,4 @@ One row per question. Full reasoning and sources are in the issue comment named 
 | 2026-11-11 | #756 S3 D5 | D5 | Hold-over with zero stock | With zero measured, STORAGE_HOLDOVER bills 0: the minimum quantity, minimum charge and FLAT pricing are ignored. `postSiteMinimums` skips a run that starts after the contract end | none | #756 S3 |
 | 2026-11-11 | #756 S3 D6 | D6 | Stock-out after a cancelled order | When the linked demand order is CANCELLED, clear the link and allow a new draft (port id = stock-out id + attempt number) | none | #756 S3 |
 | 2026-11-11 | #756 S3 D7 | D7 | Clients already TERMINATING | The migration backfills an exit row (stage NONE, no tasks) for every TERMINATING client | none | #756 S3 |
+| 2026-11-11 | #758 S4 r2 | Van/trailer/mobile stock | Counts as on the premises unless the location is is_transit (unchanged); follow-up filed | none | #758 R42 S4 r2 |
