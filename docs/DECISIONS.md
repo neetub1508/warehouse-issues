@@ -621,6 +621,11 @@ re-litigated here. They read with `D-16` and `D-17` and amend them where they sa
    pack already built in `warehouse-india` (`V540183`) is kept and **fenced behind `warehouse.regulated_profile`**,
    which ships `NONE` (`V511200`; the despatch guard stands aside), with its menus hidden while it is `NONE`
    (`P4-13`); re-entry is a funded requirement and a new FR.
+   *Amended 2026-11-11 (user, #993):* pharma is **not supported**. The fenced Schedule H1 pack is **removed**, not
+   kept: register, runs, `SCHEDULE_H1` item rules, menu, permissions and the two tables. The generic licence pack
+   stays for dangerous goods. Segments confirmed the same day: **manufacturing first**. 3PL, storage/godown, trading,
+   food (FSSAI, setting-gated) and automotive VIN/PDI (P10-21..23) are **kept**; the apparel variant schema stays
+   **fenced**; dealer/retail stay removed (D-16).
    *Amended 2026-11-06 (F828 #828, Q1):* our own site licences are not pharma — **Licence Types** and **Our
    Licences** (and their section) stay reachable, and the renewal alert runs, whatever `warehouse.regulated_profile`
    is; counterparty licences, licence ceilings, recall notifications, the despatch guard and the Schedule H1 build
