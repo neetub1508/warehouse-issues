@@ -1078,3 +1078,16 @@ One row per question. Full reasoning and sources are in the issue comment named 
 | 2026-11-11 | #755 S4 r7 RV | R35–R37 | Implementation check | **KEEP.** R35 (uniform waiver), R36 (paired-only position) and R37 (a reversed cover pools 0 in the flag view, position 0) are implemented once in `Cover`/`WriteOff`, and every reader uses them. N22, N24 and N23 (as reported) are closed | none | #755 S4 r7 re-verify |
 | 2026-11-11 | #755 S4 r7 RV | R38 | Amends R36: what a reversed live line takes from the pool (N26) | **Nothing.** A reversed posting moved no stock. Its paired part is `min(m, held − share, budget)`, where the budget is the positions of the unreversed covers pooled at or before it, less the over-holding of unreversed claimed lines and less earlier pairings. It adds `−paired` to the drift and is never topped up or flagged; its unpaired live claim stays on its stamp. DECISION RULE: no unit paid twice without a flag (R24/R30). R36 pays 11 for 10 in S1 with no flag. **Blocking** until implemented and checked against a physical oracle | none | #755 S4 r7 re-verify N26 |
 | 2026-11-11 | #755 S4 r7 RV | R39 | Oracle independence (N25, N26) | The property oracle takes nothing out of the pool for a reversed line. It counts a fully waived unreversed cover's absorbed part in the stamp-excess bookkeeping, and it decides live and waived with its own status rule, not `Wh3plCustodyClaimVocabulary`. The N25 wrong-top-up variant and N26 S1/S2 must fail the oracle before the N19 class can close | none | #755 S4 r7 re-verify N25, N26 |
+| 2026-11-11 | #863 S4 r1 RV | F1 stampAnnounced guarded on a non-empty raised list (`Job:143`) | CLOSED |
+| 2026-11-11 | #863 S4 r1 RV | F2 F441(c) rewritten to D1 (`IT:402-444`) | CLOSED |
+| 2026-11-11 | #863 S4 r1 RV | F3 §3.6 header on V541219/V541220/V541230/V541232; both header rules pass on all 126 India files; none of the four is tagged | CLOSED |
+| 2026-11-11 | #863 S4 r1 RV | F4 ALLOCATED_VERSIONS = 126 files exactly, none missing or extra | CLOSED |
+| 2026-11-11 | #863 S4 r1 RV | F5 ITs 863-01/-03/-04/-06 written; 863-04 holds a real FOR UPDATE lock and asserts a pg_stat_activity Lock wait; settlement race only (cancel not required) | CLOSED in source; batch-end run owed, blocks close |
+| 2026-11-11 | #863 S4 r1 RV | F6 T3-02 cell, §3 note, job text, v1.8 row, GOAAGE anchors | CLOSED; residual drift N3 |
+| 2026-11-11 | #863 S4 r1 RV | F7 alert feed keeps practice sites, expiry excludes them (driver ruling, job-work parity) | CLOSED |
+| 2026-11-11 | #863 S4 r1 RV | F8 V541232 BEFORE INSERT OR UPDATE OF, nested TG_OP; idempotent and safe | CLOSED; a dev DB that applied old V541232 needs repair plus re-running the function and trigger |
+| 2026-11-11 | #863 S4 r1 RV | F9 untold challan named once | CLOSED; N1 cross-site number collision |
+| 2026-11-11 | #863 S4 r1 RV | F10 moved to #991 (OPEN) | CLOSED for #863 |
+| 2026-11-11 | #863 S4 r1 RV | F11 row.length guards dropped, full-width test rows, .def comments | CLOSED |
+| 2026-11-11 | #863 S4 r1 RV | D1 / D2 / G3 regression check | PASS |
+| 2026-11-11 | #863 S4 r1 RV | N1-N4 (F9 key, job-IT discrimination, contract anchors/A2, stale allowlist comment) | non-blocking; next touch or close-out polish |
