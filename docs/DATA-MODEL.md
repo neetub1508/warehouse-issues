@@ -4120,6 +4120,7 @@ Every one of these is covered by a test, and the tests are named in the task fil
 | WHB-76 | — | **No migration.** Register every base cache name in `CacheConfiguration.java` (`statistics.{entityCamelCase}`, `dropdown.{entity}`). **Filter-aware statistics get no cache name** (`FR-395`) | v1 |
 | WHB-77 | — | **No migration.** Add every base scope to `COMMON_FILTER_CONFIGS` in `platform/frontend/src/utils/filterUtils.ts`. A field absent here is **silently dropped** by `convertFiltersForApi()` and the filter appears to do nothing | v1 |
 | WT-07 | `V501354` | **Item types SPARE_PART, TRADED_GOOD, LOOSE_TOOL and SCRAP** (warehouse-issues #802, Stage 1): four `whb_item_types` system rows (catalogue 10, sort 180-210) with the S1 flow-flag matrix, `INSERT … SELECT … WHERE NOT EXISTS` plus an RL-003 ownership guard, no UPDATE of an existing row, no column / CHECK / menu / grid change | v1 |
+| WT-08 | `V501363` | **Item noun terminology setting** (warehouse-issues #803, Stage 1): one `admin_settings` row `warehouse.terminology.item_noun` (category `WAREHOUSE`, `SELECT`, default `ITEM`, `allowedValues` ITEM / PART / MATERIAL, metadata group / displayOrder), `ON CONFLICT DO NOTHING`; label-only — no table, column, grid, menu or permission change | v1 |
 | — | `V501101`–`V509999` | **Reserved: ~8,900 numbers** for post-v1 base work | — |
 
 **Round-4 rows carry their owning task id, not a `WHB-`/`WH-` label** (`V500037`, `V500068`–`V500077`
