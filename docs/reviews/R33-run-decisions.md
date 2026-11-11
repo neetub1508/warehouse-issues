@@ -1067,3 +1067,11 @@ One row per question. Full reasoning and sources are in the issue comment named 
 | 2026-11-11 | #863 S3 | F5 IT acceptance criterion unmet (863-01/-03/-04/-06) | batch-end tester; blocks close |
 | 2026-11-11 | #863 S3 | F10 sweep: 4 pre-existing stamp-without-notice jobs found (quality deviation, temperature excursion, CAPA, QC instrument) | file follow-ups |
 | 2026-11-11 | #863 S3 (driver) | F7 sandbox on the ALERT pass (DECISION RULE) | Keep #116's documented design: practice sites are excluded from the deemed-supply EXPIRY (V541232 floor) but NOT from the alert feed - matches job-work ageing; drop the alert-query exclusion and record it in GOA-T3-01 | none | #863 S3 F7, driver decision |
+| 2026-11-11 | #756 S4 r1 RV | F19: the `bills_after_contract_end` flag drives only the cutoff exemption; hard-coded STORAGE_HOLDOVER elsewhere is equivalent (system-only CHECK) | accepted | #756 S4 r1 RV |
+| 2026-11-11 | #756 S4 r1 RV | F18: final run must be APPROVED or INVOICED; the live status is shown for later cancellation or reversal | accepted | #756 S4 r1 RV |
+| 2026-11-11 | #756 S4 r1 RV | D6: one stock-out row per site with `attempt_no` is accepted, but each attempt needs its own port source-document id, not only its own envelope key (F4) | accepted with change | #756 S4 r1 RV |
+| 2026-11-11 | #756 S4 r1 RV | Terminate time = exit `created_at`; backfilled exits use the client's `updated_at` (strict only); document it in CL-T4-08 or derive it from the `WH3_CLIENT_TERMINATED` audit entry (N3) | accepted, non-blocking | #756 S4 r1 RV |
+| 2026-11-11 | #756 S4 r1 RV | F5: client-scoped, newest-first pickers capped at 50 with a hint are acceptable until #990 | accepted | #756 S4 r1 RV |
+| 2026-11-11 | #756 S4 r1 RV | D3 lock: Compute, Recompute and Approve take the client row lock, the same as the end-date edit | recommended default (F8) | #756 S4 r1 RV |
+| 2026-11-11 | #756 S4 r1 RV | Exit stock-out port command: per-attempt source id plus a demand type and destination the port accepts | recommended default (F4 + N1) | #756 S4 r1 RV |
+| 2026-11-11 | #756 S4 r1 RV | Notice job: an alert for a reached stage is retried until stamped; the stage advance stays date-only | recommended default (N2) | #756 S4 r1 RV |
