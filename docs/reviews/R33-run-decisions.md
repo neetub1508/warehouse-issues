@@ -949,3 +949,4 @@ One row per question. Full reasoning and sources are in the issue comment named 
 | 2026-11-11 | #765 | S4 r3 re-verify R1 | CLOSED: lot generate takes shipment FOR SHARE → order → source advisory → series, the core shipment-then-order order. Re-checked under the lock | none | #765 R42 S4 r3 re-verify |
 | 2026-11-11 | #765 | S4 r3 re-verify R2 | CLOSED: the shared own-lot helper drops practice-site lots, on the same `from_warehouse_id` sandbox test `standsAside` uses | none | #765 R42 S4 r3 re-verify |
 | 2026-11-11 | #765 | S4 r3 re-verify R3 | CLOSED: an uncovered cancelled lot triggers the own-lot refusal. The shared `issuedChallanCovers` fragment leaves `findDispatchFacts` SQL unchanged | none | #765 R42 S4 r3 re-verify |
+| 2026-11-11 | #760 S4 r2 | invoiceLagOverdue = false | Means "not overdue" (Yes/No is a true boolean); null = no filter; same predicate in grid, tile and export | none | #760 R42 S4 r2 |
