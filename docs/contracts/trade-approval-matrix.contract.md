@@ -180,7 +180,7 @@ Rows added by the R32 fold (FRD-TRADE §4.15). Numbers continue each kind's sequ
 | TAM-GRD-11 | guard | PR HOD level = core resolver `DEPARTMENT_HEAD` (core `FR-722`); trade supplies the PR's `department_id` in `snapshot()`; nothing trade-local resolves approvers | core's resolver refusal | FR-740 |
 | TAM-GRD-12 | guard | Trade registers `WhApprovable` for `SO_CREDIT_OVERRIDE` (`REFUSE`, no seed) and `FEASIBILITY` (`REFUSE` + seeded one-level `ROLE` rule `trade_design_head`) | `422 APPROVAL_NO_RULE` | FR-740, FR-766, FR-771 |
 | TAM-T1-12 | transition | PR derived status `HOD_APPROVED` while a `DEPARTMENT_HEAD` level is approved and a later level pending (read from core steps, not stored); MR-origin PRs carry `from_approved_mr` | — | FR-743 |
-| TAM-GRD-13 | guard | Band value = net of tax unless `warehouse.trade.approval.value_basis` = `GROSS` (default `NET`, client Q-P3); the basis is frozen on the request | — | FR-762 |
+| TAM-GRD-13 | guard | Band value = net of tax unless `warehouse.trade.approval.value_basis` = `GROSS` (default `NET`, client Q-P3); the basis is frozen on the request once core `ApprovalSnapshot` carries it (#902 F10) — until then approval routes on `NET` (R46 S1 #644 F4) | — | FR-762 |
 | TAM-GRD-14 | guard | New condition codes from trade's `WhApprovalConditionProvider`: `exceeds_pr`, `direct_po`, `sample_from_unlisted_vendor`, `price_differs_from_quotation`, `below_target_margin`, `affects_production`, `from_approved_mr` — none is matched by a zero-level seed (`EXACT`, empty set, `TRD-14`); install rules for `PR` / `PO` / `SO` / `SQ` default to `INCLUDES` on WS-284 so a condition-free rule also covers them and a rule naming the condition is more specific; seed `PR` × {`from_approved_mr`} `INCLUDES`, one `ROLE` level (purchase-manager bundle) in `V551030` | — | FR-745, FR-746, FR-747, FR-752, FR-757, FR-772 |
 
 ## 6. Out of scope
@@ -203,6 +203,7 @@ Rows added by the R32 fold (FRD-TRADE §4.15). Numbers continue each kind's sequ
 | 2026-10-25 | `TAM-GRD-14` | R32-fix: `INCLUDES` default for install rules of condition-bearing trade types and a seeded `from_approved_mr` rule, so MR hand-off PRs, direct POs, PO-over-PR and quotation-price-changed SOs are approvable by default | R32 review F-R32TR-004 |
 | 2026-10-25 | `TAM-GRD-11`, `TAM-GRD-12`, `TAM-T1-12`, `TAM-GRD-13`, `TAM-GRD-14` (new, *R32 additions*) | R32 fold of the client PRD (`D-20`): trade consumer of core `document-approval`: HOD level via core `DEPARTMENT_HEAD`, `SO_CREDIT_OVERRIDE` / `FEASIBILITY` types, value basis, new condition codes | R32 / `D-20` |
 | 2026-10-25 | `TAM-T1-04a` (new) | **R32-fix (`F-R32CA-014`, `-015`).** Zero-level seeds are written for a company created after `V551030` at its first `open()` (idempotent seeder), so trade types are not refused `APPROVAL_NO_RULE` on a new company. The separate amendment types of §0.1 (`PO_AMENDMENT`, …) are the one amendment model `DAP-T1-12` now states for every type that declares one | R32 review |
+| 2026-11-13 | `TAM-GRD-13` | R46 S1 (#644 F4): `GROSS` waits on #902 (core snapshot value basis); routes on `NET` until then | R46 S1 |
 
 ## 8. Invariants and scenarios
 

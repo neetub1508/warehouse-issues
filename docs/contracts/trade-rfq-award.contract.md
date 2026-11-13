@@ -184,7 +184,7 @@ Rows added by the R32 fold (FRD-TRADE §4.15). Numbers continue each kind's sequ
 |---|---|---|---|---|
 | TRA-T4-05 | effect | Vendor quotation lines get tax rows from `WhTaxPreviewProvider` (`CN-16`, `P8-26`; accounting's tax determination through the adapter, `D-21` item 1) with the supplier's registration and state vs the receiving site, reverse charge decided by the provider; a foreign supplier's quotation (import) asks none; a vendor-stated rate that differs is shown, the computed one is used | no provider → no tax rows | FR-761 |
 | TRA-T4-06 | effect | CS shows landed price **excluding recoverable GST** and **gross incl. GST**; rank (L1) on `warehouse.trade.cs.rank_basis` (default `LANDED_NET_OF_ITC`, else `GROSS`), still only within one currency (`OD-34`) | — | FR-762 |
-| TRA-T1-15 | transition | *Share* an `ISSUED` RFQ to each invited supplier by e-mail / WhatsApp (`wht_document_shares`); supersedes `TRA-OPEN-01` | `422 TRADE_SHARE_DOCUMENT_NOT_APPROVED`; `503 TRADE_SHARE_CHANNEL_UNAVAILABLE` | FR-763 |
+| TRA-T1-15 | transition | *Share* an `ISSUED` RFQ to each invited supplier by e-mail / WhatsApp (`wht_document_shares`); supersedes `TRA-OPEN-01`; rendered once per RFQ version × invited supplier and that PDF reused across the supplier's contacts, channels and retries (`TRA-UNR-01`; R46 S1 #645 F3) | `422 TRADE_SHARE_DOCUMENT_NOT_APPROVED`; `503 TRADE_SHARE_CHANNEL_UNAVAILABLE` | FR-763 |
 
 ## 6. Out of scope
 
@@ -205,6 +205,7 @@ Rows added by the R32 fold (FRD-TRADE §4.15). Numbers continue each kind's sequ
 | 2026-10-25 | `TRA-T4-05`; FR-746 directness | R32-fix: tax provider is accounting's tax determination via `CN-16` (`P8-26`), not a warehouse-india engine; an award of a manual RFQ with no PR behind it makes the drafted PO direct (`TPO-GRD-21`) | R32 review F-R32TR-001, -005 |
 | 2026-10-25 | `TRA-T4-05`, `TRA-T4-06`, `TRA-T1-15` (new, *R32 additions*) | R32 fold of the client PRD (`D-20`): GST on vendor quotations and the CS (rank net of ITC), RFQ share by e-mail / WhatsApp (`TRA-OPEN-01` superseded) | R32 / `D-20` |
 | 2026-11-08 | `TRA-T1-04`, `TRA-T2-03` | R41 S1 (F1): cancel also refused while any CS is `APPROVED` | R41 S1 |
+| 2026-11-13 | `TRA-T1-15` | R46 S1 (#645 F3): RFQ share renders per invitee, never one PDF for all | R46 S1 |
 
 ## 8. Invariants and scenarios
 

@@ -142,7 +142,7 @@ Rows added by the R32 fold (FRD-TRADE §4.15). Numbers continue each kind's sequ
 | ID | Kind | Rule | Refusal / effect | Source |
 |---|---|---|---|---|
 | TSR-GRD-07 | guard | Intent `WARRANTY_REPLACEMENT`: the shipped unit's serial named; within warranty — core's serial warranty fields (written by the MFG unit registry from the sale date for unit-serial items, `D-21` item 3), else the item's warranty days from the core shipment date; the replacement release is `is_replacement` — not invoiced, not in billed-vs-shipped, not credit- / advance-checked; answered `NOT_CREDITABLE` to core's credit-note proposal | `422 TRADE_RETURN_OUT_OF_WARRANTY` | FR-758 |
-| TSR-T4-06 | effect | Core emits one `CREDIT_NOTE_PROPOSAL` per return receipt + QC disposition (core orders the two events; partial returns one per receipt; `D-21` item 2) and asks trade's `WhAccountingEnvelopeEnricher` (`CN-18`, `P8-26`); for an RMA from an SRA of intent `CREDIT` trade answers accepted qty × SO price, tax reversal as typed head rows, original invoice no — a `SALES_RETURN` enrichment row keyed by `source_event_id`; `REPLACE` / `WARRANTY_REPLACEMENT` → `NOT_CREDITABLE`. Trade waits for no RMA status | — | FR-775 |
+| TSR-T4-06 | effect | Core emits one `CREDIT_NOTE_PROPOSAL` per return receipt + QC disposition (core orders the two events; partial returns one per receipt; `D-21` item 2) and asks trade's `WhAccountingEnvelopeEnricher` (`CN-18`, `P8-26`); for an RMA from an SRA of intent `CREDIT` trade answers accepted qty × SO price, discount, tax reversal as typed head rows (carried by base `CreditNoteRow` + core `WhCreditNoteProposalProducer`, added by P9-20 — R46 S1 #649 F4), original invoice no — a `SALES_RETURN` enrichment row keyed by `source_event_id`; `REPLACE` / `WARRANTY_REPLACEMENT` → `NOT_CREDITABLE`. Trade waits for no RMA status | — | FR-775 |
 
 ## 6. Out of scope
 
@@ -163,6 +163,7 @@ Rows added by the R32 fold (FRD-TRADE §4.15). Numbers continue each kind's sequ
 | 2026-10-25 | `TSR-GRD-07`, `TSR-T4-06`, §6 | R32-fix: credit note from core's `CREDIT_NOTE_PROPOSAL` (per receipt + disposition) enriched by trade, no wait on an RMA `RECEIVED` status core lacks; warranty validity from core serial warranty fields (MFG registry); replacement excluded from invoicing / closure / credit checks | R32 review F-R32TR-002, -003, -011, -030 |
 | 2026-10-25 | `TSR-GRD-07`, `TSR-T4-06` (new, *R32 additions*) | R32 fold of the client PRD (`D-20`): warranty-replacement intent, credit-note proposal | R32 / `D-20` |
 | 2026-11-01 | `TSR-T1-04` | Port `cancelRma` reason is a `DOCUMENT_CANCEL`-context reason, not `TRADE_ORDER_CLOSE` — core accepts only `DOCUMENT_CANCEL` for an RMA cancel (`WhRmaService.java:72`) | R33 #576 S1 G3 |
+| 2026-11-13 | `TSR-T4-06` | R46 S1 (#649 F4): the credit-note row carries discount and typed tax heads; base payload + core producer extended in P9-20 | R46 S1 |
 
 ## 8. Invariants and scenarios
 
