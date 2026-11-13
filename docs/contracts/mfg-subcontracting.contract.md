@@ -12,7 +12,7 @@
 > gate pass (`p8-03`) or india's challan / registration / ITC-04 (`issues/p4-02.md`). MFG writes no `whin_`
 > table and has no compile dependency on `warehouse-india` (FR-620, MD-13).
 >
-> **Status.** Derived 2026-10-22 (v0); **ratified 2026-11-13 under the DECISION RULE (R46)**, with the R31 *proposed* codes. No code exists. Statutory values **RE-VERIFY**.
+> **Status.** Derived 2026-10-22 (v0); **ratified 2026-11-13 under the DECISION RULE (R46)**, with the R31 *proposed* codes. No code exists. Statutory values **RE-VERIFY**. **Amended 2026-11-13 (v1, R47l):** §13 adds the WR3-04 (#1024) and WR3-05 (#1025) S1 adopted decisions, ratified by the batch DECISION rule.
 
 ---
 
@@ -28,7 +28,7 @@
 | **Status columns** | `whm_subcontract_dispatches.status` (`DRAFT`/`DISPATCHED`/`CANCELLED`); `whm_subcontract_reconciliations.resolution` (derived `NONE`/`PARTIAL`/`RESOLVED`); `whm_subcontract_reconciliation_actions.status` (`REQUESTED`/`POSTED`/`REJECTED`) — no `CHECK` (`D-10`) |
 | **Permission resources** | `whm_subcontract_dispatches:{view,create,edit,export,dispatch,cancel,recall,write_off,approve_write_off}` (MD-20) · receipt `whm_production_receipts:{create,post}` · close `whm_production_orders:close` |
 | **Routes** | `/warehouse/manufacturing/subcontracting` (WS-330, tabs Dispatches · Reconciliation) · WS-323/WS-324 for the order · **mobile: none** |
-| **Contract status / version** | `derived 2026-10-22 (v0); ratified 2026-11-13 (DECISION RULE, R46)` · `v0 — 2026-10-22` |
+| **Contract status / version** | `derived 2026-10-22 (v0); ratified 2026-11-13 (DECISION RULE, R46)` · `v1 — 2026-11-13` (R47l §13; v0 — 2026-10-22) |
 
 ### Acceptance checks
 
@@ -134,7 +134,7 @@
 | Return window, capital goods | **3 years**; extendable by 2 years | `…capital_goods` = 3 (`V541053:121`) | india |
 | Moulds, dies, jigs, tools | (india type `TOOLING`, `V541171`; R46 ratification F1 — no `MOULDS_DIES_TOOLS`) no time limit: excluded from the 3-year return/supply window in s.143(1)(a)-(b) and from the deemed supply in s.143(4); s.19(7) for the ITC rule | india | india |
 | Missed window | deemed supply on the **date sent** | `deemed_supply_due_date` (`V540020:241-244`) | india |
-| Direct-from-vendor | clock from receipt at the job worker | — (own task after P10-10, v1.1, `SUB-OPEN-07`; R46 S1 #601) | india |
+| Direct-from-vendor | clock from receipt at the job worker | the india `JOB_WORK` challan is raised at the GRN post and dated the job worker's receipt date, so `challan_date` + period is the s.143(1) / s.19(5) clock (`SUB-T4-31`, india `IMD-T1-08e`; #1024, R47l) | india |
 | Scrap at job worker | s.143(5): supplied by the job worker if registered, else by the principal | `V540190` scrap columns | india |
 | ITC-04 frequency | half-yearly (due 25 Oct / 25 Apr) when AATO > ₹5 crore, annual (due 25 Apr) otherwise | india (`p4-02`) | india |
 | E-way bill | required for an inter-state job-work movement regardless of value | india | india |
@@ -198,7 +198,7 @@
 | Job work **in** (customer's material) | `OD-42`, v1.2 |
 | Processing charge | the warehouse-trade subcontract PO (FRD-TRADE FR-682…), linked by trade's `subcontract_order_id` (FR-683; MFG's `service_po_line_ref` is a display back-reference) — trade lifts R9 for that service line; R8 general service POs stay refused (D-18 item 3) |
 | Job-work invoice, debit/credit notes | accounting, R-14 |
-| Direct-from-vendor to job worker; job worker → job worker; supply from the job worker's premises | own tasks after P10-10 (and P10-20 for JW → JW), v1.1 (`SUB-OPEN-07`, R46 S1 #601 WR3-04 / WR3-05) |
+| Direct-from-vendor to job worker; job worker → job worker; supply from the job worker's premises | not in P10-10: own tasks #1024 (after P10-10) and #1025 (after P10-10 and P10-20), v1.1 (`SUB-OPEN-07`); their rules are §13 (R47l) and india `IMD-T1-08e`…`-08g`, `IMD-T4-08` |
 | ITC-04 generation, challan print, e-way bill | india (`p4-02`) |
 | Mobile | R-13 |
 
@@ -213,6 +213,7 @@
 | 2026-10-23 | `SUB-T1-00`, `-03`, `-07`, `SUB-GRD-01`…`-04`, `-14`, `-15`, `-18`, `SUB-T4-01`, `-07`, §5.2, §6, Source column, `SUB-OPEN-06`…`-09` | R31: holds closed explicitly, remainder re-created (F-MF-002); dispatch freezes the bonded regime (F-MF-004); trade subcontract PO carries the charge (F-MF-005, D-18 item 3); CST owns the close guard (F-MF-006); pending write-off not subtracted twice (F-MF-013); Source FR on every rule row (F-MF-018); one code per predicate (F-MF-019); DECIDE rows applied | `R31-functional-review-mfg.md`, `R31-decisions.md`, D-18 |
 | 2026-10-23 | §0, `SUB-GRD-17`, `SUB-T4-11` | Bonded / MOOWR job work allowed under the bond rules (permission reference, return date, register, loss); rules in `mfg-bonded-issue` | R30 `CP-GB-001`, `CP-GA-007`; `D-17` item 3 |
 | 2026-10-25 | R32 (`D-20`; MRB C8): §12 — a job-work stage inside an in-house order runs as a child subcontract order of its job card (FR-807) |
+| 2026-11-13 | header (v1), §3.1, `SUB-T4-20`, §6, `SUB-OPEN-07`, §13 `SUB-T1-30`, `-31`, `SUB-GRD-30`, `SUB-T4-30`, `-31`, `SUB-UNR-30` | v1 — WR3-04 / WR3-05 S1 adopted decisions folded in: PO line received at a job worker's premises (no putaway / QC / gate entry), counted as "sent" once with no store dispatch, challan dated the JW receipt; subcontract receipt straight into the next stage's job-worker premises; supply from JW premises never through the allocator. **Ratified by batch DECISION rule R47l** | #1024 / #1025 S1 PRE-BUILD (R47l) |
 
 ## 8. Invariants and scenarios this workflow must not break
 
@@ -234,7 +235,7 @@
 | SUB-OPEN-04 *(resolved — MD-25: `reverseReturn`, `registerLoss`; recall = `registerReturn` of the input)* | SEAM-M5 defines `registerDispatch` / `registerReturn` only; a subcontract receipt reversal, a recall and a write-off (loss at job worker) have no port call, so ITC-04 would keep an open quantity or a stale return | add `reverseReturn(...)` and `registerLoss(...)` to `JobWorkDispatchPort` (india already has `reevaluateAfterReversal`) | SEAM-M5 | resolved |
 | SUB-OPEN-05 *(resolved — MD-26: `gate_entry_id` + `gate_entry_ref`)* | FR-661 references the gate entry (`p8-03`) on the receipt; `whm_production_receipts` has no gate-entry column | add `gate_entry_id` (bare UUID) to `whm_production_receipts` | FRD §4 | resolved |
 | SUB-OPEN-06 *(resolved — D-18 item 3; no longer open)* | The processing charge never reaches the processed item's cost (FR-658 leaves it to trade/accounting; no landed-cost path designed) | the warehouse-trade subcontract PO (FRD-TRADE FR-682…) carries the charge on its service line, linked by trade's `subcontract_order_id` (FR-683), and trade lands it as a value-only `LANDED_COST_APPLY` at the trade service confirmation (FRD-TRADE FR-686) onto the received lots (`P2-28` path); MFG posts none (FR-658, SEAM-M7) | FR-658, D-18 | resolved |
-| SUB-OPEN-07 *(resolved — R31-decisions DECIDE: default stands, v1 scope)* | Research §11: direct-from-vendor dispatch, rejection at the job worker, receipt without challan | v1: rejection at the job worker = recall into `REJECTED`; receipt without a dispatch refused by `SUB-GRD-10`; direct-from-vendor and JW → JW / supply from JW premises are **own tasks, v1.1** (R46 S1 #601 WR3-04 / WR3-05) | research §7, §11 | resolved |
+| SUB-OPEN-07 *(resolved — R31-decisions DECIDE: default stands, v1 scope)* | Research §11: direct-from-vendor dispatch, rejection at the job worker, receipt without challan | v1: rejection at the job worker = recall into `REJECTED`; receipt without a dispatch refused by `SUB-GRD-10`; direct-from-vendor and JW → JW / supply from JW premises are **own tasks, v1.1** (R46 S1 #601 WR3-04 / WR3-05); rules in §13 (R47l: `SUB-T1-30`, `-31`, `SUB-GRD-30`, `SUB-T4-30`, `-31`, `SUB-UNR-30`) | research §7, §11 | resolved |
 | SUB-OPEN-08 *(resolved — R31-decisions DECIDE: default stands)* | WS-330 has a Reconciliation tab (FRD §7) but only one grid id / filter scope is listed | ship `whm_subcontract_reconciliations` grid + `WAREHOUSE_MFG_SUBCONTRACT_RECONCILIATION` scope in `V560080` (§5.2, FRD §7, `p10-10`) | FR-669 | resolved |
 | SUB-OPEN-09 | FR-659 "outside India or for an intra-GSTIN movement" uses the generic path — the predicate for "intra-GSTIN" is not defined | the india bean decides (`isJobWork(dispatch)`); MFG never inspects GSTINs | FR-659, MD-13 | resolved (R31-decisions DECIDE: default stands) |
 
@@ -245,5 +246,18 @@ Owning tasks: `issues/p10-20.md` (FR-807, the job-work stage) with the subcontra
 | ID | Rule | Refusal / effect | Source |
 |---|---|---|---|
 | SUB-T1-20 | Starting a job-work job card creates a child `SUBCONTRACT` order: `parent_order_id`, `parent_job_card_id`, item = the operation's `job_work_output_item_id`, one component = `job_work_input_item_id` × the batch quantity sourced from the parent's issued / staged pool, job worker = the operation's default (editable before dispatch); released at once | the child follows `SUB-T1-*` (dispatch, challan, receipt, reconciliation) | FR-807 |
-| SUB-T4-20 | The child's subcontract receipt books the parent job card good = processed quantity received; child `COMPLETED` completes the job card; the processed item is received to the parent's line-side / issue pool for the next stage's BOM line | parent WIP by stage moves | FR-807 |
+| SUB-T4-20 | The child's subcontract receipt books the parent job card good = processed quantity received; child `COMPLETED` completes the job card; the processed item is received to the parent's line-side / issue pool for the next stage's BOM line ; or, per `SUB-T1-31` (#1025 F4, R47l), straight to the next stage's job-worker premises | parent WIP by stage moves | FR-807 |
 | SUB-GRD-20 | A child order of a job card cannot be cancelled while the job card is `STARTED` with a dispatch posted | `409 JOB_CARD_CHILD_ORDER_ACTIVE` | FR-807 |
+
+## 13. R47l rules — supplier direct to the job worker, JW → JW, supply from JW premises (WR3-04 #1024, WR3-05 #1025; v1.1)
+
+Owning tasks: `issues/rw-wr3-04.md` (#1024, after P10-10 #601) and `issues/rw-wr3-05.md` (#1025, after #601 and P10-20 #656). The india side (challan, registration, `TRANSFER` hop, supply from premises, ITC-04 tables) is `india-movement-documents.contract.md` `IMD-T1-08e`…`-08g`, `IMD-GRD-25`, `-26`, `IMD-T4-08`, `IMD-UNR-09`. No global setting: the flow is chosen per PO line / per document. Statutory values **RE-VERIFY** at build.
+
+| ID | Rule | Refusal / effect | Source |
+|---|---|---|---|
+| SUB-T1-30 | **Received at job worker.** A PO line's `receiving_location_id` may name an active per-counterparty `JOB_WORKER` premises location of the PO's site (the `V501382` kind — never the shared `VIRT-JOB_WORKER`); no new location column. The line may name the subcontract order it feeds (held as MFG's reconciliation intake reference, `warehouse-manufacturing` band). Posting the GRN lands the stock at that premises location, owner house: no status-store redirect, no QC hold / first-article, no putaway task, no gate-entry requirement; the receipt is recorded from the job worker's acknowledgement or the supplier's invoice. Store and `RECEIVING` on-hand never move | ordinary lines keep the `RECEIVING` rule; anything else refused by the existing `422 RECEIVING_LOCATION_INVALID` (`SUB-GRD-30`) | #1024 F2, F3; s.16, s.19(2), s.143(1), Circular 38/2018 |
+| SUB-GRD-30 | A PO-line destination is an active `RECEIVING` location, or an active per-counterparty `JOB_WORKER` premises location of the PO's site | `422 RECEIVING_LOCATION_INVALID` · `lines[n].receivingLocationId` (existing code, `WhPurchaseOrderScheduleValidationService`) | #1024 F2 |
+| SUB-T4-30 | A `SUB-T1-30` GRN posts on a line naming a subcontract order | the reconciliation (`SUB-T4-04`) counts that GRN line's accepted quantity and value as **sent once**, with no `SUBCONTRACT_DISPATCH` posted; `SUB-GRD-10`'s open quantity includes it, so the subcontract receipt backflushes it; a replayed post adds nothing | #1024 F2 (acceptance 3) |
+| SUB-T4-31 | A `SUB-T1-30` GRN posts, india bean present | india raises the `JOB_WORK` challan (source = the GRN, dated the job worker's receipt date) and the registration in the same transaction (`IMD-T1-08e`); MFG writes no `whin_` table (`SUB-UNR-05`) | #1024 F1 |
+| SUB-T1-31 | **Receive to the next stage's job worker.** A subcontract receipt may name, as its receive-to location, the `JOB_WORKER` premises of the next stage's job worker. It completes the job card at the current stage (`SUB-T4-20`) and is the dispatch of the next stage's child order (`SUB-T1-20`): no store movement, no separate `SUBCONTRACT_DISPATCH`, and the next child's reconciliation counts it as sent once. India: `registerReturn` (processed form) closes the original inputs' registration, and the new `JOB_WORK` challan for the processed goods starts its own clock | receive-to other than our store / pool or that premises refused `422 SUBCONTRACT_LOCATION_INVALID` (ratified `SUB-GRD-03` code) | FR-807; #1025 F4 |
+| SUB-UNR-30 | Stock at a job worker reaching the allocator or the pick / despatch path to supply a customer | `SUB-UNR-06` unchanged; supply from JW premises is the india registration action (`IMD-T1-08g`), not an outbound order | #1025 F3 |

@@ -19,6 +19,8 @@ Multi-stage outside processing is the norm: machining at JW1, then plating at JW
 - 100 shafts JW1 → JW2 → home: ITC-04 shows Table 4 once, Table 5B for the return from JW2, and the clock is unchanged.
 - 50 finished shafts shipped from JW2 to a customer close that quantity as 5C.
 - The open job-work grid shows the current holder.
+- **(S1 R47l)** 100 to JW1, hop 40 to JW2: the grid shows Multiple (JW1 = 60, JW2 = 40), and each JW returns only its own balance.
+- **(S1 R47l)** The 5C scenario is separate (or starts with 150): goods already returned home cannot also be supplied from JW2.
 
 ## Evidence (classic HEAD 4843b1648d, 2026-11-03)
 
@@ -30,4 +32,21 @@ none — the flow is chosen per document (the JW→JW transfer or the shipment f
 
 ## Depends on
 
-#601 (P10-10), #656 (P10-20)
+#601 (P10-10), #656 (P10-20). Order (S1 R47l): #592 → #601 (port, processed-form return, reconciliation) → #656 (job-work stage, `SUB-T1-20`) → **#1025**. #1024 is independent; when both ship, a direct-received registration keeps its receipt-based clock across hops.
+
+## S1 adopted decisions (R47l, 2026-11-13 — ratified by the batch DECISION rule)
+
+Verdict READY-WITH-DECISIONS; dispatch only after #601 and #656. Contract rows: `india-movement-documents` `IMD-T1-08f`, `IMD-T1-08g`, `IMD-GRD-25`, `IMD-GRD-26`, `IMD-T4-08`, `IMD-UNR-07`, `IMD-UNR-09`, `IMD-T5-03`; `mfg-subcontracting` §13 `SUB-T1-31`, `SUB-UNR-30`, `SUB-T4-20` (extended). Statutory figures RE-VERIFY at build.
+
+- **F1 (W) — one registration, quantity at several job workers.** The registration and its original challan keep their clock. A hop is an INTERNAL ledger movement premises (JW1) → premises (JW2), owner unchanged, recorded on the registration as a new dispatch-line kind **`TRANSFER`** (one more value in `V540120`'s `line_kind` CHECK; no other vocabulary change), quantity-bearing so a partial hop (40 of 100) is allowed. The balance per holder is read from the ledger positions at the registration's premises locations; the grid shows the current holder or "Multiple" with the per-holder split in the view. Returns, onward hops and supplies are validated against that holder's balance (`422 RETURN_EXCEEDS_OUTSTANDING`). The hop carries the principal's challan (ship-from JW1, consignee JW2), linked to the registration, never a second registration, excluded from Table 4.
+- **F2 (W) — ITC-04 5A / 5B / 5C.** Add `itc04_table` (`4` / `5A` / `5B` / `5C`) and the returning / supplying JW's identity to `whin_itc04_lines`, and the table to the builder's GROUP BY. Table 4 = the original `DISPATCH` only; a `TRANSFER` is reported nowhere; a `RETURN` whose holder ≠ the original JW → 5B, otherwise 5A; a supply from premises → 5C. Filed snapshots stay frozen; a return filed before this change keeps its stored figures.
+- **F3 (W) — supply from JW premises without opening the allocator.** Reuse the premises → `VIRT-CUSTOMER` `ISSUE` pattern of the deemed sale (`WhinJobWorkDeemedSupplyService`) as a registration action "Supply from job-worker premises": the user enters the customer, the quantity per holder line and the principal's tax-invoice reference; it emits the same invoice request the despatch does and closes that quantity as 5C; refused above the holder's balance. A JW with no GSTIN gets a warning naming the additional-place-of-business requirement (not a refusal).
+- **F4 (W) — processed output at JW1 feeds JW2 without a fake home receipt.** A subcontract receipt (P10-10) may name, as its receive-to location, the premises of the next stage's job worker. It completes the job card at the current stage and is the dispatch of the next stage's child order (`SUB-T1-20`); no store movement. The original inputs' registration closes through the processed-form return (`registerReturn`), and the new challan's clock starts for the processed goods. This delivers scope (c) and the "50 finished shafts at JW2" precondition.
+- Dropped: refusing supply from JW premises unless an additional-place registration is recorded (needs new master data; typical ERPs warn).
+- Below the bar (not filed): a hop reversed after a filed ITC-04 period (existing frozen-return refusal); lot genealogy across processed-form hops beyond `SUB-T4-*`.
+
+## Migration bands (S1 R47l)
+
+`warehouse-india` V540000–V549999 (the `TRANSFER` line kind, the ITC-04 table and holder columns, the hop challan link) · `warehouse-manufacturing` V560000–V569999 (receive-to-JW on the subcontract receipt) · `warehouse` V510000–V519999 only if the invoice-request emission needs DDL. Next free in each band, allocated in `DATA-MODEL.md` at build. Global setting: none.
+
+Parity: mobile none (Warehouse India is web-only); siblings none carry job work (warehouse-3pl out of scope).
