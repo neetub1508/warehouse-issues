@@ -93,8 +93,8 @@ Statutory content in these findings rests partly on practitioner copies because 
 | WR3-01 | major | PLANNED-WRONG | warehouse-manufacturing | Keep production and QC scrap as saleable on-hand stock, not VIRT-SCRAP | added to #593 |
 | WR3-02 | major | PLANNED-WRONG | warehouse-india | Give moulds, dies, jigs, fixtures and tools a no-limit job-work type | added to #601 |
 | WR3-03 | major | MISSING-TASK | warehouse-india | Record a Commissioner's extension of the job-work return period | merged into W08-01 |
-| WR3-04 | major | MISSING-TASK | warehouse-india | Support inputs shipped direct from the supplier to the job worker | added to #601 |
-| WR3-05 | major | MISSING-TASK | warehouse-india | Allow job worker to job worker movement and supply from the job worker's premises | added to #601 |
+| WR3-04 | major | MISSING-TASK | warehouse-india | Support inputs shipped direct from the supplier to the job worker | added to #601; split by R46 S1 → new #1024 |
+| WR3-05 | major | MISSING-TASK | warehouse-india | Allow job worker to job worker movement and supply from the job worker's premises | added to #601; split by R46 S1 → new #1025 |
 | WR3-06 | major | MISSING-TASK | warehouse-manufacturing | Build job work IN: process a customer's material as a job worker | new #736 |
 | WR3-07 | minor | MISSING-TASK | warehouse-india | Raise a supply for scrap left at an unregistered job worker | added to #601 |
 | WR3-08 | major | PLANNED-WRONG | warehouse-manufacturing | Absorb conversion cost on orders without routing or bookings | added to #600 |

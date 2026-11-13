@@ -449,6 +449,8 @@ These existing GitHub reports have no source task file in this batch; listed for
 | #735 | `rw-wr2-10.md` | [Warehouse] [Finding] Real-world WR2-10 · Report stores SoD conflicts and run periodic access reviews |
 | #736 | `rw-wr3-06.md` | [Warehouse] [Finding] Real-world WR3-06 · Build job work IN: process a customer's material as a job worker |
 | #737 | `rw-wr3-14.md` | [Warehouse] [Finding] Real-world WR3-14 · Track repairable spares by condition through repair |
+| #1024 | `rw-wr3-04.md` | [Warehouse] [Finding] Real-world WR3-04 · Support inputs shipped direct from the supplier to the job worker |
+| #1025 | `rw-wr3-05.md` | [Warehouse] [Finding] Real-world WR3-05 · Allow job worker to job worker movement and supply from the job worker's premises |
 | #738 | `rw-wr4-01.md` | [Warehouse] [Finding] Real-world WR4-01 · Generate the e-way bill for invoiced sales, not only for challans |
 | #739 | `rw-wr4-02.md` | [Warehouse] [Finding] Real-world WR4-02 · Support multi-vehicle movement on one e-way bill |
 | #740 | `rw-wr4-03.md` | [Warehouse] [Finding] Real-world WR4-03 · Carry the GTA tax character of freight from transporter to bill |
