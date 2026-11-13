@@ -12,7 +12,7 @@
 > gate pass (`p8-03`) or india's challan / registration / ITC-04 (`issues/p4-02.md`). MFG writes no `whin_`
 > table and has no compile dependency on `warehouse-india` (FR-620, MD-13).
 >
-> **Status.** Derived 2026-10-22 (v0), **not ratified**. No code exists. Statutory values **RE-VERIFY**.
+> **Status.** Derived 2026-10-22 (v0); **ratified 2026-11-13 under the DECISION RULE (R46)**, with the R31 *proposed* codes. No code exists. Statutory values **RE-VERIFY**.
 
 ---
 
@@ -28,7 +28,7 @@
 | **Status columns** | `whm_subcontract_dispatches.status` (`DRAFT`/`DISPATCHED`/`CANCELLED`); `whm_subcontract_reconciliations.resolution` (derived `NONE`/`PARTIAL`/`RESOLVED`); `whm_subcontract_reconciliation_actions.status` (`REQUESTED`/`POSTED`/`REJECTED`) — no `CHECK` (`D-10`) |
 | **Permission resources** | `whm_subcontract_dispatches:{view,create,edit,export,dispatch,cancel,recall,write_off,approve_write_off}` (MD-20) · receipt `whm_production_receipts:{create,post}` · close `whm_production_orders:close` |
 | **Routes** | `/warehouse/manufacturing/subcontracting` (WS-330, tabs Dispatches · Reconciliation) · WS-323/WS-324 for the order · **mobile: none** |
-| **Contract status / version** | `derived 2026-10-22 (v0), not ratified` · `v0 — 2026-10-22` |
+| **Contract status / version** | `derived 2026-10-22 (v0); ratified 2026-11-13 (DECISION RULE, R46)` · `v0 — 2026-10-22` |
 
 ### Acceptance checks
 
@@ -79,10 +79,10 @@
 
 | ID | Predicate (must hold to proceed) | Refusal: HTTP · code · field | Message shape | DB backstop | Source |
 |---|---|---|---|---|---|
-| SUB-GRD-01 | `order_type = SUBCONTRACT` ⇔ BOM `bom_usage = SUBCONTRACT` | `422 BOM_USAGE_MISMATCH` *(proposed)* · `bomId` | names usage found | — | FR-658 |
-| SUB-GRD-02 | `subcontractor_counterparty_id` set, active | `422 SUBCONTRACTOR_REQUIRED` *(proposed)* · `subcontractorCounterpartyId` | — | FK | FR-658 |
-| SUB-GRD-03 | `subcontract_location_id` is a location of **base type `JOB_WORKER`** (virtual counterparty, `V500006:132`) at the order's site — the site's `VIRT-JOB_WORKER-<site>` or a per-job-worker `JOB_WORKER` location maintained on the base locations screen (MD-28) | `422 SUBCONTRACT_LOCATION_INVALID` *(proposed)* · `subcontractLocationId` | names location + type | FK | FR-658, `V500006` |
-| SUB-GRD-04 | Owner = house (`L-11`: dispatch never changes owner; non-own is `OD-42` v1.2) — the predicate of `PRO-GRD-17`, so its code (R31 F-MF-019) | `422 OWNER_NOT_HOUSE` *(proposed)* · `ownerId` | — | `whin_job_work_dispatch_lines` owner-change trigger (india path) | FR-632, `L-11` |
+| SUB-GRD-01 | `order_type = SUBCONTRACT` ⇔ BOM `bom_usage = SUBCONTRACT` | `422 BOM_USAGE_MISMATCH` · `bomId` | names usage found | — | FR-658 |
+| SUB-GRD-02 | `subcontractor_counterparty_id` set, active | `422 SUBCONTRACTOR_REQUIRED` · `subcontractorCounterpartyId` | — | FK | FR-658 |
+| SUB-GRD-03 | `subcontract_location_id` is a location of **base type `JOB_WORKER`** (virtual counterparty, `V500006:132`) at the order's site — the site's `VIRT-JOB_WORKER-<site>` or a per-job-worker `JOB_WORKER` location maintained on the base locations screen (MD-28) | `422 SUBCONTRACT_LOCATION_INVALID` · `subcontractLocationId` | names location + type | FK | FR-658, `V500006` |
+| SUB-GRD-04 | Owner = house (`L-11`: dispatch never changes owner; sub-contracting a job-work-in principal's goods onward stays a v1 refusal even with `job_work_in_enabled`, R46 S1 #736 F3) — the predicate of `PRO-GRD-17`, so its code (R31 F-MF-019) | `422 OWNER_NOT_HOUSE` · `ownerId` | — | `whin_job_work_dispatch_lines` owner-change trigger (india path) | FR-632, `L-11` |
 | SUB-GRD-05 | Order `RELEASED`/`IN_PROGRESS`, not on hold, type `SUBCONTRACT` | `409 ORDER_NOT_OPEN` / `409 ORDER_ON_HOLD` · `orderId` | — | — | FR-634 |
 | SUB-GRD-06 | Each line's item is a component of the order; under `STRICT` cumulative dispatched − recalled ≤ required × (1 + tolerance); `WARN` needs `PRODUCTION_DEVIATION`; `FLEXIBLE` free | `422 ITEM_NOT_ON_ORDER` · `lines[n].itemId`; `422 DISPATCH_EXCEEDS_REQUIREMENT` · `lines[n].quantity` | names required, sent, policy | — | FR-643 |
 | SUB-GRD-07 | Lot/serial per item control policy; quantity > 0; UoM convertible | `422 LOT_REQUIRED` · `lines[n].lotId`; `422 UOM_NOT_CONVERTIBLE` · `lines[n].uomCode` | — | `MPR-GRD-26` | FR-659, `RQP-GRD-02`, `-03` vocabulary |
@@ -96,7 +96,7 @@
 | SUB-GRD-15 | Recall / write-off q ≤ `open_base_quantity` of that row — which already nets the pending write-off (FRD §4), so it is never subtracted twice (R31 F-MF-013: 100 out, 40 pending → a recall of 60 passes) | `422 RECONCILIATION_QUANTITY_EXCEEDS_OPEN` · `quantity` | — | — | FR-661 |
 | SUB-GRD-16 | Write-off reason of context `SUBCONTRACT_WRITE_OFF` | `422 REASON_REQUIRED` · `reasonCodeId` | — | `MPR-GRD-11` | FR-661 |
 | SUB-GRD-17 | A dispatch with any line in a licensed duty status carries `bond_permission_ref` and `expected_return_date`; the bond rule and licence hold at post (india guard) | `422 BOND_PERMISSION_REF_REQUIRED` · `bondPermissionRef`; `422 EXPECTED_RETURN_DATE_REQUIRED` · `expectedReturnDate`; `409 BONDED_LICENCE_NOT_ACTIVE` / `409 BONDED_OPERATION_NOT_PERMITTED` · `lines[n].duty_status` | names the duty status and licence | india guard | FR-671, FR-675 |
-| SUB-GRD-18 | **Bonded regime at dispatch** (R31 F-MF-004): the dispatch's lines carry at most one licensed duty status, equal to the order's `bonded_duty_status` when frozen; the first licensed line freezes it (MD-43) — so a mixed second dispatch is refused **before the goods leave**, not at the subcontract receipt; refused too on an order that has already posted output outside that regime. A `MOOWR` line is refused while the `MOOWR` job-work rules are inactive (their seeded default, D-18 item 1) | `409 BONDED_REGIME_MIXED` / `409 BONDED_REGIME_AFTER_OUTPUT` *(proposed)* · `lines[n].dutyStatus`; `409 BONDED_OPERATION_NOT_PERMITTED` · `lines[n].duty_status` | names the frozen and the offered status | india guard | FR-671, FR-673, FR-675 |
+| SUB-GRD-18 | **Bonded regime at dispatch** (R31 F-MF-004): the dispatch's lines carry at most one licensed duty status, equal to the order's `bonded_duty_status` when frozen; the first licensed line freezes it (MD-43) — so a mixed second dispatch is refused **before the goods leave**, not at the subcontract receipt; refused too on an order that has already posted output outside that regime. A `MOOWR` line is refused while the `MOOWR` job-work rules are inactive (their seeded default, D-18 item 1) | `409 BONDED_REGIME_MIXED` / `409 BONDED_REGIME_AFTER_OUTPUT` · `lines[n].dutyStatus`; `409 BONDED_OPERATION_NOT_PERMITTED` · `lines[n].duty_status` | names the frozen and the offered status | india guard | FR-671, FR-673, FR-675 |
 
 ### 1.4 Transitions that must be unreachable
 
@@ -132,9 +132,9 @@
 |---|---|---|---|
 | Return window, inputs | **1 year** from the challan date (s.143(1)(a), r.45); extendable by the Commissioner by 1 year | `warehouse.india.job_work.return_period_years.inputs` = 1 (`V541053:115`) | india |
 | Return window, capital goods | **3 years**; extendable by 2 years | `…capital_goods` = 3 (`V541053:121`) | india |
-| Moulds, dies, jigs, tools | no time limit: excluded from the 3-year return/supply window in s.143(1)(a)-(b) and from the deemed supply in s.143(4); s.19(7) for the ITC rule | india | india |
+| Moulds, dies, jigs, tools | (india type `TOOLING`, `V541171`; R46 ratification F1 — no `MOULDS_DIES_TOOLS`) no time limit: excluded from the 3-year return/supply window in s.143(1)(a)-(b) and from the deemed supply in s.143(4); s.19(7) for the ITC rule | india | india |
 | Missed window | deemed supply on the **date sent** | `deemed_supply_due_date` (`V540020:241-244`) | india |
-| Direct-from-vendor | clock from receipt at the job worker | — (not supported in v1, `SUB-OPEN-07`) | india |
+| Direct-from-vendor | clock from receipt at the job worker | — (own task after P10-10, v1.1, `SUB-OPEN-07`; R46 S1 #601) | india |
 | Scrap at job worker | s.143(5): supplied by the job worker if registered, else by the principal | `V540190` scrap columns | india |
 | ITC-04 frequency | half-yearly (due 25 Oct / 25 Apr) when AATO > ₹5 crore, annual (due 25 Apr) otherwise | india (`p4-02`) | india |
 | E-way bill | required for an inter-state job-work movement regardless of value | india | india |
@@ -198,7 +198,7 @@
 | Job work **in** (customer's material) | `OD-42`, v1.2 |
 | Processing charge | the warehouse-trade subcontract PO (FRD-TRADE FR-682…), linked by trade's `subcontract_order_id` (FR-683; MFG's `service_po_line_ref` is a display back-reference) — trade lifts R9 for that service line; R8 general service POs stay refused (D-18 item 3) |
 | Job-work invoice, debit/credit notes | accounting, R-14 |
-| Direct-from-vendor to job worker; job worker → job worker; supply from the job worker's premises | v1 not built (`SUB-OPEN-07`) |
+| Direct-from-vendor to job worker; job worker → job worker; supply from the job worker's premises | own tasks after P10-10 (and P10-20 for JW → JW), v1.1 (`SUB-OPEN-07`, R46 S1 #601 WR3-04 / WR3-05) |
 | ITC-04 generation, challan print, e-way bill | india (`p4-02`) |
 | Mobile | R-13 |
 
@@ -207,6 +207,7 @@
 | Date | Row IDs affected | Change | Found by |
 |---|---|---|---|
 | 2026-10-22 | all | v0 derived from `docs/frd/FRD-MFG.md`; not ratified | contract derivation (design set) |
+| 2026-11-13 | header, `SUB-GRD-01`…`-04`, `-18`, §3.1, `SUB-OPEN-07` | R46: ratified under the DECISION RULE with the six codes; moulds / dies / tools use india `TOOLING`; WR3-04 / WR3-05 own tasks, v1.1; `CST-GRD-04` and the subcontract pool terms built by P10-10 (#600 F2) | R46 S1 #601, ratification |
 | 2026-10-22 | `SUB-T1-03`, `-08`, `-10`, `SUB-T4-01`, `-07`, `-08`, `-10`, `SUB-UNR-02`, `-06` | R29: dispatch consumes holds and re-reserves nothing (F3, MD-31); dispatched value in the pool, recall by `costSourceLineId`, write-off value out (F6, MD-32); MFG post guard (F5, MD-35); duplicate `SUB-T4-08` renumbered — the write-off India row is now `SUB-T4-10` (F31) | `R29-functional-review-mfg.md` |
 | 2026-10-22 | T4, §9 | Consistency pass: MD-20, MD-21, MD-25, MD-26, MD-28; generic-path RGP sourced on the dispatch (MD-29) | FRD-MFG §9 |
 | 2026-10-23 | `SUB-T1-00`, `-03`, `-07`, `SUB-GRD-01`…`-04`, `-14`, `-15`, `-18`, `SUB-T4-01`, `-07`, §5.2, §6, Source column, `SUB-OPEN-06`…`-09` | R31: holds closed explicitly, remainder re-created (F-MF-002); dispatch freezes the bonded regime (F-MF-004); trade subcontract PO carries the charge (F-MF-005, D-18 item 3); CST owns the close guard (F-MF-006); pending write-off not subtracted twice (F-MF-013); Source FR on every rule row (F-MF-018); one code per predicate (F-MF-019); DECIDE rows applied | `R31-functional-review-mfg.md`, `R31-decisions.md`, D-18 |
@@ -233,7 +234,7 @@
 | SUB-OPEN-04 *(resolved — MD-25: `reverseReturn`, `registerLoss`; recall = `registerReturn` of the input)* | SEAM-M5 defines `registerDispatch` / `registerReturn` only; a subcontract receipt reversal, a recall and a write-off (loss at job worker) have no port call, so ITC-04 would keep an open quantity or a stale return | add `reverseReturn(...)` and `registerLoss(...)` to `JobWorkDispatchPort` (india already has `reevaluateAfterReversal`) | SEAM-M5 | resolved |
 | SUB-OPEN-05 *(resolved — MD-26: `gate_entry_id` + `gate_entry_ref`)* | FR-661 references the gate entry (`p8-03`) on the receipt; `whm_production_receipts` has no gate-entry column | add `gate_entry_id` (bare UUID) to `whm_production_receipts` | FRD §4 | resolved |
 | SUB-OPEN-06 *(resolved — D-18 item 3; no longer open)* | The processing charge never reaches the processed item's cost (FR-658 leaves it to trade/accounting; no landed-cost path designed) | the warehouse-trade subcontract PO (FRD-TRADE FR-682…) carries the charge on its service line, linked by trade's `subcontract_order_id` (FR-683), and trade lands it as a value-only `LANDED_COST_APPLY` at the trade service confirmation (FRD-TRADE FR-686) onto the received lots (`P2-28` path); MFG posts none (FR-658, SEAM-M7) | FR-658, D-18 | resolved |
-| SUB-OPEN-07 *(resolved — R31-decisions DECIDE: default stands, v1 scope)* | Research §11: direct-from-vendor dispatch, rejection at the job worker, receipt without challan | v1: rejection at the job worker = recall into `REJECTED`; receipt without a dispatch refused by `SUB-GRD-10`; direct-from-vendor not built | research §7, §11 | resolved |
+| SUB-OPEN-07 *(resolved — R31-decisions DECIDE: default stands, v1 scope)* | Research §11: direct-from-vendor dispatch, rejection at the job worker, receipt without challan | v1: rejection at the job worker = recall into `REJECTED`; receipt without a dispatch refused by `SUB-GRD-10`; direct-from-vendor and JW → JW / supply from JW premises are **own tasks, v1.1** (R46 S1 #601 WR3-04 / WR3-05) | research §7, §11 | resolved |
 | SUB-OPEN-08 *(resolved — R31-decisions DECIDE: default stands)* | WS-330 has a Reconciliation tab (FRD §7) but only one grid id / filter scope is listed | ship `whm_subcontract_reconciliations` grid + `WAREHOUSE_MFG_SUBCONTRACT_RECONCILIATION` scope in `V560080` (§5.2, FRD §7, `p10-10`) | FR-669 | resolved |
 | SUB-OPEN-09 | FR-659 "outside India or for an intra-GSTIN movement" uses the generic path — the predicate for "intra-GSTIN" is not defined | the india bean decides (`isJobWork(dispatch)`); MFG never inspects GSTINs | FR-659, MD-13 | resolved (R31-decisions DECIDE: default stands) |
 
