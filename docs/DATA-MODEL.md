@@ -1545,6 +1545,10 @@ unfiltered number to a filtered grid (`FR-395`).
 | `whb_stock_statuses` | + row `MRN_PENDING` (on-hand, not ATP/allocatable/pickable/shippable, countable) — `V501232` | `P8-08` | `FR-527` | v1.1 |
 | `whb_movement_types` | + row `ISSUE_RETURN` (`IN`, financial, `ACTUAL`, `MUST_BALANCE_PER_OWNER_ITEM`, requires reason) — `V501235` | `P8-11` | `FR-536` `FR-537` | v1.1 |
 | `whb_document_types` | + rows `GATE_ENTRY`, `GATE_PASS` (`V511312`), `MATERIAL_RECEIPT_NOTE` (`V501232`), `MATERIAL_REQUISITION` (`V501233`), `STORE_ISSUE` (`V501234`), `STORE_RETURN` (`V501235`) | `P8-03` `P8-08` `P8-09` `P8-10` `P8-11` | `FR-507` `FR-527` `FR-528` `FR-533` `FR-536` | v1.1 |
+| `wh_purchase_order_lines` | + `supplier_part_number` VARCHAR(100), nullable: copied at line save from the supplier source current at the order date (site row first, else the `SUPPLIER_PART_NUMBER` identifier); frozen once the order leaves DRAFT; never backfilled — `V511933` | `WT-06b` (#801) | `FR-468` | v1.1 |
+| `wh_goods_receipt_lines` | + `supplier_part_number` VARCHAR(100), nullable: copied while DRAFT from the source current at the receipt date (same rule); frozen once posted — `V511933` | `WT-06b` (#801) | `FR-468` | v1.1 |
+| `wh_demand_order_lines` | + `customer_part_number` VARCHAR(100), nullable: copied at line save — the customer's primary, else latest, `CUSTOMER_PART_NUMBER`; packing slip, delivery document and challan print this copy — `V511933` | `WT-06b` (#801) | `FR-545` | v1.1 |
+| `whin_delivery_challan_lines` (India) | + `customer_part_number` VARCHAR(100), nullable: snapshotted at issue from the demand-order line's copy; in the V540020 freeze list — `V541250` | `WT-06b` (#801) | `FR-307` | v1.1 |
 
 #### 2.2.9 Removed by `D-16` — the P7 register (`FRD-REM.md`, `RN-050`, `RN-051`)
 
