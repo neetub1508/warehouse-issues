@@ -181,7 +181,7 @@ Owner cells carry provenance: `seed Vnnnnnn (amended Vnnnnnn)` or the classic ve
 | warehouse.dispatch.external_invoice_acknowledgement | ALLOWED_WHEN_NO_ACCOUNTING_TARGET | ALLOWED_WHEN_NO_ACCOUNTING_TARGET / ALWAYS_ALLOWED / DISABLED | Warehouse / #999 CG-08; planned (V51xxxx) | Controls the "Record external invoice" shipment action; emits shipment.invoice_acknowledged with source MANUAL_EXTERNAL; never writes acc_*. |
 | warehouse.documents.auto_share_on_gate_out | false | true / false | Warehouse / #1000 CG-09; planned | true: on gate-out, one consent-checked share of challan/invoice + EWB per consignee, idempotent on retry. |
 | warehouse.receiving.docai_review_threshold | 0.90 | 0.80–0.99 | Warehouse / #1008 CG-17; planned | Extracted fields below the threshold must be reviewed; unmatched items/UoM always reviewed; the draft never posts stock. |
-| warehouse.india.eway_bill.gate_vehicle_match | ENFORCE | ENFORCE / WARN / OFF | India / #1010 CG-31; planned (V54xxxx) | ENFORCE refuses the gate pass with EWB_VEHICLE_MISMATCH; WARN shows both numbers; OFF skips the check. |
+| warehouse.india.eway_bill.gate_vehicle_match | ENFORCE | ENFORCE / WARN / OFF | India / #1010 CG-31; V541264 (#1010, 926f74a7a7) | ENFORCE refuses the gate pass with EWB_VEHICLE_MISMATCH; WARN shows both numbers; OFF skips the check. |
 | warehouse.tally.voucher_granularity | PER_DOCUMENT | PER_DOCUMENT / DAILY_SUMMARY | India / #1014 CG-20; planned | One Tally voucher per document, or a daily summary per kind and godown keeping the source handover ids. |
 | warehouse.tally.valuation_source | ORBITPI | ORBITPI / QUANTITY_ONLY | India / #1014 CG-20; planned | ORBITPI: values from OrbitPi cost layers; QUANTITY_ONLY: quantities only, value kept in Tally. |
 
