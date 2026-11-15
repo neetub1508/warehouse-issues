@@ -176,6 +176,14 @@ Owner cells carry provenance: `seed Vnnnnnn (amended Vnnnnnn)` or the classic ve
 | warehouse.quality.temp_excursion_auto_hold | true | true / false (`BOOLEAN`) | App / WR2-07 #734 (classic `V511879`) | true: places a Temperature excursion hold on every lot exposed when an excursion opens. false: the excursion and its lots are still recorded, and the screen says automatic holds are off. |
 | warehouse.quality.temp_reading_stale_minutes | 240 | integer 1–10080 (`INTEGER`) | App / WR2-07 #734 (classic `V511879`) | Minutes after which a zone's latest reading is stale and the zone shows Unknown — never compliant. |
 | warehouse.temperature.excursion_duration_basis | FIRST_IN_BAND | FIRST_IN_BAND / OUT_OF_BAND_SPAN (`SELECT`, `allowedValues`) | App / WR2-07 #734 S4 (classic `V511883`) | How a breach is timed against the grace period. FIRST_IN_BAND: to the first in-band reading (WHO TRS 961 Annex 9). OUT_OF_BAND_SPAN: between out-of-band readings only. |
+| warehouse.alerts.whatsapp.enabled | false | true / false | Base / #994 CG-01; planned (next free V50xxxx) | false: WhatsApp cannot be chosen on a rule; true needs a configured platform WhatsApp provider, else the rule save is refused. |
+| warehouse.alerts.quiet_hours | 21:00-07:00 | HH:MM-HH:MM window / OFF | Base / #997 CG-04; planned | Non-critical WhatsApp/e-mail held to window end in the site time zone; critical and in-app immediate; OFF sends at once. |
+| warehouse.dispatch.external_invoice_acknowledgement | ALLOWED_WHEN_NO_ACCOUNTING_TARGET | ALLOWED_WHEN_NO_ACCOUNTING_TARGET / ALWAYS_ALLOWED / DISABLED | Warehouse / #999 CG-08; planned (V51xxxx) | Controls the "Record external invoice" shipment action; emits shipment.invoice_acknowledged with source MANUAL_EXTERNAL; never writes acc_*. |
+| warehouse.documents.auto_share_on_gate_out | false | true / false | Warehouse / #1000 CG-09; planned | true: on gate-out, one consent-checked share of challan/invoice + EWB per consignee, idempotent on retry. |
+| warehouse.receiving.docai_review_threshold | 0.90 | 0.80–0.99 | Warehouse / #1008 CG-17; planned | Extracted fields below the threshold must be reviewed; unmatched items/UoM always reviewed; the draft never posts stock. |
+| warehouse.india.eway_bill.gate_vehicle_match | ENFORCE | ENFORCE / WARN / OFF | India / #1010 CG-31; planned (V54xxxx) | ENFORCE refuses the gate pass with EWB_VEHICLE_MISMATCH; WARN shows both numbers; OFF skips the check. |
+| warehouse.tally.voucher_granularity | PER_DOCUMENT | PER_DOCUMENT / DAILY_SUMMARY | India / #1014 CG-20; planned | One Tally voucher per document, or a daily summary per kind and godown keeping the source handover ids. |
+| warehouse.tally.valuation_source | ORBITPI | ORBITPI / QUANTITY_ONLY | India / #1014 CG-20; planned | ORBITPI: values from OrbitPi cost layers; QUANTITY_ONLY: quantities only, value kept in Tally. |
 
 ### Seeded keys reconciled against every warehouse migration folder (2026-11-09)
 
