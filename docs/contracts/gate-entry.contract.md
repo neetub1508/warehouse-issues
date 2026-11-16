@@ -231,6 +231,7 @@ drivers (`P5-17`); a gate pass that posts stock (`STO-D4`); mobile.
 | 2026-11-07 | **#723 WR1-02** (classic `0d6b22a7ee` + S4 F2 / F3 / turn-back note): `GTE-T1-05` names the optional modules' inward gate-out guard and warehouse-india's refused-goods rule (cover by line, item, UOM and lot; the supplier's document; the dispatch e-way rules on the refusal challans); `GTE-T1-03` runs the same guards on an inward turn-back |
 | 2026-11-13 | **#728 WR1-10** (R46 S2): `CAPITAL_GOODS_IN` inward purpose, `assetReference`, new `GTE-GRD-20`; `GTE-GRD-19` lists it inward-only |
 | 2026-11-13 | **#891** (WR4-03 follow-up, classic S2, `V511943`): new `GTE-T1-02b` Record freight (inward, OPEN or CLOSED); `GTE-T1-05` inward hands a complete to-pay freight over (`AHO-X-11`); setting `warehouse.receiving.freight_capture_mode` `OPTIONAL` / `REQUIRED_FOR_TO_PAY` (capture only, never tax liability) |
+| 2026-11-16 | **#737 (R49 RA1 decision).** A dispatched repair order is a new `RETURNABLE` / `REPAIR` gate-pass source (`WhRepairOrderGatePassSource`, site-scoped, no cost), [`repairable-spares`](repairable-spares.contract.md) `RPR-T4-03`. `STO-D4` is unchanged: the stock moves on the repair order, never on the gate pass. Not built |
 
 ## 8. Invariants and scenarios
 

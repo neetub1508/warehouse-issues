@@ -36,3 +36,15 @@ none
 ---
 Counts: catalogue 46 steps (31 covered, 4 planned-wrong, 11 gap). 14 findings (4 PLANNED-WRONG, 10 MISSING-TASK; 0 blocker, 10 major, 4 minor).
 Statutory: 16 claims (14 confirmed, 1 changed: intra-state job-work e-way bill is state-specific). Unverified items: the ITC-04 notification number, Schedule M status after 31-Dec-2025, and the CRA-form 2025 amendment.
+
+## Open questions (R32) — decided 2026-11-16 (R49 RA1, DECISION RULE)
+
+- [x] Contract → `docs/contracts/repairable-spares.contract.md` v0 (RPR rows). Ratify with `/functional-contract`.
+- [x] Condition carrier → three linked item-master rows (`is_repairable` + `repair_defective_item_id` + `repair_refurbished_item_id`), **not** a CONDITION variant axis (D-18 item 2 builds nothing more on style / variant). Supersedes the 2026-11-07 S1 ruling on this point only.
+- [x] Repairer custody → a `JOB_WORKER` location whose custodian is the repairer; the #22 G3 custody pool values it. No new location type, no grain change (IRR-40).
+- [x] Old part → `ISSUE_RETURN` of the defective twin at `DAMAGED`, assessed value default 0. No new stock status.
+- [x] Repair receipt → new movement type `REPAIR_RECEIPT`; refurbished twin `AVAILABLE` at relieved custody value + repair charge (stated `extendedCost`).
+- [x] Setting → `warehouse.stores.repairable_old_part_return` · `REQUIRE` (WARN, OFF).
+- [x] Holds → #22 and #722 code is on main; their open S5 rows are environment-only (accounting-enabled stack, object storage). #769, #723, #140 are closed. Nothing blocks the warehouse build.
+- [x] Migrations → next free at build (the S1 reservations V501377 / V511845 are void; V501377 is taken).
+- [ ] RPR-OPEN-01 → repair dispatch on a Rule 55 `REPAIR` challan, not s.143 job work — UNVERIFIED, confirm at build.

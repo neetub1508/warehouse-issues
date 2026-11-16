@@ -93,6 +93,7 @@ the contracts that own its workflow. Open rows across all contracts are collecte
 | [`mrn-authorisation`](mrn-authorisation.contract.md) | Material Receipt Note: authorisation into stores, availability, print |
 | [`material-requisition`](material-requisition.contract.md) | material requisition (indent): approval, reservation, partial issue, closure, PR hand-off |
 | [`store-issue-return`](store-issue-return.contract.md) | store issue to consumption with a cost object, store return, stores registers (WS-277) |
+| [`repairable-spares`](repairable-spares.contract.md) | repairable spares: old part booked back as the defective twin, repair order to the repairer and back as the refurbished twin, at-repairer ageing (#737, v0) |
 | [`po-schedule-port`](po-schedule-port.contract.md) | PO type and schedule lines, the purchase-order, demand-order and RMA-creation ports |
 | [`document-approval`](document-approval.contract.md) | **R32 / `D-20` item 18:** the one approval engine for every document type — rules, levels, maker ≠ checker, append-only actions with band used, escalation, e-mail / WhatsApp, amendment re-approval, My Approvals (`p8-30`) |
 | [`quality-ncr-capa-deviation`](quality-ncr-capa-deviation.contract.md) | **R32:** defect codes, NCR / CAPA with closure approval, deviation (accept under deviation) with usage cap, quality registers (`p8-17`, `p8-18`, `p8-21`) |
