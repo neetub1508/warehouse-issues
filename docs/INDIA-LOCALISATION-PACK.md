@@ -60,7 +60,7 @@ produced it. All `grep` counts were run on **2026-09-01** against
 | Goods sent on approval — deemed supply | 6 months | §4.5 | **RE-VERIFY** |
 | GST records retention | 72 months from the annual-return due date | §5.1, §10 | **RE-VERIFY** |
 | Companies Act books retention | 8 financial years | §5.1, §10 | **RE-VERIFY** |
-| TCS on scrap | 1% | §5.5 | **RE-VERIFY** |
+| TCS on scrap | 2% under s.394(1) from 2026-04-01 (1% under s.206C(1) until 2026-03-31) | §5.5 | verified R51 (#762) |
 | Warehousing bond amount | commonly 3× the duty | §7.2 | **RE-VERIFY** |
 | Bonded warehousing period | 1 year general goods, extendable; interest after 90 days on every s.61(1)(c) good from the s.60(1) order (s.61(2)); none on clause (a)/(b) or s.65 goods | §7.2 | **CONFIRMED 2026-11-03** |
 | Warehousing services SAC | `996729`, 18% | §3.5, §9 | **RE-VERIFY — and the place-of-supply rule changed in 2023; do not state it from memory** |
