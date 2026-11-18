@@ -76,7 +76,7 @@ substance confident, **paragraph and rule numbers `UNVERIFIED`**; CGST Rules r.5
 (job work) — **`UNVERIFIED`**; CGST Act s.35/s.36 with Rules r.56 (accounts and records, the stock
 account) — **`UNVERIFIED`**; CGST s.17(5)(h) (blocked credit / ITC reversal on goods lost, stolen,
 destroyed, written off, or disposed of by gift or free sample) — substance confident, **clause letter
-believed correct, `UNVERIFIED`**; Income-tax s.206C(1) (TCS on scrap) and s.44AB with Form 3CD
+believed correct, `UNVERIFIED`**; Income-tax s.394(1), 2% from 2026-04-01 with Form 127 declaration (s.206C(1) at 1% until 2026-03-31) (TCS on scrap) and s.44AB with Form 3CD
 (quantitative details of stock, **clause believed 35, `UNVERIFIED`**); Companies Act 2013 s.128(5)
 (books), s.148 with the Companies (Cost Records and Audit) Rules 2014 (**`UNVERIFIED`**), and the
 Companies (Accounts) Rules r.3(1) proviso (audit trail, **`UNVERIFIED`**); Legal Metrology Act 2009
@@ -818,8 +818,8 @@ already posted, and that is precisely the year the first audit covers.
 ### 5.5 Scrap, and TCS
 
 **Scrap is inventory, not shrinkage.** It has a value, a location, a stock status and an owner, and
-its sale is a **taxable supply with its own classification code**. **TCS at 1% applies** under
-Income-tax s.206C(1) — *rate `RE-VERIFY`* (`S-030`, `FR-317`).
+its sale is a **taxable supply with its own classification code**. **TCS applies** under
+Income-tax s.394(1), 2% from 2026-04-01, Form 127 declaration (s.206C(1) at 1% until 2026-03-31) — *rate `RE-VERIFY`* (`S-030`, `FR-317`).
 
 Modelling: scrap is a `stock_status_code` with `is_on_hand = true`, `is_valued = true`,
 `is_allocatable = false` (`FR-102`'s behaviour-flag registry — which is why the registry has flags
